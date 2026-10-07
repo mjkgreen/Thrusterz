@@ -42,7 +42,7 @@
   </div>
 
   <div id="orbit" class="panel">
-    <div class="eyebrow">Orbiting <span id="hud-ref"></span></div>
+    <div class="eyebrow"><span id="hud-ref-label">Orbiting</span> <span id="hud-ref"></span></div>
     <div class="grid">
       <span class="k">ALT</span><span id="hud-alt"></span>
       <span class="k">SPD</span><span id="hud-spd"></span>
@@ -53,13 +53,20 @@
   </div>
 
   <div id="toast"></div>
+  <div id="coach" aria-live="polite"><div id="coach-text"></div></div>
   <button id="btn-pause" class="icon-btn" title="Pause (Esc)">❚❚</button>
 
   <div id="touch">
-    <button data-key="rotL">⟲</button>
-    <button data-key="rotR">⟳</button>
-    <button data-key="warpDown">«</button>
-    <button data-key="warpUp">»</button>
+    <div class="tgroup">
+      <button data-key="rotL" aria-label="Rotate left">⟲</button>
+      <button data-key="rotR" aria-label="Rotate right">⟳</button>
+    </div>
+    <div class="tgroup small">
+      <button data-key="warpDown" aria-label="Slow time">«</button>
+      <button data-key="warpUp" aria-label="Speed up time">»</button>
+      <button data-key="frame" aria-label="Reference frame">V</button>
+      <button data-key="gyro" aria-label="Gyro assist">G</button>
+    </div>
     <button data-key="burn" class="burn">BURN</button>
   </div>
 </div>
@@ -82,6 +89,7 @@
     <p id="brief-intro"></p>
     <div class="objective"><span class="k">OBJECTIVE</span> <span id="brief-obj"></span></div>
     <div class="stats" id="brief-stats"></div>
+    <div class="chips" id="brief-controls"></div>
     <div class="buttons">
       <button id="btn-brief-back" class="ghost">Levels</button>
       <button id="btn-brief-go" class="primary">Launch ▸</button>
@@ -122,12 +130,12 @@
       <tr><td><kbd>Space</kbd></td><td>Main engine (hold)</td></tr>
       <tr><td><kbd>A</kbd> <kbd>D</kbd> / <kbd>←</kbd> <kbd>→</kbd></td><td>Side thrusters — rotate</td></tr>
       <tr><td><kbd>W</kbd> <kbd>S</kbd></td><td>Throttle up / down</td></tr>
-      <tr><td><kbd>G</kbd></td><td>Toggle gyro assist (when available)</td></tr>
+      <tr><td><kbd>G</kbd></td><td>Gyro assist: auto-stops spin, but caps the run at ★★</td></tr>
       <tr><td><kbd>,</kbd> <kbd>.</kbd></td><td>Time warp down / up</td></tr>
       <tr><td><kbd>V</kbd></td><td>Cycle reference frame</td></tr>
       <tr><td><kbd>F</kbd> / <kbd>O</kbd></td><td>Follow ship / overview</td></tr>
       <tr><td><kbd>[</kbd> <kbd>]</kbd></td><td>Shorter / longer trajectory prediction</td></tr>
-      <tr><td>Wheel, drag</td><td>Zoom, pan</td></tr>
+      <tr><td>Wheel, drag</td><td>Zoom, pan (pinch on touch screens)</td></tr>
       <tr><td><kbd>R</kbd> · <kbd>Esc</kbd></td><td>Restart · Pause</td></tr>
     </table>
     <p class="small">Markers around your ship: <span class="pro">◉ prograde</span> (direction of travel), <span class="retro">⊗ retrograde</span>, <span class="tgt">◆ target</span>. The dashed line is where you'll coast if you stop burning.</p>

@@ -69,7 +69,9 @@
       }
       // Sphere of influence (Laplace radius) for host-relative gravity.
       for (const b of this.bodies) {
-        b.soi = b.orbit && b.gm > 0 ? b.orbit.a * Math.pow(b.gm / this.bodies[b.parent].gm, 0.4) : Infinity;
+        // Comparable-mass partners (binary stars) have no meaningful SOI.
+        const ratio = b.orbit && b.gm > 0 ? b.gm / this.bodies[b.parent].gm : 0;
+        b.soi = ratio > 0 && ratio < 0.25 ? b.orbit.a * Math.pow(ratio, 0.4) : Infinity;
         b.depth = b.orbit ? 1 + (this.bodies[b.parent].depth || 0) : 0;
       }
       const n = this.bodies.length;

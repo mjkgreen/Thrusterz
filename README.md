@@ -2,7 +2,7 @@
 
 An orbital mechanics flight game. Pilot a rocket in real time — a fuel-limited
 main engine and side thrusters for rotation — under real Newtonian gravity, and
-hit your destination. Ten missions build up from a single launch to
+hit your destination. Fourteen missions build up from a single launch to
 interplanetary transfers, gravity assists and multi-moon tours.
 
 ## Play
@@ -22,14 +22,19 @@ Handy URL flags: `?level=N` jumps to mission N, `?unlock` unlocks every mission.
 | `Space` (hold) | Main engine |
 | `A` `D` / `←` `→` | Side thrusters (rotate) |
 | `W` `S` | Throttle up / down |
-| `G` | Toggle gyro assist (when the mission allows it) |
+| `G` | Gyro assist on/off (auto-stops spin, but caps the run at ★★) |
 | `,` `.` | Time warp down / up (warp drops to 1× while thrusters fire) |
 | `V` | Cycle reference frame (auto / inertial / each body) |
 | `F` / `O` | Follow ship / overview · mouse wheel zoom, drag pan |
 | `[` `]` | Shorter / longer trajectory prediction |
 | `R` · `Esc` | Restart · pause |
 
-Touch devices get on-screen rotate / burn / warp buttons.
+Touch devices get on-screen controls: rotate on the left thumb, BURN on the right,
+warp / frame / gyro in the middle. Pinch to zoom.
+
+New players get big contextual prompts ("Press and hold SPACE to launch",
+"Still spinning! Tap D to stop", warp, reference frame). Each disappears once
+you do it, and stops appearing after you've mastered it.
 
 ## Mechanics
 
@@ -37,30 +42,39 @@ Touch devices get on-screen rotate / burn / warp buttons.
   rocket equation (`Δv = vₑ · ln(m₀/m)`), so the ship accelerates harder as it
   gets lighter. The Δv gauge shows what's left.
 - **Side thrusters (RCS)** — torque, not direct steering: they change your spin
-  rate. With **gyro assist** the spin is damped when you let go; without it you
-  keep spinning until you counter-fire. RCS propellant is limited.
+  rate, and you keep spinning until you counter-fire. RCS propellant is
+  limited. **Gyro assist** (`G`) damps the spin for you, but switching it on
+  caps that run at ★★.
 - **Trajectory prediction** — the dashed line is your coast path. The magenta
   marker and ghost show the closest approach to your current objective and where
   the target will be at that moment.
 - **Objectives** — impact a body, reach a zone, hold an orbit band for N
   seconds, or rendezvous (distance *and* relative speed). Missions can chain
   several objectives.
-- **Stars** — 3★ for finishing under the mission's par Δv, 2★ under 1.4× par.
+- **Stars** — 3★ for finishing under the mission's par Δv without gyro assist,
+  2★ under 1.4× par.
 
 ## Missions
 
 | # | Mission | Teaches |
 | --- | --- | --- |
 | 1 | Liftoff | Main engine, launch timing from a spinning asteroid (no rotation yet) |
-| 2 | Turn and Burn | Rotation, prograde burns, Hohmann transfer |
-| 3 | Moonshot | Intercepting a moving moon, phasing |
-| 4 | Inertia | Gyro assist offline — angular momentum; retrograde burns; rendezvous |
-| 5 | Lunar Capture | Capture burns, reference frames |
-| 6 | Slingshot | Gravity assist (the gate is unreachable without one) |
-| 7 | Twin Suns | Binary star system, three-body chaos |
-| 8 | Interplanetary | Escape burns, transfer windows |
-| 9 | Comet Chaser | Eccentric orbits |
-| 10 | Grand Tour | Chained flybys of several moons |
+| 2 | Point and Burn | Side thrusters, rotation and stopping a spin |
+| 3 | Full Stop | Flip and burn to park next to a buoy |
+| 4 | Circularize | Prograde burns, what an orbit is |
+| 5 | Deorbit | Retrograde burns |
+| 6 | Turn and Burn | Hohmann transfer |
+| 7 | Moonshot | Intercepting a moving moon, phasing |
+| 8 | Docking | Phasing and rendezvous with a station |
+| 9 | Lunar Capture | Capture burns, reference frames |
+| 10 | Slingshot | Gravity assist (the gate is unreachable without one) |
+| 11 | Twin Suns | Binary star system, three-body chaos |
+| 12 | Interplanetary | Escape burns, transfer windows |
+| 13 | Comet Chaser | Eccentric orbits |
+| 14 | Grand Tour | Chained flybys of several moons |
+
+The reference frame starts on **Auto**: it follows the body whose sphere of
+influence you're in, or the star you're orbiting when you're in none.
 
 ## Physics
 

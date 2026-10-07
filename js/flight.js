@@ -8,12 +8,15 @@
   const MAX_COAST_DT = 0.25;     // largest coast step
 
   // Ship spec (level.ship):
-  //   start: { landed: { body, angle } } | { orbit: { body, r, angle, dir } }
+  //   start: { landed: { body, angle } }
+  //        | { orbit: { body, r, angle, dir?, speed? } }   speed = fraction of circular
+  //        | { free: { x, y, vx?, vy? } }
   //   heading: initial heading in radians, or 'prograde' / 'retrograde' / 'up'
   //   stages: [{ dryMass, fuel, thrust, ve }]   (stage 0 fires first)
   //   rcs: { fuel, accel, maxRate }             (side thrusters)
-  //   gyro: true → spin is damped automatically when no rotation input;
-  //         false → no damping; 'toggle' → player can switch it (Mission.gyro)
+  //   Gyro assist (Mission.gyro) damps spin automatically when there's no
+  //   rotation input. It starts off; switching it on marks the run as
+  //   assisted, which caps the rating at two stars.
   //   canRotate: false → side thrusters unavailable
   class Mission {
     constructor(level) {
@@ -32,7 +35,8 @@
       this.events = [];
       this.thrusting = false;
       this.rotInput = 0;
-      this.gyro = spec.gyro !== false; // 'toggle' starts on
+      this.gyro = false;
+      this.assisted = false;
       this.ship = { x: 0, y: 0, vx: 0, vy: 0, angle: 0, omega: 0 };
       this.landed = null;
       this._initShip(spec);
@@ -48,9 +52,15 @@
         this._syncLanded();
         return;
       }
+      if (spec.start.free) {
+        const f = spec.start.free;
+        s.x = f.x; s.y = f.y; s.vx = f.vx || 0; s.vy = f.vy || 0;
+        s.angle = typeof spec.heading === 'number' ? spec.heading : 0;
+        return;
+      }
       const o = spec.start.orbit;
       const b = sys.byId[o.body], i = b.index;
-      const dir = o.dir || 1, v = Math.sqrt(b.gm / o.r);
+      const dir = o.dir || 1, v = (o.speed || 1) * Math.sqrt(b.gm / o.r);
       s.x = sys.px[i] + o.r * Math.cos(o.angle);
       s.y = sys.py[i] + o.r * Math.sin(o.angle);
       s.vx = sys.vx[i] - dir * v * Math.sin(o.angle);
@@ -107,6 +117,7 @@
     advance(dt, controls) {
       if (this.status !== 'flying') return;
       const spec = this.level.ship;
+      if (this.gyro && !this.landed) this.assisted = true;
       let remaining = dt;
       while (remaining > 1e-9 && this.status === 'flying') {
         const st = this.stageSpec;
@@ -242,7 +253,7 @@
     stars() {
       if (this.status !== 'won') return 0;
       const used = this.dvUsed(), par = this.level.par;
-      if (used <= par) return 3;
+      if (used <= par && !this.assisted) return 3;
       if (used <= par * 1.4) return 2;
       return 1;
     }

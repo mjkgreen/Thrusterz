@@ -37,7 +37,7 @@ const check = (name, ok, info) => { console.log((ok ? 'ok   ' : 'FAIL ') + name 
 
 // 3. Every orbital level's parking orbit is stable while coasting.
 for (const L of LEVELS) {
-  if (L.ship.start.landed) continue;
+  if (!L.ship.start.orbit || L.ship.start.orbit.speed) continue;
   const m = new Mission(L);
   const host = m.sys.byId[L.ship.start.orbit.body].index, r0 = L.ship.start.orbit.r;
   let worst = 0;
@@ -59,6 +59,21 @@ for (const L of LEVELS) {
   while (m.dvRemaining() > 1e-9) m.advance(0.1, { thrust: true, throttle: 1, rotate: 0 });
   const dv = Math.hypot(m.ship.vx - vx0, m.ship.vy - vy0);
   check('full-tank burn gives budgeted Δv', Math.abs(dv - dv0) < 0.05, `dv=${dv.toFixed(3)} budget=${dv0.toFixed(3)}`);
+}
+
+// 5. Gyro assist caps the rating at two stars.
+{
+  const L = LEVELS.find(l => l.id === 'deorbit');
+  const fly = (gyro) => {
+    const m = new Mission(L);
+    m.gyro = gyro;
+    const s = m.ship; s.angle += Math.PI;
+    while (m.status === 'flying') m.advance(0.05, { thrust: m.t < 2.8, throttle: 1, rotate: 0 });
+    return m;
+  };
+  const plain = fly(false), assisted = fly(true);
+  check('unassisted deorbit earns 3 stars', plain.stars() === 3, `status=${plain.status} dv=${plain.dvUsed().toFixed(2)}`);
+  check('gyro-assisted run is capped at 2 stars', assisted.status === 'won' && assisted.stars() === 2);
 }
 
 process.exit(failed ? 1 : 0);

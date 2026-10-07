@@ -20,7 +20,7 @@
     paused: false,
     warp: 0,
     throttle: 1,
-    gyroOn: true,
+    coach: { done: new Set(), key: null, idle: 0, spinIdle: 0 },
     frameMode: 'auto',     // 'auto' | 'inertial' | body index
     predictScale: 1,
     cam: { x: 0, y: 0, zoom: 1, follow: true, tx: 0, ty: 0, tzoom: 1 },
@@ -73,7 +73,7 @@
     state.mission = new Mission(level);
     state.warp = 0;
     state.throttle = 1;
-    state.gyroOn = level.ship.gyro !== false;
+    state.coach = { done: new Set(), key: null, idle: 0, spinIdle: 0 };
     state.frameMode = 'auto';
     state.predictScale = 1;
     state.trail = [];
@@ -92,7 +92,7 @@
     show('hud');
     hide('menu'); hide('briefing'); hide('result'); hide('pause'); hide('help');
     state.screen = 'flight';
-    toast(level.ship.start.landed ? 'Hold SPACE to launch' : 'SPACE burn · A/D rotate · . warp', 4);
+    $('coach').classList.remove('show');
   }
 
   // Precompute each orbiting body's path relative to its parent barycenter.
@@ -118,7 +118,12 @@
   function frameBody() {
     const m = state.mission;
     if (state.frameMode === 'inertial') return -1;
-    if (state.frameMode === 'auto') return m.sys.host(m.ship.x, m.ship.y, m.t);
+    if (state.frameMode === 'auto') {
+      // Innermost sphere of influence; outside all of them, the body pulling
+      // hardest (e.g. the star you're orbiting).
+      const h = m.sys.host(m.ship.x, m.ship.y, m.t);
+      return h >= 0 ? h : m.sys.dominant(m.ship.x, m.ship.y, m.t);
+    }
     return state.frameMode;
   }
 
@@ -126,6 +131,14 @@
     const f = frameBody();
     const name = f < 0 ? 'Inertial' : state.mission.sys.bodies[f].name;
     return state.frameMode === 'auto' ? 'Auto · ' + name : name;
+  }
+
+  function toggleGyro() {
+    const m = state.mission;
+    if (!m.level.ship.canRotate) { toast('No side thrusters on this ship', 1.5); return; }
+    m.gyro = !m.gyro;
+    coachDone('gyro');
+    toast(m.gyro ? 'Gyro assist ON · this run is capped at ★★' : 'Gyro assist OFF', 2);
   }
 
   function cycleFrame() {
@@ -166,11 +179,8 @@
       case 'KeyW': case 'ShiftLeft': state.throttle = Math.min(1, Math.round(state.throttle * 10 + 1) / 10); break;
       case 'KeyS': case 'ControlLeft': state.throttle = Math.max(0.1, Math.round(state.throttle * 10 - 1) / 10); break;
       case 'KeyZ': state.throttle = 1; break;
-      case 'KeyG':
-        if (m.level.ship.gyro === 'toggle') { state.gyroOn = !state.gyroOn; toast('Gyro assist ' + (state.gyroOn ? 'ON' : 'OFF'), 1.2); }
-        else if (m.level.ship.canRotate) toast(m.level.ship.gyro ? 'Gyro assist is locked on' : 'Gyro assist is offline this mission', 1.5);
-        break;
-      case 'KeyV': cycleFrame(); break;
+      case 'KeyG': toggleGyro(); break;
+      case 'KeyV': cycleFrame(); coachDone('frame'); break;
       case 'KeyF': state.cam.follow = true; state.cam.tzoom = Math.max(state.cam.zoom, Math.min(W, H) / 420); break;
       case 'KeyO': overview(); break;
       case 'BracketLeft': state.predictScale = Math.max(0.25, state.predictScale / 1.5); state.predDirty = true; break;
@@ -224,6 +234,8 @@
       e.preventDefault();
       if (k === 'warpUp') setWarp(state.warp + 1);
       else if (k === 'warpDown') setWarp(state.warp - 1);
+      else if (k === 'frame') { if (state.mission) { cycleFrame(); coachDone('frame'); } }
+      else if (k === 'gyro') { if (state.mission) toggleGyro(); }
       else touch[k] = true;
       btn.classList.add('on');
     };
@@ -248,7 +260,11 @@
     }
   }, { passive: true });
   canvas.addEventListener('touchend', () => { pinch = null; }, { passive: true });
+  const isTouch = () => document.body.classList.contains('touch');
   if (window.matchMedia('(pointer: coarse)').matches) document.body.classList.add('touch');
+  window.addEventListener('touchstart', () => {
+    if (!isTouch()) { document.body.classList.add('touch'); state.coach.id = null; }
+  }, { once: true, passive: true });
 
   function controls() {
     return {
@@ -266,6 +282,7 @@
     if (k > 0 && (c.thrust || c.rotate)) { toast('Can\'t warp while thrusters fire', 1.2); return; }
     if (k > 0 && m.status !== 'flying') return;
     state.warp = k;
+    if (k > 0) coachDone('warp');
   }
 
   // ---------------------------------------------------------------- update
@@ -283,12 +300,12 @@
     const level = m.level;
     const c = controls();
     if ((c.thrust || c.rotate) && state.warp > 0) { state.warp = 0; }
-    if (level.ship.gyro === 'toggle') m.gyro = state.gyroOn;
     const wasFlying = m.status === 'flying';
     const dvBefore = m.dvRemaining();
     m.advance(realDt * WARPS[state.warp], c);
 
     if (m.dvRemaining() < dvBefore - 1e-9) state.predDirty = true;
+    updateCoach(realDt, c);
     if (m.thrusting) spawnExhaust(realDt);
     if (m.rotInput) spawnRcs(m.rotInput);
 
@@ -783,6 +800,79 @@
     ctx.fillText(text, x, y);
   }
 
+  // ---------------------------------------------------------------- coach
+  // Big contextual prompts that teach the controls, each one dismissed by
+  // doing the thing. Mastered prompts stop appearing in later missions.
+  const KEY = (k) => `<kbd class="big">${k}</kbd>`;
+  const HINTS = {
+    launch: { key: () => `Press and hold ${KEY('SPACE')} to launch`, touch: () => `Press and hold ${KEY('BURN')} to launch` },
+    burn: { key: () => `Hold ${KEY('SPACE')} to fire the main engine`, touch: () => `Hold ${KEY('BURN')} to fire the main engine` },
+    rotate: { key: () => `${KEY('A')} ${KEY('D')} fire side thrusters to rotate`, touch: () => `${KEY('⟲')} ${KEY('⟳')} fire side thrusters to rotate` },
+    // Positive spin is counter-clockwise (A / ⟲), so the cure is D / ⟳, and vice versa.
+    counter: { key: (m) => `Still spinning! Tap ${KEY(m.ship.omega > 0 ? 'D' : 'A')} to stop`, touch: (m) => `Still spinning! Tap ${KEY(m.ship.omega > 0 ? '⟳' : '⟲')} to stop` },
+    warp: { key: () => `Press ${KEY('.')} to speed up time, ${KEY(',')} to slow down`, touch: () => `Tap ${KEY('»')} to speed up time, ${KEY('«')} to slow down` },
+    frame: { key: () => `Press ${KEY('V')} to view your path relative to another body`, touch: () => `Tap ${KEY('V')} to view your path relative to another body` },
+    gyro: { key: () => `${KEY('G')} gyro assist stops spin for you (caps the run at ★★)`, touch: () => `${KEY('G')} gyro assist stops spin for you (caps the run at ★★)` },
+  };
+  const LEARN_AFTER = { launch: 99, burn: 2, rotate: 3, counter: 4, warp: 3, frame: 2, gyro: 1 };
+
+  function learned(k) { return (progress.learned && progress.learned[k]) || 0; }
+
+  function coachDone(k) {
+    const c = state.coach;
+    if (c.done.has(k)) return;
+    c.done.add(k);
+    progress.learned = progress.learned || {};
+    progress.learned[k] = learned(k) + 1;
+    saveProgress();
+  }
+
+  function wants(k) { return !state.coach.done.has(k) && learned(k) < LEARN_AFTER[k]; }
+
+  function updateCoach(dt, ctl) {
+    const m = state.mission, c = state.coach, L = m.level, s = m.ship;
+    const active = ctl.thrust || ctl.rotate;
+    c.idle = active ? 0 : c.idle + dt;
+    c.spinIdle = ctl.rotate || m.gyro ? 0 : c.spinIdle + dt;
+    if (m.thrusting) coachDone(m.landed ? 'launch' : 'burn');
+    if (!m.landed && m.events.some(e => e.type === 'liftoff')) coachDone('launch');
+    if (ctl.rotate) {
+      coachDone('rotate');
+      if (c.key === 'counter' && Math.sign(ctl.rotate) !== Math.sign(s.omega)) coachDone('counter');
+    }
+    const spinning = Math.abs(s.omega) > 0.3 && !m.landed;
+    if (c.key === 'counter' && !spinning) coachDone('counter');
+
+    const grav = m.sys.grav.filter(i => !m.sys.bodies[i].hidden).length;
+    let key = null;
+    if (m.status !== 'flying') key = null;
+    else if (m.landed) key = 'launch';
+    else if (L.ship.canRotate && wants('rotate') && m.t > 0.5) key = 'rotate';
+    else if (L.ship.canRotate && spinning && c.spinIdle > 1.2 && wants('counter')) key = 'counter';
+    else if (wants('burn') && m.dvUsed() < 1e-6 && m.t > 2) key = 'burn';
+    else if (c.idle > 5 && state.warp === 0 && wants('warp')) key = 'warp';
+    else if (grav >= 2 && c.idle > 3 && wants('frame')) key = 'frame';
+    else if (L.ship.canRotate && m.t > 25 && c.idle > 2 && wants('gyro') && state.levelIndex >= 5) key = 'gyro';
+    const id = key === 'counter' ? key + Math.sign(s.omega) : key;
+    if (id === c.id) return;
+    c.key = key; c.id = id;
+    const el = $('coach');
+    if (key) { $('coach-text').innerHTML = HINTS[key][isTouch() ? 'touch' : 'key'](m); el.classList.add('show'); }
+    else el.classList.remove('show');
+  }
+
+  // Keycap chips listing the controls a mission uses (briefing screen).
+  function controlChips(L) {
+    const t = isTouch();
+    const chips = [[t ? 'BURN' : 'SPACE', 'main engine']];
+    if (L.ship.canRotate) chips.push([t ? '⟲ ⟳' : 'A D', 'rotate'], [t ? '« »' : ', .', 'time warp']);
+    else chips.push([t ? '« »' : ', .', 'time warp']);
+    const grav = L.bodies.filter(b => b.gm > 0 && !b.hidden).length;
+    if (grav >= 2) chips.push(['V', 'reference frame']);
+    if (L.ship.canRotate) chips.push(['G', 'gyro assist (★★ max)']);
+    return chips.map(([k, d]) => `<span class="chip"><kbd>${k}</kbd> ${d}</span>`).join('');
+  }
+
   // ------------------------------------------------------------------ HUD
   function setupHud() {
     const m = state.mission, L = m.level;
@@ -836,9 +926,8 @@
     }
     $('hud-throttle').textContent = Math.round(state.throttle * 100) + '%';
     $('bar-throttle').style.width = (state.throttle * 100) + '%';
-    const gyroActive = m.gyro;
-    $('hud-gyro').textContent = (gyroActive ? 'ON' : 'OFF') + (L.ship.gyro === 'toggle' ? ' (G)' : L.ship.gyro ? '' : ' · offline');
-    $('hud-gyro').className = gyroActive ? 'ok' : 'warn';
+    $('hud-gyro').textContent = m.gyro ? 'ON · max ★★' : (m.assisted ? 'OFF · max ★★' : 'OFF');
+    $('hud-gyro').className = m.gyro || m.assisted ? 'warn' : '';
 
     // Osculating orbit about the dominant body.
     const ref = sys.dominant(s.x, s.y, m.t);
@@ -851,6 +940,7 @@
     const hmom = rx * vy - ry * vx;
     const e = Math.sqrt(Math.max(0, 1 + 2 * eps * hmom * hmom / (b.gm * b.gm)));
     $('hud-ref').textContent = b.name;
+    $('hud-ref-label').textContent = eps < 0 ? 'Orbiting' : 'Near';
     $('hud-alt').textContent = (r - b.radius).toFixed(0);
     $('hud-spd').textContent = v.toFixed(2);
     if (eps < 0) {
@@ -935,7 +1025,8 @@
     const tank = new Mission(L).dv0;
     $('brief-stats').innerHTML = `<span><span class="k">Δv</span> ${tank.toFixed(1)}</span>
       <span><span class="k">★★★ under</span> ${L.par}</span>
-      <span><span class="k">Gyro</span> ${!L.ship.canRotate ? 'n/a' : L.ship.gyro === 'toggle' ? 'toggle (G)' : L.ship.gyro ? 'on' : 'OFFLINE'}</span>`;
+      ${L.ship.canRotate ? '<span><span class="k">Gyro assist</span> optional, max ★★</span>' : ''}`;
+    $('brief-controls').innerHTML = controlChips(L);
     show('briefing');
   }
 
@@ -954,7 +1045,10 @@
     $('res-title').textContent = won ? 'Mission complete' : 'Mission failed';
     $('res-title').className = won ? 'ok' : 'bad';
     $('res-stars').innerHTML = won ? starStr(stars) : '';
-    $('res-msg').textContent = won ? (stars === 3 ? 'Textbook flying.' : `Use ≤ ${L.par} Δv for three stars.`) : m.message;
+    $('res-msg').textContent = !won ? m.message
+      : stars === 3 ? 'Textbook flying.'
+      : m.assisted && m.dvUsed() <= L.par ? 'Gyro assist was on, so this run tops out at two stars. Fly without it for three.'
+      : `Use ≤ ${L.par} Δv${m.assisted ? ' without gyro assist' : ''} for three stars.`;
     $('res-stats').innerHTML = `<span><span class="k">Δv used</span> ${m.dvUsed().toFixed(2)}</span>
       <span><span class="k">Time</span> ${fmtT(m.t)}</span>
       ${progress.best[L.id] ? `<span><span class="k">Best</span> ${progress.best[L.id].toFixed(2)}</span>` : ''}`;

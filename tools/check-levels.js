@@ -23,7 +23,7 @@ function run(level, prog, wantTrace) {
           const s = m.ship, sys = m.sys;
           const ref = sys.dominant(s.x, s.y, m.t);
           sys.update(m.t);
-          s.angle = Math.atan2(s.vy - sys.vy[ref], s.vx - sys.vx[ref]) + b.off;
+          s.angle = (level.check.absolute ? 0 : Math.atan2(s.vy - sys.vy[ref], s.vx - sys.vx[ref])) + b.off;
           s.omega = 0;
         }
       }
@@ -76,6 +76,10 @@ function search(level, iters, seed) {
 // Autopilot search spaces: per burn [wait, heading offset from prograde, duration].
 const CHECK = {
   liftoff: { burns: 1, guess: [19, 0, 3], scale: [3, 0, 2] },
+  point: { burns: 1, absolute: true, guess: [0, 0.36, 2], scale: [2, 0.1, 1] },
+  stop: { burns: 2, absolute: true, guess: [0, 0, 2, 183, Math.PI, 2], scale: [1, 0.05, 0.3, 10, 0.05, 0.3] },
+  circularize: { burns: 1, guess: [0, 0, 2.5], scale: [2, 0.2, 0.8] },
+  deorbit: { burns: 1, guess: [0, Math.PI, 3], scale: [5, 0.3, 1] },
   turn: { burns: 2, guess: [0.5, 0, 2.5, 36, 0, 2.0], scale: [5, 0.3, 1, 8, 0.3, 1] },
   moonshot: { burns: 1, guess: [5, 0, 4.2], scale: [10, 0.2, 1] },
   inertia: { burns: 3, guess: [106, Math.PI, 1.3, 63, Math.PI, 1.45, 2, 0, 0], scale: [10, 0.2, 0.5, 5, 0.2, 0.5, 5, 3, 0.3] },
