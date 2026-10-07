@@ -209,7 +209,8 @@ kbd {
 .menu-foot { margin-top: 24px; }
 
 @media (max-width: 640px) {
-  #mission { max-width: calc(100vw - 150px); padding: 8px 10px; }
+  #mission { max-width: calc(100vw - 172px); padding: 8px 10px; }
+  #mission .title { overflow-wrap: anywhere; }
   #mission .eyebrow { display: none; }
   #clock { font-size: 11px; padding: 6px 8px; }
   body.touch #gauges { left: 8px; width: 140px; padding: 6px 8px; }
@@ -218,7 +219,7 @@ kbd {
   #touch .tgroup.small { max-width: 104px; }
   #touch .tgroup.small button { width: 48px; }
   #touch button.burn { width: 84px; height: 84px; }
-  body.touch #coach { bottom: auto; top: 40%; }
+  body.touch #coach { bottom: auto; top: 128px; font-size: 15px; padding: 10px 14px; }
   .gauge { margin-bottom: 4px; }
   #mission .title { font-size: 16px; }
   #gauges { width: 160px; }

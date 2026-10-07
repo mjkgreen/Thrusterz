@@ -11,7 +11,7 @@
       start: o.start,
       heading: o.heading,
       stages: [{ dryMass: 1, fuel, thrust: o.accel * (1 + fuel), ve: VE }],
-      rcs: o.rcs === false ? null : Object.assign({ fuel: 40, accel: 2.5, maxRate: 1.6 }, o.rcs || {}),
+      rcs: o.rcs === false ? null : Object.assign({ fuel: 60, accel: 1.2, maxRate: 1.6 }, o.rcs || {}),
       canRotate: o.rcs !== false,
     };
   }
@@ -53,23 +53,25 @@
     {
       id: 'stop',
       name: 'Full Stop',
-      intro: 'Your engine only pushes forward. To stop, turn around and burn the other way. Fly toward the buoy, flip 180°, and burn until your relative speed is nearly zero.',
-      objective: 'Park beside Buoy 7: within 15, relative speed under 0.5.',
-      teaches: 'Flip and burn · stopping',
+      intro: 'Your engine only pushes forward. To stop, turn around and burn the other way. Point at the buoy and give a short burn, then press . to speed up time while you coast. Near the buoy, drop back to 1× with , then flip 180° and burn until your relative speed is nearly zero.',
+      objective: 'Park beside Buoy 7: within 40, relative speed under 1.',
+      teaches: 'Flip and burn · time warp',
+      introduces: ['warp'],
       bodies: [
         { id: 'drift', name: 'Drift', gm: 3000, radius: 40, color: C.purple, x: -150, y: -700 },
         { id: 'buoy', name: 'Buoy 7', gm: 0, radius: 4, color: C.station, kind: 'station', x: 400, y: 0 },
       ],
       ship: ship({ start: { free: { x: 0, y: 0 } }, heading: Math.PI / 2, dv: 8, accel: 1 }),
-      goals: [{ type: 'rendezvous', body: 'buoy', dist: 15, relVel: 0.5 }],
+      goals: [{ type: 'rendezvous', body: 'buoy', dist: 40, relVel: 1 }],
       par: 4, bounds: 2000, tMax: 600, predict: 120, view: { x: 180, y: -40, span: 760 }, startCam: 'overview',
     },
     {
       id: 'circularize',
       name: 'Circularize',
-      intro: 'You are coasting at the highest point of a stretched orbit. Turn to face prograde (the green marker, your direction of travel) and burn. Watch the dashed path swell into a circle.',
+      intro: 'You are coasting at the highest point of a stretched orbit. Turn to face prograde (the green marker, your direction of travel) and burn. Press O to zoom out to an overview and watch the dashed path swell into a circle, then F to follow your ship again.',
       objective: 'Hold an orbit between 180 and 220 around Terra for 60 s.',
-      teaches: 'Prograde burns · what an orbit is',
+      teaches: 'Prograde burns · camera',
+      introduces: ['camera'],
       bodies: [
         { id: 'terra', name: 'Terra', gm: 20000, radius: 50, color: C.blue },
       ],
@@ -121,14 +123,14 @@
       id: 'inertia',
       name: 'Docking',
       intro: 'Station Kepler orbits below you, and lower orbits are faster. Burn retrograde to drop toward it, then match its speed when you meet. If the station is far ahead or behind, wait an orbit or two: the lower, faster orbit lets it catch up.',
-      objective: 'Rendezvous with Station Kepler: within 15, relative speed under 1.',
+      objective: 'Rendezvous with Station Kepler: within 35, relative speed under 1.5.',
       teaches: 'Phasing · rendezvous',
       bodies: [
         { id: 'terra', name: 'Terra', gm: 20000, radius: 50, color: C.blue },
         { id: 'station', name: 'Station Kepler', gm: 0, radius: 4, color: C.station, kind: 'station', orbit: { parent: 'terra', a: 160, phase: 1.2 } },
       ],
       ship: ship({ start: { orbit: { body: 'terra', r: 250, angle: 0 } }, heading: 'prograde', dv: 6, accel: 0.8 }),
-      goals: [{ type: 'rendezvous', body: 'station', dist: 15, relVel: 1 }],
+      goals: [{ type: 'rendezvous', body: 'station', dist: 35, relVel: 1.5 }],
       par: 3, bounds: 2000, tMax: 1500, predict: 120, view: { x: 0, y: 0, span: 640 },
     },
     {

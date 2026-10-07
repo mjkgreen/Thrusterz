@@ -42,8 +42,10 @@ you do it, and stops appearing after you've mastered it.
   rocket equation (`Δv = vₑ · ln(m₀/m)`), so the ship accelerates harder as it
   gets lighter. The Δv gauge shows what's left.
 - **Side thrusters (RCS)** — torque, not direct steering: they change your spin
-  rate, and you keep spinning until you counter-fire. RCS propellant is
-  limited. **Gyro assist** (`G`) damps the spin for you, but switching it on
+  rate, and you keep spinning until you counter-fire. A quick tap is a fixed
+  small nudge (2°/s); holding ramps up. Holding the opposite key brakes the spin
+  to exactly zero and stops there. The HUD shows your spin rate. RCS propellant
+  is limited. **Gyro assist** (`G`) damps the spin for you, but switching it on
   caps that run at ★★.
 - **Trajectory prediction** — the dashed line is your coast path. The magenta
   marker and ghost show the closest approach to your current objective and where
@@ -60,8 +62,8 @@ you do it, and stops appearing after you've mastered it.
 | --- | --- | --- |
 | 1 | Liftoff | Main engine, launch timing from a spinning asteroid (no rotation yet) |
 | 2 | Point and Burn | Side thrusters, rotation and stopping a spin |
-| 3 | Full Stop | Flip and burn to park next to a buoy |
-| 4 | Circularize | Prograde burns, what an orbit is |
+| 3 | Full Stop | Flip and burn to park next to a buoy; time warp |
+| 4 | Circularize | Prograde burns; overview / follow camera |
 | 5 | Deorbit | Retrograde burns |
 | 6 | Turn and Burn | Hohmann transfer |
 | 7 | Moonshot | Intercepting a moving moon, phasing |

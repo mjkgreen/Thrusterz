@@ -87,7 +87,7 @@
     state.cam.follow = true;
     state.cam.zoom = state.cam.tzoom = Math.max(zoom * 2.2, Math.min(W, H) / 420);
     state.cam.x = m.ship.x; state.cam.y = m.ship.y;
-    if (level.startCam === 'overview') { overview(); state.cam.x = state.cam.tx; state.cam.y = state.cam.ty; state.cam.zoom = state.cam.tzoom; }
+    if (level.startCam === 'overview') { overview(true); state.cam.x = state.cam.tx; state.cam.y = state.cam.ty; state.cam.zoom = state.cam.tzoom; }
     setupHud();
     show('hud');
     hide('menu'); hide('briefing'); hide('result'); hide('pause'); hide('help');
@@ -170,6 +170,8 @@
     if (KEYMAP[e.code] || e.code.startsWith('Arrow')) e.preventDefault();
     if (e.repeat && !['KeyW', 'KeyS'].includes(e.code)) { keys.add(e.code); return; }
     keys.add(e.code);
+    if (e.code === 'KeyA' || e.code === 'ArrowLeft') startPulse(1);
+    if (e.code === 'KeyD' || e.code === 'ArrowRight') startPulse(-1);
     const m = state.mission;
     switch (e.code) {
       case 'Escape': togglePause(); break;
@@ -181,7 +183,7 @@
       case 'KeyZ': state.throttle = 1; break;
       case 'KeyG': toggleGyro(); break;
       case 'KeyV': cycleFrame(); coachDone('frame'); break;
-      case 'KeyF': state.cam.follow = true; state.cam.tzoom = Math.max(state.cam.zoom, Math.min(W, H) / 420); break;
+      case 'KeyF': followShip(); break;
       case 'KeyO': overview(); break;
       case 'BracketLeft': state.predictScale = Math.max(0.25, state.predictScale / 1.5); state.predDirty = true; break;
       case 'BracketRight': state.predictScale = Math.min(6, state.predictScale * 1.5); state.predDirty = true; break;
@@ -191,7 +193,14 @@
   window.addEventListener('keyup', (e) => keys.delete(e.code));
   window.addEventListener('blur', () => keys.clear());
 
-  function overview() {
+  function followShip() {
+    state.cam.follow = true;
+    state.cam.tzoom = Math.max(state.cam.zoom, Math.min(W, H) / 420);
+    coachDone('camera');
+  }
+
+  function overview(auto) {
+    if (!auto) coachDone('camera');
     const v = state.mission.level.view;
     state.cam.follow = false;
     state.cam.tx = v.x; state.cam.ty = v.y;
@@ -236,7 +245,12 @@
       else if (k === 'warpDown') setWarp(state.warp - 1);
       else if (k === 'frame') { if (state.mission) { cycleFrame(); coachDone('frame'); } }
       else if (k === 'gyro') { if (state.mission) toggleGyro(); }
-      else touch[k] = true;
+      else if (k === 'cam') { if (state.mission) (state.cam.follow ? overview() : followShip()); }
+      else {
+        touch[k] = true;
+        if (k === 'rotL') startPulse(1);
+        if (k === 'rotR') startPulse(-1);
+      }
       btn.classList.add('on');
     };
     const off = (e) => { e.preventDefault(); if (k in touch) touch[k] = false; btn.classList.remove('on'); };
@@ -266,13 +280,17 @@
     if (!isTouch()) { document.body.classList.add('touch'); state.coach.id = null; }
   }, { once: true, passive: true });
 
+  // A quick tap still fires the side thrusters for a minimum pulse, so every
+  // tap is the same small, repeatable nudge.
+  const PULSE_MS = 80;
+  const pulse = { dir: 0, until: 0 };
+  function startPulse(dir) { pulse.dir = dir; pulse.until = performance.now() + PULSE_MS; }
+
   function controls() {
-    return {
-      thrust: keys.has('Space') || touch.burn,
-      throttle: state.throttle,
-      rotate: ((keys.has('ArrowLeft') || keys.has('KeyA') || touch.rotL) ? 1 : 0) -
-              ((keys.has('ArrowRight') || keys.has('KeyD') || touch.rotR) ? 1 : 0),
-    };
+    let rotate = ((keys.has('ArrowLeft') || keys.has('KeyA') || touch.rotL) ? 1 : 0) -
+                 ((keys.has('ArrowRight') || keys.has('KeyD') || touch.rotR) ? 1 : 0);
+    if (!rotate && pulse.dir && performance.now() < pulse.until) rotate = pulse.dir;
+    return { thrust: keys.has('Space') || touch.burn, throttle: state.throttle, rotate };
   }
 
   function setWarp(k) {
@@ -809,12 +827,13 @@
     burn: { key: () => `Hold ${KEY('SPACE')} to fire the main engine`, touch: () => `Hold ${KEY('BURN')} to fire the main engine` },
     rotate: { key: () => `${KEY('A')} ${KEY('D')} fire side thrusters to rotate`, touch: () => `${KEY('⟲')} ${KEY('⟳')} fire side thrusters to rotate` },
     // Positive spin is counter-clockwise (A / ⟲), so the cure is D / ⟳, and vice versa.
-    counter: { key: (m) => `Still spinning! Tap ${KEY(m.ship.omega > 0 ? 'D' : 'A')} to stop`, touch: (m) => `Still spinning! Tap ${KEY(m.ship.omega > 0 ? '⟳' : '⟲')} to stop` },
+    counter: { key: (m) => `Still spinning! Hold ${KEY(m.ship.omega > 0 ? 'D' : 'A')} and it stops at zero`, touch: (m) => `Still spinning! Hold ${KEY(m.ship.omega > 0 ? '⟳' : '⟲')} and it stops at zero` },
     warp: { key: () => `Press ${KEY('.')} to speed up time, ${KEY(',')} to slow down`, touch: () => `Tap ${KEY('»')} to speed up time, ${KEY('«')} to slow down` },
+    camera: { key: () => `Press ${KEY('O')} for an overview, ${KEY('F')} to follow your ship`, touch: () => `Tap ${KEY('◎')} to switch between overview and following your ship` },
     frame: { key: () => `Press ${KEY('V')} to view your path relative to another body`, touch: () => `Tap ${KEY('V')} to view your path relative to another body` },
     gyro: { key: () => `${KEY('G')} gyro assist stops spin for you (caps the run at ★★)`, touch: () => `${KEY('G')} gyro assist stops spin for you (caps the run at ★★)` },
   };
-  const LEARN_AFTER = { launch: 99, burn: 2, rotate: 3, counter: 4, warp: 3, frame: 2, gyro: 1 };
+  const LEARN_AFTER = { launch: 99, burn: 2, rotate: 3, counter: 4, warp: 3, camera: 2, frame: 2, gyro: 1 };
 
   function learned(k) { return (progress.learned && progress.learned[k]) || 0; }
 
@@ -827,7 +846,12 @@
     saveProgress();
   }
 
-  function wants(k) { return !state.coach.done.has(k) && learned(k) < LEARN_AFTER[k]; }
+  // A mission that introduces a control always prompts for it.
+  function wants(k) {
+    if (state.coach.done.has(k)) return false;
+    const intro = state.mission && state.mission.level.introduces;
+    return (intro && intro.includes(k)) || learned(k) < LEARN_AFTER[k];
+  }
 
   function updateCoach(dt, ctl) {
     const m = state.mission, c = state.coach, L = m.level, s = m.ship;
@@ -851,6 +875,7 @@
     else if (L.ship.canRotate && spinning && c.spinIdle > 1.2 && wants('counter')) key = 'counter';
     else if (wants('burn') && m.dvUsed() < 1e-6 && m.t > 2) key = 'burn';
     else if (c.idle > 5 && state.warp === 0 && wants('warp')) key = 'warp';
+    else if (c.idle > 2 && m.dvUsed() > 0.3 && wants('camera')) key = 'camera';
     else if (grav >= 2 && c.idle > 3 && wants('frame')) key = 'frame';
     else if (L.ship.canRotate && m.t > 25 && c.idle > 2 && wants('gyro') && state.levelIndex >= 5) key = 'gyro';
     const id = key === 'counter' ? key + Math.sign(s.omega) : key;
@@ -868,6 +893,7 @@
     if (L.ship.canRotate) chips.push([t ? '⟲ ⟳' : 'A D', 'rotate'], [t ? '« »' : ', .', 'time warp']);
     else chips.push([t ? '« »' : ', .', 'time warp']);
     const grav = L.bodies.filter(b => b.gm > 0 && !b.hidden).length;
+    chips.push([t ? '◎' : 'F O', 'follow / overview']);
     if (grav >= 2) chips.push(['V', 'reference frame']);
     if (L.ship.canRotate) chips.push(['G', 'gyro assist (★★ max)']);
     return chips.map(([k, d]) => `<span class="chip"><kbd>${k}</kbd> ${d}</span>`).join('');
@@ -926,6 +952,9 @@
     }
     $('hud-throttle').textContent = Math.round(state.throttle * 100) + '%';
     $('bar-throttle').style.width = (state.throttle * 100) + '%';
+    const spin = m.ship.omega * 180 / Math.PI;
+    $('hud-spin').textContent = Math.abs(spin) < 0.05 ? '0°/s' : (spin > 0 ? '⟲ ' : '⟳ ') + Math.abs(spin).toFixed(1) + '°/s';
+    $('hud-spin').className = Math.abs(spin) < 0.05 ? 'ok' : Math.abs(spin) > 30 ? 'warn' : '';
     $('hud-gyro').textContent = m.gyro ? 'ON · max ★★' : (m.assisted ? 'OFF · max ★★' : 'OFF');
     $('hud-gyro').className = m.gyro || m.assisted ? 'warn' : '';
 

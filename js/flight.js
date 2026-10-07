@@ -35,6 +35,8 @@
       this.events = [];
       this.thrusting = false;
       this.rotInput = 0;
+      this.rotHeld = 0;    // seconds the current rotation input has been held
+      this.rotLatch = 0;   // input that just stopped a spin; ignored until released
       this.gyro = false;
       this.assisted = false;
       this.ship = { x: 0, y: 0, vx: 0, vy: 0, angle: 0, omega: 0 };
@@ -123,14 +125,19 @@
         const st = this.stageSpec;
         const firing = controls.thrust && st && st.fuel > 0 && controls.throttle > 0;
         const canRot = spec.canRotate !== false && spec.rcs && this.rcsFuel > 0 && !this.landed;
-        const rotating = canRot && controls.rotate !== 0;
+        // Counter-firing stops the spin dead at zero; keep holding and nothing
+        // more happens until the key is released and pressed again.
+        if (controls.rotate !== this.rotLatch) this.rotLatch = 0;
+        const rotIn = this.rotLatch ? 0 : controls.rotate;
+        if (rotIn === 0) this.rotHeld = 0;
+        const rotating = canRot && rotIn !== 0;
         const gyroWork = canRot && this.gyro && !rotating && Math.abs(this.ship.omega) > 1e-4;
         let h;
         if (firing || rotating || gyroWork || this.landed) h = Math.min(remaining, FIXED_DT);
         else h = Math.min(remaining, Phys.coastDt(this.sys, this.ship, this.t, 0.002, MAX_COAST_DT));
         this.thrusting = firing;
-        this.rotInput = rotating ? controls.rotate : 0;
-        this._step(h, firing ? controls.throttle : 0, rotating ? controls.rotate : 0, gyroWork);
+        this.rotInput = rotating ? rotIn : 0;
+        this._step(h, firing ? controls.throttle : 0, rotating ? rotIn : 0, gyroWork);
         remaining -= h;
       }
     }
@@ -142,7 +149,14 @@
       if (spec.rcs && !this.landed) {
         const r = spec.rcs;
         if (rot !== 0) {
-          s.omega += rot * r.accel * h;
+          // Thrusters ramp up while held: taps give fine nudges, holds turn fast.
+          this.rotHeld += h;
+          const a = r.accel * Math.min(1, 0.3 + this.rotHeld / 0.8);
+          const w = s.omega + rot * a * h;
+          if (s.omega !== 0 && Math.sign(w) !== Math.sign(s.omega)) {
+            s.omega = 0;
+            this.rotLatch = rot;
+          } else s.omega = w;
           this.rcsFuel = Math.max(0, this.rcsFuel - h);
         } else if (gyroWork) {
           const dw = Math.min(Math.abs(s.omega), r.accel * 1.5 * h);
