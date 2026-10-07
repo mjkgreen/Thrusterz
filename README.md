@@ -32,6 +32,12 @@ Handy URL flags: `?level=N` jumps to mission N, `?unlock` unlocks every mission.
 Touch devices get on-screen controls: rotate on the left thumb, BURN on the right,
 warp / frame / gyro in the middle. Pinch to zoom.
 
+On phones the game plays in landscape and fullscreen: a portrait phone gets a
+"rotate your phone" screen, and leaving fullscreen, rotating back or switching
+apps pauses the mission. iPhone Safari has no fullscreen API for pages, so there
+it's landscape-only; Add to Home Screen launches it fullscreen (via the web app
+manifest).
+
 New players get big contextual prompts ("Press and hold SPACE to launch",
 "Still spinning! Tap D to stop", warp, reference frame). Each disappears once
 you do it, and stops appearing after you've mastered it.

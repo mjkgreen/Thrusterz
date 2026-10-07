@@ -277,7 +277,7 @@
   const isTouch = () => document.body.classList.contains('touch');
   if (window.matchMedia('(pointer: coarse)').matches) document.body.classList.add('touch');
   window.addEventListener('touchstart', () => {
-    if (!isTouch()) { document.body.classList.add('touch'); state.coach.id = null; }
+    if (!isTouch()) { document.body.classList.add('touch'); state.coach.id = null; updateGate(); }
   }, { once: true, passive: true });
 
   // A quick tap still fires the side thrusters for a minimum pulse, so every
@@ -308,7 +308,7 @@
   function frame(now) {
     const realDt = Math.min(0.05, (now - lastTime) / 1000);
     lastTime = now;
-    if (state.screen === 'flight' && !state.paused) update(realDt);
+    if (state.screen === 'flight' && !state.paused && $('gate').classList.contains('hidden')) update(realDt);
     render(realDt);
     requestAnimationFrame(frame);
   }
@@ -1087,6 +1087,69 @@
     show('result');
   }
 
+  // ------------------------------------------------------------ phone gate
+  // Phones play in landscape and fullscreen. Losing either (rotating back,
+  // leaving fullscreen, switching apps) pauses the mission.
+  const fsEl = () => document.fullscreenElement || document.webkitFullscreenElement;
+  const fsSupported = () => !!(document.fullscreenEnabled || document.webkitFullscreenEnabled);
+  const standalone = () => window.matchMedia('(display-mode: fullscreen), (display-mode: standalone)').matches || navigator.standalone === true;
+  const isPhone = () => isTouch() && Math.min(screen.width, screen.height) < 600;
+  const isIOS = () => /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  let fsUnavailable = false; // set when the browser refuses fullscreen
+
+  function gateReason() {
+    if (!isTouch()) return null;
+    if (isPhone() && window.innerHeight > window.innerWidth) return 'rotate';
+    if (!fsEl() && !standalone() && fsSupported() && !fsUnavailable) return 'fullscreen';
+    return null;
+  }
+
+  function pauseMission() {
+    if (state.screen === 'flight' && !state.paused && !state.resultShown) {
+      state.paused = true; show('pause');
+    }
+  }
+
+  function updateGate() {
+    const reason = gateReason();
+    if (!reason) { hide('gate'); return; }
+    pauseMission();
+    keys.clear(); for (const k in touch) touch[k] = false;
+    if (reason === 'rotate') {
+      $('gate-icon').textContent = '⟳';
+      $('gate-title').textContent = 'Rotate your phone';
+      $('gate-msg').textContent = 'Thrusterz plays sideways. Turn your phone to landscape.';
+      $('btn-gate').classList.add('hidden');
+      $('gate-tip').textContent = isIOS() && !standalone() ? 'For true full screen on iPhone: Share → Add to Home Screen, then launch Thrusterz from there.' : '';
+    } else {
+      $('gate-icon').textContent = '⛶';
+      $('gate-title').textContent = state.screen === 'flight' ? 'Paused' : 'Full screen';
+      $('gate-msg').textContent = 'Thrusterz needs the whole screen so your thumbs have room.';
+      $('btn-gate').classList.remove('hidden');
+      $('gate-tip').textContent = '';
+    }
+    $('gate').dataset.reason = reason;
+    show('gate');
+  }
+
+  async function enterFullscreen() {
+    const el = document.documentElement;
+    try {
+      if (el.requestFullscreen) await el.requestFullscreen({ navigationUI: 'hide' });
+      else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+      else fsUnavailable = true;
+    } catch (e) { fsUnavailable = true; }
+    try { if (screen.orientation && screen.orientation.lock) await screen.orientation.lock('landscape'); } catch (e) { /* not allowed here */ }
+    setTimeout(updateGate, 150);
+  }
+
+  $('btn-gate').onclick = enterFullscreen;
+  ['resize', 'orientationchange'].forEach(ev => window.addEventListener(ev, updateGate));
+  document.addEventListener('fullscreenchange', updateGate);
+  document.addEventListener('webkitfullscreenchange', updateGate);
+  document.addEventListener('visibilitychange', () => { if (document.hidden) pauseMission(); });
+  window.addEventListener('blur', pauseMission);
+
   function togglePause() {
     state.paused = !state.paused;
     if (state.paused) { show('pause'); state.screen = 'flight'; }
@@ -1133,6 +1196,7 @@
     progress.unlocked = Math.max(progress.unlocked, i);
     startLevel(i);
   } else showMenu();
+  updateGate();
   requestAnimationFrame(frame);
 
   // Expose for debugging / automated testing.

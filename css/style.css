@@ -227,3 +227,49 @@ kbd {
   .card { padding: 20px 18px; }
   .card h1 { font-size: 26px; }
 }
+
+/* -------------------------------------------------------- phone gate */
+#gate { background: var(--bg); z-index: 50; }
+.gate-card { text-align: center; width: min(420px, 100%); }
+.gate-card .buttons { justify-content: center; }
+.gate-icon { font-size: 54px; color: var(--accent); line-height: 1; }
+#gate[data-reason="rotate"] .gate-icon { animation: gate-turn 2.4s ease-in-out infinite; }
+@keyframes gate-turn { 0%, 30% { transform: rotate(0); } 60%, 100% { transform: rotate(90deg); } }
+@media (prefers-reduced-motion: reduce) { .gate-icon { animation: none !important; } }
+
+/* ------------------------------------------- landscape phones (short) */
+@media (max-height: 500px) {
+  .panel { padding: 6px 9px; border-radius: 8px; }
+  #mission { top: 8px; left: 8px; max-width: 34vw; }
+  #mission .eyebrow { display: none; }
+  #mission .title { font-size: 15px; margin: 0 0 2px; }
+  #hud-goals { font-size: 12px; }
+  #clock { top: 8px; right: 8px; font-size: 11px; line-height: 1.4; }
+  #btn-pause { top: 8px; right: auto; left: 50%; transform: translateX(-50%); }
+  #coach { font-size: 15px; padding: 8px 14px; bottom: auto; top: 48px; max-width: 46vw; }
+  .gauge { margin-bottom: 3px; }
+  .glabel { font-size: 11px; margin-bottom: 2px; }
+  .bar { height: 6px; }
+  body.touch #gauges { left: 8px; bottom: calc(84px + env(safe-area-inset-bottom, 0px)); width: 150px; }
+  body.touch #orbit { right: 8px; bottom: calc(100px + env(safe-area-inset-bottom, 0px)); min-width: 0; width: 150px; font-size: 11px; }
+  #orbit .grid { margin: 3px 0; }
+  body.touch #coach { top: 48px; bottom: auto; }
+  body.touch #btn-pause { transform: translateX(-50%); }
+  body.touch #touch { padding: 0 max(12px, env(safe-area-inset-left, 0px)) calc(8px + env(safe-area-inset-bottom, 0px)) max(12px, env(safe-area-inset-left, 0px)); }
+  body.touch #touch button { width: 64px; height: 64px; }
+  body.touch #touch .tgroup.small { flex-wrap: nowrap; max-width: none; }
+  body.touch #touch .tgroup.small button { width: 44px; height: 38px; }
+  body.touch #touch button.burn { width: 84px; height: 84px; }
+  .screen { padding-block: 10px; }
+  .card { padding: 14px 18px; }
+  .card h1 { font-size: 22px; }
+  .card p { font-size: 13px; margin: 6px 0; }
+  .buttons { margin-top: 10px; }
+  #menu { padding-top: 10px; }
+  .logo { font-size: 40px; }
+  .tagline { margin-bottom: 12px; }
+  #level-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+  .level-card { padding: 8px 10px; }
+  .level-card .lname { font-size: 15px; }
+  .level-card .lteach { min-height: 0; }
+}

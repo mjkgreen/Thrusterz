@@ -4,6 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>Thrusterz</title>
+<meta name="theme-color" content="#05060d">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@400;600;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/style.css">
@@ -121,6 +128,17 @@
       <button id="btn-help">Controls</button>
       <button id="btn-quit" class="ghost">Levels</button>
     </div>
+  </div>
+</div>
+
+<!-- Phone gate: landscape + fullscreen required on phones -->
+<div id="gate" class="screen hidden">
+  <div class="card gate-card">
+    <div class="gate-icon" id="gate-icon" aria-hidden="true">⟳</div>
+    <h1 id="gate-title">Rotate your phone</h1>
+    <p id="gate-msg">Thrusterz plays sideways. Turn your phone to landscape.</p>
+    <div class="buttons"><button id="btn-gate" class="primary hidden">Play fullscreen</button></div>
+    <p class="small" id="gate-tip"></p>
   </div>
 </div>
 

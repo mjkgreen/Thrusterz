@@ -1,0 +1,11 @@
+{
+  "name": "Thrusterz",
+  "short_name": "Thrusterz",
+  "description": "Orbital mechanics flight game",
+  "start_url": "./",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#05060d",
+  "theme_color": "#05060d",
+  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}
