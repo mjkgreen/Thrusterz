@@ -1,0 +1,11 @@
+{
+  "name": "thrusterz",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Orbital mechanics flight game — pilot a rocket with a main engine and side thrusters under real gravity.",
+  "scripts": {
+    "start": "npx http-server -c-1 -p 8080 .",
+    "test": "node tools/test-physics.js",
+    "check-levels": "node tools/check-levels.js"
+  }
+}

@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Thrusterz</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@400;600;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<canvas id="view"></canvas>
+
+<!-- In-flight HUD -->
+<div id="hud" class="hidden">
+  <div id="mission" class="panel">
+    <div class="eyebrow" id="hud-level"></div>
+    <div class="title" id="hud-name"></div>
+    <ul id="hud-goals"></ul>
+  </div>
+
+  <div id="clock" class="panel">
+    <div><span class="k">T+</span> <span id="hud-time">0</span></div>
+    <div><span class="k">WARP</span> <span id="hud-warp">1×</span></div>
+    <div><span class="k">FRAME</span> <span id="hud-frame">Auto</span></div>
+  </div>
+
+  <div id="gauges" class="panel">
+    <div class="gauge">
+      <div class="glabel"><span>Δv</span><span id="hud-dv">0</span></div>
+      <div class="bar"><div id="bar-fuel"></div></div>
+    </div>
+    <div class="gauge" id="gauge-rcs">
+      <div class="glabel"><span>RCS</span><span id="hud-rcs">0</span></div>
+      <div class="bar rcs"><div id="bar-rcs"></div></div>
+    </div>
+    <div class="gauge">
+      <div class="glabel"><span>Throttle</span><span id="hud-throttle">100%</span></div>
+      <div class="bar thr"><div id="bar-throttle"></div></div>
+    </div>
+    <div class="row" id="gyro-row"><span class="k">GYRO</span> <span id="hud-gyro">ON</span></div>
+  </div>
+
+  <div id="orbit" class="panel">
+    <div class="eyebrow">Orbiting <span id="hud-ref"></span></div>
+    <div class="grid">
+      <span class="k">ALT</span><span id="hud-alt"></span>
+      <span class="k">SPD</span><span id="hud-spd"></span>
+      <span class="k">AP</span><span id="hud-ap"></span>
+      <span class="k">PE</span><span id="hud-pe"></span>
+    </div>
+    <div id="hud-target"></div>
+  </div>
+
+  <div id="toast"></div>
+  <button id="btn-pause" class="icon-btn" title="Pause (Esc)">❚❚</button>
+
+  <div id="touch">
+    <button data-key="rotL">⟲</button>
+    <button data-key="rotR">⟳</button>
+    <button data-key="warpDown">«</button>
+    <button data-key="warpUp">»</button>
+    <button data-key="burn" class="burn">BURN</button>
+  </div>
+</div>
+
+<!-- Screens -->
+<div id="menu" class="screen">
+  <div class="logo">THRUSTERZ</div>
+  <div class="tagline">An orbital mechanics flight school</div>
+  <div id="level-grid"></div>
+  <div class="menu-foot">
+    <button id="btn-help-menu" class="ghost">Controls</button>
+  </div>
+</div>
+
+<div id="briefing" class="screen hidden">
+  <div class="card">
+    <div class="eyebrow" id="brief-num"></div>
+    <h1 id="brief-name"></h1>
+    <div class="teaches" id="brief-teaches"></div>
+    <p id="brief-intro"></p>
+    <div class="objective"><span class="k">OBJECTIVE</span> <span id="brief-obj"></span></div>
+    <div class="stats" id="brief-stats"></div>
+    <div class="buttons">
+      <button id="btn-brief-back" class="ghost">Levels</button>
+      <button id="btn-brief-go" class="primary">Launch ▸</button>
+    </div>
+  </div>
+</div>
+
+<div id="result" class="screen hidden">
+  <div class="card">
+    <h1 id="res-title"></h1>
+    <div id="res-stars"></div>
+    <p id="res-msg"></p>
+    <div class="stats" id="res-stats"></div>
+    <div class="buttons">
+      <button id="btn-res-menu" class="ghost">Levels</button>
+      <button id="btn-res-retry">Retry</button>
+      <button id="btn-res-next" class="primary">Next ▸</button>
+    </div>
+  </div>
+</div>
+
+<div id="pause" class="screen hidden">
+  <div class="card">
+    <h1>Paused</h1>
+    <div class="buttons vertical">
+      <button id="btn-resume" class="primary">Resume</button>
+      <button id="btn-restart">Restart (R)</button>
+      <button id="btn-help">Controls</button>
+      <button id="btn-quit" class="ghost">Levels</button>
+    </div>
+  </div>
+</div>
+
+<div id="help" class="screen hidden">
+  <div class="card">
+    <h1>Flight controls</h1>
+    <table class="keys">
+      <tr><td><kbd>Space</kbd></td><td>Main engine (hold)</td></tr>
+      <tr><td><kbd>A</kbd> <kbd>D</kbd> / <kbd>←</kbd> <kbd>→</kbd></td><td>Side thrusters — rotate</td></tr>
+      <tr><td><kbd>W</kbd> <kbd>S</kbd></td><td>Throttle up / down</td></tr>
+      <tr><td><kbd>G</kbd></td><td>Toggle gyro assist (when available)</td></tr>
+      <tr><td><kbd>,</kbd> <kbd>.</kbd></td><td>Time warp down / up</td></tr>
+      <tr><td><kbd>V</kbd></td><td>Cycle reference frame</td></tr>
+      <tr><td><kbd>F</kbd> / <kbd>O</kbd></td><td>Follow ship / overview</td></tr>
+      <tr><td><kbd>[</kbd> <kbd>]</kbd></td><td>Shorter / longer trajectory prediction</td></tr>
+      <tr><td>Wheel, drag</td><td>Zoom, pan</td></tr>
+      <tr><td><kbd>R</kbd> · <kbd>Esc</kbd></td><td>Restart · Pause</td></tr>
+    </table>
+    <p class="small">Markers around your ship: <span class="pro">◉ prograde</span> (direction of travel), <span class="retro">⊗ retrograde</span>, <span class="tgt">◆ target</span>. The dashed line is where you'll coast if you stop burning.</p>
+    <div class="buttons"><button id="btn-help-close" class="primary">Got it</button></div>
+  </div>
+</div>
+
+<script src="js/physics.js"></script>
+<script src="js/flight.js"></script>
+<script src="js/levels.js"></script>
+<script src="js/game.js"></script>
+</body>
+</html>

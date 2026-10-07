@@ -1,0 +1,1017 @@
+// Thrusterz game client: rendering, input, HUD and menus.
+(function () {
+  'use strict';
+  const { LEVELS } = Levels;
+  const { Mission } = Flight;
+
+  const WARPS = [1, 2, 5, 10, 25, 50, 100];
+  const TAU = Math.PI * 2;
+  const $ = (id) => document.getElementById(id);
+
+  const canvas = $('view');
+  const ctx = canvas.getContext('2d');
+  let W = 0, H = 0, DPR = 1;
+
+  // ---------------------------------------------------------------- state
+  const state = {
+    screen: 'menu',
+    levelIndex: 0,
+    mission: null,
+    paused: false,
+    warp: 0,
+    throttle: 1,
+    gyroOn: true,
+    frameMode: 'auto',     // 'auto' | 'inertial' | body index
+    predictScale: 1,
+    cam: { x: 0, y: 0, zoom: 1, follow: true, tx: 0, ty: 0, tzoom: 1 },
+    pred: null, predT: -1, predDirty: true,
+    trail: [],
+    particles: [],
+    rails: [],
+    stars: [],
+    resultShown: false, endTime: 0,
+    toastTimer: 0,
+  };
+
+  const keys = new Set();
+  const touch = { rotL: false, rotR: false, burn: false };
+
+  // ------------------------------------------------------------- progress
+  const STORE = 'thrusterz.progress.v1';
+  function loadProgress() {
+    try { return JSON.parse(localStorage.getItem(STORE)) || { unlocked: 0, stars: {}, best: {} }; }
+    catch (e) { return { unlocked: 0, stars: {}, best: {} }; }
+  }
+  function saveProgress() { try { localStorage.setItem(STORE, JSON.stringify(progress)); } catch (e) { /* ignore */ } }
+  const progress = loadProgress();
+  if (/[?&]unlock/.test(location.search)) progress.unlocked = LEVELS.length - 1;
+
+  // ---------------------------------------------------------------- setup
+  function resize() {
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    W = window.innerWidth; H = window.innerHeight;
+    canvas.width = W * DPR; canvas.height = H * DPR;
+    canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  function makeStars() {
+    let seed = 12345;
+    const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    state.stars = [];
+    for (let i = 0; i < 420; i++) {
+      state.stars.push({ x: rnd(), y: rnd(), z: 0.2 + rnd() * 0.8, b: 0.3 + rnd() * 0.7, c: rnd() < 0.15 ? (rnd() < 0.5 ? '#ffd9a8' : '#a8c8ff') : '#ffffff' });
+    }
+  }
+  makeStars();
+
+  // ---------------------------------------------------------------- level
+  function startLevel(i) {
+    state.levelIndex = i;
+    const level = LEVELS[i];
+    state.mission = new Mission(level);
+    state.warp = 0;
+    state.throttle = 1;
+    state.gyroOn = level.ship.gyro !== false;
+    state.frameMode = 'auto';
+    state.predictScale = 1;
+    state.trail = [];
+    state.particles = [];
+    state.pred = null; state.predDirty = true;
+    state.resultShown = false;
+    state.paused = false;
+    buildRails();
+    const m = state.mission;
+    const zoom = Math.min(W, H) / level.view.span;
+    state.cam.follow = true;
+    state.cam.zoom = state.cam.tzoom = Math.max(zoom * 2.2, Math.min(W, H) / 420);
+    state.cam.x = m.ship.x; state.cam.y = m.ship.y;
+    if (level.startCam === 'overview') { overview(); state.cam.x = state.cam.tx; state.cam.y = state.cam.ty; state.cam.zoom = state.cam.tzoom; }
+    setupHud();
+    show('hud');
+    hide('menu'); hide('briefing'); hide('result'); hide('pause'); hide('help');
+    state.screen = 'flight';
+    toast(level.ship.start.landed ? 'Hold SPACE to launch' : 'SPACE burn · A/D rotate · . warp', 4);
+  }
+
+  // Precompute each orbiting body's path relative to its parent barycenter.
+  function buildRails() {
+    const sys = state.mission.sys;
+    state.rails = [];
+    for (const b of sys.bodies) {
+      if (!b.orbit || b.hidden) continue;
+      const P = sys.period(b.index), pts = [];
+      const N = b.orbit.e > 0.3 ? 240 : 128;
+      for (let k = 0; k <= N; k++) {
+        const t = P * k / N;
+        sys.update(t);
+        pts.push([sys.px[b.index] - sys.nx[b.parent], sys.py[b.index] - sys.ny[b.parent]]);
+      }
+      state.rails.push({ body: b.index, parent: b.parent, pts });
+    }
+    sys.update(0);
+  }
+
+  // ------------------------------------------------------- frame / camera
+  // The reference frame body, or -1 for inertial.
+  function frameBody() {
+    const m = state.mission;
+    if (state.frameMode === 'inertial') return -1;
+    if (state.frameMode === 'auto') return m.sys.host(m.ship.x, m.ship.y, m.t);
+    return state.frameMode;
+  }
+
+  function frameName() {
+    const f = frameBody();
+    const name = f < 0 ? 'Inertial' : state.mission.sys.bodies[f].name;
+    return state.frameMode === 'auto' ? 'Auto · ' + name : name;
+  }
+
+  function cycleFrame() {
+    const sys = state.mission.sys;
+    const opts = ['auto', 'inertial', ...sys.grav.filter(i => !sys.bodies[i].hidden)];
+    const k = opts.indexOf(state.frameMode);
+    state.frameMode = opts[(k + 1) % opts.length];
+    state.predDirty = true;
+    toast('Reference frame: ' + frameName(), 1.5);
+  }
+
+  function w2s(x, y) {
+    const c = state.cam;
+    return [(x - c.x) * c.zoom + W / 2, H / 2 - (y - c.y) * c.zoom];
+  }
+  function s2w(sx, sy) {
+    const c = state.cam;
+    return [(sx - W / 2) / c.zoom + c.x, (H / 2 - sy) / c.zoom + c.y];
+  }
+
+  // -------------------------------------------------------------- input
+  const KEYMAP = {
+    Space: 'burn', ArrowLeft: 'rotL', KeyA: 'rotL', ArrowRight: 'rotR', KeyD: 'rotR',
+  };
+  window.addEventListener('keydown', (e) => {
+    if (state.screen === 'briefing' && (e.code === 'Enter' || e.code === 'Space')) { e.preventDefault(); startLevel(state.levelIndex); return; }
+    if (state.screen === 'result' && e.code === 'Enter') { e.preventDefault(); $('btn-res-next').click(); return; }
+    if (state.screen !== 'flight') return;
+    if (KEYMAP[e.code] || e.code.startsWith('Arrow')) e.preventDefault();
+    if (e.repeat && !['KeyW', 'KeyS'].includes(e.code)) { keys.add(e.code); return; }
+    keys.add(e.code);
+    const m = state.mission;
+    switch (e.code) {
+      case 'Escape': togglePause(); break;
+      case 'KeyR': startLevel(state.levelIndex); break;
+      case 'Period': case 'Equal': setWarp(state.warp + 1); break;
+      case 'Comma': case 'Minus': setWarp(state.warp - 1); break;
+      case 'KeyW': case 'ShiftLeft': state.throttle = Math.min(1, Math.round(state.throttle * 10 + 1) / 10); break;
+      case 'KeyS': case 'ControlLeft': state.throttle = Math.max(0.1, Math.round(state.throttle * 10 - 1) / 10); break;
+      case 'KeyZ': state.throttle = 1; break;
+      case 'KeyG':
+        if (m.level.ship.gyro === 'toggle') { state.gyroOn = !state.gyroOn; toast('Gyro assist ' + (state.gyroOn ? 'ON' : 'OFF'), 1.2); }
+        else if (m.level.ship.canRotate) toast(m.level.ship.gyro ? 'Gyro assist is locked on' : 'Gyro assist is offline this mission', 1.5);
+        break;
+      case 'KeyV': cycleFrame(); break;
+      case 'KeyF': state.cam.follow = true; state.cam.tzoom = Math.max(state.cam.zoom, Math.min(W, H) / 420); break;
+      case 'KeyO': overview(); break;
+      case 'BracketLeft': state.predictScale = Math.max(0.25, state.predictScale / 1.5); state.predDirty = true; break;
+      case 'BracketRight': state.predictScale = Math.min(6, state.predictScale * 1.5); state.predDirty = true; break;
+      case 'KeyH': show('help'); state.paused = true; break;
+    }
+  });
+  window.addEventListener('keyup', (e) => keys.delete(e.code));
+  window.addEventListener('blur', () => keys.clear());
+
+  function overview() {
+    const v = state.mission.level.view;
+    state.cam.follow = false;
+    state.cam.tx = v.x; state.cam.ty = v.y;
+    state.cam.tzoom = Math.min(W, H) / v.span;
+  }
+
+  // Mouse: wheel zoom, drag to pan.
+  let drag = null;
+  canvas.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const c = state.cam, f = Math.exp(-e.deltaY * 0.0015);
+    const nz = Math.max(0.02, Math.min(40, c.tzoom * f));
+    if (!c.follow) {
+      const [wx, wy] = s2w(e.clientX, e.clientY);
+      c.tx = wx - (wx - c.tx) * c.zoom / nz; c.ty = wy - (wy - c.ty) * c.zoom / nz;
+      c.x = c.tx; c.y = c.ty;
+    }
+    c.tzoom = nz; c.zoom = nz;
+  }, { passive: false });
+  canvas.addEventListener('pointerdown', (e) => {
+    if (e.pointerType === 'touch') return;
+    drag = { x: e.clientX, y: e.clientY, moved: false };
+  });
+  window.addEventListener('pointermove', (e) => {
+    if (!drag) return;
+    const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+    if (!drag.moved && Math.hypot(dx, dy) < 4) return;
+    drag.moved = true;
+    const c = state.cam;
+    if (c.follow) { c.follow = false; c.tx = c.x; c.ty = c.y; }
+    c.tx -= dx / c.zoom; c.ty += dy / c.zoom; c.x = c.tx; c.y = c.ty;
+    drag.x = e.clientX; drag.y = e.clientY;
+  });
+  window.addEventListener('pointerup', () => { drag = null; });
+
+  // Touch: on-screen buttons + pinch zoom.
+  for (const btn of document.querySelectorAll('#touch button')) {
+    const k = btn.dataset.key;
+    const on = (e) => {
+      e.preventDefault();
+      if (k === 'warpUp') setWarp(state.warp + 1);
+      else if (k === 'warpDown') setWarp(state.warp - 1);
+      else touch[k] = true;
+      btn.classList.add('on');
+    };
+    const off = (e) => { e.preventDefault(); if (k in touch) touch[k] = false; btn.classList.remove('on'); };
+    btn.addEventListener('pointerdown', on);
+    btn.addEventListener('pointerup', off);
+    btn.addEventListener('pointercancel', off);
+    btn.addEventListener('pointerleave', off);
+  }
+  let pinch = null;
+  canvas.addEventListener('touchstart', (e) => {
+    if (e.touches.length === 2) {
+      const [a, b] = e.touches;
+      pinch = { d: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY), z: state.cam.tzoom };
+    }
+  }, { passive: true });
+  canvas.addEventListener('touchmove', (e) => {
+    if (pinch && e.touches.length === 2) {
+      const [a, b] = e.touches;
+      const d = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+      state.cam.tzoom = state.cam.zoom = Math.max(0.02, Math.min(40, pinch.z * d / pinch.d));
+    }
+  }, { passive: true });
+  canvas.addEventListener('touchend', () => { pinch = null; }, { passive: true });
+  if (window.matchMedia('(pointer: coarse)').matches) document.body.classList.add('touch');
+
+  function controls() {
+    return {
+      thrust: keys.has('Space') || touch.burn,
+      throttle: state.throttle,
+      rotate: ((keys.has('ArrowLeft') || keys.has('KeyA') || touch.rotL) ? 1 : 0) -
+              ((keys.has('ArrowRight') || keys.has('KeyD') || touch.rotR) ? 1 : 0),
+    };
+  }
+
+  function setWarp(k) {
+    const m = state.mission;
+    k = Math.max(0, Math.min(WARPS.length - 1, k));
+    const c = controls();
+    if (k > 0 && (c.thrust || c.rotate)) { toast('Can\'t warp while thrusters fire', 1.2); return; }
+    if (k > 0 && m.status !== 'flying') return;
+    state.warp = k;
+  }
+
+  // ---------------------------------------------------------------- update
+  let lastTime = performance.now();
+  function frame(now) {
+    const realDt = Math.min(0.05, (now - lastTime) / 1000);
+    lastTime = now;
+    if (state.screen === 'flight' && !state.paused) update(realDt);
+    render(realDt);
+    requestAnimationFrame(frame);
+  }
+
+  function update(realDt) {
+    const m = state.mission;
+    const level = m.level;
+    const c = controls();
+    if ((c.thrust || c.rotate) && state.warp > 0) { state.warp = 0; }
+    if (level.ship.gyro === 'toggle') m.gyro = state.gyroOn;
+    const wasFlying = m.status === 'flying';
+    const dvBefore = m.dvRemaining();
+    m.advance(realDt * WARPS[state.warp], c);
+
+    if (m.dvRemaining() < dvBefore - 1e-9) state.predDirty = true;
+    if (m.thrusting) spawnExhaust(realDt);
+    if (m.rotInput) spawnRcs(m.rotInput);
+
+    // Trail (inertial positions, drawn in the current frame).
+    const last = state.trail[state.trail.length - 1];
+    if (!m.landed && (!last || m.t - last.t > 0.2 * Math.max(1, WARPS[state.warp] / 5))) {
+      state.trail.push({ t: m.t, x: m.ship.x, y: m.ship.y });
+      if (state.trail.length > 1500) state.trail.shift();
+    }
+
+    // Prediction: recompute when burning, or as the coast eats into it.
+    const horizon = level.predict * state.predictScale;
+    if (state.predDirty || !state.pred || m.t - state.predT > horizon * 0.03 || m.thrusting) computePrediction();
+
+    if (wasFlying && m.status !== 'flying') onMissionEnd();
+    if (m.status !== 'flying' && !state.resultShown && performance.now() - state.endTime > 1600) showResult();
+
+    updateParticles(realDt);
+    updateCamera(realDt);
+    updateHud();
+  }
+
+  function computePrediction() {
+    const m = state.mission, level = m.level;
+    state.predDirty = false;
+    state.predT = m.t;
+    if (m.landed || m.status !== 'flying') { state.pred = null; return; }
+    const horizon = level.predict * state.predictScale;
+    const p = Phys.predict(m.sys, m.ship, m.t, horizon, { bounds: level.bounds, maxSteps: 8000, ignore: m.ignoreBody });
+    // Closest approach to the active goal.
+    const g = m.currentGoal();
+    let ca = null;
+    if (g) {
+      let best = Infinity, bi = -1;
+      for (let i = 0; i < p.ts.length; i++) {
+        const q = m.goalPoint(g, p.ts[i]);
+        const d = Math.hypot(p.xs[i] - q.x, p.ys[i] - q.y);
+        if (d < best) { best = d; bi = i; }
+      }
+      if (bi > 0) ca = { i: bi, t: p.ts[bi], d: best, goal: g };
+    }
+    p.ca = ca;
+    state.pred = p;
+  }
+
+  function onMissionEnd() {
+    const m = state.mission;
+    state.endTime = performance.now();
+    state.warp = 0;
+    if (m.status === 'crashed' || (m.status === 'won' && m.level.goals[m.level.goals.length - 1].type === 'hit')) {
+      explode(m.ship.x, m.ship.y, m.status === 'won' ? '#9cf7c4' : '#ffb35a');
+    }
+    if (m.status === 'won') confetti(m.ship.x, m.ship.y);
+  }
+
+  function updateCamera(dt) {
+    const c = state.cam, m = state.mission;
+    const k = 1 - Math.exp(-dt * 6);
+    if (c.follow) { c.tx = m.ship.x; c.ty = m.ship.y; }
+    // When following, track the ship rigidly so it never lags at high warp.
+    if (c.follow) { c.x = c.tx; c.y = c.ty; }
+    else { c.x += (c.tx - c.x) * k; c.y += (c.ty - c.y) * k; }
+    c.zoom += (c.tzoom - c.zoom) * k;
+  }
+
+  // ------------------------------------------------------------ particles
+  function spawnExhaust(dt) {
+    const s = state.mission.ship;
+    const n = Math.ceil(60 * dt * state.throttle) + 1;
+    const z = state.cam.zoom;
+    for (let i = 0; i < n; i++) {
+      const a = s.angle + Math.PI + (Math.random() - 0.5) * 0.5;
+      const sp = (40 + Math.random() * 60) / z;
+      state.particles.push({
+        x: s.x - Math.cos(s.angle) * 7 / z, y: s.y - Math.sin(s.angle) * 7 / z,
+        vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
+        life: 0.35 + Math.random() * 0.25, age: 0, size: 2 + Math.random() * 2.5, kind: 'fire',
+      });
+    }
+  }
+  function spawnRcs(dir) {
+    const s = state.mission.ship, z = state.cam.zoom;
+    for (const side of [1, -1]) {
+      const fwd = side; // nose and tail fire opposite ways
+      const ox = Math.cos(s.angle) * 6 * fwd / z, oy = Math.sin(s.angle) * 6 * fwd / z;
+      const a = s.angle + Math.PI / 2 * -dir * fwd;
+      state.particles.push({
+        x: s.x + ox, y: s.y + oy, vx: Math.cos(a) * 50 / z, vy: Math.sin(a) * 50 / z,
+        life: 0.18, age: 0, size: 1.6, kind: 'rcs',
+      });
+    }
+  }
+  function explode(x, y, color) {
+    const z = state.cam.zoom;
+    for (let i = 0; i < 90; i++) {
+      const a = Math.random() * TAU, sp = (20 + Math.random() * 120) / z;
+      state.particles.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: 0.6 + Math.random() * 1.2, age: 0, size: 2 + Math.random() * 3, kind: 'boom', color });
+    }
+  }
+  function confetti(x, y) {
+    const z = state.cam.zoom, cols = ['#7cf7d4', '#ffd166', '#f78cff', '#8cb8ff'];
+    for (let i = 0; i < 70; i++) {
+      const a = Math.random() * TAU, sp = (30 + Math.random() * 90) / z;
+      state.particles.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: 1.2 + Math.random(), age: 0, size: 2.5, kind: 'conf', color: cols[i % 4] });
+    }
+  }
+  function updateParticles(dt) {
+    const ps = state.particles;
+    for (const p of ps) { p.age += dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= 0.98; p.vy *= 0.98; }
+    state.particles = ps.filter(p => p.age < p.life);
+  }
+
+  // ---------------------------------------------------------------- render
+  function render(dt) {
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    ctx.fillStyle = '#05060d';
+    ctx.fillRect(0, 0, W, H);
+    drawStars();
+    if (!state.mission || state.screen === 'menu') { drawMenuBackdrop(); return; }
+    const m = state.mission, sys = m.sys;
+    sys.update(m.t);
+    const F = frameBody();
+    const fx = F >= 0 ? sys.px[F] : 0, fy = F >= 0 ? sys.py[F] : 0;
+    // Display transform for a world point recorded at time t.
+    const disp = (x, y, t) => {
+      if (F < 0) return w2s(x, y);
+      sys.update(t);
+      const ox = sys.px[F], oy = sys.py[F];
+      return w2s(x - ox + fx, y - oy + fy);
+    };
+
+    drawRails();
+    drawGoals();
+    drawTrail(disp);
+    drawPrediction(disp);
+    sys.update(m.t);
+    drawBodies();
+    drawParticles();
+    drawShip();
+    drawNavMarkers();
+    drawEdgeIndicator();
+  }
+
+  function drawStars() {
+    const c = state.cam;
+    for (const s of state.stars) {
+      const x = ((s.x * W * 1.3 - c.x * c.zoom * 0.02 * s.z) % W + W) % W;
+      const y = ((s.y * H * 1.3 + c.y * c.zoom * 0.02 * s.z) % H + H) % H;
+      ctx.globalAlpha = s.b * 0.8;
+      ctx.fillStyle = s.c;
+      ctx.fillRect(x, y, s.z * 1.6, s.z * 1.6);
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function drawMenuBackdrop() {
+    // Decorative orbiting dots behind the menu.
+    const t = performance.now() / 1000, cx = W / 2, cy = H * 0.55;
+    ctx.strokeStyle = 'rgba(120,160,255,0.08)';
+    ctx.lineWidth = 1;
+    for (const r of [140, 230, 340, 470]) { ctx.beginPath(); ctx.arc(cx, cy, r, 0, TAU); ctx.stroke(); }
+    const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, 60);
+    g.addColorStop(0, 'rgba(255,207,90,0.5)'); g.addColorStop(1, 'rgba(255,207,90,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cy, 60, 0, TAU); ctx.fill();
+    [[140, 0.5, '#4f8fe0'], [230, 0.28, '#d9694a'], [340, 0.16, '#d8b67a'], [470, 0.09, '#9fe0f0']].forEach(([r, w, col], i) => {
+      const a = t * w + i * 1.7;
+      ctx.fillStyle = col; ctx.beginPath(); ctx.arc(cx + r * Math.cos(a), cy + r * Math.sin(a), 5, 0, TAU); ctx.fill();
+    });
+  }
+
+  function drawRails() {
+    const sys = state.mission.sys;
+    ctx.lineWidth = 1;
+    for (const r of state.rails) {
+      const b = sys.bodies[r.body];
+      const cx = sys.nx[r.parent], cy = sys.ny[r.parent];
+      ctx.strokeStyle = b.kind === 'station' ? 'rgba(230,230,240,0.18)' : hexA(b.color, 0.22);
+      ctx.setLineDash(b.kind === 'comet' ? [4, 6] : []);
+      ctx.beginPath();
+      r.pts.forEach(([x, y], i) => {
+        const [sx, sy] = w2s(cx + x, cy + y);
+        if (i) ctx.lineTo(sx, sy); else ctx.moveTo(sx, sy);
+      });
+      ctx.stroke();
+    }
+    ctx.setLineDash([]);
+  }
+
+  function drawGoals() {
+    const m = state.mission, sys = m.sys, z = state.cam.zoom;
+    const t = performance.now() / 1000;
+    m.level.goals.forEach((g, gi) => {
+      const done = gi < m.goalIndex, active = gi === m.goalIndex;
+      if (done) return;
+      const p = m.goalPoint(g);
+      const [sx, sy] = w2s(p.x, p.y);
+      const alpha = active ? 1 : 0.4;
+      if (g.type === 'orbit') {
+        ctx.fillStyle = `rgba(124,247,212,${0.07 * alpha})`;
+        ctx.beginPath();
+        ctx.arc(sx, sy, g.rMax * z, 0, TAU); ctx.arc(sx, sy, g.rMin * z, 0, TAU, true);
+        ctx.fill();
+        ctx.strokeStyle = `rgba(124,247,212,${0.45 * alpha})`;
+        ctx.setLineDash([6, 6]);
+        ctx.beginPath(); ctx.arc(sx, sy, g.rMax * z, 0, TAU); ctx.stroke();
+        ctx.beginPath(); ctx.arc(sx, sy, g.rMin * z, 0, TAU); ctx.stroke();
+        ctx.setLineDash([]);
+      } else if (g.type === 'reach' || g.type === 'rendezvous') {
+        const r = (g.type === 'reach' ? g.r : g.dist) * z;
+        ctx.strokeStyle = `rgba(247,140,255,${0.7 * alpha})`;
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([8, 6]);
+        ctx.lineDashOffset = -t * 20;
+        ctx.beginPath(); ctx.arc(sx, sy, Math.max(r, 6), 0, TAU); ctx.stroke();
+        ctx.setLineDash([]); ctx.lineDashOffset = 0;
+        if (!g.body) {
+          // Jump gate: rotating ring.
+          ctx.strokeStyle = `rgba(247,140,255,${0.35 * alpha})`;
+          for (let k = 0; k < 3; k++) {
+            ctx.beginPath(); ctx.arc(sx, sy, Math.max(r * (0.35 + k * 0.18), 3), t * (k + 1) * 0.7, t * (k + 1) * 0.7 + 4); ctx.stroke();
+          }
+        }
+        if (g.label) label(g.label, sx, sy - Math.max(r, 6) - 8, `rgba(247,140,255,${alpha})`);
+        ctx.lineWidth = 1;
+      } else if (g.type === 'hit' && active) {
+        const b = sys.bodies[p.body];
+        const r = b.radius * z + 8 + Math.sin(t * 4) * 3;
+        ctx.strokeStyle = 'rgba(247,140,255,0.8)';
+        ctx.lineWidth = 1.5;
+        for (let k = 0; k < 4; k++) {
+          const a = k * Math.PI / 2 + t * 0.5;
+          ctx.beginPath(); ctx.arc(sx, sy, r, a - 0.3, a + 0.3); ctx.stroke();
+        }
+        ctx.lineWidth = 1;
+      }
+    });
+  }
+
+  function drawTrail(disp) {
+    const tr = state.trail;
+    if (tr.length < 2) return;
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = 'rgba(255,190,110,0.35)';
+    ctx.beginPath();
+    tr.forEach((p, i) => {
+      const [sx, sy] = disp(p.x, p.y, p.t);
+      if (i) ctx.lineTo(sx, sy); else ctx.moveTo(sx, sy);
+    });
+    const s = state.mission.ship;
+    const [sx, sy] = w2s(s.x, s.y);
+    ctx.lineTo(sx, sy);
+    ctx.stroke();
+  }
+
+  function drawPrediction(disp) {
+    const p = state.pred, m = state.mission;
+    if (!p) return;
+    // Only draw the part still ahead of us.
+    let i0 = 0;
+    while (i0 < p.ts.length - 1 && p.ts[i0 + 1] <= m.t) i0++;
+    ctx.lineWidth = 1.6;
+    ctx.setLineDash([7, 6]);
+    const grad = m.thrusting ? 'rgba(255,220,120,0.9)' : 'rgba(125,200,255,0.85)';
+    ctx.strokeStyle = grad;
+    ctx.beginPath();
+    const [s0x, s0y] = w2s(m.ship.x, m.ship.y);
+    ctx.moveTo(s0x, s0y);
+    let lx = s0x, ly = s0y;
+    for (let i = i0 + 1; i < p.ts.length; i++) {
+      const [sx, sy] = disp(p.xs[i], p.ys[i], p.ts[i]);
+      if (Math.abs(sx - lx) + Math.abs(sy - ly) < 2 && i < p.ts.length - 1) continue;
+      ctx.lineTo(sx, sy); lx = sx; ly = sy;
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    const sys = m.sys;
+    // Impact marker.
+    if (p.hit >= 0) {
+      const [sx, sy] = disp(p.end.x, p.end.y, p.tEnd);
+      const g = m.currentGoal();
+      const good = g && g.type === 'hit' && sys.byId[g.body].index === p.hit;
+      ctx.strokeStyle = good ? '#7cf7d4' : '#ff5a5a';
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(sx - 6, sy - 6); ctx.lineTo(sx + 6, sy + 6); ctx.moveTo(sx + 6, sy - 6); ctx.lineTo(sx - 6, sy + 6); ctx.stroke();
+      label((good ? 'IMPACT ' : 'CRASH ') + sys.bodies[p.hit].name + ' · ' + fmtT(p.tEnd - m.t), sx, sy - 14, good ? '#7cf7d4' : '#ff7a7a');
+      ctx.lineWidth = 1;
+    }
+    // Closest approach + ghost of the target at that moment.
+    const ca = p.ca;
+    if (ca && ca.t > m.t && !(p.hit >= 0 && ca.i >= p.ts.length - 2)) {
+      const [sx, sy] = disp(p.xs[ca.i], p.ys[ca.i], ca.t);
+      const q = m.goalPoint(ca.goal, ca.t);
+      const [gx, gy] = disp(q.x, q.y, ca.t);
+      ctx.strokeStyle = 'rgba(247,140,255,0.8)';
+      ctx.setLineDash([3, 4]);
+      ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(gx, gy); ctx.stroke();
+      ctx.setLineDash([]);
+      if (q.body >= 0) {
+        const b = sys.bodies[q.body];
+        ctx.strokeStyle = hexA(b.color, 0.7);
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath(); ctx.arc(gx, gy, Math.max(b.radius * state.cam.zoom, 4), 0, TAU); ctx.stroke();
+        ctx.setLineDash([]);
+      }
+      ctx.fillStyle = '#f78cff';
+      ctx.beginPath(); ctx.arc(sx, sy, 3.5, 0, TAU); ctx.fill();
+      label('closest ' + ca.d.toFixed(0) + ' · ' + fmtT(ca.t - m.t), sx, sy + 16, '#f78cff');
+    }
+  }
+
+  function drawBodies() {
+    const sys = state.mission.sys, z = state.cam.zoom;
+    for (const b of sys.bodies) {
+      if (b.hidden || b.radius <= 0) continue;
+      const [sx, sy] = w2s(sys.px[b.index], sys.py[b.index]);
+      const r = Math.max(b.radius * z, b.kind === 'station' ? 0 : 2.5);
+      if (sx < -r - 200 || sx > W + r + 200 || sy < -r - 200 || sy > H + r + 200) continue;
+      if (b.kind === 'station') { drawStation(sx, sy, b); continue; }
+      const isStar = b.gm >= 30000 && /#ff/.test(b.color);
+      if (b.kind === 'comet') drawCometTail(b, sx, sy, r);
+      // Glow / atmosphere.
+      const glowR = r * (isStar ? 3.2 : 1.35);
+      const gl = ctx.createRadialGradient(sx, sy, r * 0.8, sx, sy, glowR);
+      gl.addColorStop(0, hexA(b.color, isStar ? 0.55 : 0.25)); gl.addColorStop(1, hexA(b.color, 0));
+      ctx.fillStyle = gl; ctx.beginPath(); ctx.arc(sx, sy, glowR, 0, TAU); ctx.fill();
+      // Body, lit from the upper left.
+      const g = ctx.createRadialGradient(sx - r * 0.4, sy - r * 0.4, r * 0.1, sx, sy, r);
+      g.addColorStop(0, isStar ? '#fffbe8' : shade(b.color, 1.35));
+      g.addColorStop(0.7, b.color);
+      g.addColorStop(1, isStar ? b.color : shade(b.color, 0.45));
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(sx, sy, r, 0, TAU); ctx.fill();
+      // Spin markers so rotation is visible.
+      if (b.spin && r > 8) {
+        ctx.strokeStyle = 'rgba(0,0,0,0.25)'; ctx.lineWidth = Math.max(1, r * 0.08);
+        const a0 = b.spin * state.mission.t;
+        for (let k = 0; k < 3; k++) {
+          const a = a0 + k * TAU / 3;
+          ctx.beginPath(); ctx.arc(sx + Math.cos(a) * r * 0.5, sy - Math.sin(a) * r * 0.5, r * 0.18, 0, TAU); ctx.stroke();
+        }
+        ctx.lineWidth = 1;
+      }
+      label(b.name, sx, sy + r + 14, 'rgba(220,228,255,0.75)');
+    }
+  }
+
+  function drawStation(sx, sy, b) {
+    const t = performance.now() / 1000;
+    ctx.save(); ctx.translate(sx, sy); ctx.rotate(t * 0.3);
+    ctx.fillStyle = '#cfd6e6'; ctx.fillRect(-3, -3, 6, 6);
+    ctx.fillStyle = '#5b8de0'; ctx.fillRect(-12, -2, 7, 4); ctx.fillRect(5, -2, 7, 4);
+    ctx.restore();
+    label(b.name, sx, sy + 18, 'rgba(220,228,255,0.75)');
+  }
+
+  function drawCometTail(b, sx, sy, r) {
+    const sys = state.mission.sys;
+    const sun = sys.bodies[b.parent];
+    const dx = sys.px[b.index] - sys.px[sun.index], dy = sys.py[b.index] - sys.py[sun.index];
+    const d = Math.hypot(dx, dy), len = Math.min(220, 5e5 / (d * d) * 40 + 30);
+    const ux = dx / d, uy = -dy / d;
+    const g = ctx.createLinearGradient(sx, sy, sx + ux * len, sy + uy * len);
+    g.addColorStop(0, 'rgba(200,240,255,0.55)'); g.addColorStop(1, 'rgba(200,240,255,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.moveTo(sx - uy * r, sy + ux * r);
+    ctx.lineTo(sx + ux * len - uy * r * 3, sy + uy * len + ux * r * 3);
+    ctx.lineTo(sx + ux * len + uy * r * 3, sy + uy * len - ux * r * 3);
+    ctx.lineTo(sx + uy * r, sy - ux * r);
+    ctx.fill();
+  }
+
+  function drawParticles() {
+    for (const p of state.particles) {
+      const [sx, sy] = w2s(p.x, p.y);
+      const k = 1 - p.age / p.life;
+      if (p.kind === 'fire') {
+        ctx.fillStyle = `rgba(255,${Math.floor(150 + 100 * k)},${Math.floor(60 * k)},${k * 0.8})`;
+      } else if (p.kind === 'rcs') {
+        ctx.fillStyle = `rgba(220,235,255,${k * 0.9})`;
+      } else {
+        ctx.fillStyle = hexA(p.color, k);
+      }
+      const s = p.size * (p.kind === 'fire' ? (0.5 + k) : 1);
+      ctx.fillRect(sx - s / 2, sy - s / 2, s, s);
+    }
+  }
+
+  function drawShip() {
+    const m = state.mission, s = m.ship;
+    if (m.status === 'crashed' || (m.status === 'won' && m.level.goals[m.level.goals.length - 1].type === 'hit')) return;
+    const [sx, sy] = w2s(s.x, s.y);
+    ctx.save();
+    ctx.translate(sx, sy);
+    ctx.rotate(-s.angle);
+    const L = 9;
+    if (m.thrusting) {
+      const f = (0.7 + Math.random() * 0.5) * state.throttle;
+      const g = ctx.createLinearGradient(-L, 0, -L - 22 * f, 0);
+      g.addColorStop(0, 'rgba(255,255,220,0.95)'); g.addColorStop(0.4, 'rgba(255,170,60,0.8)'); g.addColorStop(1, 'rgba(255,80,30,0)');
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.moveTo(-L + 1, -3.5); ctx.lineTo(-L - 22 * f, 0); ctx.lineTo(-L + 1, 3.5); ctx.fill();
+    }
+    // Body
+    ctx.fillStyle = '#e9edf7';
+    ctx.strokeStyle = '#7f8aa8';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(L + 3, 0);
+    ctx.quadraticCurveTo(L, -4, 2, -4.2);
+    ctx.lineTo(-L + 1, -4.2);
+    ctx.lineTo(-L + 1, 4.2);
+    ctx.lineTo(2, 4.2);
+    ctx.quadraticCurveTo(L, 4, L + 3, 0);
+    ctx.fill(); ctx.stroke();
+    // Fins
+    ctx.fillStyle = '#e0574a';
+    ctx.beginPath(); ctx.moveTo(-L + 1, -4.2); ctx.lineTo(-L - 3, -8); ctx.lineTo(-L + 5, -4.2); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(-L + 1, 4.2); ctx.lineTo(-L - 3, 8); ctx.lineTo(-L + 5, 4.2); ctx.fill();
+    // Window
+    ctx.fillStyle = '#4fc3ff';
+    ctx.beginPath(); ctx.arc(3, 0, 1.8, 0, TAU); ctx.fill();
+    ctx.restore();
+  }
+
+  // Prograde / retrograde / target markers around the ship.
+  function drawNavMarkers() {
+    const m = state.mission, s = m.ship, sys = m.sys;
+    if (m.landed || m.status !== 'flying') return;
+    const ref = sys.dominant(s.x, s.y, m.t);
+    sys.update(m.t);
+    const rvx = s.vx - sys.vx[ref], rvy = s.vy - sys.vy[ref];
+    const [sx, sy] = w2s(s.x, s.y);
+    const R = 34;
+    const pa = Math.atan2(rvy, rvx);
+    const mark = (a, draw) => { const x = sx + Math.cos(a) * R, y = sy - Math.sin(a) * R; draw(x, y); };
+    ctx.lineWidth = 1.5;
+    if (m.level.ship.canRotate) {
+      mark(pa, (x, y) => {
+        ctx.strokeStyle = '#8df57a';
+        ctx.beginPath(); ctx.arc(x, y, 5, 0, TAU); ctx.stroke();
+        ctx.beginPath(); ctx.arc(x, y, 1.2, 0, TAU); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(x, y - 5); ctx.lineTo(x, y - 9); ctx.moveTo(x - 5, y); ctx.lineTo(x - 9, y); ctx.moveTo(x + 5, y); ctx.lineTo(x + 9, y); ctx.stroke();
+      });
+      mark(pa + Math.PI, (x, y) => {
+        ctx.strokeStyle = '#f5d47a';
+        ctx.beginPath(); ctx.arc(x, y, 5, 0, TAU); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(x - 3.5, y - 3.5); ctx.lineTo(x + 3.5, y + 3.5); ctx.moveTo(x + 3.5, y - 3.5); ctx.lineTo(x - 3.5, y + 3.5); ctx.stroke();
+      });
+      const g = m.currentGoal();
+      if (g) {
+        const q = m.goalPoint(g);
+        const ta = Math.atan2(q.y - s.y, q.x - s.x);
+        mark(ta, (x, y) => {
+          ctx.fillStyle = '#f78cff';
+          ctx.beginPath(); ctx.moveTo(x, y - 5); ctx.lineTo(x + 5, y); ctx.lineTo(x, y + 5); ctx.lineTo(x - 5, y); ctx.fill();
+        });
+      }
+      // Heading tick.
+      ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+      ctx.beginPath(); ctx.arc(sx, sy, R, 0, TAU); ctx.stroke();
+      ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+      ctx.beginPath();
+      ctx.moveTo(sx + Math.cos(s.angle) * (R - 5), sy - Math.sin(s.angle) * (R - 5));
+      ctx.lineTo(sx + Math.cos(s.angle) * (R + 5), sy - Math.sin(s.angle) * (R + 5));
+      ctx.stroke();
+    }
+    ctx.lineWidth = 1;
+  }
+
+  // Arrow at the screen edge pointing to the ship when it's off-screen.
+  function drawEdgeIndicator() {
+    const s = state.mission.ship;
+    const [sx, sy] = w2s(s.x, s.y);
+    if (sx > 0 && sx < W && sy > 0 && sy < H) return;
+    const cx = W / 2, cy = H / 2, a = Math.atan2(sy - cy, sx - cx);
+    const ex = cx + Math.cos(a) * (Math.min(W, H) / 2 - 30), ey = cy + Math.sin(a) * (Math.min(W, H) / 2 - 30);
+    ctx.save(); ctx.translate(ex, ey); ctx.rotate(a);
+    ctx.fillStyle = '#ffd166';
+    ctx.beginPath(); ctx.moveTo(10, 0); ctx.lineTo(-6, -7); ctx.lineTo(-6, 7); ctx.fill();
+    ctx.restore();
+    label('ship (F)', ex, ey + 20, '#ffd166');
+  }
+
+  function label(text, x, y, color) {
+    ctx.font = '600 11px "JetBrains Mono", ui-monospace, monospace';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = 'rgba(5,6,13,0.6)';
+    const w = ctx.measureText(text).width;
+    ctx.fillRect(x - w / 2 - 3, y - 10, w + 6, 14);
+    ctx.fillStyle = color;
+    ctx.fillText(text, x, y);
+  }
+
+  // ------------------------------------------------------------------ HUD
+  function setupHud() {
+    const m = state.mission, L = m.level;
+    $('hud-level').textContent = 'Mission ' + (state.levelIndex + 1) + ' · ' + L.teaches;
+    $('hud-name').textContent = L.name;
+    $('gauge-rcs').style.display = L.ship.rcs ? '' : 'none';
+    $('gyro-row').style.display = L.ship.canRotate ? '' : 'none';
+    renderGoals();
+  }
+
+  function renderGoals() {
+    const m = state.mission, L = m.level;
+    const ul = $('hud-goals');
+    ul.innerHTML = '';
+    L.goals.forEach((g, i) => {
+      const li = document.createElement('li');
+      li.className = i < m.goalIndex ? 'done' : i === m.goalIndex ? 'active' : '';
+      li.innerHTML = `<span class="chk">${i < m.goalIndex ? '✓' : i === m.goalIndex ? '▸' : '·'}</span><span>${goalText(g, m)}</span>`;
+      if (i === m.goalIndex && (g.type === 'orbit' || g.type === 'rendezvous')) {
+        li.innerHTML += `<div class="sub" id="goal-sub"></div>`;
+      }
+      ul.appendChild(li);
+    });
+    state.renderedGoal = m.goalIndex;
+  }
+
+  function goalText(g, m) {
+    const name = g.body ? m.sys.byId[g.body].name : (g.label || 'target');
+    switch (g.type) {
+      case 'hit': return 'Impact ' + name;
+      case 'reach': return 'Reach ' + name;
+      case 'orbit': return `Orbit ${name} ${g.rMin}–${g.rMax} for ${g.hold}s`;
+      case 'rendezvous': return `Rendezvous with ${name}`;
+    }
+    return '';
+  }
+
+  function updateHud() {
+    const m = state.mission, L = m.level, s = m.ship, sys = m.sys;
+    if (state.renderedGoal !== m.goalIndex) renderGoals();
+    $('hud-time').textContent = fmtT(m.t);
+    $('hud-warp').textContent = WARPS[state.warp] + '×';
+    $('hud-warp').className = state.warp ? 'warn' : '';
+    $('hud-frame').textContent = frameName();
+    const dv = m.dvRemaining();
+    $('hud-dv').textContent = dv.toFixed(2);
+    $('bar-fuel').style.width = (100 * dv / m.dv0) + '%';
+    if (L.ship.rcs) {
+      $('hud-rcs').textContent = m.rcsFuel.toFixed(1) + 's';
+      $('bar-rcs').style.width = (100 * m.rcsFuel / m.rcsFuel0) + '%';
+    }
+    $('hud-throttle').textContent = Math.round(state.throttle * 100) + '%';
+    $('bar-throttle').style.width = (state.throttle * 100) + '%';
+    const gyroActive = m.gyro;
+    $('hud-gyro').textContent = (gyroActive ? 'ON' : 'OFF') + (L.ship.gyro === 'toggle' ? ' (G)' : L.ship.gyro ? '' : ' · offline');
+    $('hud-gyro').className = gyroActive ? 'ok' : 'warn';
+
+    // Osculating orbit about the dominant body.
+    const ref = sys.dominant(s.x, s.y, m.t);
+    sys.update(m.t);
+    const b = sys.bodies[ref];
+    const rx = s.x - sys.px[ref], ry = s.y - sys.py[ref];
+    const vx = s.vx - sys.vx[ref], vy = s.vy - sys.vy[ref];
+    const r = Math.hypot(rx, ry), v = Math.hypot(vx, vy);
+    const eps = v * v / 2 - b.gm / r;
+    const hmom = rx * vy - ry * vx;
+    const e = Math.sqrt(Math.max(0, 1 + 2 * eps * hmom * hmom / (b.gm * b.gm)));
+    $('hud-ref').textContent = b.name;
+    $('hud-alt').textContent = (r - b.radius).toFixed(0);
+    $('hud-spd').textContent = v.toFixed(2);
+    if (eps < 0) {
+      const a = -b.gm / (2 * eps);
+      $('hud-ap').textContent = (a * (1 + e) - b.radius).toFixed(0);
+      const pe = a * (1 - e) - b.radius;
+      $('hud-pe').textContent = pe.toFixed(0);
+      $('hud-pe').className = pe < 0 ? 'warn' : '';
+    } else {
+      $('hud-ap').textContent = 'escape';
+      const pe = hmom * hmom / (b.gm * (1 + e)) - b.radius;
+      $('hud-pe').textContent = pe.toFixed(0);
+      $('hud-pe').className = pe < 0 ? 'warn' : '';
+    }
+
+    // Goal-specific live readouts.
+    const g = m.currentGoal();
+    const sub = $('goal-sub');
+    if (g && sub) {
+      const q = m.goalPoint(g);
+      const d = Math.hypot(s.x - q.x, s.y - q.y);
+      if (g.type === 'orbit') {
+        const pct = Math.min(100, 100 * m.holdTime / g.hold);
+        sub.innerHTML = `<div class="minibar"><div style="width:${pct}%"></div></div><span>${m.holdTime.toFixed(0)}/${g.hold}s · r=${d.toFixed(0)}</span>`;
+      } else if (g.type === 'rendezvous') {
+        const rv = Math.hypot(s.vx - q.vx, s.vy - q.vy);
+        sub.innerHTML = `<span class="${d < g.dist ? 'ok' : ''}">dist ${d.toFixed(1)}</span> · <span class="${rv < g.relVel ? 'ok' : ''}">rel v ${rv.toFixed(2)}</span>`;
+      }
+    }
+    const p = state.pred;
+    let tgt = '';
+    if (m.landed) tgt = 'Hold SPACE to lift off';
+    else if (p && p.ca) tgt = `Closest approach <b>${p.ca.d.toFixed(0)}</b> in ${fmtT(p.ca.t - m.t)}`;
+    if (dv <= 1e-6 && m.status === 'flying') tgt += '<div class="warn">Out of fuel — R to retry</div>';
+    $('hud-target').innerHTML = tgt;
+  }
+
+  function toast(msg, secs) {
+    const el = $('toast');
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout(state.toastTimer);
+    state.toastTimer = setTimeout(() => el.classList.remove('show'), secs * 1000);
+  }
+
+  // -------------------------------------------------------------- screens
+  function show(id) { $(id).classList.remove('hidden'); }
+  function hide(id) { $(id).classList.add('hidden'); }
+
+  function showMenu() {
+    state.screen = 'menu';
+    hide('hud'); hide('briefing'); hide('result'); hide('pause'); hide('help');
+    show('menu');
+    const grid = $('level-grid');
+    grid.innerHTML = '';
+    LEVELS.forEach((L, i) => {
+      const locked = i > progress.unlocked;
+      const stars = progress.stars[L.id] || 0;
+      const card = document.createElement('button');
+      card.className = 'level-card' + (locked ? ' locked' : '') + (stars ? ' cleared' : '');
+      card.innerHTML = `<div class="num">${String(i + 1).padStart(2, '0')}</div>
+        <div class="lname">${L.name}</div>
+        <div class="lteach">${L.teaches}</div>
+        <div class="lstars">${locked ? '🔒' : starStr(stars)}</div>`;
+      if (!locked) card.addEventListener('click', () => showBriefing(i));
+      grid.appendChild(card);
+    });
+  }
+
+  function starStr(n) { return '★'.repeat(n) + '<span class="dim">' + '★'.repeat(3 - n) + '</span>'; }
+
+  function showBriefing(i) {
+    state.levelIndex = i;
+    state.screen = 'briefing';
+    const L = LEVELS[i];
+    hide('menu'); hide('result'); hide('hud');
+    $('brief-num').textContent = 'Mission ' + (i + 1) + ' of ' + LEVELS.length;
+    $('brief-name').textContent = L.name;
+    $('brief-teaches').textContent = L.teaches;
+    $('brief-intro').textContent = L.intro;
+    $('brief-obj').textContent = L.objective;
+    const tank = new Mission(L).dv0;
+    $('brief-stats').innerHTML = `<span><span class="k">Δv</span> ${tank.toFixed(1)}</span>
+      <span><span class="k">★★★ under</span> ${L.par}</span>
+      <span><span class="k">Gyro</span> ${!L.ship.canRotate ? 'n/a' : L.ship.gyro === 'toggle' ? 'toggle (G)' : L.ship.gyro ? 'on' : 'OFFLINE'}</span>`;
+    show('briefing');
+  }
+
+  function showResult() {
+    state.resultShown = true;
+    const m = state.mission, L = m.level;
+    const won = m.status === 'won';
+    const stars = m.stars();
+    if (won) {
+      progress.unlocked = Math.max(progress.unlocked, Math.min(LEVELS.length - 1, state.levelIndex + 1));
+      progress.stars[L.id] = Math.max(progress.stars[L.id] || 0, stars);
+      if (!progress.best[L.id] || m.dvUsed() < progress.best[L.id]) progress.best[L.id] = m.dvUsed();
+      saveProgress();
+    }
+    state.screen = 'result';
+    $('res-title').textContent = won ? 'Mission complete' : 'Mission failed';
+    $('res-title').className = won ? 'ok' : 'bad';
+    $('res-stars').innerHTML = won ? starStr(stars) : '';
+    $('res-msg').textContent = won ? (stars === 3 ? 'Textbook flying.' : `Use ≤ ${L.par} Δv for three stars.`) : m.message;
+    $('res-stats').innerHTML = `<span><span class="k">Δv used</span> ${m.dvUsed().toFixed(2)}</span>
+      <span><span class="k">Time</span> ${fmtT(m.t)}</span>
+      ${progress.best[L.id] ? `<span><span class="k">Best</span> ${progress.best[L.id].toFixed(2)}</span>` : ''}`;
+    const hasNext = state.levelIndex < LEVELS.length - 1;
+    $('btn-res-next').style.display = won && hasNext ? '' : 'none';
+    $('btn-res-retry').className = won && hasNext ? '' : 'primary';
+    show('result');
+  }
+
+  function togglePause() {
+    state.paused = !state.paused;
+    if (state.paused) { show('pause'); state.screen = 'flight'; }
+    else { hide('pause'); hide('help'); }
+  }
+
+  $('btn-brief-go').onclick = () => startLevel(state.levelIndex);
+  $('btn-brief-back').onclick = showMenu;
+  $('btn-res-menu').onclick = showMenu;
+  $('btn-res-retry').onclick = () => { hide('result'); startLevel(state.levelIndex); };
+  $('btn-res-next').onclick = () => { hide('result'); showBriefing(state.levelIndex + 1); };
+  $('btn-resume').onclick = togglePause;
+  $('btn-restart').onclick = () => { hide('pause'); startLevel(state.levelIndex); };
+  $('btn-quit').onclick = () => { state.paused = false; showMenu(); };
+  $('btn-help').onclick = () => { hide('pause'); show('help'); };
+  $('btn-help-menu').onclick = () => show('help');
+  $('btn-help-close').onclick = () => {
+    hide('help');
+    if (state.screen === 'flight' && state.paused) { state.paused = false; }
+  };
+  $('btn-pause').onclick = togglePause;
+
+  // ---------------------------------------------------------------- utils
+  function fmtT(t) {
+    t = Math.max(0, t);
+    if (t < 60) return t.toFixed(1) + 's';
+    const mnt = Math.floor(t / 60), sec = Math.floor(t % 60);
+    return mnt + 'm' + String(sec).padStart(2, '0') + 's';
+  }
+  function parseHex(c) {
+    const h = c.replace('#', '');
+    return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
+  }
+  function hexA(c, a) { const [r, g, b] = parseHex(c); return `rgba(${r},${g},${b},${a})`; }
+  function shade(c, k) {
+    const [r, g, b] = parseHex(c).map(v => Math.max(0, Math.min(255, Math.round(v * k))));
+    return `rgb(${r},${g},${b})`;
+  }
+
+  // ---------------------------------------------------------------- boot
+  const qs = new URLSearchParams(location.search);
+  if (qs.has('level')) {
+    const i = Math.max(0, Math.min(LEVELS.length - 1, (+qs.get('level') || 1) - 1));
+    progress.unlocked = Math.max(progress.unlocked, i);
+    startLevel(i);
+  } else showMenu();
+  requestAnimationFrame(frame);
+
+  // Expose for debugging / automated testing.
+  window.Thrusterz = { state, startLevel, showMenu };
+})();
