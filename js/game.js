@@ -101,7 +101,7 @@
     const sys = state.mission.sys;
     state.rails = [];
     for (const b of sys.bodies) {
-      if (!b.orbit || b.hidden) continue;
+      if (!b.orbit || b.hidden || b.noRail) continue;
       const P = sys.period(b.index), pts = [];
       const N = b.orbit.e > 0.3 ? 240 : 128;
       for (let k = 0; k <= N; k++) {
@@ -358,13 +358,15 @@
     const g = m.currentGoal();
     let ca = null;
     if (g) {
+      // Escape goals care about the farthest point, everything else the nearest.
+      const sign = g.type === 'escape' ? -1 : 1;
       let best = Infinity, bi = -1;
       for (let i = 0; i < p.ts.length; i++) {
         const q = m.goalPoint(g, p.ts[i]);
         const d = Math.hypot(p.xs[i] - q.x, p.ys[i] - q.y);
-        if (d < best) { best = d; bi = i; }
+        if (sign * d < best) { best = sign * d; bi = i; }
       }
-      if (bi > 0) ca = { i: bi, t: p.ts[bi], d: best, goal: g };
+      if (bi > 0) ca = { i: bi, t: p.ts[bi], d: sign * best, goal: g, far: sign < 0 };
     }
     p.ca = ca;
     state.pred = p;
@@ -532,8 +534,15 @@
         ctx.beginPath(); ctx.arc(sx, sy, g.rMax * z, 0, TAU); ctx.stroke();
         ctx.beginPath(); ctx.arc(sx, sy, g.rMin * z, 0, TAU); ctx.stroke();
         ctx.setLineDash([]);
-      } else if (g.type === 'reach' || g.type === 'rendezvous') {
-        const r = (g.type === 'reach' ? g.r : g.dist) * z;
+      } else if (g.type === 'escape') {
+        ctx.strokeStyle = `rgba(247,140,255,${0.55 * alpha})`;
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([10, 8]); ctx.lineDashOffset = -t * 15;
+        ctx.beginPath(); ctx.arc(sx, sy, g.r * z, 0, TAU); ctx.stroke();
+        ctx.setLineDash([]); ctx.lineDashOffset = 0; ctx.lineWidth = 1;
+        label(g.label || 'Escape', sx, sy - g.r * z - 8, `rgba(247,140,255,${alpha})`);
+      } else if (g.type === 'reach' || g.type === 'rendezvous' || g.type === 'hold') {
+        const r = (g.type === 'rendezvous' ? g.dist : g.r) * z;
         ctx.strokeStyle = `rgba(247,140,255,${0.7 * alpha})`;
         ctx.lineWidth = 1.5;
         ctx.setLineDash([8, 6]);
@@ -549,6 +558,18 @@
         }
         if (g.label) label(g.label, sx, sy - Math.max(r, 6) - 8, `rgba(247,140,255,${alpha})`);
         ctx.lineWidth = 1;
+      } else if (g.type === 'hit' && g.site) {
+        // Landing strip painted on the (spinning) surface.
+        const b = sys.bodies[p.body], R = b.radius * z;
+        const a = g.site.angle + b.spin * m.t;
+        ctx.strokeStyle = active ? '#7cf7d4' : 'rgba(124,247,212,0.4)';
+        ctx.lineWidth = Math.max(3, R * 0.08);
+        ctx.beginPath(); ctx.arc(sx, sy, R + ctx.lineWidth / 2, -a - g.site.width / 2, -a + g.site.width / 2); ctx.stroke();
+        ctx.lineWidth = 1;
+        const fx = sx + Math.cos(a) * (R + 4), fy = sy - Math.sin(a) * (R + 4);
+        ctx.strokeStyle = '#7cf7d4';
+        ctx.beginPath(); ctx.moveTo(fx, fy); ctx.lineTo(fx + Math.cos(a) * 14, fy - Math.sin(a) * 14); ctx.stroke();
+        label(g.label || 'Landing zone', fx + Math.cos(a) * 30, fy - Math.sin(a) * 30, '#7cf7d4');
       } else if (g.type === 'hit' && active) {
         const b = sys.bodies[p.body];
         const r = b.radius * z + 8 + Math.sin(t * 4) * 3;
@@ -606,11 +627,12 @@
     if (p.hit >= 0) {
       const [sx, sy] = disp(p.end.x, p.end.y, p.tEnd);
       const g = m.currentGoal();
-      const good = g && g.type === 'hit' && sys.byId[g.body].index === p.hit;
+      const good = g && g.type === 'hit' && sys.byId[g.body].index === p.hit && m.siteOk(g, p.end.x, p.end.y, p.tEnd);
       ctx.strokeStyle = good ? '#7cf7d4' : '#ff5a5a';
       ctx.lineWidth = 2;
       ctx.beginPath(); ctx.moveTo(sx - 6, sy - 6); ctx.lineTo(sx + 6, sy + 6); ctx.moveTo(sx + 6, sy - 6); ctx.lineTo(sx - 6, sy + 6); ctx.stroke();
-      label((good ? 'IMPACT ' : 'CRASH ') + sys.bodies[p.hit].name + ' · ' + fmtT(p.tEnd - m.t), sx, sy - 14, good ? '#7cf7d4' : '#ff7a7a');
+      const missedSite = !good && g && g.site && sys.byId[g.body].index === p.hit;
+      label((good ? 'IMPACT ' : missedSite ? 'OFF TARGET ' : 'CRASH ') + sys.bodies[p.hit].name + ' · ' + fmtT(p.tEnd - m.t), sx, sy - 14, good ? '#7cf7d4' : '#ff7a7a');
       ctx.lineWidth = 1;
     }
     // Closest approach + ghost of the target at that moment.
@@ -632,7 +654,7 @@
       }
       ctx.fillStyle = '#f78cff';
       ctx.beginPath(); ctx.arc(sx, sy, 3.5, 0, TAU); ctx.fill();
-      label('closest ' + ca.d.toFixed(0) + ' · ' + fmtT(ca.t - m.t), sx, sy + 16, '#f78cff');
+      label((ca.far ? 'farthest ' : 'closest ') + ca.d.toFixed(0) + ' · ' + fmtT(ca.t - m.t), sx, sy + 16, '#f78cff');
     }
   }
 
@@ -644,6 +666,7 @@
       const r = Math.max(b.radius * z, b.kind === 'station' ? 0 : 2.5);
       if (sx < -r - 200 || sx > W + r + 200 || sy < -r - 200 || sy > H + r + 200) continue;
       if (b.kind === 'station') { drawStation(sx, sy, b); continue; }
+      if (b.kind === 'rock') { drawRock(sx, sy, r, b); continue; }
       const isStar = b.gm >= 30000 && /#ff/.test(b.color);
       if (b.kind === 'comet') drawCometTail(b, sx, sy, r);
       // Glow / atmosphere.
@@ -669,6 +692,22 @@
       }
       label(b.name, sx, sy + r + 14, 'rgba(220,228,255,0.75)');
     }
+  }
+
+  // Irregular asteroid: a lumpy polygon whose shape is fixed per rock.
+  function drawRock(sx, sy, r, b) {
+    const t = state.mission.t, k = b.index;
+    ctx.save(); ctx.translate(sx, sy); ctx.rotate(t * (0.2 + (k % 5) * 0.08) * (k % 2 ? 1 : -1));
+    ctx.fillStyle = shade(b.color, 0.9 + (k % 3) * 0.12);
+    ctx.beginPath();
+    for (let j = 0; j < 9; j++) {
+      const a = j / 9 * TAU, rr = r * (0.75 + 0.25 * Math.sin(k * 12.9898 + j * 4.1414) ** 2);
+      if (j) ctx.lineTo(Math.cos(a) * rr, Math.sin(a) * rr); else ctx.moveTo(Math.cos(a) * rr, Math.sin(a) * rr);
+    }
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = 'rgba(0,0,0,0.22)';
+    ctx.beginPath(); ctx.arc(r * 0.25, r * 0.2, r * 0.22, 0, TAU); ctx.fill();
+    ctx.restore();
   }
 
   function drawStation(sx, sy, b) {
@@ -918,7 +957,7 @@
       const li = document.createElement('li');
       li.className = i < m.goalIndex ? 'done' : i === m.goalIndex ? 'active' : '';
       li.innerHTML = `<span class="chk">${i < m.goalIndex ? '✓' : i === m.goalIndex ? '▸' : '·'}</span><span>${goalText(g, m)}</span>`;
-      if (i === m.goalIndex && (g.type === 'orbit' || g.type === 'rendezvous')) {
+      if (i === m.goalIndex && ['orbit', 'rendezvous', 'hold', 'escape'].includes(g.type)) {
         li.innerHTML += `<div class="sub" id="goal-sub"></div>`;
       }
       ul.appendChild(li);
@@ -929,9 +968,11 @@
   function goalText(g, m) {
     const name = g.body ? m.sys.byId[g.body].name : (g.label || 'target');
     switch (g.type) {
-      case 'hit': return 'Impact ' + name;
-      case 'reach': return 'Reach ' + name;
-      case 'orbit': return `Orbit ${name} ${g.rMin}–${g.rMax} for ${g.hold}s`;
+      case 'hit': return g.site ? `Land in the zone on ${name}` : 'Impact ' + name;
+      case 'reach': return 'Reach ' + (g.label || name);
+      case 'orbit': return `Orbit ${name} ${g.rMin}–${g.rMax}${g.dir ? (g.dir > 0 ? ' counter-clockwise' : ' clockwise') : ''} for ${g.hold}s`;
+      case 'hold': return `Hold within ${g.r} of ${g.label || name} for ${g.hold}s`;
+      case 'escape': return `Get ${g.r} from ${name}`;
       case 'rendezvous': return `Rendezvous with ${name}`;
     }
     return '';
@@ -992,9 +1033,12 @@
     if (g && sub) {
       const q = m.goalPoint(g);
       const d = Math.hypot(s.x - q.x, s.y - q.y);
-      if (g.type === 'orbit') {
+      if (g.type === 'orbit' || g.type === 'hold') {
         const pct = Math.min(100, 100 * m.holdTime / g.hold);
-        sub.innerHTML = `<div class="minibar"><div style="width:${pct}%"></div></div><span>${m.holdTime.toFixed(0)}/${g.hold}s · r=${d.toFixed(0)}</span>`;
+        const wrongWay = g.dir && (((s.x - q.x) * (s.vy - q.vy) - (s.y - q.y) * (s.vx - q.vx) > 0 ? 1 : -1) !== g.dir);
+        sub.innerHTML = `<div class="minibar"><div style="width:${pct}%"></div></div><span>${m.holdTime.toFixed(0)}/${g.hold}s · ${g.type === 'hold' ? 'dist' : 'r'}=${d.toFixed(0)}</span>${wrongWay ? ' <span class="warn">wrong direction</span>' : ''}`;
+      } else if (g.type === 'escape') {
+        sub.innerHTML = `<span>distance ${d.toFixed(0)} / ${g.r}</span>`;
       } else if (g.type === 'rendezvous') {
         const rv = Math.hypot(s.vx - q.vx, s.vy - q.vy);
         sub.innerHTML = `<span class="${d < g.dist ? 'ok' : ''}">dist ${d.toFixed(1)}</span> · <span class="${rv < g.relVel ? 'ok' : ''}">rel v ${rv.toFixed(2)}</span>`;
@@ -1003,7 +1047,7 @@
     const p = state.pred;
     let tgt = '';
     if (m.landed) tgt = 'Hold SPACE to lift off';
-    else if (p && p.ca) tgt = `Closest approach <b>${p.ca.d.toFixed(0)}</b> in ${fmtT(p.ca.t - m.t)}`;
+    else if (p && p.ca) tgt = `${p.ca.far ? 'Farthest point' : 'Closest approach'} <b>${p.ca.d.toFixed(0)}</b> in ${fmtT(p.ca.t - m.t)}`;
     if (dv <= 1e-6 && m.status === 'flying') tgt += '<div class="warn">Out of fuel — R to retry</div>';
     $('hud-target').innerHTML = tgt;
   }

@@ -208,7 +208,12 @@
           // Still clearing the launch pad.
         } else {
           const g = this.currentGoal();
-          if (g && g.type === 'hit' && sys.byId[g.body].index === hit) { this._completeGoal(); return; }
+          if (g && g.type === 'hit' && sys.byId[g.body].index === hit) {
+            if (this.siteOk(g, s.x, s.y, this.t)) { this._completeGoal(); return; }
+            this.status = 'crashed';
+            this.message = 'Missed the landing zone on ' + sys.bodies[hit].name + '.';
+            return;
+          }
           this.status = 'crashed';
           this.message = 'Crashed into ' + sys.bodies[hit].name + '.';
           return;
@@ -225,8 +230,17 @@
         const dx = s.x - ref.x, dy = s.y - ref.y;
         const d = Math.sqrt(dx * dx + dy * dy);
         if (g.type === 'reach' && d < g.r) this._completeGoal();
-        else if (g.type === 'orbit') {
-          if (d >= g.rMin && d <= g.rMax) {
+        else if (g.type === 'escape' && d > g.r) this._completeGoal();
+        else if (g.type === 'hold') {
+          // Stay inside a zone (e.g. a Lagrange point) for a while.
+          if (d < g.r) {
+            this.holdTime += h;
+            if (this.holdTime >= g.hold) this._completeGoal();
+          } else this.holdTime = 0;
+        } else if (g.type === 'orbit') {
+          // g.dir (optional): +1 counter-clockwise, -1 clockwise.
+          const ccw = dx * (s.vy - ref.vy) - dy * (s.vx - ref.vx) > 0 ? 1 : -1;
+          if (d >= g.rMin && d <= g.rMax && (!g.dir || g.dir === ccw)) {
             this.holdTime += h;
             if (this.holdTime >= g.hold) this._completeGoal();
           } else this.holdTime = 0;
@@ -247,11 +261,35 @@
     goalPoint(g, t) {
       const sys = this.sys;
       sys.update(t == null ? this.t : t);
+      if (g.lagrange) {
+        // Point sharing the body's orbit, `lead` radians ahead of it (L4 = +60°).
+        const b = sys.byId[g.lagrange.body], i = b.index, p = b.parent;
+        const c = Math.cos(g.lagrange.lead), sn = Math.sin(g.lagrange.lead);
+        const rx = sys.px[i] - sys.px[p], ry = sys.py[i] - sys.py[p];
+        const ux = sys.vx[i] - sys.vx[p], uy = sys.vy[i] - sys.vy[p];
+        return {
+          x: sys.px[p] + rx * c - ry * sn, y: sys.py[p] + rx * sn + ry * c,
+          vx: sys.vx[p] + ux * c - uy * sn, vy: sys.vy[p] + ux * sn + uy * c, body: -1,
+        };
+      }
       if (g.body) {
         const i = sys.byId[g.body].index;
         return { x: sys.px[i], y: sys.py[i], vx: sys.vx[i], vy: sys.vy[i], body: i };
       }
       return { x: g.x, y: g.y, vx: 0, vy: 0, body: -1 };
+    }
+
+    // For a 'hit' goal with a landing site, is (x, y) at time t inside it?
+    // site: { angle, width } in the body's own rotating frame.
+    siteOk(g, x, y, t) {
+      if (!g.site) return true;
+      const sys = this.sys, b = sys.byId[g.body];
+      sys.update(t);
+      const a = Math.atan2(y - sys.py[b.index], x - sys.px[b.index]) - b.spin * t;
+      let d = (a - g.site.angle) % (2 * Math.PI);
+      if (d > Math.PI) d -= 2 * Math.PI;
+      if (d < -Math.PI) d += 2 * Math.PI;
+      return Math.abs(d) <= g.site.width / 2;
     }
 
     _completeGoal() {

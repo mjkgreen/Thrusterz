@@ -38,6 +38,12 @@ function run(level, prog, wantTrace) {
       let d = Math.hypot(m.ship.x - p.x, m.ship.y - p.y);
       if (g.type === 'orbit') d = Math.max(0, g.rMin - d, d - g.rMax) + 40 * (1 - m.holdTime / g.hold);
       if (g.type === 'rendezvous') d += 10 * Math.hypot(m.ship.vx - p.vx, m.ship.vy - p.vy);
+      if (g.type === 'hold') d = Math.max(0, d - g.r) + 40 * (1 - m.holdTime / g.hold);
+      if (g.type === 'escape') d = Math.max(0, g.r - d);
+      if (g.site) {
+        const b = m.sys.byId[g.body], a = g.site.angle + b.spin * m.t;
+        d = Math.hypot(m.ship.x - p.x - b.radius * Math.cos(a), m.ship.y - p.y - b.radius * Math.sin(a));
+      }
       best = Math.min(best, d);
     }
   }
@@ -80,6 +86,13 @@ const CHECK = {
   stop: { burns: 2, absolute: true, guess: [0, 0, 2, 183, Math.PI, 2], scale: [1, 0.05, 0.3, 10, 0.05, 0.3] },
   circularize: { burns: 1, guess: [0, 0, 2.5], scale: [2, 0.2, 0.8] },
   deorbit: { burns: 1, guess: [0, Math.PI, 3], scale: [5, 0.3, 1] },
+  landing: { burns: 1, guess: [9, Math.PI, 2.5], scale: [2, 0.1, 0.4] },
+  wrongway: { burns: 3, guess: [0, 0, 2.5, 500, Math.PI, 1.4, 500, Math.PI, 2.2], scale: [2, 0.1, 0.5, 30, 0.1, 0.4, 30, 0.2, 0.5] },
+  freereturn: { burns: 2, guess: [5, 0, 4.2, 100, 0, 0], scale: [10, 0.2, 0.5, 100, 3, 0.3] },
+  moon2moon: { burns: 2, guess: [5, 0, 2.5, 100, 0, 0], scale: [20, 0.3, 1, 100, 3, 0.5] },
+  lagrange: { burns: 3, guess: [10, 0, 2.6, 60, 0, 2, 5, 0, 0], scale: [100, 0.2, 0.6, 20, 0.3, 0.6, 20, 3, 0.4] },
+  escape: { burns: 1, guess: [55, 0, 1.3], scale: [8, 0.2, 0.4] },
+  belt: { burns: 2, guess: [5, 0, 4, 50, 0, 0], scale: [40, 0.2, 1, 100, 3, 0.4] },
   turn: { burns: 2, guess: [0.5, 0, 2.5, 36, 0, 2.0], scale: [5, 0.3, 1, 8, 0.3, 1] },
   moonshot: { burns: 1, guess: [5, 0, 4.2], scale: [10, 0.2, 1] },
   inertia: { burns: 3, guess: [106, Math.PI, 1.3, 63, Math.PI, 1.45, 2, 0, 0], scale: [10, 0.2, 0.5, 5, 0.2, 0.5, 5, 3, 0.3] },

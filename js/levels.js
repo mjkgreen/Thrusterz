@@ -22,6 +22,21 @@
     station: '#e6e6f0', purple: '#a98be8', tan: '#d8b67a', comet: '#cfefff',
   };
 
+  // A deterministic ring of small, massless rocks on their own circular orbits.
+  function belt(parent, n, rMin, rMax, seed) {
+    let x = seed;
+    const rnd = () => (x = (x * 16807) % 2147483647) / 2147483647;
+    const rocks = [];
+    for (let i = 0; i < n; i++) {
+      rocks.push({
+        id: 'rock' + i, name: 'Asteroid', kind: 'rock', noRail: true, gm: 0,
+        radius: 7 + rnd() * 9, color: '#8d8478',
+        orbit: { parent, a: rMin + rnd() * (rMax - rMin), phase: rnd() * Math.PI * 2 },
+      });
+    }
+    return rocks;
+  }
+
   const LEVELS = [
     {
       id: 'liftoff',
@@ -93,6 +108,19 @@
       par: 3.5, bounds: 2000, tMax: 600, predict: 80, view: { x: 0, y: 0, span: 500 },
     },
     {
+      id: 'landing',
+      name: 'Landing Zone',
+      intro: 'Terra turns beneath you, carrying the landing zone with it. Burn retrograde and watch the end of the dashed path: keep burning until its mark turns green and reads IMPACT, then stop. Too early or late and it reads OFF TARGET.',
+      objective: 'Impact Terra inside the landing zone.',
+      teaches: 'Timing a deorbit burn',
+      bodies: [
+        { id: 'terra', name: 'Terra', gm: 20000, radius: 50, color: C.blue, spin: 0.05 },
+      ],
+      ship: ship({ start: { orbit: { body: 'terra', r: 100, angle: 0 } }, heading: 'prograde', dv: 6, accel: 1 }),
+      goals: [{ type: 'hit', body: 'terra', site: { angle: Math.PI, width: 0.9 }, label: 'Landing zone' }],
+      par: 3.5, bounds: 2000, tMax: 600, predict: 80, view: { x: 0, y: 0, span: 500 },
+    },
+    {
       id: 'turn',
       name: 'Turn and Burn',
       intro: 'Burning prograde raises the far side of your orbit. Burn once to climb, coast to the top of the new orbit, then burn prograde again to round it out. This two-burn move is a Hohmann transfer.',
@@ -104,6 +132,19 @@
       ship: ship({ start: { orbit: { body: 'terra', r: 90, angle: -Math.PI / 2 } }, heading: 'up', dv: 8, accel: 1 }),
       goals: [{ type: 'orbit', body: 'terra', rMin: 180, rMax: 230, hold: 60 }],
       par: 4.8, bounds: 2000, tMax: 900, predict: 120, view: { x: 0, y: 0, span: 600 },
+    },
+    {
+      id: 'wrongway',
+      name: 'Wrong Way',
+      intro: 'You are orbiting clockwise and need to go counter-clockwise. Flipping your velocity directly would take more fuel than you have. Instead, climb high: far out you move slowly, so turning around there is cheap. Then fall back and circularize.',
+      objective: 'Orbit Terra counter-clockwise between 100 and 160 for 40 s.',
+      teaches: 'Orbit direction · bi-elliptic transfer',
+      bodies: [
+        { id: 'terra', name: 'Terra', gm: 20000, radius: 50, color: C.blue },
+      ],
+      ship: ship({ start: { orbit: { body: 'terra', r: 120, angle: 0, dir: -1 } }, heading: 'prograde', dv: 16, accel: 2 }),
+      goals: [{ type: 'orbit', body: 'terra', rMin: 100, rMax: 160, hold: 40, dir: 1 }],
+      par: 13, bounds: 3000, tMax: 2400, predict: 400, view: { x: 0, y: 0, span: 1800 },
     },
     {
       id: 'moonshot',
@@ -118,6 +159,23 @@
       ship: ship({ start: { orbit: { body: 'terra', r: 90, angle: 0 } }, heading: 'prograde', dv: 7, accel: 1 }),
       goals: [{ type: 'hit', body: 'luna' }],
       par: 4, bounds: 2500, tMax: 1200, predict: 160, view: { x: 0, y: 0, span: 1000 },
+    },
+    {
+      id: 'freereturn',
+      name: 'Free Return',
+      intro: 'Apollo-style: one burn sends you around the back of Luna, and its gravity swings you home without another burn. Aim to pass just behind Luna, then let the dashed path bring you back near Terra.',
+      objective: 'Fly past Luna, then come back within 110 of Terra.',
+      teaches: 'Free-return trajectory',
+      bodies: [
+        { id: 'terra', name: 'Terra', gm: 20000, radius: 50, color: C.blue },
+        { id: 'luna', name: 'Luna', gm: 1500, radius: 18, color: C.grey, orbit: { parent: 'terra', a: 400, phase: 2.4 } },
+      ],
+      ship: ship({ start: { orbit: { body: 'terra', r: 90, angle: 0 } }, heading: 'prograde', dv: 6, accel: 1 }),
+      goals: [
+        { type: 'reach', body: 'luna', r: 70, label: 'Luna flyby' },
+        { type: 'reach', body: 'terra', r: 110, label: 'Home' },
+      ],
+      par: 4.6, bounds: 3000, tMax: 1500, predict: 260, view: { x: 0, y: 0, span: 1000 },
     },
     {
       id: 'inertia',
@@ -146,6 +204,48 @@
       ship: ship({ start: { orbit: { body: 'terra', r: 90, angle: 0 } }, heading: 'prograde', dv: 10, accel: 1 }),
       goals: [{ type: 'orbit', body: 'luna', rMin: 30, rMax: 120, hold: 30 }],
       par: 4.5, bounds: 2500, tMax: 1500, predict: 160, view: { x: 0, y: 0, span: 1000 },
+    },
+    {
+      id: 'moon2moon',
+      name: 'Moon to Moon',
+      intro: 'You are parked around Luna. Selene orbits Terra farther out. Leave Luna in the direction it is moving so its speed adds to yours, then coast out to Selene. V switches between Luna, Terra and Selene views.',
+      objective: 'Impact Selene.',
+      teaches: 'Leaving a moon · nested orbits',
+      bodies: [
+        { id: 'terra', name: 'Terra', gm: 20000, radius: 50, color: C.blue },
+        { id: 'luna', name: 'Luna', gm: 3000, radius: 16, color: C.grey, orbit: { parent: 'terra', a: 300, phase: 0 } },
+        { id: 'selene', name: 'Selene', gm: 1200, radius: 16, color: C.purple, orbit: { parent: 'terra', a: 620, phase: 1.6 } },
+      ],
+      ship: ship({ start: { orbit: { body: 'luna', r: 32, angle: 0 } }, heading: 'prograde', dv: 6, accel: 1 }),
+      goals: [{ type: 'hit', body: 'selene' }],
+      par: 3.5, bounds: 3000, tMax: 2000, predict: 260, view: { x: 0, y: 0, span: 1500 },
+    },
+    {
+      id: 'lagrange',
+      name: 'Lagrange Point',
+      intro: 'Sixty degrees ahead of Vesta, along its orbit, Terra\'s and Vesta\'s gravity balance: the L4 point. Something parked there rides along forever. Get there and match its motion, the same as docking.',
+      objective: 'Stay within 40 of L4 for 30 s.',
+      teaches: 'Lagrange points · co-orbital rendezvous',
+      bodies: [
+        { id: 'terra', name: 'Terra', gm: 20000, radius: 50, color: C.blue },
+        { id: 'vesta', name: 'Vesta', gm: 500, radius: 14, color: C.tan, orbit: { parent: 'terra', a: 400, phase: 1.2 } },
+      ],
+      ship: ship({ start: { orbit: { body: 'terra', r: 150, angle: 0 } }, heading: 'prograde', dv: 8, accel: 1 }),
+      goals: [{ type: 'hold', lagrange: { body: 'vesta', lead: Math.PI / 3 }, r: 40, hold: 30, label: 'L4' }],
+      par: 5, bounds: 2500, tMax: 2000, predict: 200, view: { x: 0, y: 0, span: 1000 },
+    },
+    {
+      id: 'escape',
+      name: 'Escape Velocity',
+      intro: 'Behemoth is heavy and your tank is small. A burn does the most good where you are moving fastest, at the bottom of your orbit (the Oberth effect). Coast down to your lowest point, then burn prograde hard.',
+      objective: 'Get more than 1500 from Behemoth.',
+      teaches: 'The Oberth effect',
+      bodies: [
+        { id: 'behemoth', name: 'Behemoth', gm: 40000, radius: 50, color: C.red },
+      ],
+      ship: ship({ start: { orbit: { body: 'behemoth', r: 400, angle: Math.PI / 2, speed: 0.546 } }, heading: 'prograde', dv: 3, accel: 1.5 }),
+      goals: [{ type: 'escape', body: 'behemoth', r: 1500, label: 'Escape' }],
+      par: 2.3, bounds: 4000, tMax: 900, predict: 200, view: { x: 0, y: 0, span: 900 },
     },
     {
       id: 'slingshot',
@@ -190,6 +290,21 @@
       ship: ship({ start: { orbit: { body: 'terra', r: 45, angle: 0 } }, heading: 'prograde', dv: 8, accel: 1.2 }),
       goals: [{ type: 'hit', body: 'rust' }],
       par: 5.5, bounds: 5000, tMax: 3000, predict: 500, view: { x: 0, y: 0, span: 3200 },
+    },
+    {
+      id: 'belt',
+      name: 'Asteroid Belt',
+      intro: 'Halcyon lies beyond a belt of tumbling rocks. Transfer out as usual, but watch the dashed path: a red CRASH mark means a rock will be in your way. Nudge your timing until the path threads through.',
+      objective: 'Impact Halcyon without hitting an asteroid.',
+      teaches: 'Threading moving obstacles',
+      bodies: [
+        { id: 'sun', name: 'Sol', gm: 200000, radius: 60, color: C.sun },
+        { id: 'halcyon', name: 'Halcyon', gm: 3000, radius: 22, color: C.green, orbit: { parent: 'sun', a: 1100, phase: 1.3 } },
+        ...belt('sun', 60, 650, 850, 4242),
+      ],
+      ship: ship({ start: { orbit: { body: 'sun', r: 450, angle: 0 } }, heading: 'prograde', dv: 7, accel: 1.2 }),
+      goals: [{ type: 'hit', body: 'halcyon' }],
+      par: 5.5, bounds: 4000, tMax: 2500, predict: 300, view: { x: 0, y: 0, span: 2500 },
     },
     {
       id: 'comet',

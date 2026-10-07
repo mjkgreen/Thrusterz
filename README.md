@@ -2,7 +2,7 @@
 
 An orbital mechanics flight game. Pilot a rocket in real time — a fuel-limited
 main engine and side thrusters for rotation — under real Newtonian gravity, and
-hit your destination. Fourteen missions build up from a single launch to
+hit your destination. Twenty-one missions build up from a single launch to
 interplanetary transfers, gravity assists and multi-moon tours.
 
 ## Play
@@ -57,9 +57,10 @@ you do it, and stops appearing after you've mastered it.
 - **Trajectory prediction** — the dashed line is your coast path. The magenta
   marker and ghost show the closest approach to your current objective and where
   the target will be at that moment.
-- **Objectives** — impact a body, reach a zone, hold an orbit band for N
-  seconds, or rendezvous (distance *and* relative speed). Missions can chain
-  several objectives.
+- **Objectives** — impact a body (optionally inside a landing zone on its
+  spinning surface), reach a zone, escape past a distance, hold an orbit band
+  (optionally in a set direction) or a point such as L4 for N seconds, or
+  rendezvous (distance *and* relative speed). Missions can chain objectives.
 - **Stars** — 3★ for finishing under the mission's par Δv without gyro assist,
   2★ under 1.4× par.
 
@@ -72,15 +73,22 @@ you do it, and stops appearing after you've mastered it.
 | 3 | Full Stop | Flip and burn to park next to a buoy; time warp |
 | 4 | Circularize | Prograde burns; overview / follow camera |
 | 5 | Deorbit | Retrograde burns |
-| 6 | Turn and Burn | Hohmann transfer |
-| 7 | Moonshot | Intercepting a moving moon, phasing |
-| 8 | Docking | Phasing and rendezvous with a station |
-| 9 | Lunar Capture | Capture burns, reference frames |
-| 10 | Slingshot | Gravity assist (the gate is unreachable without one) |
-| 11 | Twin Suns | Binary star system, three-body chaos |
-| 12 | Interplanetary | Escape burns, transfer windows |
-| 13 | Comet Chaser | Eccentric orbits |
-| 14 | Grand Tour | Chained flybys of several moons |
+| 6 | Landing Zone | Timing a deorbit to land on a marked strip of a spinning planet |
+| 7 | Turn and Burn | Two-burn Hohmann transfer |
+| 8 | Wrong Way | Reversing orbit direction cheaply with a bi-elliptic transfer |
+| 9 | Moonshot | Intercepting a moving moon, phasing |
+| 10 | Free Return | One burn around the back of the moon and home again |
+| 11 | Docking | Phasing and rendezvous with a station |
+| 12 | Lunar Capture | Capture burns, reference frames |
+| 13 | Moon to Moon | Leaving one moon for another (nested orbits) |
+| 14 | Lagrange Point | Parking at L4, 60° ahead of a moon |
+| 15 | Escape Velocity | The Oberth effect: burn where you're fastest |
+| 16 | Slingshot | Gravity assist (the gate is unreachable without one) |
+| 17 | Twin Suns | Binary star system, three-body chaos |
+| 18 | Interplanetary | Escape burns, transfer windows |
+| 19 | Asteroid Belt | Threading a transfer through moving rocks |
+| 20 | Comet Chaser | Eccentric orbits |
+| 21 | Grand Tour | Chained flybys of several moons |
 
 The reference frame starts on **Auto**: it follows the body whose sphere of
 influence you're in, or the star you're orbiting when you're in none.
