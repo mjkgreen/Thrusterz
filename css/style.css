@@ -200,8 +200,8 @@ kbd {
   transition: transform 0.15s, border-color 0.15s;
 }
 .level-card:hover { transform: translateY(-2px); border-color: rgba(124, 247, 212, 0.5); }
-.level-card.locked { opacity: 0.4; cursor: not-allowed; }
-.level-card.locked:hover { transform: none; border-color: var(--panel-border); }
+.level-card.next { border-color: rgba(124, 247, 212, 0.55); }
+.nexttag { margin-left: 8px; font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); vertical-align: middle; }
 .level-card .num { font-family: var(--mono); font-size: 12px; color: var(--muted); }
 .level-card .lname { font-size: 18px; font-weight: 800; margin: 2px 0; }
 .level-card .lteach { font-size: 12px; color: var(--muted); min-height: 30px; }

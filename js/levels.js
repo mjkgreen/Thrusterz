@@ -97,7 +97,7 @@
       name: 'Turn and Burn',
       intro: 'Burning prograde raises the far side of your orbit. Burn once to climb, coast to the top of the new orbit, then burn prograde again to round it out. This two-burn move is a Hohmann transfer.',
       objective: 'Hold an orbit between 180 and 230 around Terra for 60 s.',
-      teaches: 'Rotation · prograde burns · Hohmann transfer',
+      teaches: 'Two-burn Hohmann transfer',
       bodies: [
         { id: 'terra', name: 'Terra', gm: 20000, radius: 50, color: C.blue },
       ],

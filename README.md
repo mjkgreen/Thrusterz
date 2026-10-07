@@ -13,7 +13,8 @@ No build step. Open `index.html` in a browser, or serve the folder:
 npm start            # http://localhost:8080
 ```
 
-Handy URL flags: `?level=N` jumps to mission N, `?unlock` unlocks every mission.
+Every mission is open from the start; the first one you haven't cleared is marked
+*Next up*. `?level=N` jumps straight to mission N.
 
 ### Controls
 

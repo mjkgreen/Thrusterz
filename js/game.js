@@ -1026,15 +1026,16 @@
     const grid = $('level-grid');
     grid.innerHTML = '';
     LEVELS.forEach((L, i) => {
-      const locked = i > progress.unlocked;
+      // Every mission is open; the first uncleared one is highlighted as next up.
       const stars = progress.stars[L.id] || 0;
+      const next = i === LEVELS.findIndex(l => !progress.stars[l.id]);
       const card = document.createElement('button');
-      card.className = 'level-card' + (locked ? ' locked' : '') + (stars ? ' cleared' : '');
+      card.className = 'level-card' + (stars ? ' cleared' : '') + (next ? ' next' : '');
       card.innerHTML = `<div class="num">${String(i + 1).padStart(2, '0')}</div>
         <div class="lname">${L.name}</div>
         <div class="lteach">${L.teaches}</div>
-        <div class="lstars">${locked ? '🔒' : starStr(stars)}</div>`;
-      if (!locked) card.addEventListener('click', () => showBriefing(i));
+        <div class="lstars">${starStr(stars)}${next ? '<span class="nexttag">Next up</span>' : ''}</div>`;
+      card.addEventListener('click', () => showBriefing(i));
       grid.appendChild(card);
     });
   }
