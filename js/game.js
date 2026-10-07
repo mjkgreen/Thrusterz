@@ -49,9 +49,10 @@
   // ---------------------------------------------------------------- setup
   function resize() {
     DPR = Math.min(window.devicePixelRatio || 1, 2);
-    W = window.innerWidth; H = window.innerHeight;
-    canvas.width = W * DPR; canvas.height = H * DPR;
-    canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+    // Measure the CSS box: in an iOS home-screen app innerHeight can stop short
+    // of the home-indicator strip, which left an unpainted bar there.
+    W = canvas.clientWidth || window.innerWidth; H = canvas.clientHeight || window.innerHeight;
+    canvas.width = Math.round(W * DPR); canvas.height = Math.round(H * DPR);
   }
   window.addEventListener('resize', resize);
   resize();
