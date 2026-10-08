@@ -47,14 +47,23 @@
   if (/[?&]unlock/.test(location.search)) progress.unlocked = LEVELS.length - 1;
 
   // ---------------------------------------------------------------- setup
+  // The canvas fills the screen through CSS; its pixel buffer must always match
+  // the box it is actually shown in, or everything is drawn stretched. Phones
+  // change that box after the resize event (rotation, browser bars, entering
+  // fullscreen), so the frame loop re-checks it every frame.
   function resize() {
     DPR = Math.min(window.devicePixelRatio || 1, 2);
-    // Measure the CSS box: in an iOS home-screen app innerHeight can stop short
-    // of the home-indicator strip, which left an unpainted bar there.
-    W = canvas.clientWidth || window.innerWidth; H = canvas.clientHeight || window.innerHeight;
+    const r = canvas.getBoundingClientRect();
+    W = r.width || window.innerWidth; H = r.height || window.innerHeight;
     canvas.width = Math.round(W * DPR); canvas.height = Math.round(H * DPR);
   }
+  function syncSize() {
+    const r = canvas.getBoundingClientRect();
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    if (Math.abs(r.width - W) > 0.5 || Math.abs(r.height - H) > 0.5 || dpr !== DPR) resize();
+  }
   window.addEventListener('resize', resize);
+  if (window.ResizeObserver) new ResizeObserver(resize).observe(canvas);
   resize();
 
   function makeStars() {
@@ -307,6 +316,7 @@
   // ---------------------------------------------------------------- update
   let lastTime = performance.now();
   function frame(now) {
+    syncSize();
     const realDt = Math.min(0.05, (now - lastTime) / 1000);
     lastTime = now;
     if (state.screen === 'flight' && !state.paused && $('gate').classList.contains('hidden')) update(realDt);
