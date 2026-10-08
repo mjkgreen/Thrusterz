@@ -6,6 +6,7 @@
   "scripts": {
     "start": "npx http-server -c-1 -p 8080 .",
     "test": "node tools/test-physics.js",
-    "check-levels": "node tools/check-levels.js"
+    "check-levels": "node tools/check-levels.js",
+    "check-scripted": "node tools/check-scripted.js"
   }
 }

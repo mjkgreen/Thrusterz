@@ -1,8 +1,8 @@
 # Thrusterz roadmap
 
-Living notes on where the game goes next. World 1 (Flight School)
-is complete. New mechanics are prototyped as **Test levels** in the menu before
-they get a world of their own.
+Living notes on where the game goes next. World 1 (Flight School) and World 2
+(Payloads) are complete. New mechanics are prototyped as **Test levels** in the
+menu before they get a world of their own.
 
 ## Principles for a world mechanic
 
@@ -21,8 +21,8 @@ Early worlds stay grounded in real spaceflight; stranger ideas come later.
 
 | Status | Mechanic | The decision it adds | Notes |
 | --- | --- | --- | --- |
-| **Prototype** | **Payload deploy** | When to release a payload so it coasts to its own target | Booster + payload with its own tiny tank. Test level: *Launch a Satellite*. Staging (dropping empty tanks) folds in here. |
-| **Prototype** | **Fuel pickups** | Route planning: is the detour worth the fuel? | Canisters on their own orbits. Test level: *Fuel Run*. Also good as a mixer in any world. |
+| **Built (World 2)** | **Payloads** | When to drop a stage or release cargo, and where the pieces end up | Stages, engineless cargo, debris fates, keep-out zones, constellations. |
+| **Prototype** | **Fuel pickups** | Route planning: is the detour worth the fuel? | Canisters on their own orbits. Test level: *Fuel Run*. Used as a mixer in World 2 (*Fuel Depot*). |
 | Idea | Refuelling depot | Rendezvous to refill, then fly a mission your tank alone can't | Builds on Docking. Natural pair with pickups. |
 | Idea | Atmospheres / aerobraking | How deep to skim: free braking vs. burning up | Drag layer + heating limit. No new button; a new surface to read on the predicted path. |
 | Idea | Asteroid tug / planetary defense | Push a heavy mass with your small engine | Dock with a rock and redirect it off a collision course. Strong finale for a world. |
@@ -35,24 +35,27 @@ Early worlds stay grounded in real spaceflight; stranger ideas come later.
 | Idea | Wormholes | Enter one, exit another with the same velocity | Sci-fi; breaks the real-physics identity, so late or never. |
 | Idea | Collectible stars | Fly a route that grabs three stars along the way | Cut the Rope-style replay layer that works in every world, including World 1. |
 
-## World 2 plan: Payloads (draft)
+## World 2: Payloads (built)
 
-Built on four sub-mechanics, each with a preview in **Test levels**:
+Four sub-mechanics, combined in five chapters of six missions:
 
-| Sub-mechanic | What it adds | Preview level |
-| --- | --- | --- |
-| A. Hand-off | Drop the spent stage; control passes to the payload | Launch a Satellite |
-| B. Passive drop | Release engineless cargo; it coasts along your current path (the dashed line is the release preview) while you keep flying | Release Point |
-| C. Stacks | Three or more stages, each lighter than the last | Three Stages |
-| D. Debris | Spent stages keep flying and can hit protected objects | Clear the Station |
+| Sub-mechanic | What it adds |
+| --- | --- |
+| A. Hand-off | Drop the spent stage; control passes to the next one |
+| B. Passive drop | Release engineless cargo; it coasts along your current path (the dashed line is the release preview) while you keep flying |
+| C. Stacks | Three or more stages, each lighter than the last |
+| D. Debris | Spent stages keep flying. A stage left on an orbit that crosses a protected object's orbit fails the mission (it would hit eventually); one that reenters is fine |
 
-Draft missions (6 per chapter): *Hand-off* (Launch a Satellite, Burn It Dry, High
-Orbit, Against the Spin, Moon Probe, Lander) · *Passive drop* (Release Point,
-Impactor, Relay Drop, Supply Run, Twin Probes, Constellation) · *Stacks* (Three
-Stages, Kick Stage, Escape Probe, Sundiver Probe, Assist and Release, Outer
-Planet) · *Debris and hazards* (Clear the Station, Busy Orbit, Ring Drop, Fuel
-Depot Drop, Trojan Relay, Binary Survey) · *Grand missions* (Moon Network, Belt
-Survey, Voyager, Lander + Orbiter, Deep Space Network, Grand Deployment).
+Chapters: *Hand-off* (Launch a Satellite, Burn It Dry, Against the Spin,
+Stationary, Moon Probe, Homecoming) · *Passive drop* (Release Point, Impactor,
+Relay Drop, Supply Run, Twin Probes, Constellation) · *Stacks* (Three Stages,
+Kick Stage, Escape Velocity, Solar Probe, Outer Planet, Splashdown) · *Debris*
+(Clear the Station, Busy Orbit, Leave No Junk, Fuel Depot, Relay Pair,
+Junkyard) · *Grand missions* (Lander and Orbiter, Deep Impact, Voyager, Moon
+Network, Belt Survey, Grand Deployment).
+
+Every World 2 mission has a scripted winning flight plan in `tools/proofs.js`,
+flown by `npm test`; pars were set from the cheapest routes the search found.
 
 Fuel pickups appear in World 2 only as an occasional mixer. Refuelling depots
 (rendezvous, then top up) and control switching between craft (booster landing,

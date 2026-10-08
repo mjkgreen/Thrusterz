@@ -2,8 +2,9 @@
 
 An orbital mechanics flight game. Pilot a rocket in real time — a fuel-limited
 main engine and side thrusters for rotation — under real Newtonian gravity, and
-hit your destination. Missions build up from a single launch to
-interplanetary transfers, gravity assists and multi-moon tours.
+hit your destination. World 1 builds up from a single launch to
+interplanetary transfers, gravity assists and multi-moon tours; World 2 adds
+rockets that come apart: staging, payloads and the debris they leave behind.
 
 ## Play
 
@@ -14,7 +15,8 @@ npm start            # http://localhost:8080
 ```
 
 Every mission is open from the start; the first one you haven't cleared is marked
-*Next up*. `?level=N` jumps straight to mission N.
+*Next up*. `?level=N` jumps straight to mission N, counting across all worlds
+in menu order.
 
 ### Controls
 
@@ -24,7 +26,7 @@ Every mission is open from the start; the first one you haven't cleared is marke
 | `A` `D` / `←` `→` | Side thrusters (rotate) |
 | `W` `S` | Throttle up / down |
 | `G` | Gyro assist on/off (auto-stops spin, but caps the run at ★★) |
-| `E` | Deploy payload (when carrying one) |
+| `E` | Drop cargo, or drop the spent stage and fly the next one |
 | `,` `.` | Time warp down / up (warp drops to 1× while thrusters fire) |
 | `V` | Cycle reference frame (auto / inertial / each body) |
 | `F` / `O` | Follow ship / overview · mouse wheel zoom, drag pan |
@@ -71,10 +73,25 @@ you do it, and stops appearing after you've mastered it.
   2★ under 1.4× par.
 - **Score** — up to 6,500 per mission for finishing, fuel efficiency against
   par, speed, and flying without gyro assist. Personal bests are saved locally.
-- **Payload deploy** (test level) — a booster carries a light payload with its
-  own tiny tank. `E` / DEPLOY drops the spent booster (it keeps falling as
-  debris) and hands control to the payload.
-- **Fuel pickups** (test level) — fly through a canister to add its Δv.
+- **Stages** (World 2) — rockets are stacks of stages, each with its own
+  tank and engine, and each stage's Δv counts everything above it. `E` /
+  DEPLOY drops the spent stage and lights the next one.
+- **Cargo** (World 2) — engineless payloads (pods, relays, probes,
+  satellites). `E` / DROP releases the next one with your exact position and
+  velocity, so your dashed path at that moment is exactly where it goes; the
+  readout says *DROP NOW → IMPACT* when it would land on target. Cargo can
+  have its own objectives: land in a zone, hold an orbit, park at a Lagrange
+  point, reach a station, or spread out into a constellation.
+- **Debris** (World 2) — dropped stages keep flying. Their fate is computed
+  when they're dropped: burn up on reentry (fine), drift clear, or threaten a
+  protected object. A stage left on a bound orbit that crosses a protected
+  object's orbit fails the mission at once, since it would hit eventually; the
+  danger band and crossing points are shown. Some stations also have a
+  keep-out zone your ship may not enter.
+- **Δv used** is the Δv you actually burned, so dropping cargo (which leaves
+  the rest of the ship lighter) doesn't count as saving fuel.
+- **Fuel pickups** — fly through a canister to add its Δv to the current
+  stage.
 
 ## Missions
 
@@ -113,12 +130,47 @@ you do it, and stops appearing after you've mastered it.
 | 29 | Moon Juggler | Chained escapes and captures |
 | 30 | Grand Tour | Multi-body trajectory planning |
 
+**World 2 · Payloads**
+
+| # | Mission | Teaches |
+| --- | --- | --- |
+| 1 | Launch a Satellite | Payload deploy |
+| 2 | Burn It Dry | Use every stage fully |
+| 3 | Against the Spin | Launch direction · retrograde orbit |
+| 4 | Stationary | Synchronous orbit |
+| 5 | Moon Probe | Transfer stage + capture |
+| 6 | Homecoming | Return stage · targeted landing |
+| 7 | Release Point | Passive drop · release timing |
+| 8 | Impactor | Drop, then dodge |
+| 9 | Relay Drop | Place cargo on an orbit |
+| 10 | Supply Run | Throw, don't carry |
+| 11 | Twin Probes | Two drops, two targets |
+| 12 | Constellation | Phasing orbits |
+| 13 | Three Stages | Multi-stage rockets |
+| 14 | Kick Stage | Apogee kick · long, weak burns |
+| 15 | Escape Velocity | Escape velocity |
+| 16 | Solar Probe | Stacks for big Δv |
+| 17 | Outer Planet | Interplanetary orbiter |
+| 18 | Splashdown | Range safety |
+| 19 | Clear the Station | Debris hazards |
+| 20 | Busy Orbit | Where your booster ends up |
+| 21 | Leave No Junk | Deorbiting the upper stage |
+| 22 | Fuel Depot | Pickups on the way up |
+| 23 | Relay Pair | Lagrange drops |
+| 24 | Junkyard | Planning every drop |
+| 25 | Lander and Orbiter | Targeted drop + capture |
+| 26 | Deep Impact | Impactor + flyby |
+| 27 | Voyager | Gravity assist with a stack |
+| 28 | Moon Network | Multi-stop delivery |
+| 29 | Belt Survey | Precision drops on small targets |
+| 30 | Grand Deployment | Everything at once |
+
 The reference frame starts on **Auto**: it follows the body whose sphere of
 influence you're in, or the star you're orbiting when you're in none.
 
-**Test levels** prototype the next mechanics: *Launch a Satellite* (hand-off),
-*Release Point* (passive cargo drop), *Three Stages* (multi-stage stacks),
-*Clear the Station* (debris hazards) and *Fuel Run* (fuel pickups). See [docs/ROADMAP.md](docs/ROADMAP.md) for
+World 2 flies through a green nebula with distant planets in the background,
+so you can always tell the worlds apart. **Test levels** prototype upcoming
+mechanics (currently *Fuel Run*). See [docs/ROADMAP.md](docs/ROADMAP.md) for
 future worlds, the leaderboard design and the level-maker plan.
 
 ## Physics
@@ -143,13 +195,17 @@ future worlds, the leaderboard design and the level-maker plan.
 index.html          page shell, HUD and menus
 css/style.css
 js/physics.js       rails, gravity, integrator, coast prediction
-js/flight.js        Mission: ship, engines, staging-ready mass model, objectives
+js/flight.js        Mission: ship, stages, cargo, debris, objectives
 js/levels.js        mission definitions
 js/game.js          rendering, input, HUD, menus, progress (localStorage)
 tools/test-physics.js   physics sanity tests            (npm test)
 tools/brand/            icon + share card sources; render.js regenerates img/
-tools/check-levels.js   autopilot search proving each mission is solvable
-                        within its fuel budget           (npm run check-levels)
+tools/check-levels.js   random burn search proving World 1 missions solvable
+                        within their fuel budget         (npm run check-levels)
+tools/autopilot.js      scripted autopilot (launch, burns, drops, deploys)
+tools/proofs.js         a winning flight plan for every World 2 mission;
+                        npm test flies them all
+tools/check-scripted.js re-tunes a proof's parameters    (npm run check-scripted [id] [iters] [opt])
 ```
 
 `physics.js`, `flight.js` and `levels.js` have no DOM dependencies and run
@@ -157,10 +213,10 @@ under Node, which is how the tools use them.
 
 ## Roadmap
 
-The ship is modelled as a list of stages, so these slot in next:
+Next up (details in [docs/ROADMAP.md](docs/ROADMAP.md)):
 
-- Staging / jettisoning an empty tank
 - Orbital refuelling at a depot
+- Control switching between craft (booster landing, lander and orbiter)
 - Secondary (translation) thrusters for fine docking
 - Soft landings (impact-speed limits)
 - Autopilot holds (prograde / retrograde) as an unlockable upgrade

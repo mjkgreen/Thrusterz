@@ -79,7 +79,7 @@ for (const L of LEVELS) {
 // 6. Deploying drops the booster's mass: the payload alone has its own Δv,
 //    and the dropped stage keeps flying as debris.
 {
-  const L = LEVELS.find(l => l.id === 'test-satellite');
+  const L = LEVELS.find(l => l.id === 'satellite');
   const m = new Mission(L);
   const total = m.dvRemaining();
   m.landed = null; // pretend we're already flying
@@ -132,7 +132,7 @@ for (const L of LEVELS) {
   };
   const ro = fly(LEVELS.find(l => l.id === 'reachorbit'), false);
   check('Reach Orbit: a gravity turn makes a real orbit', ro.status === 'won', `${ro.status} dv=${ro.dvUsed().toFixed(2)}`);
-  const sat = LEVELS.find(l => l.id === 'test-satellite');
+  const sat = LEVELS.find(l => l.id === 'satellite');
   const withDeploy = fly(sat, true), boosterOnly = fly(sat, false);
   check('Satellite: deploying reaches orbit', withDeploy.status === 'won', withDeploy.status);
   check('Satellite: the booster alone cannot', boosterOnly.status !== 'won', boosterOnly.status);
@@ -180,12 +180,12 @@ for (const L of LEVELS) {
   const orb = (s, gm) => { const r = Math.hypot(s.x, s.y), v2 = s.vx * s.vx + s.vy * s.vy, a = 1 / (2 / r - v2 / gm), h = s.x * s.vy - s.y * s.vx, e = Math.sqrt(Math.max(0, 1 - h * h / (gm * a))); return { r, pe: a * (1 - e), ap: a > 0 ? a * (1 + e) : Infinity }; };
 
   // Stacks: each stage delivers its advertised Δv with everything above it aboard.
-  const stack = new Mission(LEVELS.find(l => l.id === 'test-stack'));
+  const stack = new Mission(LEVELS.find(l => l.id === 'threestages'));
   const want = [4.5, 4, 3];
   check('stack: every stage has its own Δv', stack.stageDv0.every((v, k) => Math.abs(v - want[k]) < 1e-6), stack.stageDv0.map(v => v.toFixed(2)).join(' / '));
 
   // Release Point: drop the pod on a path into the zone, then climb back to orbit.
-  const drop = new Mission(LEVELS.find(l => l.id === 'test-drop'));
+  const drop = new Mission(LEVELS.find(l => l.id === 'releasepoint'));
   { const m = drop, s = m.ship; let ph = 0;
     while (m.status === 'flying' && m.t < 300) {
       const o = orb(s, 20000); let thrust = false;
@@ -196,14 +196,14 @@ for (const L of LEVELS) {
       m.advance(thrust ? 1 / 120 : 0.1, { thrust, throttle: 1, rotate: 0 });
     } }
   check('Release Point: pod lands in the zone, ship recovers', drop.status === 'won', `${drop.status} ${drop.message}`);
-  const lazy = new Mission(LEVELS.find(l => l.id === 'test-drop'));
+  const lazy = new Mission(LEVELS.find(l => l.id === 'releasepoint'));
   lazy.release();
   while (lazy.status === 'flying' && lazy.t < 200) lazy.advance(0.25, { thrust: false, throttle: 1, rotate: 0 });
   check('Release Point: a pod dropped from orbit never lands', lazy.status !== 'won', lazy.status);
 
   // Clear the Station: dropping the booster at once hits the station; burning it first is safe.
   const fly = (careful) => {
-    const m = new Mission(LEVELS.find(l => l.id === 'test-debris')), s = m.ship; let ph = careful ? 0 : 1;
+    const m = new Mission(LEVELS.find(l => l.id === 'clearstation')), s = m.ship; let ph = careful ? 0 : 1;
     if (!careful) m.deploy();
     while (m.status === 'flying' && m.t < 1200) {
       const o = orb(s, 20000); let thrust = false;
@@ -221,10 +221,27 @@ for (const L of LEVELS) {
   check('Clear the Station: burning the booster first is safe', careful.status === 'won', careful.status);
   // A stage that misses on its first pass but whose orbit still crosses the
   // station's would hit it eventually, so the mission fails straight away.
-  const cross = new Mission(LEVELS.find(l => l.id === 'test-debris'));
+  const cross = new Mission(LEVELS.find(l => l.id === 'clearstation'));
   cross.ship.angle += Math.PI / 4;
   cross.deploy();
   check('Clear the Station: a stage left on a crossing orbit fails', cross.debris[0].fate.kind === 'cross' && cross.status === 'crashed', cross.debris[0].fate.kind + ' ' + cross.message);
+}
+
+// 12. Every World 2 mission has a scripted flight plan that still wins
+//     (tools/proofs.js; re-tune with tools/check-scripted.js).
+{
+  const AP = require('./autopilot.js');
+  const PROOFS = require('./proofs.js');
+  const w2 = LEVELS.filter(l => l.world === 2);
+  const missing = w2.filter(l => !PROOFS[l.id]).map(l => l.id);
+  check('every World 2 mission has a proof', missing.length === 0, missing.join(', '));
+  const lost = [];
+  for (const L of w2) {
+    if (!PROOFS[L.id]) continue;
+    const r = AP.fly(L, PROOFS[L.id].script(PROOFS[L.id].p, AP), PROOFS[L.id].opts);
+    if (!r.won) lost.push(`${L.id} (${r.status}: ${r.message})`);
+  }
+  check(`World 2: all ${w2.length} proofs win`, lost.length === 0, lost.join('; '));
 }
 
 process.exit(failed ? 1 : 0);

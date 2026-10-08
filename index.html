@@ -103,8 +103,7 @@
 <div id="menu" class="screen">
   <div class="brand"><img class="logo-mark" src="icon.svg" alt=""><div class="logo">THRUSTERZ</div></div>
   <div class="tagline">An orbital mechanics flight school</div>
-  <div class="world-title"><span class="wnum">World 1</span> Flight School</div>
-  <div id="level-grid"></div>
+  <div id="worlds"></div>
   <div class="world-title tests"><span class="wnum">Test levels</span> New mechanics in development</div>
   <div id="test-grid" class="level-grid"></div>
   <div class="menu-foot">
@@ -186,13 +185,14 @@
       <tr><td><kbd class="tbtn burn">BURN</kbd></td><td>Main engine (hold) · bottom right</td></tr>
       <tr><td><kbd class="tbtn">⟲</kbd> <kbd class="tbtn">⟳</kbd></td><td>Side thrusters: tap to nudge, hold to turn faster · bottom left</td></tr>
       <tr><td><kbd class="tbtn">«</kbd> <kbd class="tbtn">»</kbd></td><td>Time warp down / up</td></tr>
-      <tr><td><kbd class="tbtn deploy">DEPLOY</kbd></td><td>Deploy payload (appears when you carry one) · above BURN</td></tr>
+      <tr><td><kbd class="tbtn deploy">DEPLOY</kbd> <kbd class="tbtn deploy">DROP</kbd></td><td>Drop the spent stage, or release cargo (appears when you can) · above BURN</td></tr>
       <tr><td><kbd class="tbtn">V</kbd></td><td>Cycle reference frame</td></tr>
       <tr><td><kbd class="tbtn">◎</kbd></td><td>Switch between overview and following your ship</td></tr>
       <tr><td><kbd class="tbtn">G</kbd></td><td>Gyro assist: auto-stops spin, but caps the run at ★★ · top right</td></tr>
       <tr><td><kbd class="tbtn">❚❚</kbd></td><td>Pause, restart or quit · top right</td></tr>
       <tr><td>Pinch</td><td>Zoom in and out</td></tr>
     </table>
+    <p class="small">Red dashed lines are where dropped stages will go; green ones are dropped cargo. A red dashed ring is a keep-out zone.</p>
     <p class="small">Markers around your ship: <span class="pro">◉ prograde</span> (direction of travel), <span class="retro">⊗ retrograde</span>, <span class="tgt">◆ target</span>. The dashed line is where you'll coast if you stop burning.</p>
     <div class="buttons"><button id="btn-help-close" class="primary">Got it</button></div>
   </div>

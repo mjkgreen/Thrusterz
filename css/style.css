@@ -204,7 +204,7 @@ kbd.tbtn.burn { border-radius: 999px; background: rgba(255, 140, 50, 0.28); bord
   text-shadow: 0 0 60px rgba(120, 150, 255, 0.25);
 }
 .tagline { font-family: var(--mono); color: var(--muted); letter-spacing: 0.2em; text-transform: uppercase; font-size: 12px; margin-bottom: 5vh; text-align: center; }
-#level-grid, .level-grid {
+.level-grid {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   gap: 12px; width: min(1000px, 100%);
 }
@@ -267,7 +267,7 @@ kbd.tbtn.burn { border-radius: 999px; background: rgba(255, 140, 50, 0.28); bord
   #menu { padding-top: 10px; }
   .logo { font-size: 40px; }
   .tagline { margin-bottom: 12px; }
-  #level-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+  .level-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
   .level-card { padding: 8px 10px; }
   .level-card .lname { font-size: 15px; }
   .level-card .lteach { min-height: 0; }
@@ -353,3 +353,11 @@ kbd.tbtn.deploy { background: rgba(124, 247, 212, 0.25); border-color: rgba(124,
 .brand { display: flex; align-items: center; justify-content: center; gap: clamp(12px, 2vw, 22px); }
 .logo-mark { width: clamp(52px, 9vw, 96px); height: auto; border-radius: 22%; box-shadow: 0 12px 40px rgba(0,0,0,0.5); }
 @media (max-height: 500px) { .logo-mark { width: 44px; } }
+
+/* World sections in the menu */
+.world-title + .level-grid ~ .world-title { margin-top: 28px; }
+.world-title.w2 .wnum { color: #b4f06a; }
+.level-grid.w2 .level-card { background: rgba(10, 24, 22, 0.8); border-color: rgba(150, 230, 140, 0.18); }
+.level-grid.w2 .level-card:hover, .level-grid.w2 .level-card.next { border-color: rgba(180, 240, 106, 0.6); }
+.level-grid.w2 .nexttag { color: #b4f06a; }
+#worlds { width: min(1000px, 100%); display: flex; flex-direction: column; align-items: center; }

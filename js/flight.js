@@ -43,7 +43,9 @@
       this.cargo = (spec.cargo || []).map(c => Object.assign({}, c)); // aboard, not yet dropped
       this.crafts = [];          // dropped cargo, coasting on its own
       this.collected = new Set(); // fuel pickups already taken
+      this.done = new Set();      // later goals a craft completed early (e.g. the second probe landed first)
       this.dvGained = 0;          // Δv added by pickups
+      this.dvSpent = 0;           // Δv actually burned (thrust / mass, integrated)
       this.ship = { x: 0, y: 0, vx: 0, vy: 0, angle: 0, omega: 0 };
       this.landed = null;
       this._initShip(spec);
@@ -127,12 +129,16 @@
       return st.ve * Math.log(m / (m - st.fuel));
     }
 
-    dvUsed() { return this.dv0 + this.dvGained - this.dvRemaining(); }
+    // Δv actually burned. Dropping cargo or a stage makes the rest of the
+    // ship lighter (more Δv left in the tank), but that isn't Δv you spent.
+    dvUsed() { return this.dvSpent; }
 
     // Can the current stage be dropped to fly the next one (e.g. a payload)?
     canDeploy() { return this.stage < this.stages.length - 1 && !this.landed && this.status === 'flying'; }
 
-    canDrop() { return this.cargo.length > 0 && !this.landed && this.status === 'flying'; }
+    // Cargo rides on the top stage, so it can only go once every stage below
+    // it has been dropped: a rocket comes apart from the bottom up.
+    canDrop() { return this.cargo.length > 0 && this.stage === this.stages.length - 1 && !this.landed && this.status === 'flying'; }
 
     // Drop the next piece of cargo. It has no engine: it keeps the ship's exact
     // position and velocity and coasts on its own, so the ship's predicted
@@ -146,15 +152,23 @@
       return craft;
     }
 
-    craftById(id) { return this.crafts.find(c => c.id === id) || null; }
+    // A dropped craft, or a spent stage (goals can ask where a booster lands).
+    craftById(id) { return this.crafts.find(c => c.id === id) || this.debris.find(d => d.id === id) || null; }
 
     // A dropped craft touched a body: that either completes its landing goal
     // or fails the mission if it still had work to do.
     _craftHit(c, idx) {
-      const sys = this.sys, g = this.currentGoal(), b = sys.bodies[idx];
-      if (g && g.craft === c.id && g.type === 'hit' && sys.byId[g.body].index === idx) {
-        if (this.siteOk(g, c.x, c.y, this.t)) { this._completeGoal(); return; }
-        this.status = 'crashed'; this.message = c.name + ' missed the landing zone on ' + b.name + '.';
+      const sys = this.sys, b = sys.bodies[idx], goals = this.level.goals;
+      // Its impact goal, even if an earlier goal is still open (probes can
+      // land in either order).
+      for (let j = this.goalIndex; j < goals.length; j++) {
+        const g = goals[j];
+        if (g.craft !== c.id || g.type !== 'hit' || sys.byId[g.body].index !== idx || this.done.has(j)) continue;
+        if (!this.siteOk(g, c.x, c.y, this.t)) {
+          this.status = 'crashed'; this.message = c.name + ' missed the landing zone on ' + b.name + '.';
+          return;
+        }
+        if (j === this.goalIndex) this._completeGoal(); else this.done.add(j);
         return;
       }
       if (this.level.goals.slice(this.goalIndex).some(q => q.craft === c.id)) {
@@ -166,8 +180,9 @@
     // next stage. A small spring push nudges the old stage backwards.
     deploy() {
       if (!this.canDeploy()) return false;
-      const s = this.ship, push = 0.4;
+      const s = this.ship, push = 0.4, st = this.stageSpec;
       this.debris.push({
+        id: st.id || 'stage' + (this.stage + 1), name: st.name || 'Booster',
         x: s.x, y: s.y, vx: s.vx - push * Math.cos(s.angle), vy: s.vy - push * Math.sin(s.angle),
         angle: s.angle, omega: s.omega + 0.6, alive: true, sprite: this.stageSpec.sprite || 'booster',
       });
@@ -285,6 +300,7 @@
         const st = this.stageSpec;
         const a = st.thrust * throttle / this.mass();
         tax = a * Math.cos(s.angle); tay = a * Math.sin(s.angle);
+        this.dvSpent += a * h;
         st.fuel = Math.max(0, st.fuel - st.thrust * throttle / st.ve * h);
       }
 
@@ -312,7 +328,8 @@
         if (!d.alive) continue;
         Phys.rk4(sys, d, this.t, h, 0, 0);
         d.angle += d.omega * h;
-        if (Phys.collision(sys, d.x, d.y, this.t + h) >= 0) { d.alive = false; d.crashT = this.t + h; }
+        const hit = Phys.collision(sys, d.x, d.y, this.t + h);
+        if (hit >= 0) { d.alive = false; d.crashT = this.t + h; this.t += h; this._craftHit(d, hit); this.t -= h; }
         // Protected objects (e.g. a crewed station) must never be hit by debris.
         for (const b of sys.bodies) {
           if (!b.protect) continue;
@@ -351,6 +368,14 @@
           this.events.push({ t: this.t, type: 'pickup', dv: b.dv, body: b.index });
         }
       }
+      // Keep-out zones (e.g. around a crewed station): the ship may not enter.
+      for (const b of sys.bodies) {
+        if (!b.keepOut) continue;
+        if ((s.x - sys.px[b.index]) ** 2 + (s.y - sys.py[b.index]) ** 2 < b.keepOut * b.keepOut) {
+          this.status = 'crashed'; this.message = 'You flew into ' + b.name + '\'s keep-out zone.';
+          return;
+        }
+      }
       const hit = Phys.collision(sys, s.x, s.y, this.t);
       if (hit >= 0) {
         const pad = hit === this.ignoreBody ? sys.bodies[hit] : null;
@@ -377,7 +402,8 @@
       const g = this.currentGoal();
       // A goal may belong to a dropped craft instead of the ship ("the pod must…").
       const o = g && g.craft ? this.craftById(g.craft) : s;
-      if (g && o && o.alive !== false) {
+      if (g && g.type === 'spread') this._spread(g, h);
+      else if (g && o && o.alive !== false) {
         const ref = this.goalPoint(g);
         const dx = o.x - ref.x, dy = o.y - ref.y;
         const d = Math.sqrt(dx * dx + dy * dy);
@@ -414,6 +440,39 @@
       if (this.status !== 'flying') return;
       if (Math.hypot(s.x, s.y) > L.bounds) { this.status = 'lost'; this.message = 'Lost in deep space.'; }
       else if (this.t > L.tMax) { this.status = 'timeout'; this.message = 'Mission clock ran out.'; }
+    }
+
+    // Constellation: every listed craft in an orbit inside the band, spaced
+    // at least minSep radians apart around the body.
+    spreadState(g) {
+      const ref = this.goalPoint(g), list = g.crafts.map(id => this.craftById(id));
+      let inBand = 0, err = 0;
+      const angs = [];
+      for (const c of list) {
+        if (!c || !c.alive) { err += 300; continue; }
+        const orb = this.orbitAbout(ref, g.body, c);
+        const e = orb.bound ? Math.max(0, g.rMin - orb.pe) + Math.max(0, orb.ap - g.rMax) : 300;
+        if (e === 0) inBand++;
+        err += e;
+        angs.push(Math.atan2(c.y - ref.y, c.x - ref.x));
+      }
+      let sep = Infinity;
+      for (let i = 0; i < angs.length; i++) for (let j = i + 1; j < angs.length; j++) {
+        let d = Math.abs(angs[i] - angs[j]) % (2 * Math.PI);
+        sep = Math.min(sep, Math.min(d, 2 * Math.PI - d));
+      }
+      if (angs.length < 2) sep = 0;
+      err += 100 * Math.max(0, g.minSep - sep);
+      return { inBand, total: list.length, sep, err, ok: inBand === list.length && sep >= g.minSep };
+    }
+
+    _spread(g, h) {
+      const st = this.spreadState(g);
+      this.goalErr = st.err;
+      if (st.ok) {
+        this.holdTime += h;
+        if (this.holdTime >= (g.confirm || 3)) this._completeGoal();
+      } else this.holdTime = 0;
     }
 
     // Osculating two-body orbit of the ship about a body: distances of its
@@ -469,6 +528,10 @@
     _completeGoal() {
       this.events.push({ t: this.t, type: 'goal', index: this.goalIndex });
       this.goalIndex++;
+      while (this.done.has(this.goalIndex)) {
+        this.events.push({ t: this.t, type: 'goal', index: this.goalIndex });
+        this.goalIndex++;
+      }
       this.holdTime = 0;
       if (this.goalIndex >= this.level.goals.length) {
         // A spent stage still on its way into a protected object spoils the win.

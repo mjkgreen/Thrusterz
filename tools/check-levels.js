@@ -118,7 +118,7 @@ const only = process.argv[2];
 const iters = +process.argv[3] || 1500;
 for (const level of LEVELS) {
   if (only && level.id !== only) continue;
-  if (!level.check) { console.log(level.id, 'no check config'); continue; }
+  if (!level.check) { if ((level.world || 1) === 1) console.log(level.id, 'no check config'); continue; } // World 2: tools/check-scripted.js
   const t0 = Date.now();
   const { best, p } = search(level, iters, 7);
   const budget = new Mission(level).dv0;

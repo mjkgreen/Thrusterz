@@ -23,7 +23,7 @@
       for (let k = o.stack.length - 1; k >= 0; k--) {
         const st = o.stack[k], sve = st.ve || ve, dry = st.dry != null ? st.dry : 1;
         const fuel = (dry + above) * (Math.exp(st.dv / sve) - 1);
-        stages[k] = { name: st.name, sprite: st.sprite || (k === o.stack.length - 1 ? 'satellite' : 'booster'), dryMass: dry, fuel, thrust: st.accel * (dry + fuel + above), ve: sve };
+        stages[k] = { id: st.id, name: st.name, sprite: st.sprite || (k === o.stack.length - 1 ? 'satellite' : 'booster'), dryMass: dry, fuel, thrust: st.accel * (dry + fuel + above), ve: sve };
         above += dry + fuel;
       }
     } else if (o.payload) {
@@ -515,16 +515,19 @@
     },
   ];
 
-  // ---------------------------------------------------------- test levels
-  // Prototypes for upcoming mechanics. Shown in their own menu section.
-  LEVELS.push(
+  // ---------------------------------------------------------------- World 2
+  // Payloads: rockets that come apart. Stages are dropped when they run dry,
+  // payloads are handed off or released to coast on their own, and every
+  // piece you drop keeps flying.
+  const WORLD2 = [
+    // Chapter 1 · Hand-off: drop the spent stage, fly the payload.
     {
-      id: 'test-satellite',
-      test: true,
+      id: 'satellite',
       name: 'Launch a Satellite',
       intro: 'Your booster can lift the satellite high, but it does not have the fuel to reach orbit. Launch and tilt toward the horizon as you climb, just like in Reach Orbit. When the booster runs dry, press E to deploy the satellite. It is much lighter, so its small tank goes a long way: coast to the top of the arc and burn prograde until your lowest point clears the ground.',
       objective: 'Put the satellite in an orbit that stays between 60 and 200.',
       teaches: 'Payload deploy',
+      introduces: ['deploy'],
       bodies: [
         { id: 'gaia', name: 'Gaia', gm: 2000, radius: 40, color: C.blue, spin: 0.085 },
       ],
@@ -533,24 +536,91 @@
       par: 9, bounds: 2000, tMax: 900, predict: 120, view: { x: 0, y: 0, span: 420 }, startCam: 'overview',
     },
     {
-      id: 'test-fuel',
-      test: true,
-      name: 'Fuel Run',
-      intro: 'Your tank can only get you halfway to Luna. A fuel canister orbits higher up: fly through it to top up, then push on to Luna. Watch the canister glow green when your predicted path will collect it.',
-      objective: 'Collect fuel, then impact Luna.',
-      teaches: 'Fuel pickups',
+      id: 'burndry',
+      name: 'Burn It Dry',
+      intro: 'A booster is heavy, and every drop of fuel in it is Δv you only get while it is attached. Raise your orbit with the booster: burn prograde until the high point reaches the band, coast up to it, and keep using the booster there. Drop it only when it is empty. The satellite\'s own tank is small and cannot finish the job alone.',
+      objective: 'Put the satellite in an orbit between 200 and 260 from Terra.',
+      teaches: 'Use every stage fully',
       bodies: [
         { id: 'terra', name: 'Terra', gm: 20000, radius: 50, color: C.blue },
-        { id: 'luna', name: 'Luna', gm: 1500, radius: 18, color: C.grey, orbit: { parent: 'terra', a: 420, phase: 2.6 } },
-        { id: 'canister', name: 'Fuel', gm: 0, radius: 7, color: '#ffb35a', kind: 'fuel', pickup: true, dv: 4, orbit: { parent: 'terra', a: 200, phase: 2.2 } },
       ],
-      ship: ship({ start: { orbit: { body: 'terra', r: 90, angle: 0 } }, heading: 'prograde', dv: 3.2, accel: 1 }),
-      goals: [{ type: 'hit', body: 'luna' }],
-      par: 5, bounds: 2500, tMax: 1500, predict: 200, view: { x: 0, y: 0, span: 1000 },
+      ship: ship({ start: { orbit: { body: 'terra', r: 90, angle: 0 } }, heading: 'prograde', stack: [
+        { name: 'Booster', dv: 3.5, accel: 1.0 },
+        { name: 'Satellite', dv: 2.0, accel: 0.5, dry: 0.3 },
+      ] }),
+      goals: [{ type: 'orbit', body: 'terra', rMin: 200, rMax: 260 }],
+      par: 5.2, bounds: 2000, tMax: 900, predict: 160, view: { x: 0, y: 0, span: 640 },
     },
     {
-      id: 'test-drop',
-      test: true,
+      id: 'againstspin',
+      name: 'Against the Spin',
+      intro: 'This customer wants a clockwise orbit, against Kiri\'s spin. Launching that way you lose the free speed the spin gives you and must cancel it as well, so it takes a lot more Δv. Lift off, tilt toward the left (clockwise), drop the booster when it runs dry and let the satellite finish.',
+      objective: 'Put the satellite in a clockwise orbit between 70 and 170 from Kiri.',
+      teaches: 'Launch direction · retrograde orbit',
+      bodies: [
+        { id: 'kiri', name: 'Kiri', gm: 2000, radius: 40, color: C.tan, spin: 0.06 },
+      ],
+      ship: ship({ start: { landed: { body: 'kiri', angle: Math.PI / 2 } }, ve: 30, stack: [
+        { name: 'Booster', dv: 9, accel: 1.8 },
+        { name: 'Satellite', dv: 5.5, accel: 0.9, dry: 0.25 },
+      ] }),
+      goals: [{ type: 'orbit', body: 'kiri', rMin: 70, rMax: 170, dir: -1 }],
+      par: 14.3, bounds: 2000, tMax: 900, predict: 120, view: { x: 0, y: 0, span: 420 }, startCam: 'overview',
+    },
+    {
+      id: 'stationary',
+      name: 'Stationary',
+      intro: 'At just the right height a satellite circles once for every turn of the planet, so from the ground it seems to hang still in the sky. For Mira that height is 140. Launch, let the booster climb as far as it can, drop it, and use the satellite to raise and round off the orbit at 140.',
+      objective: 'Put the satellite in an orbit between 130 and 150 from Mira, turning the same way Mira spins.',
+      teaches: 'Synchronous orbit',
+      bodies: [
+        { id: 'mira', name: 'Mira', gm: 2000, radius: 40, color: C.green, spin: 0.027 },
+      ],
+      ship: ship({ start: { landed: { body: 'mira', angle: Math.PI / 2 } }, ve: 30, stack: [
+        { name: 'Booster', dv: 6.5, accel: 1.8 },
+        { name: 'Satellite', dv: 6.5, accel: 0.8, dry: 0.25 },
+      ] }),
+      goals: [{ type: 'orbit', body: 'mira', rMin: 130, rMax: 150, dir: 1 }],
+      par: 12, bounds: 2000, tMax: 1200, predict: 160, view: { x: 0, y: 0, span: 440 }, startCam: 'overview',
+    },
+    {
+      id: 'moonprobe',
+      name: 'Moon Probe',
+      intro: 'The booster sends you to Luna; the probe has to stop there. Burn prograde so your path reaches Luna\'s orbit just as Luna arrives. Near Luna, burn retrograde to be captured: finish the transfer stage\'s fuel first, drop it, then let the probe finish the job.',
+      objective: 'Put the probe in an orbit between 25 and 80 from Luna.',
+      teaches: 'Transfer stage + capture',
+      bodies: [
+        { id: 'terra', name: 'Terra', gm: 20000, radius: 50, color: C.blue },
+        { id: 'luna', name: 'Luna', gm: 1500, radius: 18, color: C.grey, orbit: { parent: 'terra', a: 420, phase: 2.2 } },
+      ],
+      ship: ship({ start: { orbit: { body: 'terra', r: 90, angle: 0 } }, heading: 'prograde', stack: [
+        { name: 'Transfer stage', dv: 4.5, accel: 1.0 },
+        { name: 'Probe', dv: 2.8, accel: 0.5, dry: 0.3 },
+      ] }),
+      goals: [{ type: 'orbit', body: 'luna', rMin: 25, rMax: 80 }],
+      par: 6.2, bounds: 2500, tMax: 1500, predict: 200, view: { x: 0, y: 0, span: 1000 },
+    },
+    {
+      id: 'homecoming',
+      name: 'Homecoming',
+      intro: 'Time to bring the samples home. The return stage throws you out of Luna\'s orbit and back toward Terra; the capsule has only a sip of fuel for aiming. Drop the stage once your path falls to Terra, then nudge the capsule so it lands in the recovery zone. Terra turns while you fall, so the zone moves.',
+      objective: 'Land the capsule in the recovery zone on Terra.',
+      teaches: 'Return stage · targeted landing',
+      bodies: [
+        { id: 'terra', name: 'Terra', gm: 20000, radius: 50, color: C.blue, spin: 0.03 },
+        { id: 'luna', name: 'Luna', gm: 1500, radius: 18, color: C.grey, orbit: { parent: 'terra', a: 420, phase: 0 } },
+      ],
+      ship: ship({ start: { orbit: { body: 'luna', r: 32, angle: Math.PI / 2 } }, heading: 'prograde', stack: [
+        { name: 'Return stage', dv: 3.5, accel: 0.8 },
+        { name: 'Capsule', dv: 1.2, accel: 0.4, dry: 0.3, sprite: 'satellite' },
+      ] }),
+      goals: [{ type: 'hit', body: 'terra', site: { angle: 0, width: 0.7 }, label: 'Recovery zone' }],
+      par: 3.8, bounds: 2500, tMax: 1500, predict: 300, view: { x: 0, y: 0, span: 1000 },
+    },
+
+    // Chapter 2 · Passive drop: cargo has no engine and coasts where you leave it.
+    {
+      id: 'releasepoint',
       name: 'Release Point',
       intro: 'You carry a supply pod with no engine. Drop it and it simply coasts, so your dashed path is exactly where it will go. Burn retrograde until the path ends in the green drop zone (it reads DROP NOW → IMPACT), press E to release the pod, then burn prograde to save yourself before you hit the ground too.',
       objective: 'Land the pod in the drop zone, then get back into a safe orbit.',
@@ -566,8 +636,92 @@
       par: 4.5, bounds: 2000, tMax: 900, predict: 90, view: { x: 0, y: 0, span: 440 },
     },
     {
-      id: 'test-stack',
-      test: true,
+      id: 'impactor',
+      name: 'Impactor',
+      intro: 'Science wants a crater on Luna, and a camera in orbit to watch it. Aim your whole ship at Luna, drop the impactor (E) while the path still ends on Luna, then steer yourself off the collision course and brake into orbit around Luna.',
+      objective: 'Crash the impactor into Luna, then orbit Luna between 30 and 100.',
+      teaches: 'Drop, then dodge',
+      bodies: [
+        { id: 'terra', name: 'Terra', gm: 20000, radius: 50, color: C.blue },
+        { id: 'luna', name: 'Luna', gm: 1500, radius: 18, color: C.grey, orbit: { parent: 'terra', a: 420, phase: 2.2 } },
+      ],
+      ship: ship({ start: { orbit: { body: 'terra', r: 90, angle: 0 } }, heading: 'prograde', dv: 8, accel: 1, cargo: [{ id: 'impactor', name: 'Impactor', mass: 0.4 }] }),
+      goals: [
+        { type: 'hit', body: 'luna', craft: 'impactor' },
+        { type: 'orbit', body: 'luna', rMin: 30, rMax: 100 },
+      ],
+      par: 6.8, bounds: 2500, tMax: 1500, predict: 200, view: { x: 0, y: 0, span: 1000 },
+    },
+    {
+      id: 'relaydrop',
+      name: 'Relay Drop',
+      intro: 'A relay has no engine, so it stays on whatever orbit you let it go on. Climb to the band, round off your orbit there, release the relay, then come back down to your own orbit.',
+      objective: 'Leave the relay in an orbit between 280 and 340, then return to an orbit between 120 and 180.',
+      teaches: 'Place cargo on an orbit',
+      bodies: [
+        { id: 'terra', name: 'Terra', gm: 20000, radius: 50, color: C.blue },
+      ],
+      ship: ship({ start: { orbit: { body: 'terra', r: 150, angle: 0 } }, heading: 'prograde', dv: 7, accel: 1, cargo: [{ id: 'relay', name: 'Relay', mass: 0.4 }] }),
+      goals: [
+        { type: 'orbit', body: 'terra', craft: 'relay', rMin: 280, rMax: 340 },
+        { type: 'orbit', body: 'terra', rMin: 120, rMax: 180 },
+      ],
+      par: 6, bounds: 2000, tMax: 1200, predict: 200, view: { x: 0, y: 0, span: 760 },
+    },
+    {
+      id: 'supplyrun',
+      name: 'Supply Run',
+      intro: 'Haven Station needs supplies, but no ship may come inside its red keep-out zone. Get on a path that meets the station, release the pod before you reach the zone so it drifts in on its own, then turn away and settle back into a lower orbit.',
+      objective: 'Deliver the pod to Haven Station without entering the keep-out zone, then orbit Terra between 100 and 250.',
+      teaches: 'Throw, don\'t carry',
+      bodies: [
+        { id: 'terra', name: 'Terra', gm: 20000, radius: 50, color: C.blue },
+        { id: 'haven', name: 'Haven Station', gm: 0, radius: 4, color: C.station, kind: 'station', keepOut: 45, orbit: { parent: 'terra', a: 300, phase: 1.2 } },
+      ],
+      ship: ship({ start: { orbit: { body: 'terra', r: 150, angle: 0 } }, heading: 'prograde', dv: 4.5, accel: 1, cargo: [{ id: 'pod', name: 'Pod', mass: 0.3 }] }),
+      goals: [
+        { type: 'reach', body: 'haven', craft: 'pod', r: 12, label: 'Docking arm' },
+        { type: 'orbit', body: 'terra', rMin: 100, rMax: 250 },
+      ],
+      par: 3, bounds: 2000, tMax: 1200, predict: 200, view: { x: 0, y: 0, span: 760 },
+    },
+    {
+      id: 'twinprobes',
+      name: 'Twin Probes',
+      intro: 'Two probes, two moons. Each probe only follows the path you are on when you drop it, so line up a path to one moon, drop a probe, then change course for the other and drop the second. They can land in either order. Don\'t follow them in.',
+      objective: 'Land probe A on Io and probe B on Rhea.',
+      teaches: 'Two drops, two targets',
+      bodies: [
+        { id: 'terra', name: 'Terra', gm: 20000, radius: 50, color: C.blue },
+        { id: 'io', name: 'Io', gm: 600, radius: 15, color: '#e8d16a', orbit: { parent: 'terra', a: 260, phase: 1.4 } },
+        { id: 'rhea', name: 'Rhea', gm: 800, radius: 16, color: C.purple, orbit: { parent: 'terra', a: 460, phase: 2.6 } },
+      ],
+      ship: ship({ start: { orbit: { body: 'terra', r: 110, angle: 0 } }, heading: 'prograde', dv: 7, accel: 1, cargo: [{ id: 'a', name: 'Probe A', mass: 0.25 }, { id: 'b', name: 'Probe B', mass: 0.25 }] }),
+      goals: [
+        { type: 'hit', body: 'io', craft: 'a' },
+        { type: 'hit', body: 'rhea', craft: 'b' },
+      ],
+      par: 4.5, bounds: 2500, tMax: 1500, predict: 200, view: { x: 0, y: 0, span: 1100 },
+    },
+    {
+      id: 'satnet',
+      name: 'Constellation',
+      intro: 'Three satellites cover a whole planet if they are spread evenly around it. But a dropped satellite rides right alongside you on the same orbit, so waiting does nothing. Change your lap time instead: after a drop, burn prograde so one lap takes about a third longer. When you come back around, the last satellite is a third of a lap ahead. Burn retrograde at the same spot to round off, and drop the next.',
+      objective: 'Spread three satellites at least 100° apart in orbits between 180 and 230 from Terra.',
+      teaches: 'Phasing orbits',
+      bodies: [
+        { id: 'terra', name: 'Terra', gm: 20000, radius: 50, color: C.blue },
+      ],
+      ship: ship({ start: { orbit: { body: 'terra', r: 120, angle: 0 } }, heading: 'prograde', dv: 7.5, accel: 1, cargo: [
+        { id: 's1', name: 'Sat 1', mass: 0.2 }, { id: 's2', name: 'Sat 2', mass: 0.2 }, { id: 's3', name: 'Sat 3', mass: 0.2 },
+      ] }),
+      goals: [{ type: 'spread', body: 'terra', crafts: ['s1', 's2', 's3'], rMin: 180, rMax: 230, minSep: 100 * Math.PI / 180 }],
+      par: 6, bounds: 2000, tMax: 1200, predict: 200, view: { x: 0, y: 0, span: 640 },
+    },
+
+    // Chapter 3 · Stacks: three or more stages, each lighter than the last.
+    {
+      id: 'threestages',
       name: 'Three Stages',
       intro: 'A taller rocket for a higher orbit: booster, upper stage, then the satellite. Climb and tilt over as in Reach Orbit. Each time a stage runs dry, press E to drop it and light the next one. Every stage you drop makes the rest of the rocket lighter.',
       objective: 'Put the satellite in an orbit that stays between 150 and 280 from Atlas.',
@@ -584,8 +738,97 @@
       par: 10, bounds: 2500, tMax: 1200, predict: 160, view: { x: 0, y: 0, span: 640 }, startCam: 'overview',
     },
     {
-      id: 'test-debris',
-      test: true,
+      id: 'kickstage',
+      name: 'Kick Stage',
+      intro: 'The upper stage throws the satellite toward a high orbit; a small kick motor rounds it off at the top. The kick motor is weak, so its burn is long: start it a little before you reach the high point so the burn is centred on it. The satellite\'s own thrusters are only for trimming.',
+      objective: 'Put the satellite in an orbit between 330 and 380 from Terra.',
+      teaches: 'Apogee kick · long, weak burns',
+      bodies: [
+        { id: 'terra', name: 'Terra', gm: 20000, radius: 50, color: C.blue },
+      ],
+      ship: ship({ start: { orbit: { body: 'terra', r: 90, angle: 0 } }, heading: 'prograde', stack: [
+        { name: 'Upper stage', dv: 4.0, accel: 0.8 },
+        { name: 'Kick motor', dv: 2.4, accel: 0.25, dry: 0.5 },
+        { name: 'Satellite', dv: 0.7, accel: 0.2, dry: 0.25 },
+      ] }),
+      goals: [{ type: 'orbit', body: 'terra', rMin: 330, rMax: 380 }],
+      par: 6.9, bounds: 2500, tMax: 1200, predict: 220, view: { x: 0, y: 0, span: 900 },
+    },
+    {
+      id: 'escapeprobe',
+      name: 'Escape Velocity',
+      intro: 'To leave a planet for good you need escape velocity: enough speed that gravity can slow you but never stop you. Three stages get you there. Launch with the spin, tilt over early and keep burning sideways: speed gained low down is worth the most.',
+      objective: 'Fly the probe 900 away from Gaia.',
+      teaches: 'Escape velocity',
+      bodies: [
+        { id: 'gaia', name: 'Gaia', gm: 2000, radius: 40, color: C.blue, spin: 0.085 },
+      ],
+      ship: ship({ start: { landed: { body: 'gaia', angle: Math.PI / 2 } }, ve: 30, stack: [
+        { name: 'Booster', dv: 5, accel: 2 },
+        { name: 'Upper stage', dv: 4, accel: 1.2, dry: 0.5 },
+        { name: 'Probe', dv: 3, accel: 0.6, dry: 0.25 },
+      ] }),
+      goals: [{ type: 'escape', body: 'gaia', r: 900, label: 'Escape' }],
+      par: 8, bounds: 3000, tMax: 900, predict: 200, view: { x: 0, y: 0, span: 900 }, startCam: 'overview',
+    },
+    {
+      id: 'sundiverprobe',
+      name: 'Solar Probe',
+      intro: 'A probe to touch the Sun\'s corona. Falling inward means cancelling almost all of your orbital speed, more than any one stage can do. Burn retrograde through all three stages, dropping each as it runs dry, until your lowest point is inside the corona ring.',
+      objective: 'Fly the probe within 100 of Sol.',
+      teaches: 'Stacks for big Δv',
+      bodies: [
+        { id: 'sun', name: 'Sol', gm: 200000, radius: 60, color: C.sun },
+      ],
+      ship: ship({ start: { orbit: { body: 'sun', r: 900, angle: 0 } }, heading: 'retrograde', stack: [
+        { name: 'Booster', dv: 4, accel: 1.2 },
+        { name: 'Upper stage', dv: 3, accel: 0.8, dry: 0.5 },
+        { name: 'Probe', dv: 2.5, accel: 0.5, dry: 0.25 },
+      ] }),
+      goals: [{ type: 'reach', body: 'sun', r: 100, label: 'Corona' }],
+      par: 9.2, bounds: 4000, tMax: 1500, predict: 300, view: { x: 0, y: 0, span: 2000 },
+    },
+    {
+      id: 'outerplanet',
+      name: 'Outer Planet',
+      intro: 'An orbiter for Rust. The transfer stage escapes Terra in the direction Terra moves, sending you out along a Hohmann transfer; leave when Rust is about 55° ahead of Terra. When you arrive, drop the empty transfer stage and brake the orbiter into orbit around Rust.',
+      objective: 'Put the orbiter in an orbit between 40 and 140 from Rust.',
+      teaches: 'Interplanetary orbiter',
+      bodies: [
+        { id: 'sun', name: 'Sol', gm: 200000, radius: 70, color: C.sun },
+        { id: 'terra', name: 'Terra', gm: 6000, radius: 24, color: C.blue, orbit: { parent: 'sun', a: 800, phase: 0 } },
+        { id: 'rust', name: 'Rust', gm: 4000, radius: 22, color: C.red, orbit: { parent: 'sun', a: 1400, phase: 1.4 } },
+      ],
+      ship: ship({ start: { orbit: { body: 'terra', r: 45, angle: 0 } }, heading: 'prograde', stack: [
+        { name: 'Transfer stage', dv: 5.2, accel: 1.2 },
+        { name: 'Orbiter', dv: 3.3, accel: 0.5, dry: 0.3 },
+      ] }),
+      goals: [{ type: 'orbit', body: 'rust', rMin: 40, rMax: 140 }],
+      par: 7, bounds: 5000, tMax: 3000, predict: 500, view: { x: 0, y: 0, span: 3200 },
+    },
+    {
+      id: 'splashdown',
+      name: 'Splashdown',
+      intro: 'Spent boosters fall back to the ground, so launch sites aim them at empty ocean. The splash zone here is close to the pad. Climb steeply, and drop the booster (E) when its dashed path ends in the zone: the readout says DEPLOY NOW → IMPACT. Any fuel left in it is wasted, so the satellite has to make up the difference.',
+      objective: 'Drop the booster into the splash zone and put the satellite in an orbit between 60 and 200.',
+      teaches: 'Range safety',
+      bodies: [
+        { id: 'gaia', name: 'Gaia', gm: 2000, radius: 40, color: C.blue, spin: 0.085 },
+      ],
+      ship: ship({ start: { landed: { body: 'gaia', angle: Math.PI / 2 } }, ve: 30, stack: [
+        { id: 'booster', name: 'Booster', dv: 6.5, accel: 1.8 },
+        { name: 'Satellite', dv: 6.5, accel: 0.9, dry: 0.25 },
+      ] }),
+      goals: [
+        { type: 'hit', body: 'gaia', craft: 'booster', site: { angle: 1.7, width: 0.35 }, label: 'Splash zone' },
+        { type: 'orbit', body: 'gaia', rMin: 60, rMax: 200 },
+      ],
+      par: 8.5, bounds: 2000, tMax: 900, predict: 120, view: { x: 0, y: 0, span: 420 }, startCam: 'overview',
+    },
+
+    // Chapter 4 · Debris: everything you drop keeps flying.
+    {
+      id: 'clearstation',
       name: 'Clear the Station',
       intro: 'Kepler Station orbits just below you, and spent stages are dangerous: once dropped they drift forever. A booster dropped right here sinks into a lower orbit and drifts straight into the station. Even a near miss doesn\'t count: if the stage\'s orbit crosses the station\'s, they meet eventually. Burn the booster first so its leftover orbit stays clear of the station\'s, then deploy and raise the satellite. The red dashed line shows where a dropped stage will go.',
       objective: 'Put the satellite in an orbit between 260 and 340 without your spent booster hitting the station.',
@@ -599,11 +842,244 @@
         { name: 'Satellite', dv: 2.5, accel: 0.6, dry: 0.3 },
       ] }),
       goals: [{ type: 'orbit', body: 'terra', rMin: 260, rMax: 340 }],
-      par: 3, bounds: 2000, tMax: 1200, predict: 160, view: { x: 0, y: 0, span: 760 },
+      par: 2, bounds: 2000, tMax: 1200, predict: 160, view: { x: 0, y: 0, span: 760 },
+    },
+    {
+      id: 'busyorbit',
+      name: 'Busy Orbit',
+      intro: 'Orbital Lab circles Gaia at 110, right where a normal launch leaves its booster. Your booster is strong enough to reach orbit on its own, and a booster left in an orbit that crosses the lab\'s will hit it sooner or later. Drop it while it will still fall back to Gaia, or carry it to an orbit that stays clear of the lab\'s, then raise the satellite.',
+      objective: 'Put the satellite in an orbit between 160 and 230 without leaving the booster on a path that hits Orbital Lab.',
+      teaches: 'Where your booster ends up',
+      bodies: [
+        { id: 'gaia', name: 'Gaia', gm: 2000, radius: 40, color: C.blue, spin: 0.085 },
+        { id: 'lab', name: 'Orbital Lab', gm: 0, radius: 4, color: C.station, kind: 'station', protect: true, protectRadius: 12, orbit: { parent: 'gaia', a: 110, phase: 2.4 } },
+      ],
+      ship: ship({ start: { landed: { body: 'gaia', angle: Math.PI / 2 } }, ve: 30, stack: [
+        { name: 'Booster', dv: 8, accel: 1.8 },
+        { name: 'Satellite', dv: 4, accel: 0.8, dry: 0.25 },
+      ] }),
+      goals: [{ type: 'orbit', body: 'gaia', rMin: 160, rMax: 230 }],
+      par: 8, bounds: 2000, tMax: 900, predict: 140, view: { x: 0, y: 0, span: 520 }, startCam: 'overview',
+    },
+    {
+      id: 'leavenojunk',
+      name: 'Leave No Junk',
+      intro: 'Space agencies now have to bring their spent upper stages down instead of leaving them in orbit. Use the upper stage to climb, then at the top of the transfer burn it retrograde until your path dips into Terra. Turn back to prograde and drop it: the separation spring pushes it the opposite way from your nose, down toward Terra. It falls and burns up while the satellite rounds off the orbit on its own engine.',
+      objective: 'Make the upper stage reenter Terra, and put the satellite in an orbit between 220 and 280.',
+      teaches: 'Deorbiting the upper stage',
+      bodies: [
+        { id: 'terra', name: 'Terra', gm: 20000, radius: 50, color: C.blue },
+      ],
+      ship: ship({ start: { orbit: { body: 'terra', r: 100, angle: 0 } }, heading: 'prograde', stack: [
+        { id: 'upper', name: 'Upper stage', dv: 4.8, accel: 0.8 },
+        { name: 'Satellite', dv: 5.4, accel: 0.9, dry: 0.3 },
+      ] }),
+      goals: [
+        { type: 'hit', body: 'terra', craft: 'upper', label: 'Reentry' },
+        { type: 'orbit', body: 'terra', rMin: 220, rMax: 280 },
+      ],
+      par: 7.8, bounds: 2000, tMax: 1200, predict: 200, view: { x: 0, y: 0, span: 640 },
+    },
+    {
+      id: 'fueldepot',
+      name: 'Fuel Depot',
+      intro: 'The customer wants a high orbit, higher than your tanks can reach. A fuel canister circles at 250: time your climb so your path passes through it (it glows green when it will), top up, and keep going.',
+      objective: 'Put the satellite in an orbit between 420 and 480 from Terra.',
+      teaches: 'Pickups on the way up',
+      bodies: [
+        { id: 'terra', name: 'Terra', gm: 20000, radius: 50, color: C.blue },
+        { id: 'canister', name: 'Fuel', gm: 0, radius: 7, color: '#ffb35a', kind: 'fuel', pickup: true, dv: 3, orbit: { parent: 'terra', a: 250, phase: 1.6 } },
+      ],
+      ship: ship({ start: { orbit: { body: 'terra', r: 100, angle: 0 } }, heading: 'prograde', stack: [
+        { name: 'Transfer stage', dv: 3.5, accel: 1.0 },
+        { name: 'Satellite', dv: 2, accel: 0.5, dry: 0.3 },
+      ] }),
+      goals: [{ type: 'orbit', body: 'terra', rMin: 420, rMax: 480 }],
+      par: 7.2, bounds: 2500, tMax: 1500, predict: 260, view: { x: 0, y: 0, span: 1100 },
+    },
+    {
+      id: 'trojanrelay',
+      name: 'Relay Pair',
+      intro: 'Two relays for Vesta\'s Lagrange points, where anything parked rides along with Vesta forever. You start at L4, 60° ahead of Vesta: drop the first relay right away. Then climb a little to drift back past Vesta to L5, match its motion, and drop the second.',
+      objective: 'Park one relay at L4 and one at L5, each staying within 40 for 30 s.',
+      teaches: 'Lagrange drops',
+      bodies: [
+        { id: 'terra', name: 'Terra', gm: 20000, radius: 50, color: C.blue },
+        { id: 'vesta', name: 'Vesta', gm: 500, radius: 14, color: C.tan, orbit: { parent: 'terra', a: 400, phase: 0 } },
+      ],
+      ship: ship({ start: { orbit: { body: 'terra', r: 400, angle: Math.PI / 3 } }, heading: 'prograde', dv: 4, accel: 0.8, cargo: [
+        { id: 'r4', name: 'Relay L4', mass: 0.2 }, { id: 'r5', name: 'Relay L5', mass: 0.2 },
+      ] }),
+      goals: [
+        { type: 'hold', craft: 'r4', lagrange: { body: 'vesta', lead: Math.PI / 3 }, r: 40, hold: 30, label: 'L4' },
+        { type: 'hold', craft: 'r5', lagrange: { body: 'vesta', lead: -Math.PI / 3 }, r: 40, hold: 30, label: 'L5' },
+      ],
+      par: 1.8, bounds: 2500, tMax: 1500, predict: 400, view: { x: 0, y: 0, span: 1000 },
+    },
+    {
+      id: 'junkyard',
+      name: 'Junkyard',
+      intro: 'Two weather satellites already circle Gaia, at 100 and 170. Your three-stage rocket is going higher, and no spent stage may be left on an orbit that crosses theirs. The booster falls back by itself. The upper stage is the problem: drop it while its path still falls back to Gaia, or only once its whole orbit is above 180.',
+      objective: 'Put the satellite in an orbit between 230 and 300 without endangering the weather satellites.',
+      teaches: 'Planning every drop',
+      bodies: [
+        { id: 'gaia', name: 'Gaia', gm: 2000, radius: 40, color: C.blue, spin: 0.085 },
+        { id: 'w1', name: 'Weather 1', gm: 0, radius: 4, color: C.station, kind: 'station', protect: true, protectRadius: 10, orbit: { parent: 'gaia', a: 100, phase: 0.6 } },
+        { id: 'w2', name: 'Weather 2', gm: 0, radius: 4, color: C.station, kind: 'station', protect: true, protectRadius: 10, orbit: { parent: 'gaia', a: 170, phase: 3.5 } },
+      ],
+      ship: ship({ start: { landed: { body: 'gaia', angle: Math.PI / 2 } }, ve: 30, stack: [
+        { name: 'Booster', dv: 5, accel: 1.8 },
+        { name: 'Upper stage', dv: 4.5, accel: 1.0, dry: 0.5 },
+        { name: 'Satellite', dv: 3, accel: 0.6, dry: 0.25 },
+      ] }),
+      goals: [{ type: 'orbit', body: 'gaia', rMin: 230, rMax: 300 }],
+      par: 8.5, bounds: 2500, tMax: 1200, predict: 160, view: { x: 0, y: 0, span: 700 }, startCam: 'overview',
+    },
+
+    // Chapter 5 · Grand missions: everything together.
+    {
+      id: 'apollo',
+      name: 'Lander and Orbiter',
+      intro: 'One ship, two jobs. Fly to Luna with the lander aboard. On the way in, drop it on a path that ends in the landing zone (Luna turns, so the zone moves), then steer yourself off the collision course and brake into orbit to relay its signal home.',
+      objective: 'Land the lander in the zone on Luna, then orbit Luna between 30 and 100.',
+      teaches: 'Targeted drop + capture',
+      bodies: [
+        { id: 'terra', name: 'Terra', gm: 20000, radius: 50, color: C.blue },
+        { id: 'luna', name: 'Luna', gm: 1500, radius: 18, color: C.grey, spin: 0.02, orbit: { parent: 'terra', a: 420, phase: 2.2 } },
+      ],
+      ship: ship({ start: { orbit: { body: 'terra', r: 90, angle: 0 } }, heading: 'prograde', dv: 8.5, accel: 1, cargo: [{ id: 'lander', name: 'Lander', mass: 0.4 }] }),
+      goals: [
+        { type: 'hit', body: 'luna', craft: 'lander', site: { angle: 2.3, width: 1.0 }, label: 'Landing zone' },
+        { type: 'orbit', body: 'luna', rMin: 30, rMax: 100 },
+      ],
+      par: 6.8, bounds: 2500, tMax: 1500, predict: 200, view: { x: 0, y: 0, span: 1000 },
+    },
+    {
+      id: 'cometprobe',
+      name: 'Deep Impact',
+      intro: 'Comet Iris on its long, eccentric orbit. Get on a collision course, release the impactor, then nudge yourself aside so you sail past just behind it and photograph the crater. The flyby only counts after the impact.',
+      objective: 'Crash the impactor into Iris, then fly within 120 of the comet.',
+      teaches: 'Impactor + flyby',
+      bodies: [
+        { id: 'sun', name: 'Sol', gm: 400000, radius: 70, color: C.sun },
+        { id: 'iris', name: 'Comet Iris', gm: 40, radius: 14, color: C.comet, kind: 'comet', orbit: { parent: 'sun', a: 1000, e: 0.6, phase: 3.6, argp: 0.6 } },
+      ],
+      ship: ship({ start: { orbit: { body: 'sun', r: 300, angle: 0 } }, heading: 'prograde', dv: 6, accel: 1, cargo: [{ id: 'impactor', name: 'Impactor', mass: 0.3 }] }),
+      goals: [
+        { type: 'hit', body: 'iris', craft: 'impactor' },
+        { type: 'reach', body: 'iris', r: 120, label: 'Flyby' },
+      ],
+      par: 3.2, bounds: 5000, tMax: 3000, predict: 400, view: { x: -300, y: -300, span: 3400 },
+    },
+    {
+      id: 'voyager',
+      name: 'Voyager',
+      intro: 'The probe is bound for deep space, far beyond what your fuel can reach directly. Use the transfer stage to fly close behind Goliath and let it fling you outward, then drop the stage and spend the probe\'s fuel where it counts: low and fast.',
+      objective: 'Send the probe 1600 away from Terra.',
+      teaches: 'Gravity assist with a stack',
+      bodies: [
+        { id: 'terra', name: 'Terra', gm: 20000, radius: 50, color: C.blue },
+        { id: 'goliath', name: 'Goliath', gm: 5000, radius: 26, color: C.tan, orbit: { parent: 'terra', a: 350, phase: 2.0 } },
+      ],
+      ship: ship({ start: { orbit: { body: 'terra', r: 90, angle: 0 } }, heading: 'prograde', stack: [
+        { name: 'Transfer stage', dv: 3, accel: 1 },
+        { name: 'Probe', dv: 1.5, accel: 0.4, dry: 0.3 },
+      ] }),
+      goals: [{ type: 'escape', body: 'terra', r: 1600, label: 'Deep space' }],
+      par: 3.6, bounds: 3500, tMax: 1500, predict: 300, view: { x: 0, y: 0, span: 2400 },
+    },
+    {
+      id: 'moonnet',
+      name: 'Moon Network',
+      intro: 'A relay for each moon, so the far side of both can talk to Terra. Fly to Luna, brake into orbit and drop the first relay. Then break out of Luna\'s orbit in the direction Luna moves, cross to Selene, brake into orbit and drop the second.',
+      objective: 'Leave one relay orbiting Luna (25–70) and one orbiting Selene (25–100).',
+      teaches: 'Multi-stop delivery',
+      bodies: [
+        { id: 'terra', name: 'Terra', gm: 20000, radius: 50, color: C.blue },
+        { id: 'luna', name: 'Luna', gm: 1500, radius: 16, color: C.grey, orbit: { parent: 'terra', a: 300, phase: 2.0 } },
+        { id: 'selene', name: 'Selene', gm: 1500, radius: 16, color: C.purple, orbit: { parent: 'terra', a: 520, phase: 4.0 } },
+      ],
+      ship: ship({ start: { orbit: { body: 'terra', r: 110, angle: 0 } }, heading: 'prograde', dv: 12, accel: 1, cargo: [
+        { id: 'ra', name: 'Relay A', mass: 0.25 }, { id: 'rb', name: 'Relay B', mass: 0.25 },
+      ] }),
+      goals: [
+        { type: 'orbit', body: 'luna', craft: 'ra', rMin: 25, rMax: 70 },
+        { type: 'orbit', body: 'selene', craft: 'rb', rMin: 25, rMax: 100 },
+      ],
+      par: 8.3, bounds: 2500, tMax: 3000, predict: 260, view: { x: 0, y: 0, span: 1300 },
+    },
+    {
+      id: 'beltsurvey',
+      name: 'Belt Survey',
+      intro: 'Two asteroids worth a closer look: Ceres in the inner belt and Pallas in the outer. Probes have no engines and asteroids have almost no gravity, so each drop has to be dead on. Climb through the belt, drop one probe on a path that meets each target, and stay clear of the rocks yourself.',
+      objective: 'Crash probe A into Ceres and probe B into Pallas.',
+      teaches: 'Precision drops on small targets',
+      bodies: [
+        { id: 'sun', name: 'Sol', gm: 200000, radius: 60, color: C.sun },
+        { id: 'ceres', name: 'Ceres', kind: 'rock', noRail: false, gm: 0, radius: 20, color: '#b9ad98', orbit: { parent: 'sun', a: 650, phase: 1.0 } },
+        { id: 'pallas', name: 'Pallas', kind: 'rock', noRail: false, gm: 0, radius: 20, color: '#a7b4c4', orbit: { parent: 'sun', a: 860, phase: 2.0 } },
+        ...belt('sun', 30, 690, 820, 977),
+      ],
+      ship: ship({ start: { orbit: { body: 'sun', r: 450, angle: 0 } }, heading: 'prograde', dv: 7, accel: 1.2, cargo: [
+        { id: 'pa', name: 'Probe A', mass: 0.2 }, { id: 'pb', name: 'Probe B', mass: 0.2 },
+      ] }),
+      goals: [
+        { type: 'hit', body: 'ceres', craft: 'pa' },
+        { type: 'hit', body: 'pallas', craft: 'pb' },
+      ],
+      par: 4.2, bounds: 4000, tMax: 3000, predict: 400, view: { x: 0, y: 0, span: 2200 },
+    },
+    {
+      id: 'granddeploy',
+      name: 'Grand Deployment',
+      intro: 'The big one: launch a carrier with three satellites past a busy orbit and spread them into a constellation. Mind Orbital Lab at 110 when you drop the booster (remember the separation spring pushes it the opposite way from your nose). Then circularise in the band, drop a satellite, and use phasing laps (a third longer each) to space out the other two.',
+      objective: 'Spread three satellites at least 100° apart in orbits between 170 and 230 from Gaia, without your booster endangering Orbital Lab.',
+      teaches: 'Everything at once',
+      bodies: [
+        { id: 'gaia', name: 'Gaia', gm: 2000, radius: 40, color: C.blue, spin: 0.085 },
+        { id: 'lab', name: 'Orbital Lab', gm: 0, radius: 4, color: C.station, kind: 'station', protect: true, protectRadius: 12, orbit: { parent: 'gaia', a: 110, phase: 2.4 } },
+      ],
+      ship: ship({ start: { landed: { body: 'gaia', angle: Math.PI / 2 } }, ve: 30, stack: [
+        { name: 'Booster', dv: 8, accel: 1.8 },
+        { name: 'Carrier', dv: 5, accel: 0.8, dry: 0.4 },
+      ], cargo: [
+        { id: 'g1', name: 'Sat 1', mass: 0.15 }, { id: 'g2', name: 'Sat 2', mass: 0.15 }, { id: 'g3', name: 'Sat 3', mass: 0.15 },
+      ] }),
+      goals: [{ type: 'spread', body: 'gaia', crafts: ['g1', 'g2', 'g3'], rMin: 170, rMax: 230, minSep: 100 * Math.PI / 180 }],
+      par: 9, bounds: 2500, tMax: 2600, predict: 200, view: { x: 0, y: 0, span: 560 }, startCam: 'overview',
+    },
+  ];
+  for (const L of WORLD2) L.world = 2;
+  LEVELS.push(...WORLD2);
+
+  // ---------------------------------------------------------- test levels
+  // Prototypes for upcoming mechanics. Shown in their own menu section.
+  LEVELS.push(
+    {
+      id: 'test-fuel',
+      test: true,
+      name: 'Fuel Run',
+      intro: 'Your tank can only get you halfway to Luna. A fuel canister orbits higher up: fly through it to top up, then push on to Luna. Watch the canister glow green when your predicted path will collect it.',
+      objective: 'Collect fuel, then impact Luna.',
+      teaches: 'Fuel pickups',
+      bodies: [
+        { id: 'terra', name: 'Terra', gm: 20000, radius: 50, color: C.blue },
+        { id: 'luna', name: 'Luna', gm: 1500, radius: 18, color: C.grey, orbit: { parent: 'terra', a: 420, phase: 2.6 } },
+        { id: 'canister', name: 'Fuel', gm: 0, radius: 7, color: '#ffb35a', kind: 'fuel', pickup: true, dv: 4, orbit: { parent: 'terra', a: 200, phase: 2.2 } },
+      ],
+      ship: ship({ start: { orbit: { body: 'terra', r: 90, angle: 0 } }, heading: 'prograde', dv: 3.2, accel: 1 }),
+      goals: [{ type: 'hit', body: 'luna' }],
+      par: 5, bounds: 2500, tMax: 1500, predict: 200, view: { x: 0, y: 0, span: 1000 },
     },
   );
 
-  const Levels = { LEVELS, ship, VE };
+  // Worlds in menu order. theme picks the in-flight backdrop.
+  const WORLDS = [
+    { n: 1, name: 'Flight School', theme: 'deep' },
+    { n: 2, name: 'Payloads', theme: 'nebula' },
+  ];
+
+  const Levels = { LEVELS, WORLDS, ship, VE };
   if (typeof module !== 'undefined' && module.exports) module.exports = Levels;
   else root.Levels = Levels;
 })(typeof window !== 'undefined' ? window : globalThis);

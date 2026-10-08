@@ -1,7 +1,7 @@
 // Thrusterz game client: rendering, input, HUD and menus.
 (function () {
   'use strict';
-  const { LEVELS } = Levels;
+  const { LEVELS, WORLDS } = Levels;
   const { Mission } = Flight;
 
   const WARPS = [1, 2, 5, 10, 25, 50, 100];
@@ -91,6 +91,7 @@
     state.particles = [];
     state.pred = null; state.predDirty = true;
     state.resultShown = false;
+    state.endHandled = false;
     state.paused = false;
     buildRails();
     const m = state.mission;
@@ -352,7 +353,6 @@
     const level = m.level;
     const c = controls();
     if ((c.thrust || c.rotate) && state.warp > 0) { state.warp = 0; }
-    const wasFlying = m.status === 'flying';
     const dvBefore = m.dvRemaining();
     m.advance(realDt * WARPS[state.warp], c);
 
@@ -380,8 +380,9 @@
     const horizon = level.predict * state.predictScale;
     if (state.predDirty || !state.pred || m.t - state.predT > horizon * 0.03 || m.thrusting) computePrediction();
 
-    if (wasFlying && m.status !== 'flying') onMissionEnd();
-    if (m.status !== 'flying' && !state.resultShown && performance.now() - state.endTime > 1600) showResult();
+    // The mission can also end outside advance() (e.g. a deploy that dooms the station).
+    if (m.status !== 'flying' && !state.endHandled) { state.endHandled = true; onMissionEnd(); }
+    if (m.status !== 'flying' && !state.resultShown && performance.now() - state.endTime > state.endDelay) showResult();
 
     updateParticles(realDt);
     updateCamera(realDt);
@@ -422,11 +423,18 @@
     state.pred = p;
   }
 
+  // Did the ship itself end the mission by hitting its target?
+  function shipImpactWin(m) { const g = m.level.goals[m.level.goals.length - 1]; return g.type === 'hit' && !g.craft; }
+
   function onMissionEnd() {
     const m = state.mission;
     state.endTime = performance.now();
+    state.endDelay = 1600;
+    // A spent stage doomed to hit something: pull back and let the player see
+    // the crossing orbits before the result card covers them.
+    if (m.debris.some(d => d.fate && d.fate.kind === 'cross')) { state.endDelay = 4500; overview(true); toast('⚠ ' + m.message, 4.5); }
     state.warp = 0;
-    if (m.status === 'crashed' || (m.status === 'won' && m.level.goals[m.level.goals.length - 1].type === 'hit')) {
+    if (m.status === 'crashed' || (m.status === 'won' && shipImpactWin(m))) {
       explode(m.ship.x, m.ship.y, m.status === 'won' ? '#9cf7c4' : '#ffb35a');
     }
     if (m.status === 'won') confetti(m.ship.x, m.ship.y);
@@ -494,6 +502,7 @@
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
     ctx.fillStyle = '#05060d';
     ctx.fillRect(0, 0, W, H);
+    if (state.mission && state.screen !== 'menu') drawBackdrop(state.mission.level);
     drawStars();
     if (!state.mission || state.screen === 'menu') { drawMenuBackdrop(); return; }
     const m = state.mission, sys = m.sys;
@@ -533,6 +542,112 @@
     ctx.globalAlpha = 1;
   }
 
+  // World backdrops. World 2 (Payloads) flies through a green nebula with
+  // distant planets: busy space, places to deliver things to. The picture is
+  // painted once per level and screen size into an offscreen canvas, then
+  // drifts very slightly with the camera.
+  const backdrop = { key: '', canvas: null };
+  function drawBackdrop(L) {
+    const w = WORLDS.find(x => x.n === worldOf(L));
+    if (!w || w.theme !== 'nebula') return;
+    const M = 0.06; // drift margin, as a fraction of the screen
+    const key = [W, H, DPR, L.id].join(':');
+    if (backdrop.key !== key) { backdrop.canvas = paintNebula(Math.ceil(W * (1 + 2 * M)), Math.ceil(H * (1 + 2 * M)), seedOf(L.id)); backdrop.key = key; }
+    const c = state.cam, k = 0.004;
+    const ox = Math.max(-1, Math.min(1, -c.x * c.zoom * k / (W * M))) * W * M;
+    const oy = Math.max(-1, Math.min(1, c.y * c.zoom * k / (H * M))) * H * M;
+    ctx.drawImage(backdrop.canvas, -W * M + ox, -H * M + oy, backdrop.canvas.width / DPR, backdrop.canvas.height / DPR);
+  }
+
+  function seedOf(str) { let h = 2166136261; for (const ch of str) h = Math.imul(h ^ ch.charCodeAt(0), 16777619); return (h >>> 0) % 2147483646 + 1; }
+
+  function paintNebula(w, h, seed) {
+    const cv = document.createElement('canvas');
+    cv.width = Math.ceil(w * DPR); cv.height = Math.ceil(h * DPR);
+    const g = cv.getContext('2d');
+    g.scale(DPR, DPR);
+    let x = seed;
+    const rnd = () => (x = (x * 16807) % 2147483647) / 2147483647;
+    const base = g.createLinearGradient(0, 0, w, h);
+    base.addColorStop(0, '#04110f'); base.addColorStop(0.55, '#050b10'); base.addColorStop(1, '#070612');
+    g.fillStyle = base; g.fillRect(0, 0, w, h);
+    // Glowing gas along a wandering band across the screen.
+    const ang = rnd() * Math.PI, cx = w * (0.35 + rnd() * 0.3), cy = h * (0.35 + rnd() * 0.3);
+    const ux = Math.cos(ang), uy = Math.sin(ang), span = Math.hypot(w, h) * 0.6, S = Math.min(w, h);
+    const hues = [[60, 200, 140], [90, 220, 120], [40, 170, 170], [150, 230, 110], [120, 90, 200], [200, 80, 170]];
+    g.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < 70; i++) {
+      const t = (rnd() * 2 - 1) * span, off = (rnd() + rnd() + rnd() - 1.5) * S * 0.35;
+      const px = cx + ux * t - uy * off + Math.sin(t / span * 5 + seed) * S * 0.12, py = cy + uy * t + ux * off;
+      const r = S * (0.08 + rnd() * 0.3);
+      const col = hues[rnd() < 0.82 ? Math.floor(rnd() * 4) : 4 + Math.floor(rnd() * 2)];
+      const a = 0.035 + rnd() * 0.06;
+      const gr = g.createRadialGradient(px, py, 0, px, py, r);
+      gr.addColorStop(0, `rgba(${col[0]},${col[1]},${col[2]},${a})`);
+      gr.addColorStop(0.5, `rgba(${col[0]},${col[1]},${col[2]},${a * 0.4})`);
+      gr.addColorStop(1, `rgba(${col[0]},${col[1]},${col[2]},0)`);
+      g.fillStyle = gr; g.beginPath(); g.arc(px, py, r, 0, TAU); g.fill();
+    }
+    // Dark dust lanes.
+    g.globalCompositeOperation = 'source-over';
+    for (let i = 0; i < 18; i++) {
+      const t = (rnd() * 2 - 1) * span, off = (rnd() - 0.5) * S * 0.2;
+      const px = cx + ux * t - uy * off, py = cy + uy * t + ux * off, r = S * (0.04 + rnd() * 0.12);
+      const gr = g.createRadialGradient(px, py, 0, px, py, r);
+      gr.addColorStop(0, 'rgba(2,6,8,0.35)'); gr.addColorStop(1, 'rgba(2,6,8,0)');
+      g.fillStyle = gr; g.beginPath(); g.arc(px, py, r, 0, TAU); g.fill();
+    }
+    // Faint embedded stars, brighter where the gas is.
+    for (let i = 0; i < 260; i++) {
+      const px = rnd() * w, py = rnd() * h, b = rnd();
+      g.fillStyle = `rgba(${b < 0.2 ? '200,255,220' : '255,255,255'},${0.15 + b * 0.35})`;
+      g.fillRect(px, py, b > 0.93 ? 1.6 : 1, b > 0.93 ? 1.6 : 1);
+    }
+    // Distant planets: one big world low in a corner, a ringed one, a small moon.
+    const corner = rnd() < 0.5 ? 1 : -1;
+    paintPlanet(g, w * (corner > 0 ? 0.88 : 0.12), h * (0.86 + rnd() * 0.1), S * (0.2 + rnd() * 0.08), rnd, { ring: false });
+    paintPlanet(g, w * (corner > 0 ? 0.12 + rnd() * 0.12 : 0.76 + rnd() * 0.12), h * (0.14 + rnd() * 0.18), S * (0.035 + rnd() * 0.025), rnd, { ring: true });
+    paintPlanet(g, w * (0.4 + rnd() * 0.25), h * (0.08 + rnd() * 0.12), S * 0.012, rnd, { ring: false, plain: true });
+    return cv;
+  }
+
+  function paintPlanet(g, px, py, r, rnd, o) {
+    const pal = [['#3f8f7a', '#1b4a44', '#9fe0c0'], ['#8a7fd0', '#2e2a5a', '#c8c0ff'], ['#c9a46a', '#5a4022', '#ffe0a8'], ['#5fa0c8', '#1e3a5a', '#bfe4ff']];
+    const [mid, dark, lite] = pal[Math.floor(rnd() * pal.length)];
+    const lx = -0.5, ly = -0.6; // light comes from the upper left
+    g.save();
+    g.globalAlpha = 0.42;
+    if (o.ring) {
+      g.strokeStyle = 'rgba(220,230,210,0.35)'; g.lineWidth = Math.max(1, r * 0.18);
+      g.beginPath(); g.ellipse(px, py, r * 2.1, r * 0.55, -0.35, Math.PI, TAU); g.stroke();
+    }
+    const body = g.createRadialGradient(px + lx * r * 0.5, py + ly * r * 0.5, r * 0.1, px, py, r);
+    body.addColorStop(0, lite); body.addColorStop(0.45, mid); body.addColorStop(1, dark);
+    g.fillStyle = body; g.beginPath(); g.arc(px, py, r, 0, TAU); g.fill();
+    if (!o.plain) {
+      // Soft cloud bands, clipped to the disc.
+      g.save(); g.beginPath(); g.arc(px, py, r, 0, TAU); g.clip();
+      for (let i = 0; i < 7; i++) {
+        const y = py - r + (i + rnd()) * (2 * r / 7);
+        g.fillStyle = `rgba(255,255,255,${0.03 + rnd() * 0.05})`;
+        g.fillRect(px - r, y, 2 * r, r * (0.05 + rnd() * 0.12));
+      }
+      // Night side.
+      const night = g.createRadialGradient(px + lx * r * 0.7, py + ly * r * 0.7, r * 0.6, px + lx * r * 0.2, py + ly * r * 0.2, r * 1.6);
+      night.addColorStop(0, 'rgba(0,0,0,0)'); night.addColorStop(1, 'rgba(0,4,6,0.85)');
+      g.fillStyle = night; g.fillRect(px - r, py - r, 2 * r, 2 * r);
+      g.restore();
+      // Thin atmosphere rim.
+      g.strokeStyle = 'rgba(160,240,200,0.25)'; g.lineWidth = Math.max(1, r * 0.03);
+      g.beginPath(); g.arc(px, py, r, Math.PI * 0.85, Math.PI * 1.75); g.stroke();
+    }
+    if (o.ring) {
+      g.strokeStyle = 'rgba(220,230,210,0.45)'; g.lineWidth = Math.max(1, r * 0.18);
+      g.beginPath(); g.ellipse(px, py, r * 2.1, r * 0.55, -0.35, 0, Math.PI); g.stroke();
+    }
+    g.restore();
+  }
+
   function drawMenuBackdrop() {
     // Decorative orbiting dots behind the menu.
     const t = performance.now() / 1000, cx = W / 2, cy = H * 0.55;
@@ -570,12 +685,12 @@
     const m = state.mission, sys = m.sys, z = state.cam.zoom;
     const t = performance.now() / 1000;
     m.level.goals.forEach((g, gi) => {
-      const done = gi < m.goalIndex, active = gi === m.goalIndex;
+      const done = gi < m.goalIndex || m.done.has(gi), active = gi === m.goalIndex;
       if (done) return;
       const p = m.goalPoint(g);
       const [sx, sy] = w2s(p.x, p.y);
       const alpha = active ? 1 : 0.4;
-      if (g.type === 'orbit') {
+      if (g.type === 'orbit' || g.type === 'spread') {
         ctx.fillStyle = `rgba(124,247,212,${0.07 * alpha})`;
         ctx.beginPath();
         ctx.arc(sx, sy, g.rMax * z, 0, TAU); ctx.arc(sx, sy, g.rMin * z, 0, TAU, true);
@@ -677,15 +792,19 @@
     // Impact marker.
     if (p.hit >= 0) {
       const [sx, sy] = disp(p.end.x, p.end.y, p.tEnd);
-      const g = m.currentGoal();
-      // With cargo aboard and a cargo goal active, the coast path is a release preview.
-      const preview = g && g.craft && m.canDrop();
-      const good = g && g.type === 'hit' && (!g.craft || preview) && sys.byId[g.body].index === p.hit && m.siteOk(g, p.end.x, p.end.y, p.tEnd);
+      // With cargo aboard that still has to hit something, the coast path is a
+      // release preview for the next item in the hold.
+      // A spent stage with a landing goal previews the same way before deploying.
+      const g = m.currentGoal(), next = m.canDrop() ? m.cargo[0] : m.canDeploy() ? m.stageSpec : null;
+      const dropGoal = next && next.id && m.level.goals.find((q, j) => j >= m.goalIndex && !m.done.has(j) && q.craft === next.id && q.type === 'hit');
+      const preview = !!dropGoal;
+      const tg = preview ? dropGoal : g && !g.craft ? g : null;
+      const good = tg && tg.type === 'hit' && sys.byId[tg.body].index === p.hit && m.siteOk(tg, p.end.x, p.end.y, p.tEnd);
       ctx.strokeStyle = good ? '#7cf7d4' : '#ff5a5a';
       ctx.lineWidth = 2;
       ctx.beginPath(); ctx.moveTo(sx - 6, sy - 6); ctx.lineTo(sx + 6, sy + 6); ctx.moveTo(sx + 6, sy - 6); ctx.lineTo(sx - 6, sy + 6); ctx.stroke();
-      const missedSite = !good && g && g.site && (!g.craft || preview) && sys.byId[g.body].index === p.hit;
-      label((preview ? 'DROP NOW → ' : '') + (good ? 'IMPACT ' : missedSite ? 'OFF TARGET ' : 'CRASH ') + sys.bodies[p.hit].name + ' · ' + fmtT(p.tEnd - m.t), sx, sy - 14, good ? '#7cf7d4' : '#ff7a7a');
+      const missedSite = !good && tg && tg.site && sys.byId[tg.body].index === p.hit;
+      label((preview ? (m.canDrop() ? 'DROP NOW → ' : 'DEPLOY NOW → ') : '') + (good ? 'IMPACT ' : missedSite ? 'OFF TARGET ' : 'CRASH ') + sys.bodies[p.hit].name + ' · ' + fmtT(p.tEnd - m.t), sx, sy - 14, good ? '#7cf7d4' : '#ff7a7a');
       ctx.lineWidth = 1;
     }
     // Closest approach + ghost of the target at that moment.
@@ -718,6 +837,15 @@
       const [sx, sy] = w2s(sys.px[b.index], sys.py[b.index]);
       const r = Math.max(b.radius * z, b.kind === 'station' ? 0 : 2.5);
       if (sx < -r - 200 || sx > W + r + 200 || sy < -r - 200 || sy > H + r + 200) continue;
+      if (b.keepOut) {
+        // Keep-out zone: a red dashed fence the ship must stay outside.
+        const kr = b.keepOut * z;
+        ctx.fillStyle = 'rgba(255,90,90,0.05)'; ctx.beginPath(); ctx.arc(sx, sy, kr, 0, TAU); ctx.fill();
+        ctx.strokeStyle = 'rgba(255,107,107,0.55)'; ctx.setLineDash([5, 5]); ctx.lineDashOffset = -performance.now() / 120;
+        ctx.beginPath(); ctx.arc(sx, sy, kr, 0, TAU); ctx.stroke();
+        ctx.setLineDash([]); ctx.lineDashOffset = 0;
+        if (kr > 30) label('KEEP OUT', sx, sy - kr - 8, 'rgba(255,107,107,0.8)');
+      }
       if (b.kind === 'station') { drawStation(sx, sy, b); continue; }
       if (b.kind === 'rock') { drawRock(sx, sy, r, b); continue; }
       if (b.pickup) { if (!state.mission.collected.has(b.index)) drawCanister(sx, sy, b); continue; }
@@ -872,12 +1000,13 @@
       ctx.beginPath(); ctx.arc(cx, cy, (f.band[0] + f.band[1]) / 2 * state.cam.zoom, 0, TAU); ctx.stroke();
       ctx.lineWidth = 1;
       // Crossing points: where the stage's path passes through the station's orbit radius.
-      const mid = (f.band[0] + f.band[1]) / 2;
+      // Where the stage's path enters the danger band.
       let prev = null;
+      const inBand = (r) => r >= f.band[0] && r <= f.band[1];
       for (let i = 0; i < f.ts.length; i++) {
         sys.update(f.ts[i]);
-        const r = Math.hypot(f.xs[i] - sys.px[H], f.ys[i] - sys.py[H]) - mid;
-        if (prev !== null && Math.sign(r) !== Math.sign(prev)) {
+        const r = inBand(Math.hypot(f.xs[i] - sys.px[H], f.ys[i] - sys.py[H]));
+        if (prev !== null && r && !prev) {
           const [sx, sy] = disp(f.xs[i], f.ys[i], f.ts[i]);
           ctx.strokeStyle = 'rgba(255,90,90,' + pulse + ')'; ctx.lineWidth = 2.5;
           ctx.beginPath(); ctx.moveTo(sx - 7, sy - 7); ctx.lineTo(sx + 7, sy + 7); ctx.moveTo(sx + 7, sy - 7); ctx.lineTo(sx - 7, sy + 7); ctx.stroke();
@@ -924,7 +1053,7 @@
       drawRocketBody(9, false);
       ctx.restore();
     }
-    if (m.status === 'crashed' || (m.status === 'won' && m.level.goals[m.level.goals.length - 1].type === 'hit')) return;
+    if (m.status === 'crashed' || (m.status === 'won' && shipImpactWin(m))) return;
     const [sx, sy] = w2s(s.x, s.y);
     ctx.save();
     ctx.translate(sx, sy);
@@ -1165,7 +1294,7 @@
   // ------------------------------------------------------------------ HUD
   function setupHud() {
     const m = state.mission, L = m.level;
-    $('hud-level').textContent = (L.test ? 'Test level' : 'Mission ' + (state.levelIndex + 1)) + ' · ' + L.teaches;
+    $('hud-level').textContent = (L.test ? 'Test level' : (worldOf(L) > 1 ? worldOf(L) + '-' : 'Mission ') + missionNum(state.levelIndex)) + ' · ' + L.teaches;
     $('hud-name').textContent = L.name;
     $('gauge-rcs').style.display = L.ship.rcs ? '' : 'none';
     $('gyro-row').style.display = L.ship.canRotate ? '' : 'none';
@@ -1188,9 +1317,10 @@
     ul.innerHTML = '';
     L.goals.forEach((g, i) => {
       const li = document.createElement('li');
-      li.className = i < m.goalIndex ? 'done' : i === m.goalIndex ? 'active' : '';
-      li.innerHTML = `<span class="chk">${i < m.goalIndex ? '✓' : i === m.goalIndex ? '▸' : '·'}</span><span>${goalText(g, m)}</span>`;
-      if (i === m.goalIndex && ['orbit', 'rendezvous', 'hold', 'escape'].includes(g.type)) {
+      const done = i < m.goalIndex || m.done.has(i);
+      li.className = done ? 'done' : i === m.goalIndex ? 'active' : '';
+      li.innerHTML = `<span class="chk">${done ? '✓' : i === m.goalIndex ? '▸' : '·'}</span><span>${goalText(g, m)}</span>`;
+      if (i === m.goalIndex && ['orbit', 'rendezvous', 'hold', 'escape', 'spread'].includes(g.type)) {
         li.innerHTML += `<div class="sub" id="goal-sub"></div>`;
       }
       ul.appendChild(li);
@@ -1200,7 +1330,7 @@
 
   function goalText(g, m) {
     if (g.craft) {
-      const c = (m.level.ship.cargo || []).find(x => x.id === g.craft);
+      const c = (m.level.ship.cargo || []).concat(m.level.ship.stages).find(x => x.id === g.craft);
       return (c ? c.name : g.craft) + ': ' + goalText(Object.assign({}, g, { craft: null }), m);
     }
     const name = g.body ? m.sys.byId[g.body].name : (g.label || 'target');
@@ -1211,13 +1341,14 @@
       case 'hold': return `Park at ${g.label || name} for ${g.hold}s`;
       case 'escape': return `Get ${g.r} from ${name}`;
       case 'rendezvous': return `Rendezvous with ${name}`;
+      case 'spread': return `Spread ${g.crafts.length} satellites ≥${Math.round(g.minSep * 180 / Math.PI)}° apart, orbit ${g.rMin}–${g.rMax}`;
     }
     return '';
   }
 
   function updateHud() {
     const m = state.mission, L = m.level, s = m.ship, sys = m.sys;
-    if (state.renderedGoal !== m.goalIndex) renderGoals();
+    if (state.renderedGoal !== m.goalIndex || state.renderedDone !== m.done.size) { renderGoals(); state.renderedDone = m.done.size; }
     $('hud-time').textContent = fmtT(m.t);
     $('hud-warp').textContent = WARPS[state.warp] + '×';
     $('hud-warp').className = state.warp ? 'warn' : '';
@@ -1290,28 +1421,35 @@
     // Goal-specific live readouts.
     const g = m.currentGoal();
     const sub = $('goal-sub');
-    if (g && sub) {
+    const subj = g && g.craft ? m.craftById(g.craft) : s;
+    if (g && sub && g.type === 'spread') {
+      const st = m.spreadState(g), pct = Math.min(100, 100 * m.holdTime / (g.confirm || 3));
+      const sep = isFinite(st.sep) ? Math.round(st.sep * 180 / Math.PI) + '°' : '–';
+      sub.innerHTML = `<div class="minibar"><div style="width:${pct}%"></div></div><span>in band <span class="${st.inBand === st.total ? 'ok' : 'warn'}">${st.inBand}/${st.total}</span> · spacing <span class="${st.sep >= g.minSep ? 'ok' : 'warn'}">${sep}</span></span>`;
+    } else if (g && sub && !subj) {
+      sub.innerHTML = `<span>Drop the ${goalText(g, m).split(':')[0]} when it's on the right path</span>`;
+    } else if (g && sub) {
       const q = m.goalPoint(g);
-      const d = Math.hypot(s.x - q.x, s.y - q.y);
+      const d = Math.hypot(subj.x - q.x, subj.y - q.y);
       if (g.type === 'orbit') {
         // Show the orbit's lowest and highest points against the band.
-        const o = m.orbitAbout(q, g.body), conf = g.confirm || 3;
+        const o = m.orbitAbout(q, g.body, subj), conf = g.confirm || 3;
         const pct = Math.min(100, 100 * m.holdTime / conf);
         const fmt = (v) => (isFinite(v) ? v.toFixed(0) : '∞');
         const lowOk = o.pe >= g.rMin, highOk = o.bound && o.ap <= g.rMax, dirOk = !g.dir || g.dir === o.dir;
         const state = !dirOk ? '<span class="warn">wrong direction</span>'
-          : lowOk && highOk ? (m.thrusting ? 'engine off to lock' : '<span class="ok">locking orbit…</span>')
+          : lowOk && highOk ? (m.thrusting && subj === s ? 'engine off to lock' : '<span class="ok">locking orbit…</span>')
           : !o.bound ? '<span class="warn">escaping</span>' : '';
         sub.innerHTML = `<div class="minibar"><div style="width:${pct}%"></div></div>`
           + `<span>low <span class="${lowOk ? 'ok' : 'warn'}">${fmt(o.pe)}</span> · high <span class="${highOk ? 'ok' : 'warn'}">${fmt(o.ap)}</span></span> ${state}`;
       } else if (g.type === 'hold') {
         const pct = Math.min(100, 100 * m.holdTime / g.hold);
-        const rv = Math.hypot(s.vx - q.vx, s.vy - q.vy), lim = g.relVel || 1;
+        const rv = Math.hypot(subj.vx - q.vx, subj.vy - q.vy), lim = g.relVel || 1;
         sub.innerHTML = `<div class="minibar"><div style="width:${pct}%"></div></div><span>${m.holdTime.toFixed(0)}/${g.hold}s · <span class="${d < g.r ? 'ok' : ''}">dist ${d.toFixed(0)}</span> · <span class="${rv < lim ? 'ok' : 'warn'}">rel v ${rv.toFixed(2)}</span></span>`;
       } else if (g.type === 'escape') {
         sub.innerHTML = `<span>distance ${d.toFixed(0)} / ${g.r}</span>`;
       } else if (g.type === 'rendezvous') {
-        const rv = Math.hypot(s.vx - q.vx, s.vy - q.vy);
+        const rv = Math.hypot(subj.vx - q.vx, subj.vy - q.vy);
         sub.innerHTML = `<span class="${d < g.dist ? 'ok' : ''}">dist ${d.toFixed(1)}</span> · <span class="${rv < g.relVel ? 'ok' : ''}">rel v ${rv.toFixed(2)}</span>`;
       }
     }
@@ -1341,8 +1479,18 @@
     state.screen = 'menu';
     hide('hud'); hide('briefing'); hide('result'); hide('pause'); hide('help');
     show('menu');
-    const grid = $('level-grid'), tests = $('test-grid');
-    grid.innerHTML = ''; tests.innerHTML = '';
+    const worlds = $('worlds'), tests = $('test-grid');
+    worlds.innerHTML = ''; tests.innerHTML = '';
+    const grids = {};
+    for (const w of WORLDS) {
+      const head = document.createElement('div');
+      head.className = 'world-title w' + w.n;
+      head.innerHTML = `<span class="wnum">World ${w.n}</span> ${w.name}`;
+      const grid = document.createElement('div');
+      grid.className = 'level-grid w' + w.n;
+      worlds.append(head, grid);
+      grids[w.n] = grid;
+    }
     const nextUp = LEVELS.findIndex(l => !l.test && !progress.stars[l.id]);
     LEVELS.forEach((L, i) => {
       // Every mission is open; the first uncleared one is highlighted as next up.
@@ -1350,17 +1498,23 @@
       const next = i === nextUp;
       const card = document.createElement('button');
       card.className = 'level-card' + (stars ? ' cleared' : '') + (next ? ' next' : '') + (L.test ? ' test' : '');
-      card.innerHTML = `<div class="num">${L.test ? 'TEST' : String(i + 1).padStart(2, '0')}</div>
+      card.innerHTML = `<div class="num">${L.test ? 'TEST' : String(missionNum(i)).padStart(2, '0')}</div>
         <div class="lname">${L.name}</div>
         <div class="lteach">${L.teaches}</div>
         <div class="lstars">${starStr(stars)}${next ? '<span class="nexttag">Next up</span>' : ''}</div>`;
       card.addEventListener('click', () => showBriefing(i));
-      (L.test ? tests : grid).appendChild(card);
+      (L.test ? tests : grids[worldOf(L)]).appendChild(card);
     });
   }
 
-  const CAMPAIGN = LEVELS.filter(l => !l.test).length;
-  function missionLabel(i) { return LEVELS[i].test ? 'Test level' : 'Mission ' + (i + 1) + ' of ' + CAMPAIGN; }
+  // Missions are numbered within their world: "World 2 · Mission 5 of 30".
+  const worldOf = (L) => L.world || 1;
+  const worldLevels = (n) => LEVELS.filter(l => !l.test && worldOf(l) === n);
+  function missionNum(i) { return worldLevels(worldOf(LEVELS[i])).indexOf(LEVELS[i]) + 1; }
+  function missionLabel(i) {
+    const L = LEVELS[i];
+    return L.test ? 'Test level' : `World ${worldOf(L)} · Mission ${missionNum(i)} of ${worldLevels(worldOf(L)).length}`;
+  }
   function nextIndex(i) {
     const j = i + 1;
     return j < LEVELS.length && !!LEVELS[j].test === !!LEVELS[i].test ? j : -1;
