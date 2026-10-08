@@ -173,7 +173,55 @@
       });
       this.stage++;
       this.events.push({ t: this.t, type: 'deploy', stage: this.stage });
+      const d = this.debris[this.debris.length - 1];
+      d.fate = this.debrisFate(d);
+      if (d.fate.kind === 'cross') {
+        // It would miss this time around but its orbit crosses the protected
+        // object's, so the two meet sooner or later. Fail now and say why.
+        this.status = 'crashed';
+        this.message = 'Your spent stage is stuck in an orbit that crosses ' + d.fate.name + '\'s. Sooner or later they collide.';
+      }
       return true;
+    }
+
+    // Where will a spent stage end up? It has no engine, so this is known the
+    // moment it's dropped. Fly a copy forward until it hits the ground (fine:
+    // let it burn up), comes near a protected object ('hit'), or has gone round
+    // once. A stage still in a bound orbit that crosses a protected object's
+    // orbit will meet it eventually ('cross'). Returns the sampled path too.
+    debrisFate(d0) {
+      const sys = this.sys, prot = sys.bodies.filter(b => b.protect);
+      const s = { x: d0.x, y: d0.y, vx: d0.vx, vy: d0.vy };
+      sys.update(this.t);
+      const H = sys.dominant(s.x, s.y, this.t), hb = sys.bodies[H];
+      const orb = this.orbitAbout({ x: sys.px[H], y: sys.py[H], vx: sys.vx[H], vy: sys.vy[H] }, hb.id, s);
+      const period = orb.bound ? 2 * Math.PI * Math.sqrt(Math.pow((orb.pe + orb.ap) / 2, 3) / hb.gm) : 0;
+      const horizon = orb.bound ? Math.min(1.05 * period, 3000) : 600;
+      const ts = [this.t], xs = [s.x], ys = [s.y];
+      let t = this.t;
+      const fate = (kind, extra) => Object.assign({ kind, t, ts, xs, ys, orbit: orb, host: H }, extra);
+      for (let step = 0; step < 20000 && t < this.t + horizon; step++) {
+        const dt = Phys.coastDt(sys, s, t, 0.002, 2);
+        Phys.rk4(sys, s, t, dt, 0, 0);
+        t += dt;
+        ts.push(t); xs.push(s.x); ys.push(s.y);
+        if (Phys.collision(sys, s.x, s.y, t) >= 0) return fate('ground');
+        for (const b of prot) {
+          const r = b.protectRadius || b.radius;
+          if ((s.x - sys.px[b.index]) ** 2 + (s.y - sys.py[b.index]) ** 2 < r * r) return fate('hit', { body: b.index, name: b.name });
+        }
+        if (s.x * s.x + s.y * s.y > this.level.bounds * this.level.bounds) return fate('gone');
+      }
+      if (orb.bound) {
+        for (const b of prot) {
+          if (!b.orbit || b.parent !== H) continue;
+          const r = b.protectRadius || b.radius, o = b.orbit;
+          if (orb.pe <= o.a * (1 + o.e) + r && orb.ap >= o.a * (1 - o.e) - r) {
+            return fate('cross', { body: b.index, name: b.name, band: [o.a * (1 - o.e) - r, o.a * (1 + o.e) + r] });
+          }
+        }
+      }
+      return fate('safe');
     }
 
     thrustAccel() { const st = this.stageSpec; return st ? st.thrust / this.mass() : 0; }
@@ -423,6 +471,13 @@
       this.goalIndex++;
       this.holdTime = 0;
       if (this.goalIndex >= this.level.goals.length) {
+        // A spent stage still on its way into a protected object spoils the win.
+        const doomed = this.debris.find(d => d.alive && d.fate && d.fate.kind === 'hit');
+        if (doomed) {
+          this.status = 'crashed';
+          this.message = 'Your spent stage is about to hit ' + doomed.fate.name + '.';
+          return;
+        }
         this.status = 'won';
         this.message = 'Mission complete!';
       }

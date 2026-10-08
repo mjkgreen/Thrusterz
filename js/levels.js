@@ -558,12 +558,12 @@
       bodies: [
         { id: 'terra', name: 'Terra', gm: 20000, radius: 50, color: C.blue, spin: 0.03 },
       ],
-      ship: ship({ start: { orbit: { body: 'terra', r: 80, angle: 0 } }, heading: 'prograde', dv: 6.5, accel: 1, cargo: [{ id: 'pod', name: 'Pod', mass: 0.3 }] }),
+      ship: ship({ start: { orbit: { body: 'terra', r: 150, angle: 0 } }, heading: 'prograde', dv: 6, accel: 1, cargo: [{ id: 'pod', name: 'Pod', mass: 0.3 }] }),
       goals: [
         { type: 'hit', body: 'terra', craft: 'pod', site: { angle: Math.PI, width: 0.8 }, label: 'Drop zone' },
         { type: 'orbit', body: 'terra', rMin: 65, rMax: 200 },
       ],
-      par: 5.5, bounds: 2000, tMax: 900, predict: 60, view: { x: 0, y: 0, span: 360 },
+      par: 4.5, bounds: 2000, tMax: 900, predict: 90, view: { x: 0, y: 0, span: 440 },
     },
     {
       id: 'test-stack',
@@ -587,7 +587,7 @@
       id: 'test-debris',
       test: true,
       name: 'Clear the Station',
-      intro: 'Kepler Station orbits just below you, and spent stages are dangerous: once dropped they drift forever. A booster dropped right here sinks into a lower orbit and drifts straight into the station. Burn the booster first so its leftover orbit sits above the station, then deploy and raise the satellite. The red dashed line shows where a dropped stage will go.',
+      intro: 'Kepler Station orbits just below you, and spent stages are dangerous: once dropped they drift forever. A booster dropped right here sinks into a lower orbit and drifts straight into the station. Even a near miss doesn\'t count: if the stage\'s orbit crosses the station\'s, they meet eventually. Burn the booster first so its leftover orbit stays clear of the station\'s, then deploy and raise the satellite. The red dashed line shows where a dropped stage will go.',
       objective: 'Put the satellite in an orbit between 260 and 340 without your spent booster hitting the station.',
       teaches: 'Debris hazards',
       bodies: [

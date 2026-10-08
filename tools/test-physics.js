@@ -189,7 +189,7 @@ for (const L of LEVELS) {
   { const m = drop, s = m.ship; let ph = 0;
     while (m.status === 'flying' && m.t < 300) {
       const o = orb(s, 20000); let thrust = false;
-      if (ph === 0 && m.t >= 4) ph = 1;
+      if (ph === 0 && m.t >= 28) ph = 1;
       if (ph === 1) { s.angle = Math.atan2(s.vy, s.vx) + Math.PI; thrust = o.pe > 45; if (!thrust) { m.release(); ph = 2; } }
       else if (ph === 2) { s.angle = Math.atan2(s.vy, s.vx); thrust = o.pe < 70; if (!thrust) ph = 3; }
       s.omega = 0;
@@ -219,6 +219,12 @@ for (const L of LEVELS) {
   const naive = fly(false), careful = fly(true);
   check('Clear the Station: an early drop hits the station', naive.status === 'crashed' && /station/i.test(naive.message), naive.message);
   check('Clear the Station: burning the booster first is safe', careful.status === 'won', careful.status);
+  // A stage that misses on its first pass but whose orbit still crosses the
+  // station's would hit it eventually, so the mission fails straight away.
+  const cross = new Mission(LEVELS.find(l => l.id === 'test-debris'));
+  cross.ship.angle += Math.PI / 4;
+  cross.deploy();
+  check('Clear the Station: a stage left on a crossing orbit fails', cross.debris[0].fate.kind === 'cross' && cross.status === 'crashed', cross.debris[0].fate.kind + ' ' + cross.message);
 }
 
 process.exit(failed ? 1 : 0);

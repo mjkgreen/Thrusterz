@@ -159,8 +159,9 @@
     state.predDirty = true;
     // Show where the spent stage will drift (it can hit things).
     const d = m.debris[m.debris.length - 1];
-    d.path = Phys.predict(m.sys, d, m.t, 300, { bounds: m.level.bounds, maxSteps: 6000 });
-    toast(m.stageSpec.name + ' deployed', 1.5);
+    d.path = d.fate;
+    if (d.fate.kind === 'hit') toast('⚠ Spent stage on collision course with ' + d.fate.name, 3);
+    else if (d.fate.kind !== 'cross') toast(m.stageSpec.name + ' deployed', 1.5);
   }
 
   function toggleGyro() {
@@ -858,9 +859,47 @@
     ctx.stroke(); ctx.setLineDash([]); ctx.lineWidth = 1;
   }
 
+  // A spent stage whose orbit crosses a protected object's: ring the danger
+  // band and mark where the two orbits meet.
+  function drawThreat(f, disp) {
+    const m = state.mission, sys = m.sys, b = sys.bodies[f.body];
+    const pulse = 0.55 + 0.35 * Math.sin(performance.now() / 180);
+    if (f.kind === 'cross') {
+      const H = f.host;
+      const [cx, cy] = w2s(sys.px[H], sys.py[H]);
+      ctx.strokeStyle = 'rgba(255,90,90,' + (0.25 * pulse) + ')';
+      ctx.lineWidth = Math.max(2, (f.band[1] - f.band[0]) * state.cam.zoom);
+      ctx.beginPath(); ctx.arc(cx, cy, (f.band[0] + f.band[1]) / 2 * state.cam.zoom, 0, TAU); ctx.stroke();
+      ctx.lineWidth = 1;
+      // Crossing points: where the stage's path passes through the station's orbit radius.
+      const mid = (f.band[0] + f.band[1]) / 2;
+      let prev = null;
+      for (let i = 0; i < f.ts.length; i++) {
+        sys.update(f.ts[i]);
+        const r = Math.hypot(f.xs[i] - sys.px[H], f.ys[i] - sys.py[H]) - mid;
+        if (prev !== null && Math.sign(r) !== Math.sign(prev)) {
+          const [sx, sy] = disp(f.xs[i], f.ys[i], f.ts[i]);
+          ctx.strokeStyle = 'rgba(255,90,90,' + pulse + ')'; ctx.lineWidth = 2.5;
+          ctx.beginPath(); ctx.moveTo(sx - 7, sy - 7); ctx.lineTo(sx + 7, sy + 7); ctx.moveTo(sx + 7, sy - 7); ctx.lineTo(sx - 7, sy + 7); ctx.stroke();
+          ctx.lineWidth = 1;
+        }
+        prev = r;
+      }
+      sys.update(m.t);
+    }
+    const [bx, by] = w2s(sys.px[b.index], sys.py[b.index]);
+    ctx.strokeStyle = 'rgba(255,90,90,' + pulse + ')'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(bx, by, Math.max(10, (b.protectRadius || b.radius) * state.cam.zoom), 0, TAU); ctx.stroke();
+    ctx.lineWidth = 1;
+    label('COLLISION RISK', bx, by - Math.max(14, (b.protectRadius || b.radius) * state.cam.zoom + 6), '#ff6b6b');
+  }
+
   function drawCrafts(disp) {
     const m = state.mission;
-    for (const d of m.debris) if (d.alive) drawCoastPath(d.path, 'rgba(255,107,107,0.55)', disp);
+    for (const d of m.debris) {
+      if (d.alive) drawCoastPath(d.path, 'rgba(255,107,107,0.55)', disp);
+      if (d.fate && (d.fate.kind === 'cross' || d.fate.kind === 'hit')) drawThreat(d.fate, disp);
+    }
     for (const c of m.crafts) {
       if (c.alive) drawCoastPath(c.path, 'rgba(124,247,212,0.6)', disp);
       if (!c.alive) { if (!c.exploded) { c.exploded = true; explode(c.x, c.y, '#7cf7d4'); } continue; }
