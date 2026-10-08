@@ -59,9 +59,14 @@ you do it, and stops appearing after you've mastered it.
   marker and ghost show the closest approach to your current objective and where
   the target will be at that moment.
 - **Objectives** — impact a body (optionally inside a landing zone on its
-  spinning surface), reach a zone, escape past a distance, hold an orbit band
-  (optionally in a set direction) or a point such as L4 for N seconds, or
-  rendezvous (distance *and* relative speed). Missions can chain objectives.
+  spinning surface), reach a zone, escape past a distance, enter an orbit
+  band, park at a point such as L4, or rendezvous (distance *and* relative
+  speed). Missions can chain objectives.
+- **Orbit goals check the whole orbit**, not where you are right now: the
+  orbit's lowest and highest points (two-body orbit about the target) must
+  both sit inside the band, in the required direction, confirmed for a few
+  seconds with the engine off. Sweeping through the band doesn't count.
+  Parking goals (L4/L5) also require matching the point's speed.
 - **Stars** — 3★ for finishing under the mission's par Δv without gyro assist,
   2★ under 1.4× par.
 - **Score** — up to 6,500 per mission for finishing, fuel efficiency against

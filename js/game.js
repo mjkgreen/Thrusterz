@@ -1109,8 +1109,8 @@
     switch (g.type) {
       case 'hit': return g.site ? `Land in the zone on ${name}` : 'Impact ' + name;
       case 'reach': return 'Reach ' + (g.label || name);
-      case 'orbit': return `Orbit ${name} ${g.rMin}–${g.rMax}${g.dir ? (g.dir > 0 ? ' counter-clockwise' : ' clockwise') : ''} for ${g.hold}s`;
-      case 'hold': return `Hold within ${g.r} of ${g.label || name} for ${g.hold}s`;
+      case 'orbit': return `Orbit ${name} within ${g.rMin}–${g.rMax}${g.dir ? (g.dir > 0 ? ' counter-clockwise' : ' clockwise') : ''}`;
+      case 'hold': return `Park at ${g.label || name} for ${g.hold}s`;
       case 'escape': return `Get ${g.r} from ${name}`;
       case 'rendezvous': return `Rendezvous with ${name}`;
     }
@@ -1192,10 +1192,21 @@
     if (g && sub) {
       const q = m.goalPoint(g);
       const d = Math.hypot(s.x - q.x, s.y - q.y);
-      if (g.type === 'orbit' || g.type === 'hold') {
+      if (g.type === 'orbit') {
+        // Show the orbit's lowest and highest points against the band.
+        const o = m.orbitAbout(q, g.body), conf = g.confirm || 3;
+        const pct = Math.min(100, 100 * m.holdTime / conf);
+        const fmt = (v) => (isFinite(v) ? v.toFixed(0) : '∞');
+        const lowOk = o.pe >= g.rMin, highOk = o.bound && o.ap <= g.rMax, dirOk = !g.dir || g.dir === o.dir;
+        const state = !dirOk ? '<span class="warn">wrong direction</span>'
+          : lowOk && highOk ? (m.thrusting ? 'engine off to lock' : '<span class="ok">locking orbit…</span>')
+          : !o.bound ? '<span class="warn">escaping</span>' : '';
+        sub.innerHTML = `<div class="minibar"><div style="width:${pct}%"></div></div>`
+          + `<span>low <span class="${lowOk ? 'ok' : 'warn'}">${fmt(o.pe)}</span> · high <span class="${highOk ? 'ok' : 'warn'}">${fmt(o.ap)}</span></span> ${state}`;
+      } else if (g.type === 'hold') {
         const pct = Math.min(100, 100 * m.holdTime / g.hold);
-        const wrongWay = g.dir && (((s.x - q.x) * (s.vy - q.vy) - (s.y - q.y) * (s.vx - q.vx) > 0 ? 1 : -1) !== g.dir);
-        sub.innerHTML = `<div class="minibar"><div style="width:${pct}%"></div></div><span>${m.holdTime.toFixed(0)}/${g.hold}s · ${g.type === 'hold' ? 'dist' : 'r'}=${d.toFixed(0)}</span>${wrongWay ? ' <span class="warn">wrong direction</span>' : ''}`;
+        const rv = Math.hypot(s.vx - q.vx, s.vy - q.vy), lim = g.relVel || 1;
+        sub.innerHTML = `<div class="minibar"><div style="width:${pct}%"></div></div><span>${m.holdTime.toFixed(0)}/${g.hold}s · <span class="${d < g.r ? 'ok' : ''}">dist ${d.toFixed(0)}</span> · <span class="${rv < lim ? 'ok' : 'warn'}">rel v ${rv.toFixed(2)}</span></span>`;
       } else if (g.type === 'escape') {
         sub.innerHTML = `<span>distance ${d.toFixed(0)} / ${g.r}</span>`;
       } else if (g.type === 'rendezvous') {

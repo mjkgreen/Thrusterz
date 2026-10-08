@@ -36,9 +36,9 @@ function run(level, prog, wantTrace) {
     if (g) {
       const p = m.goalPoint(g);
       let d = Math.hypot(m.ship.x - p.x, m.ship.y - p.y);
-      if (g.type === 'orbit') d = Math.max(0, g.rMin - d, d - g.rMax) + 40 * (1 - m.holdTime / g.hold);
+      if (g.type === 'orbit') d = (m.goalErr != null ? m.goalErr : Math.max(0, g.rMin - d, d - g.rMax)) + 40 * (1 - m.holdTime / (g.confirm || 3));
       if (g.type === 'rendezvous') d += 10 * Math.hypot(m.ship.vx - p.vx, m.ship.vy - p.vy);
-      if (g.type === 'hold') d = Math.max(0, d - g.r) + 40 * (1 - m.holdTime / g.hold);
+      if (g.type === 'hold') d = (m.goalErr != null ? m.goalErr : Math.max(0, d - g.r)) + 40 * (1 - m.holdTime / g.hold);
       if (g.type === 'escape') d = Math.max(0, g.r - d);
       if (g.site) {
         const b = m.sys.byId[g.body], a = g.site.angle + b.spin * m.t;

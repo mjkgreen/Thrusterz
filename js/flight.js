@@ -27,7 +27,7 @@
       this.stage = 0;
       this.rcsFuel = spec.rcs ? spec.rcs.fuel : 0;
       this.rcsFuel0 = this.rcsFuel;
-      this.t = 0;
+      this.t = spec.start.t || 0; // a mission may begin mid-flight (used by tools)
       this.status = 'flying';   // flying | won | crashed | lost | timeout
       this.message = '';
       this.goalIndex = 0;
@@ -51,7 +51,7 @@
 
     _initShip(spec) {
       const sys = this.sys, s = this.ship;
-      sys.update(0);
+      sys.update(this.t);
       if (spec.start.landed) {
         const b = sys.byId[spec.start.landed.body];
         this.landed = { body: b.index, theta0: spec.start.landed.angle };
@@ -284,17 +284,26 @@
         if (g.type === 'reach' && d < g.r) this._completeGoal();
         else if (g.type === 'escape' && d > g.r) this._completeGoal();
         else if (g.type === 'hold') {
-          // Stay inside a zone (e.g. a Lagrange point) for a while.
-          if (d < g.r) {
+          // Park at a point (e.g. a Lagrange point): inside the zone AND
+          // moving with it, so drifting through slowly doesn't count.
+          const rv = Math.hypot(s.vx - ref.vx, s.vy - ref.vy);
+          this.goalErr = Math.max(0, d - g.r) + 20 * Math.max(0, rv - (g.relVel || 1));
+          if (d < g.r && rv < (g.relVel || 1)) {
             this.holdTime += h;
             if (this.holdTime >= g.hold) this._completeGoal();
           } else this.holdTime = 0;
         } else if (g.type === 'orbit') {
-          // g.dir (optional): +1 counter-clockwise, -1 clockwise.
-          const ccw = dx * (s.vy - ref.vy) - dy * (s.vx - ref.vx) > 0 ? 1 : -1;
-          if (d >= g.rMin && d <= g.rMax && (!g.dir || g.dir === ccw)) {
+          // The whole orbit must fit in the band, not just where you are now:
+          // its lowest and highest points (two-body orbit about the target)
+          // must both lie inside it, in the required direction, confirmed for
+          // a few seconds with the engine off.
+          const o = this.orbitAbout(ref, g.body);
+          this.orbitNow = o;
+          const dirOk = !g.dir || g.dir === o.dir;
+          this.goalErr = o.bound ? Math.max(0, g.rMin - o.pe) + Math.max(0, o.ap - g.rMax) + (dirOk ? 0 : 200) : 300;
+          if (o.bound && o.pe >= g.rMin && o.ap <= g.rMax && dirOk && !this.thrusting) {
             this.holdTime += h;
-            if (this.holdTime >= g.hold) this._completeGoal();
+            if (this.holdTime >= (g.confirm || 3)) this._completeGoal();
           } else this.holdTime = 0;
         } else if (g.type === 'rendezvous') {
           const dv = Math.hypot(s.vx - ref.vx, s.vy - ref.vy);
@@ -305,6 +314,19 @@
       if (this.status !== 'flying') return;
       if (Math.hypot(s.x, s.y) > L.bounds) { this.status = 'lost'; this.message = 'Lost in deep space.'; }
       else if (this.t > L.tMax) { this.status = 'timeout'; this.message = 'Mission clock ran out.'; }
+    }
+
+    // Osculating two-body orbit of the ship about a body: distances of its
+    // lowest (pe) and highest (ap) points from the body's centre.
+    orbitAbout(ref, bodyId) {
+      const s = this.ship, gm = this.sys.byId[bodyId].gm;
+      const rx = s.x - ref.x, ry = s.y - ref.y, vx = s.vx - ref.vx, vy = s.vy - ref.vy;
+      const r = Math.hypot(rx, ry), v2 = vx * vx + vy * vy;
+      const eps = v2 / 2 - gm / r, h = rx * vy - ry * vx;
+      const e = Math.sqrt(Math.max(0, 1 + 2 * eps * h * h / (gm * gm)));
+      if (eps >= 0) return { bound: false, pe: h * h / (gm * (1 + e)), ap: Infinity, dir: h > 0 ? 1 : -1 };
+      const a = -gm / (2 * eps);
+      return { bound: true, pe: a * (1 - e), ap: a * (1 + e), dir: h > 0 ? 1 : -1 };
     }
 
     currentGoal() { return this.level.goals[this.goalIndex] || null; }

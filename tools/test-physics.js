@@ -108,38 +108,71 @@ for (const L of LEVELS) {
   check('pickup Δv is not counted as used', Math.abs(m.dvUsed()) < 1e-6);
 }
 
-// 8. Launch levels: a simple gravity turn reaches orbit, and on the satellite
-//    level only deploying the payload gets there.
+// 8. Launch levels: a player-like gravity turn (climb, tilt over, keep
+//    burning toward the horizon, top up at the high point) reaches a real
+//    orbit, and on the satellite level only deploying the payload gets there.
 {
   const fly = (L, deploy) => {
-    const gm = L.bodies[0].gm;
+    const g = L.goals[0], gm = L.bodies[0].gm, lo = g.rMin + 8, hi = g.rMax - 15;
     const m = new Mission(L); let phase = 0;
     while (m.status === 'flying' && m.t < 900) {
-      const s = m.ship, r = Math.hypot(s.x, s.y); let thrust = false;
+      const s = m.ship, r = Math.hypot(s.x, s.y), radial = Math.atan2(s.y, s.x); let thrust = false;
       const v2 = s.vx * s.vx + s.vy * s.vy, a = 1 / (2 / r - v2 / gm), h = s.x * s.vy - s.y * s.vx;
-      const e = Math.sqrt(Math.max(0, 1 - h * h / (gm * a))), peri = a * (1 - e), apo = a * (1 + e);
+      const e = Math.sqrt(Math.max(0, 1 - h * h / (gm * a))), pe = a * (1 - e), ap = a > 0 ? a * (1 + e) : Infinity;
+      if (m.stageSpec.fuel <= 1e-9 && deploy && m.canDeploy()) m.deploy();
       if (phase === 0) {
         thrust = true;
-        if (!m.landed && m.t > 1.25) { s.angle = Math.atan2(s.y, s.x) + 1.0; s.omega = 0; } // tilt the way Gaia spins
-        if ((!m.landed && apo > 110) || m.stageSpec.fuel <= 1e-9) phase = 1;
-      } else if (phase === 1) {
-        if (deploy && m.canDeploy()) m.deploy();
-        if (s.x * s.vx + s.y * s.vy <= 0) phase = 2;
-      } else if (phase === 2) {
-        s.angle = Math.atan2(s.vy, s.vx); s.omega = 0;
-        thrust = peri < 85 && m.stageSpec.fuel > 0;
-        if (!thrust) phase = 3;
-      }
-      m.advance(thrust || phase === 0 ? 1 / 120 : 0.1, { thrust, throttle: 1, rotate: 0 });
+        if (!m.landed && m.t > 1.25) { s.angle = radial + Math.min(0.6 + (m.t - 1.25) * 0.25, Math.PI / 2); s.omega = 0; }
+        if ((!m.landed && (pe >= lo || ap >= hi)) || (m.stageSpec.fuel <= 1e-9 && !m.canDeploy())) phase = 1;
+      } else if (phase === 1) { if (pe >= lo) phase = 3; else if (s.x * s.vx + s.y * s.vy <= 0) phase = 2; }
+      else if (phase === 2) { s.angle = Math.atan2(s.vy, s.vx); s.omega = 0; thrust = pe < lo && m.stageSpec.fuel > 0; if (!thrust) phase = 3; }
+      m.advance(thrust ? 1 / 120 : 0.1, { thrust, throttle: 1, rotate: 0 });
     }
     return m;
   };
   const ro = fly(LEVELS.find(l => l.id === 'reachorbit'), false);
-  check('Reach Orbit: a gravity turn makes orbit', ro.status === 'won', `${ro.status} dv=${ro.dvUsed().toFixed(2)}`);
+  check('Reach Orbit: a gravity turn makes a real orbit', ro.status === 'won', `${ro.status} dv=${ro.dvUsed().toFixed(2)}`);
   const sat = LEVELS.find(l => l.id === 'test-satellite');
   const withDeploy = fly(sat, true), boosterOnly = fly(sat, false);
   check('Satellite: deploying reaches orbit', withDeploy.status === 'won', withDeploy.status);
   check('Satellite: the booster alone cannot', boosterOnly.status !== 'won', boosterOnly.status);
+}
+
+// 9. Passing through an orbit band on a path that doesn't stay there must not
+//    count: a ship coasting on an ellipse that crosses the band never wins.
+{
+  const L = LEVELS.find(l => l.id === 'turn'); // band 180-230 around Terra
+  const m = new Mission(L);
+  const s = m.ship, v = Math.hypot(s.vx, s.vy);
+  s.vx *= 1.25; s.vy *= 1.25; // ellipse from 90 out past the band
+  let inBand = 0;
+  while (m.status === 'flying' && m.t < 600) {
+    m.advance(0.25, { thrust: false, throttle: 1, rotate: 0 });
+    const r = Math.hypot(s.x, s.y); if (r >= 180 && r <= 230) inBand += 0.25;
+  }
+  check('sweeping through an orbit band does not win', m.status !== 'won' && inBand > 30, `${m.status}, ${inBand.toFixed(0)}s spent inside the band`);
+}
+
+// 10. Wrong Way's intended route (climb high, reverse where you're slow, fall
+//     back and circularize) wins within the tank. The random search in
+//     check-levels.js can't find this three-burn route on its own.
+{
+  const L = LEVELS.find(l => l.id === 'wrongway');
+  const m = new Mission(L), s = m.ship, gm = 20000, apoTarget = 1000;
+  let phase = 0;
+  while (m.status === 'flying' && m.t < L.tMax) {
+    const r = Math.hypot(s.x, s.y), v2 = s.vx * s.vx + s.vy * s.vy, a = 1 / (2 / r - v2 / gm), h = s.x * s.vy - s.y * s.vx;
+    const e = Math.sqrt(Math.max(0, 1 - h * h / (gm * a))), apo = a * (1 + e), peri = a * (1 - e);
+    let thrust = false;
+    if (phase === 0) { s.angle = Math.atan2(s.vy, s.vx); thrust = apo < apoTarget; if (!thrust) phase = 1; }
+    else if (phase === 1) { if (r > apoTarget * 0.995) phase = 2; }
+    else if (phase === 2) { s.angle = Math.atan2(s.x, -s.y); thrust = true; if (h > 0 && peri > 130) { phase = 3; thrust = false; } }
+    else if (phase === 3) { if (r < 135 && h > 0) phase = 4; }
+    else if (phase === 4) { s.angle = Math.atan2(s.vy, s.vx) + Math.PI; thrust = apo > 150; if (!thrust) phase = 5; }
+    s.omega = 0;
+    m.advance(thrust ? 1 / 120 : 0.1, { thrust, throttle: 1, rotate: 0 });
+  }
+  check('Wrong Way: the climb-high route wins', m.status === 'won', `${m.status} dv=${m.dvUsed().toFixed(2)}`);
 }
 
 process.exit(failed ? 1 : 0);
