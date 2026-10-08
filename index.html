@@ -41,7 +41,7 @@
       <div class="glabel"><span>RCS</span><span id="hud-rcs">0</span></div>
       <div class="bar rcs"><div id="bar-rcs"></div></div>
     </div>
-    <div class="gauge">
+    <div class="gauge throttle">
       <div class="glabel"><span>Throttle</span><span id="hud-throttle">100%</span></div>
       <div class="bar thr"><div id="bar-throttle"></div></div>
     </div>
@@ -61,7 +61,10 @@
 
   <div id="toast"></div>
   <div id="coach" aria-live="polite"><div id="coach-text"></div></div>
-  <button id="btn-pause" class="icon-btn" title="Pause (Esc)">❚❚</button>
+  <div id="topbtns">
+    <button id="btn-gyro" class="icon-btn" aria-label="Gyro assist" title="Gyro assist (G)">G</button>
+    <button id="btn-pause" class="icon-btn" aria-label="Pause" title="Pause (Esc)">❚❚</button>
+  </div>
 
   <div id="touch">
     <div class="tgroup">
@@ -72,7 +75,6 @@
       <button data-key="warpDown" aria-label="Slow time">«</button>
       <button data-key="warpUp" aria-label="Speed up time">»</button>
       <button data-key="frame" aria-label="Reference frame">V</button>
-      <button data-key="gyro" aria-label="Gyro assist">G</button>
       <button data-key="cam" aria-label="Overview or follow ship">◎</button>
     </div>
     <button data-key="burn" class="burn">BURN</button>

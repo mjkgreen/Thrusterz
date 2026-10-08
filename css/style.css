@@ -61,9 +61,11 @@ button { font-family: var(--sans); }
 .minibar div { height: 100%; background: var(--accent); }
 
 #clock { top: 12px; right: 12px; font-family: var(--mono); font-size: 13px; text-align: right; line-height: 1.6; }
-#btn-pause {
-  position: absolute; top: 12px; right: 12px; transform: translateY(96px); pointer-events: auto;
+#topbtns {
+  position: absolute; top: 108px; right: 12px; display: flex; gap: 6px; pointer-events: auto;
 }
+#btn-gyro { display: none; }
+#btn-gyro.on { background: rgba(124, 247, 212, 0.3); border-color: rgba(124, 247, 212, 0.6); }
 .icon-btn {
   background: var(--panel); border: 1px solid var(--panel-border); color: var(--text);
   border-radius: 8px; width: 36px; height: 32px; cursor: pointer; font-size: 12px;
@@ -142,9 +144,6 @@ body.touch #touch {
   font-weight: 800; font-size: 16px; letter-spacing: 0.1em;
 }
 #touch button.on { background: rgba(124, 247, 212, 0.35); }
-body.touch #gauges, body.touch #orbit { bottom: 122px; }
-body.touch #coach { bottom: 130px; }
-body.touch #btn-pause { transform: translateY(80px); }
 
 /* ------------------------------------------------------------ screens */
 .screen {
@@ -218,18 +217,10 @@ kbd {
 
 @media (max-width: 640px) {
   #mission { max-width: calc(100vw - 172px); padding: 8px 10px; }
-  #mission .title { overflow-wrap: anywhere; }
+  #mission .title { overflow-wrap: anywhere; font-size: 16px; }
   #mission .eyebrow { display: none; }
   #clock { font-size: 11px; padding: 6px 8px; }
-  body.touch #gauges { left: 8px; width: 140px; padding: 6px 8px; }
-  body.touch #orbit { right: 8px; min-width: 0; width: 140px; padding: 6px 8px; }
-  #touch button { width: 56px; height: 56px; }
-  #touch .tgroup.small { max-width: 104px; }
-  #touch .tgroup.small button { width: 48px; }
-  #touch button.burn { width: 84px; height: 84px; }
-  body.touch #coach { bottom: auto; top: 128px; font-size: 15px; padding: 10px 14px; }
   .gauge { margin-bottom: 4px; }
-  #mission .title { font-size: 16px; }
   #gauges { width: 160px; }
   #orbit { min-width: 150px; }
   .card { padding: 20px 18px; }
@@ -253,21 +244,7 @@ kbd {
   #mission .title { font-size: 15px; margin: 0 0 2px; }
   #hud-goals { font-size: 12px; }
   #clock { top: 8px; right: 8px; font-size: 11px; line-height: 1.4; }
-  #btn-pause { top: 8px; right: auto; left: 50%; transform: translateX(-50%); }
-  #coach { font-size: 15px; padding: 8px 14px; bottom: auto; top: 48px; max-width: 46vw; }
-  .gauge { margin-bottom: 3px; }
-  .glabel { font-size: 11px; margin-bottom: 2px; }
-  .bar { height: 6px; }
-  body.touch #gauges { left: 8px; bottom: 84px; width: 150px; }
-  body.touch #orbit { right: 8px; bottom: 100px; min-width: 0; width: 150px; font-size: 11px; }
-  #orbit .grid { margin: 3px 0; }
-  body.touch #coach { top: 48px; bottom: auto; }
-  body.touch #btn-pause { transform: translateX(-50%); }
-  body.touch #touch { padding: 0 12px 8px; }
-  body.touch #touch button { width: 64px; height: 64px; }
-  body.touch #touch .tgroup.small { flex-wrap: nowrap; max-width: none; }
-  body.touch #touch .tgroup.small button { width: 44px; height: 38px; }
-  body.touch #touch button.burn { width: 84px; height: 84px; }
+  #coach { font-size: 15px; padding: 8px 14px; }
   .screen { padding-block: 10px; }
   .card { padding: 14px 18px; }
   .card h1 { font-size: 22px; }
@@ -281,3 +258,48 @@ kbd {
   .level-card .lname { font-size: 15px; }
   .level-card .lteach { min-height: 0; }
 }
+
+/* ------------------------------------------------------- touch HUD
+   Phones and tablets: no boxes, just legible text over the scene.
+   Top: mission (left) · resources (center) · clock + G + pause (right).
+   Bottom: rotate (left thumb) · warp/frame/camera (middle) · BURN (right). */
+body.touch .panel {
+  background: transparent; border: none; border-radius: 0;
+  backdrop-filter: none; -webkit-backdrop-filter: none;
+  padding: 0; text-shadow: 0 1px 3px rgba(0,0,0,0.95), 0 0 8px rgba(0,0,0,0.6);
+}
+body.touch #mission { top: 10px; left: 12px; max-width: 30vw; }
+body.touch #mission .eyebrow { display: none; }
+body.touch #mission .title { font-size: 15px; margin: 0 0 2px; }
+body.touch #hud-goals { font-size: 12px; }
+body.touch #hud-goals .sub { padding-left: 18px; }
+
+body.touch #gauges {
+  top: 10px; bottom: auto; left: 50%; transform: translateX(-50%); width: min(300px, 36vw);
+  display: grid; grid-template-columns: 1fr 1fr; gap: 2px 14px;
+}
+body.touch #gauges .gauge { margin: 0; }
+body.touch #gauges .glabel { font-size: 11px; margin-bottom: 2px; }
+body.touch #gauges .bar { height: 5px; background: rgba(255,255,255,0.15); }
+body.touch #gauges .gauge.throttle { display: none; }
+body.touch #gauges .row { grid-column: 1 / -1; text-align: center; font-size: 11px; }
+body.touch #gauges:has(#gauge-rcs[style*="none"]) { grid-template-columns: 1fr; }
+
+body.touch #clock { top: 10px; right: 112px; font-size: 11px; line-height: 1.4; }
+body.touch #topbtns { top: 8px; right: 8px; }
+body.touch #btn-gyro { display: block; }
+body.touch #topbtns .icon-btn { width: 44px; height: 38px; font-size: 14px; font-weight: 700; background: rgba(12,16,32,0.55); }
+
+body.touch #orbit { top: 66px; bottom: auto; right: 12px; min-width: 0; width: 168px; font-size: 11px; }
+body.touch #orbit .grid { margin: 2px 0; gap: 0 8px; }
+body.touch #hud-target { font-size: 11px; }
+
+body.touch #coach { top: auto; bottom: 64px; font-size: 14px; padding: 6px 14px; max-width: 52vw; background: rgba(10, 14, 30, 0.6); }
+body.touch.no-rotate #touch [data-key="rotL"], body.touch.no-rotate #touch [data-key="rotR"] { visibility: hidden; }
+body.touch kbd.big { padding: 0 7px; }
+
+body.touch #touch { padding: 0 12px 10px; }
+body.touch #touch button { width: 62px; height: 62px; background: rgba(12,16,32,0.45); }
+body.touch #touch .tgroup.small { flex-wrap: nowrap; max-width: none; }
+body.touch #touch .tgroup.small button { width: 44px; height: 38px; }
+body.touch #touch button.burn { width: 84px; height: 84px; background: rgba(255, 140, 50, 0.28); }

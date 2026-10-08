@@ -956,6 +956,7 @@
     $('hud-name').textContent = L.name;
     $('gauge-rcs').style.display = L.ship.rcs ? '' : 'none';
     $('gyro-row').style.display = L.ship.canRotate ? '' : 'none';
+    document.body.classList.toggle('no-rotate', !L.ship.canRotate);
     renderGoals();
   }
 
@@ -1009,6 +1010,8 @@
     $('hud-spin').className = Math.abs(spin) < 0.05 ? 'ok' : Math.abs(spin) > 30 ? 'warn' : '';
     $('hud-gyro').textContent = m.gyro ? 'ON · max ★★' : (m.assisted ? 'OFF · max ★★' : 'OFF');
     $('hud-gyro').className = m.gyro || m.assisted ? 'warn' : '';
+    $('btn-gyro').classList.toggle('on', m.gyro);
+    $('btn-gyro').style.visibility = L.ship.canRotate ? '' : 'hidden';
 
     // Osculating orbit about the dominant body.
     const ref = sys.dominant(s.x, s.y, m.t);
@@ -1056,7 +1059,7 @@
     }
     const p = state.pred;
     let tgt = '';
-    if (m.landed) tgt = 'Hold SPACE to lift off';
+    if (m.landed) tgt = isTouch() ? 'Hold BURN to lift off' : 'Hold SPACE to lift off';
     else if (p && p.ca) tgt = `${p.ca.far ? 'Farthest point' : 'Closest approach'} <b>${p.ca.d.toFixed(0)}</b> in ${fmtT(p.ca.t - m.t)}`;
     if (dv <= 1e-6 && m.status === 'flying') tgt += '<div class="warn">Out of fuel — R to retry</div>';
     $('hud-target').innerHTML = tgt;
@@ -1227,6 +1230,7 @@
     if (state.screen === 'flight' && state.paused) { state.paused = false; }
   };
   $('btn-pause').onclick = togglePause;
+  $('btn-gyro').onclick = () => { if (state.mission) toggleGyro(); };
 
   // ---------------------------------------------------------------- utils
   function fmtT(t) {
