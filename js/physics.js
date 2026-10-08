@@ -226,6 +226,7 @@
     sys.update(t);
     for (const b of sys.bodies) {
       const dx = x - sys.px[b.index], dy = y - sys.py[b.index];
+      if (b.pickup) continue; // collected by flying through, never collided with
       if (dx * dx + dy * dy < b.radius * b.radius) return b.index;
     }
     return -1;

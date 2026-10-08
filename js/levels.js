@@ -4,13 +4,28 @@
 
   const VE = 10; // exhaust velocity for all stock engines
 
-  // Single-stage ship sized for a Δv budget and a starting acceleration.
+  // Ship sized for a Δv budget and a starting acceleration. With `payload`,
+  // the ship is a booster carrying a lighter second stage (a satellite with a
+  // tiny tank of its own): o.dv is the booster's Δv with the payload aboard,
+  // payload.dv the payload's own Δv once the booster is dropped.
   function ship(o) {
-    const fuel = Math.exp(o.dv / VE) - 1; // dry mass 1
+    let stages;
+    if (o.payload) {
+      const p = o.payload, pDry = p.dry || 0.25;
+      const pFuel = pDry * (Math.exp(p.dv / VE) - 1), pMass = pDry + pFuel;
+      const bFuel = (1 + pMass) * (Math.exp(o.dv / VE) - 1); // booster dry mass 1
+      stages = [
+        { name: o.name || 'Booster', sprite: 'booster', dryMass: 1, fuel: bFuel, thrust: o.accel * (1 + bFuel + pMass), ve: VE },
+        { name: p.name || 'Satellite', sprite: 'satellite', dryMass: pDry, fuel: pFuel, thrust: p.accel * pMass, ve: VE },
+      ];
+    } else {
+      const fuel = Math.exp(o.dv / VE) - 1; // dry mass 1
+      stages = [{ dryMass: 1, fuel, thrust: o.accel * (1 + fuel), ve: VE }];
+    }
     return {
       start: o.start,
       heading: o.heading,
-      stages: [{ dryMass: 1, fuel, thrust: o.accel * (1 + fuel), ve: VE }],
+      stages,
       rcs: o.rcs === false ? null : Object.assign({ fuel: 60, accel: 1.2, maxRate: 1.6 }, o.rcs || {}),
       canRotate: o.rcs !== false,
     };
@@ -483,6 +498,41 @@
       par: 6.5, bounds: 3000, tMax: 3000, predict: 200, view: { x: 0, y: 0, span: 1500 },
     },
   ];
+
+  // ---------------------------------------------------------- test levels
+  // Prototypes for upcoming mechanics. Shown in their own menu section.
+  LEVELS.push(
+    {
+      id: 'test-satellite',
+      test: true,
+      name: 'Launch a Satellite',
+      intro: 'Your booster can lift the satellite high, but it does not have the fuel to reach orbit. Launch, then tilt toward the horizon as you climb. When the booster runs dry, press E to deploy the satellite. It is much lighter, so its tiny tank goes a long way: coast to the top of the arc and burn prograde to circularize.',
+      objective: 'Put the satellite in orbit between 80 and 150 for 30 s.',
+      teaches: 'Payload deploy',
+      bodies: [
+        { id: 'gaia', name: 'Gaia', gm: 4000, radius: 40, color: C.blue },
+      ],
+      ship: ship({ start: { landed: { body: 'gaia', angle: Math.PI / 2 } }, dv: 13, accel: 4, payload: { dv: 3.5, accel: 1.2 } }),
+      goals: [{ type: 'orbit', body: 'gaia', rMin: 80, rMax: 150, hold: 30 }],
+      par: 16.5, bounds: 2000, tMax: 900, predict: 120, view: { x: 0, y: 0, span: 420 }, startCam: 'overview',
+    },
+    {
+      id: 'test-fuel',
+      test: true,
+      name: 'Fuel Run',
+      intro: 'Your tank can only get you halfway to Luna. A fuel canister orbits higher up: fly through it to top up, then push on to Luna. Watch the canister glow green when your predicted path will collect it.',
+      objective: 'Collect fuel, then impact Luna.',
+      teaches: 'Fuel pickups',
+      bodies: [
+        { id: 'terra', name: 'Terra', gm: 20000, radius: 50, color: C.blue },
+        { id: 'luna', name: 'Luna', gm: 1500, radius: 18, color: C.grey, orbit: { parent: 'terra', a: 420, phase: 2.6 } },
+        { id: 'canister', name: 'Fuel', gm: 0, radius: 7, color: '#ffb35a', kind: 'fuel', pickup: true, dv: 4, orbit: { parent: 'terra', a: 200, phase: 2.2 } },
+      ],
+      ship: ship({ start: { orbit: { body: 'terra', r: 90, angle: 0 } }, heading: 'prograde', dv: 3.2, accel: 1 }),
+      goals: [{ type: 'hit', body: 'luna' }],
+      par: 5, bounds: 2500, tMax: 1500, predict: 200, view: { x: 0, y: 0, span: 1000 },
+    },
+  );
 
   const Levels = { LEVELS, ship, VE };
   if (typeof module !== 'undefined' && module.exports) module.exports = Levels;

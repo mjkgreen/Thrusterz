@@ -39,6 +39,9 @@
       this.rotLatch = 0;   // input that just stopped a spin; ignored until released
       this.gyro = false;
       this.assisted = false;
+      this.debris = [];          // spent stages left behind after deploying
+      this.collected = new Set(); // fuel pickups already taken
+      this.dvGained = 0;          // Δv added by pickups
       this.ship = { x: 0, y: 0, vx: 0, vy: 0, angle: 0, omega: 0 };
       this.landed = null;
       this._initShip(spec);
@@ -110,7 +113,24 @@
       return dv;
     }
 
-    dvUsed() { return this.dv0 - this.dvRemaining(); }
+    dvUsed() { return this.dv0 + this.dvGained - this.dvRemaining(); }
+
+    // Can the current stage be dropped to fly the next one (e.g. a payload)?
+    canDeploy() { return this.stage < this.stages.length - 1 && !this.landed && this.status === 'flying'; }
+
+    // Separate: the spent stage drifts away as debris, control passes to the
+    // next stage. A small spring push nudges the old stage backwards.
+    deploy() {
+      if (!this.canDeploy()) return false;
+      const s = this.ship, push = 0.4;
+      this.debris.push({
+        x: s.x, y: s.y, vx: s.vx - push * Math.cos(s.angle), vy: s.vy - push * Math.sin(s.angle),
+        angle: s.angle, omega: s.omega + 0.6, alive: true, sprite: this.stageSpec.sprite || 'booster',
+      });
+      this.stage++;
+      this.events.push({ t: this.t, type: 'deploy', stage: this.stage });
+      return true;
+    }
 
     thrustAccel() { const st = this.stageSpec; return st ? st.thrust / this.mass() : 0; }
 
@@ -194,6 +214,12 @@
       }
 
       Phys.rk4(sys, s, this.t, h, tax, tay);
+      for (const d of this.debris) {
+        if (!d.alive) continue;
+        Phys.rk4(sys, d, this.t, h, 0, 0);
+        d.angle += d.omega * h;
+        if (Phys.collision(sys, d.x, d.y, this.t + h) >= 0) { d.alive = false; d.crashT = this.t + h; }
+      }
       this.t += h;
       this._checks(h);
     }
@@ -201,6 +227,20 @@
     _checks(h) {
       const sys = this.sys, s = this.ship, L = this.level;
       sys.update(this.t);
+      // Fuel pickups: fly through to top up the current stage by a fixed Δv.
+      for (const b of sys.bodies) {
+        if (!b.pickup || this.collected.has(b.index)) continue;
+        const r = b.radius + 6;
+        if ((s.x - sys.px[b.index]) ** 2 + (s.y - sys.py[b.index]) ** 2 < r * r) {
+          this.collected.add(b.index);
+          const st = this.stageSpec;
+          if (st) {
+            st.fuel += this.mass() * (Math.exp(b.dv / st.ve) - 1);
+            this.dvGained += b.dv;
+          }
+          this.events.push({ t: this.t, type: 'pickup', dv: b.dv, body: b.index });
+        }
+      }
       const hit = Phys.collision(sys, s.x, s.y, this.t);
       if (hit >= 0) {
         const pad = hit === this.ignoreBody ? sys.bodies[hit] : null;
@@ -300,6 +340,17 @@
         this.status = 'won';
         this.message = 'Mission complete!';
       }
+    }
+
+    // Score rewards finishing, fuel efficiency against par, speed and flying
+    // without gyro assist. Max 6500.
+    score() {
+      if (this.status !== 'won') return 0;
+      const L = this.level, used = Math.max(this.dvUsed(), 0.01);
+      const fuel = 4000 * Math.min(1.25, L.par / used) / 1.25;
+      const time = 1000 * Math.max(0, 1 - this.t / L.tMax);
+      const unassisted = this.assisted ? 0 : 500;
+      return Math.round((1000 + fuel + time + unassisted) / 10) * 10;
     }
 
     stars() {

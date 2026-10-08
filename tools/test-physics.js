@@ -76,4 +76,36 @@ for (const L of LEVELS) {
   check('gyro-assisted run is capped at 2 stars', assisted.status === 'won' && assisted.stars() === 2);
 }
 
+// 6. Deploying drops the booster's mass: the payload alone has its own Δv,
+//    and the dropped stage keeps flying as debris.
+{
+  const L = LEVELS.find(l => l.id === 'test-satellite');
+  const m = new Mission(L);
+  const total = m.dvRemaining();
+  m.landed = null; // pretend we're already flying
+  m.stages[0].fuel = 0;
+  const before = m.mass();
+  const ok = m.deploy();
+  const payloadDv = m.dvRemaining();
+  check('deploy releases the payload', ok && m.stage === 1 && m.debris.length === 1 && m.mass() < before);
+  check('payload keeps its own small tank', Math.abs(payloadDv - 3.5) < 0.01, `payload Δv=${payloadDv.toFixed(2)} of total ${total.toFixed(2)}`);
+  check('cannot deploy past the last stage', !m.deploy());
+}
+
+// 7. Flying through a fuel canister adds its Δv once.
+{
+  const L = LEVELS.find(l => l.id === 'test-fuel');
+  const m = new Mission(L);
+  const can = m.sys.byId.canister;
+  m.sys.update(m.t);
+  const dv0 = m.dvRemaining();
+  Object.assign(m.ship, { x: m.sys.px[can.index], y: m.sys.py[can.index], vx: m.sys.vx[can.index], vy: m.sys.vy[can.index] });
+  m._checks(0);
+  const gained = m.dvRemaining() - dv0;
+  m._checks(0);
+  check('canister adds its Δv', Math.abs(gained - can.dv) < 1e-6, `gained ${gained.toFixed(3)}`);
+  check('canister is collected only once', Math.abs(m.dvRemaining() - dv0 - can.dv) < 1e-6 && m.collected.size === 1);
+  check('pickup Δv is not counted as used', Math.abs(m.dvUsed()) < 1e-6);
+}
+
 process.exit(failed ? 1 : 0);

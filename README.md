@@ -24,6 +24,7 @@ Every mission is open from the start; the first one you haven't cleared is marke
 | `A` `D` / `←` `→` | Side thrusters (rotate) |
 | `W` `S` | Throttle up / down |
 | `G` | Gyro assist on/off (auto-stops spin, but caps the run at ★★) |
+| `E` | Deploy payload (when carrying one) |
 | `,` `.` | Time warp down / up (warp drops to 1× while thrusters fire) |
 | `V` | Cycle reference frame (auto / inertial / each body) |
 | `F` / `O` | Follow ship / overview · mouse wheel zoom, drag pan |
@@ -63,6 +64,12 @@ you do it, and stops appearing after you've mastered it.
   rendezvous (distance *and* relative speed). Missions can chain objectives.
 - **Stars** — 3★ for finishing under the mission's par Δv without gyro assist,
   2★ under 1.4× par.
+- **Score** — up to 6,500 per mission for finishing, fuel efficiency against
+  par, speed, and flying without gyro assist. Personal bests are saved locally.
+- **Payload deploy** (test level) — a booster carries a light payload with its
+  own tiny tank. `E` / DEPLOY drops the spent booster (it keeps falling as
+  debris) and hands control to the payload.
+- **Fuel pickups** (test level) — fly through a canister to add its Δv.
 
 ## Missions
 
@@ -103,6 +110,10 @@ you do it, and stops appearing after you've mastered it.
 
 The reference frame starts on **Auto**: it follows the body whose sphere of
 influence you're in, or the star you're orbiting when you're in none.
+
+**Test levels:** *Launch a Satellite* (payload deploy) and *Fuel Run* (fuel
+pickups) prototype the next mechanics. See [docs/ROADMAP.md](docs/ROADMAP.md) for
+future worlds, the leaderboard design and the level-maker plan.
 
 ## Physics
 

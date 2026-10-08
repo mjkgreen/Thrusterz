@@ -84,6 +84,7 @@
     state.warp = 0;
     state.throttle = 1;
     state.coach = { done: new Set(), key: null, idle: 0, spinIdle: 0 };
+    state.eventsSeen = 0;
     state.frameMode = 'auto';
     state.predictScale = 1;
     state.trail = [];
@@ -143,6 +144,14 @@
     return state.frameMode === 'auto' ? 'Auto · ' + name : name;
   }
 
+  function deployPayload() {
+    const m = state.mission;
+    if (!m.deploy()) { if (m.status === 'flying') toast(m.landed ? 'Launch first' : 'Nothing to deploy', 1.2); return; }
+    coachDone('deploy');
+    state.predDirty = true;
+    toast(m.stageSpec.name + ' deployed', 1.5);
+  }
+
   function toggleGyro() {
     const m = state.mission;
     if (!m.level.ship.canRotate) { toast('No side thrusters on this ship', 1.5); return; }
@@ -192,6 +201,7 @@
       case 'KeyS': case 'ControlLeft': state.throttle = Math.max(0.1, Math.round(state.throttle * 10 - 1) / 10); break;
       case 'KeyZ': state.throttle = 1; break;
       case 'KeyG': toggleGyro(); break;
+      case 'KeyE': deployPayload(); break;
       case 'KeyV': cycleFrame(); coachDone('frame'); break;
       case 'KeyF': followShip(); break;
       case 'KeyO': overview(); break;
@@ -255,6 +265,7 @@
       else if (k === 'warpDown') setWarp(state.warp - 1);
       else if (k === 'frame') { if (state.mission) { cycleFrame(); coachDone('frame'); } }
       else if (k === 'gyro') { if (state.mission) toggleGyro(); }
+      else if (k === 'deploy') { if (state.mission) deployPayload(); }
       else if (k === 'cam') { if (state.mission) (state.cam.follow ? overview() : followShip()); }
       else {
         touch[k] = true;
@@ -334,6 +345,14 @@
     m.advance(realDt * WARPS[state.warp], c);
 
     if (m.dvRemaining() < dvBefore - 1e-9) state.predDirty = true;
+    for (; state.eventsSeen < m.events.length; state.eventsSeen++) {
+      const ev = m.events[state.eventsSeen];
+      if (ev.type === 'pickup') {
+        toast('+' + ev.dv.toFixed(1) + ' Δv collected', 1.8);
+        confetti(m.ship.x, m.ship.y);
+        state.predDirty = true;
+      }
+    }
     updateCoach(realDt, c);
     if (m.thrusting) spawnExhaust(realDt);
     if (m.rotInput) spawnRcs(m.rotInput);
@@ -379,6 +398,15 @@
       if (bi > 0) ca = { i: bi, t: p.ts[bi], d: sign * best, goal: g, far: sign < 0 };
     }
     p.ca = ca;
+    p.pickups = new Set();
+    for (const b of m.sys.bodies) {
+      if (!b.pickup || m.collected.has(b.index)) continue;
+      const r2 = (b.radius + 6) ** 2;
+      for (let i = 0; i < p.ts.length; i += 1) {
+        m.sys.update(p.ts[i]);
+        if ((p.xs[i] - m.sys.px[b.index]) ** 2 + (p.ys[i] - m.sys.py[b.index]) ** 2 < r2) { p.pickups.add(b.index); break; }
+      }
+    }
     state.pred = p;
   }
 
@@ -677,6 +705,7 @@
       if (sx < -r - 200 || sx > W + r + 200 || sy < -r - 200 || sy > H + r + 200) continue;
       if (b.kind === 'station') { drawStation(sx, sy, b); continue; }
       if (b.kind === 'rock') { drawRock(sx, sy, r, b); continue; }
+      if (b.pickup) { if (!state.mission.collected.has(b.index)) drawCanister(sx, sy, b); continue; }
       if (b.kind === 'blackhole') { drawBlackHole(sx, sy, r, b); continue; }
       const isStar = b.gm >= 30000 && /#ff/.test(b.color);
       if (b.kind === 'comet') drawCometTail(b, sx, sy, r);
@@ -703,6 +732,21 @@
       }
       label(b.name, sx, sy + r + 14, 'rgba(220,228,255,0.75)');
     }
+  }
+
+  // Fuel canister: glows green when the predicted path will collect it.
+  function drawCanister(sx, sy, b) {
+    const t = performance.now() / 1000, hit = state.pred && state.pred.pickups && state.pred.pickups.has(b.index);
+    const glow = ctx.createRadialGradient(sx, sy, 2, sx, sy, 22);
+    glow.addColorStop(0, hit ? 'rgba(124,247,212,0.55)' : 'rgba(255,179,90,0.5)'); glow.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(sx, sy, 22, 0, TAU); ctx.fill();
+    ctx.save(); ctx.translate(sx, sy); ctx.rotate(Math.sin(t * 1.5) * 0.3);
+    ctx.fillStyle = '#ffb35a'; ctx.strokeStyle = '#7a4a10'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.roundRect(-4, -7, 8, 14, 2.5); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#7a4a10'; ctx.fillRect(-4, -2, 8, 1.5);
+    ctx.restore();
+    if (hit) { ctx.strokeStyle = '#7cf7d4'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(sx, sy, 13, 0, TAU); ctx.stroke(); ctx.lineWidth = 1; }
+    label('+' + b.dv + ' Δv', sx, sy + 24, hit ? '#7cf7d4' : '#ffb35a');
   }
 
   // Black hole: a dark disc inside a glowing, slowly turning accretion disc.
@@ -787,12 +831,23 @@
 
   function drawShip() {
     const m = state.mission, s = m.ship;
+    for (const d of m.debris) {
+      if (!d.alive) {
+        if (!d.exploded) { d.exploded = true; explode(d.x, d.y, '#ffb35a'); }
+        continue;
+      }
+      const [dx, dy] = w2s(d.x, d.y);
+      ctx.save(); ctx.globalAlpha = 0.75; ctx.translate(dx, dy); ctx.rotate(-d.angle);
+      drawRocketBody(9);
+      ctx.restore();
+    }
     if (m.status === 'crashed' || (m.status === 'won' && m.level.goals[m.level.goals.length - 1].type === 'hit')) return;
     const [sx, sy] = w2s(s.x, s.y);
     ctx.save();
     ctx.translate(sx, sy);
     ctx.rotate(-s.angle);
-    const L = 9;
+    const sat = m.stageSpec && m.stageSpec.sprite === 'satellite';
+    const L = sat ? 4 : 9;
     if (m.thrusting) {
       const f = (0.7 + Math.random() * 0.5) * state.throttle;
       const g = ctx.createLinearGradient(-L, 0, -L - 22 * f, 0);
@@ -800,6 +855,22 @@
       ctx.fillStyle = g;
       ctx.beginPath(); ctx.moveTo(-L + 1, -3.5); ctx.lineTo(-L - 22 * f, 0); ctx.lineTo(-L + 1, 3.5); ctx.fill();
     }
+    if (sat) drawSatelliteBody(); else drawRocketBody(L);
+    ctx.restore();
+  }
+
+  // Satellite: a gold-foil box with two solar panels and a small nozzle.
+  function drawSatelliteBody() {
+    ctx.fillStyle = '#4f7fd8'; ctx.strokeStyle = '#9fc0ff'; ctx.lineWidth = 0.8;
+    ctx.fillRect(-2.5, -13, 5, 8); ctx.strokeRect(-2.5, -13, 5, 8);
+    ctx.fillRect(-2.5, 5, 5, 8); ctx.strokeRect(-2.5, 5, 5, 8);
+    ctx.fillStyle = '#e8c45a'; ctx.strokeStyle = '#8a6a1a'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.rect(-4, -4.5, 8, 9); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#c9ced8'; ctx.beginPath(); ctx.moveTo(-4, -2); ctx.lineTo(-6.5, -3); ctx.lineTo(-6.5, 3); ctx.lineTo(-4, 2); ctx.fill();
+    ctx.strokeStyle = '#e9edf7'; ctx.beginPath(); ctx.moveTo(4, 0); ctx.lineTo(7, 0); ctx.stroke();
+  }
+
+  function drawRocketBody(L) {
     // Body
     ctx.fillStyle = '#e9edf7';
     ctx.strokeStyle = '#7f8aa8';
@@ -819,7 +890,6 @@
     // Window
     ctx.fillStyle = '#4fc3ff';
     ctx.beginPath(); ctx.arc(3, 0, 1.8, 0, TAU); ctx.fill();
-    ctx.restore();
   }
 
   // Prograde / retrograde / target markers around the ship.
@@ -896,6 +966,7 @@
   // doing the thing. Mastered prompts stop appearing in later missions.
   const KEY = (k) => `<kbd class="big">${k}</kbd>`;
   const HINTS = {
+    deploy: { key: (m) => `${m.stageSpec.name} empty! Press ${KEY('E')} to deploy the ${m.stages[m.stage + 1].name.toLowerCase()}`, touch: (m) => `${m.stageSpec.name} empty! Tap ${KEY('DEPLOY')} to release the ${m.stages[m.stage + 1].name.toLowerCase()}` },
     launch: { key: () => `Press and hold ${KEY('SPACE')} to launch`, touch: () => `Press and hold ${KEY('BURN')} to launch` },
     burn: { key: () => `Hold ${KEY('SPACE')} to fire the main engine`, touch: () => `Hold ${KEY('BURN')} to fire the main engine` },
     rotate: { key: () => `${KEY('A')} ${KEY('D')} fire side thrusters to rotate`, touch: () => `${KEY('⟲')} ${KEY('⟳')} fire side thrusters to rotate` },
@@ -906,7 +977,7 @@
     frame: { key: () => `Press ${KEY('V')} to view your path relative to another body`, touch: () => `Tap ${KEY('V')} to view your path relative to another body` },
     gyro: { key: () => `${KEY('G')} gyro assist stops spin for you (caps the run at ★★)`, touch: () => `${KEY('G')} gyro assist stops spin for you (caps the run at ★★)` },
   };
-  const LEARN_AFTER = { launch: 99, burn: 2, rotate: 3, counter: 4, warp: 3, camera: 2, frame: 2, gyro: 1 };
+  const LEARN_AFTER = { deploy: 99, launch: 99, burn: 2, rotate: 3, counter: 4, warp: 3, camera: 2, frame: 2, gyro: 1 };
 
   function learned(k) { return (progress.learned && progress.learned[k]) || 0; }
 
@@ -944,6 +1015,7 @@
     let key = null;
     if (m.status !== 'flying') key = null;
     else if (m.landed) key = 'launch';
+    else if (m.canDeploy() && m.stageSpec.fuel <= 1e-9) key = 'deploy';
     else if (L.ship.canRotate && wants('rotate') && m.t > 0.5) key = 'rotate';
     else if (L.ship.canRotate && spinning && c.spinIdle > 1.2 && wants('counter')) key = 'counter';
     else if (wants('burn') && m.dvUsed() < 1e-6 && m.t > 2) key = 'burn';
@@ -967,6 +1039,7 @@
     else chips.push([t ? '« »' : ', .', 'time warp']);
     const grav = L.bodies.filter(b => b.gm > 0 && !b.hidden).length;
     chips.push([t ? '◎' : 'F O', 'follow / overview']);
+    if (L.ship.stages.length > 1) chips.push([t ? 'DEPLOY' : 'E', 'deploy payload']);
     if (grav >= 2) chips.push(['V', 'reference frame']);
     if (L.ship.canRotate) chips.push(['G', 'gyro assist (★★ max)']);
     return chips.map(([k, d]) => `<span class="chip"><kbd>${k}</kbd> ${d}</span>`).join('');
@@ -975,10 +1048,11 @@
   // ------------------------------------------------------------------ HUD
   function setupHud() {
     const m = state.mission, L = m.level;
-    $('hud-level').textContent = 'Mission ' + (state.levelIndex + 1) + ' · ' + L.teaches;
+    $('hud-level').textContent = (L.test ? 'Test level' : 'Mission ' + (state.levelIndex + 1)) + ' · ' + L.teaches;
     $('hud-name').textContent = L.name;
     $('gauge-rcs').style.display = L.ship.rcs ? '' : 'none';
     $('gyro-row').style.display = L.ship.canRotate ? '' : 'none';
+    $('stage-row').style.display = L.ship.stages.length > 1 ? '' : 'none';
     document.body.classList.toggle('no-rotate', !L.ship.canRotate);
     renderGoals();
   }
@@ -1034,6 +1108,10 @@
     $('hud-gyro').textContent = m.gyro ? 'ON · max ★★' : (m.assisted ? 'OFF · max ★★' : 'OFF');
     $('hud-gyro').className = m.gyro || m.assisted ? 'warn' : '';
     $('btn-gyro').classList.toggle('on', m.gyro);
+    document.body.classList.toggle('can-deploy', m.canDeploy());
+    if (L.ship.stages.length > 1) {
+      $('hud-stage').textContent = m.stageSpec.name + (m.canDeploy() ? (isTouch() ? '' : ' · E deploys ' + m.stages[m.stage + 1].name) : '');
+    }
     $('btn-gyro').style.visibility = L.ship.canRotate ? '' : 'hidden';
 
     // Osculating orbit about the dominant body.
@@ -1106,21 +1184,29 @@
     state.screen = 'menu';
     hide('hud'); hide('briefing'); hide('result'); hide('pause'); hide('help');
     show('menu');
-    const grid = $('level-grid');
-    grid.innerHTML = '';
+    const grid = $('level-grid'), tests = $('test-grid');
+    grid.innerHTML = ''; tests.innerHTML = '';
+    const nextUp = LEVELS.findIndex(l => !l.test && !progress.stars[l.id]);
     LEVELS.forEach((L, i) => {
       // Every mission is open; the first uncleared one is highlighted as next up.
       const stars = progress.stars[L.id] || 0;
-      const next = i === LEVELS.findIndex(l => !progress.stars[l.id]);
+      const next = i === nextUp;
       const card = document.createElement('button');
-      card.className = 'level-card' + (stars ? ' cleared' : '') + (next ? ' next' : '');
-      card.innerHTML = `<div class="num">${String(i + 1).padStart(2, '0')}</div>
+      card.className = 'level-card' + (stars ? ' cleared' : '') + (next ? ' next' : '') + (L.test ? ' test' : '');
+      card.innerHTML = `<div class="num">${L.test ? 'TEST' : String(i + 1).padStart(2, '0')}</div>
         <div class="lname">${L.name}</div>
         <div class="lteach">${L.teaches}</div>
         <div class="lstars">${starStr(stars)}${next ? '<span class="nexttag">Next up</span>' : ''}</div>`;
       card.addEventListener('click', () => showBriefing(i));
-      grid.appendChild(card);
+      (L.test ? tests : grid).appendChild(card);
     });
+  }
+
+  const CAMPAIGN = LEVELS.filter(l => !l.test).length;
+  function missionLabel(i) { return LEVELS[i].test ? 'Test level' : 'Mission ' + (i + 1) + ' of ' + CAMPAIGN; }
+  function nextIndex(i) {
+    const j = i + 1;
+    return j < LEVELS.length && !!LEVELS[j].test === !!LEVELS[i].test ? j : -1;
   }
 
   function starStr(n) { return '★'.repeat(n) + '<span class="dim">' + '★'.repeat(3 - n) + '</span>'; }
@@ -1130,7 +1216,7 @@
     state.screen = 'briefing';
     const L = LEVELS[i];
     hide('menu'); hide('result'); hide('hud');
-    $('brief-num').textContent = 'Mission ' + (i + 1) + ' of ' + LEVELS.length;
+    $('brief-num').textContent = missionLabel(i);
     $('brief-name').textContent = L.name;
     $('brief-teaches').textContent = L.teaches;
     $('brief-intro').textContent = L.intro;
@@ -1152,12 +1238,18 @@
       progress.unlocked = Math.max(progress.unlocked, Math.min(LEVELS.length - 1, state.levelIndex + 1));
       progress.stars[L.id] = Math.max(progress.stars[L.id] || 0, stars);
       if (!progress.best[L.id] || m.dvUsed() < progress.best[L.id]) progress.best[L.id] = m.dvUsed();
+      progress.score = progress.score || {};
+      state.newBest = m.score() > (progress.score[L.id] || 0);
+      if (state.newBest) progress.score[L.id] = m.score();
       saveProgress();
     }
     state.screen = 'result';
     $('res-title').textContent = won ? 'Mission complete' : 'Mission failed';
     $('res-title').className = won ? 'ok' : 'bad';
     $('res-stars').innerHTML = won ? starStr(stars) : '';
+    $('res-score').innerHTML = won
+      ? `<span class="k">SCORE</span>${m.score().toLocaleString()}<span class="pb">${state.newBest ? 'New best!' : 'Best ' + (progress.score[L.id] || 0).toLocaleString()}</span>`
+      : '';
     $('res-msg').textContent = !won ? m.message
       : stars === 3 ? 'Textbook flying.'
       : m.assisted && m.dvUsed() <= L.par ? 'Gyro assist was on, so this run tops out at two stars. Fly without it for three.'
@@ -1165,7 +1257,7 @@
     $('res-stats').innerHTML = `<span><span class="k">Δv used</span> ${m.dvUsed().toFixed(2)}</span>
       <span><span class="k">Time</span> ${fmtT(m.t)}</span>
       ${progress.best[L.id] ? `<span><span class="k">Best</span> ${progress.best[L.id].toFixed(2)}</span>` : ''}`;
-    const hasNext = state.levelIndex < LEVELS.length - 1;
+    const hasNext = nextIndex(state.levelIndex) >= 0;
     $('btn-res-next').style.display = won && hasNext ? '' : 'none';
     $('btn-res-retry').className = won && hasNext ? '' : 'primary';
     show('result');
@@ -1244,7 +1336,7 @@
   $('btn-brief-back').onclick = showMenu;
   $('btn-res-menu').onclick = showMenu;
   $('btn-res-retry').onclick = () => { hide('result'); startLevel(state.levelIndex); };
-  $('btn-res-next').onclick = () => { hide('result'); showBriefing(state.levelIndex + 1); };
+  $('btn-res-next').onclick = () => { hide('result'); showBriefing(nextIndex(state.levelIndex)); };
   $('btn-resume').onclick = togglePause;
   $('btn-restart').onclick = () => { hide('pause'); startLevel(state.levelIndex); };
   $('btn-quit').onclick = () => { state.paused = false; showMenu(); };

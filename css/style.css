@@ -201,7 +201,7 @@ kbd.tbtn.burn { border-radius: 999px; background: rgba(255, 140, 50, 0.28); bord
   text-shadow: 0 0 60px rgba(120, 150, 255, 0.25);
 }
 .tagline { font-family: var(--mono); color: var(--muted); letter-spacing: 0.2em; text-transform: uppercase; font-size: 12px; margin-bottom: 5vh; text-align: center; }
-#level-grid {
+#level-grid, .level-grid {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   gap: 12px; width: min(1000px, 100%);
 }
@@ -328,3 +328,20 @@ body.touch #touch button.burn { width: 84px; height: 84px; background: rgba(255,
 .screen > .card { margin-block: auto; }
 .screen { justify-content: flex-start; }
 #menu { justify-content: flex-start; }
+
+/* Test levels section */
+.world-title.tests { margin-top: 28px; }
+.world-title.tests .wnum { color: var(--warn); }
+.level-card.test .num { color: var(--warn); }
+
+/* Deploy button: only while a payload can be released */
+#touch button.deploy { display: none; }
+body.touch.can-deploy #touch button.deploy {
+  display: block; position: absolute; right: 12px; bottom: 108px; width: 84px; height: 40px;
+  border-radius: 10px; font-size: 12px; font-weight: 800; letter-spacing: 0.08em;
+  background: rgba(124, 247, 212, 0.25); border-color: rgba(124, 247, 212, 0.6); pointer-events: auto;
+}
+kbd.tbtn.deploy { background: rgba(124, 247, 212, 0.25); border-color: rgba(124, 247, 212, 0.6); font-weight: 700; letter-spacing: 0.06em; }
+#res-score { font-family: var(--mono); font-size: 28px; font-weight: 600; color: var(--text); margin: 4px 0; }
+#res-score .k { font-size: 11px; margin-right: 8px; }
+#res-score .pb { font-size: 12px; color: var(--accent); margin-left: 10px; }

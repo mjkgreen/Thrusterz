@@ -102,6 +102,7 @@ const CHECK = {
   ringside: { burns: 2, guess: [0, 0, 2.9, 31, 0, 2.3], scale: [20, 0.1, 0.5, 5, 0.2, 0.5] },
   eventhorizon: { burns: 1, guess: [92, 0, 0.8], scale: [3, 0.1, 0.3] },
   juggler: { burns: 4, guess: [0, -0.52, 1.55, 294, 3.26, 0, 60, 1.73, 0, 60, 1.22, 1.93], scale: [200, 0.3, 0.4, 150, 0.4, 0.4, 150, 3, 0.6, 150, 3, 0.6] },
+  'test-fuel': { burns: 2, guess: [5, 0, 2.6, 40, 0, 3], scale: [40, 0.2, 0.5, 60, 0.4, 1] },
   turn: { burns: 2, guess: [0.5, 0, 2.5, 36, 0, 2.0], scale: [5, 0.3, 1, 8, 0.3, 1] },
   moonshot: { burns: 1, guess: [5, 0, 4.2], scale: [10, 0.2, 1] },
   inertia: { burns: 3, guess: [106, Math.PI, 1.3, 63, Math.PI, 1.45, 2, 0, 0], scale: [10, 0.2, 0.5, 5, 0.2, 0.5, 5, 3, 0.3] },
