@@ -1060,7 +1060,9 @@
     const p = state.pred;
     let tgt = '';
     if (m.landed) tgt = isTouch() ? 'Hold BURN to lift off' : 'Hold SPACE to lift off';
-    else if (p && p.ca) tgt = `${p.ca.far ? 'Farthest point' : 'Closest approach'} <b>${p.ca.d.toFixed(0)}</b> in ${fmtT(p.ca.t - m.t)}`;
+    else if (p && p.ca) tgt = isTouch()
+      ? `${p.ca.far ? 'Farthest' : 'Closest'} <b>${p.ca.d.toFixed(0)}</b> · ${fmtT(p.ca.t - m.t)}`
+      : `${p.ca.far ? 'Farthest point' : 'Closest approach'} <b>${p.ca.d.toFixed(0)}</b> in ${fmtT(p.ca.t - m.t)}`;
     if (dv <= 1e-6 && m.status === 'flying') tgt += '<div class="warn">Out of fuel — R to retry</div>';
     $('hud-target').innerHTML = tgt;
   }
