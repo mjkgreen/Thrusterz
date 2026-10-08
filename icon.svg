@@ -1,1 +1,41 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#05060d"/><circle cx="32" cy="32" r="22" fill="none" stroke="#4f8fe0" stroke-width="2" stroke-dasharray="4 4"/><g transform="rotate(-45 32 32)"><path d="M32 12c6 6 7 16 5 24H27c-2-8-1-18 5-24z" fill="#e9edf7"/><path d="M27 34l-5 8 6-2zM37 34l5 8-6-2z" fill="#e0574a"/><circle cx="32" cy="24" r="2.5" fill="#4fc3ff"/><path d="M29 37h6l-3 9z" fill="#ffb35a"/></g></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <radialGradient id="bg" cx="35%" cy="25%" r="90%">
+      <stop offset="0" stop-color="#1a2150"/>
+      <stop offset="0.6" stop-color="#0b0f24"/>
+      <stop offset="1" stop-color="#05060d"/>
+    </radialGradient>
+    <radialGradient id="planet" cx="38%" cy="35%" r="70%">
+      <stop offset="0" stop-color="#8fc6ff"/>
+      <stop offset="0.6" stop-color="#4f8fe0"/>
+      <stop offset="1" stop-color="#1d3f7a"/>
+    </radialGradient>
+    <linearGradient id="flame" x1="1" y1="0" x2="0" y2="0">
+      <stop offset="0" stop-color="#fff6c8"/>
+      <stop offset="0.45" stop-color="#ffb35a"/>
+      <stop offset="1" stop-color="#ff5a2a" stop-opacity="0"/>
+    </linearGradient>
+    <!-- lower half of the orbit (in the orbit's own frame) passes in front of the planet -->
+    <clipPath id="front"><rect x="0" y="290" width="512" height="300"/></clipPath>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <g fill="#ffffff">
+    <circle cx="92" cy="96" r="4" opacity="0.8"/><circle cx="418" cy="78" r="3" opacity="0.6"/>
+    <circle cx="452" cy="310" r="3.5" opacity="0.7"/><circle cx="74" cy="400" r="3" opacity="0.5"/>
+    <circle cx="300" cy="58" r="2.5" opacity="0.5"/><circle cx="160" cy="470" r="2.5" opacity="0.4"/>
+  </g>
+  <g transform="rotate(-24 246 290)">
+    <ellipse cx="246" cy="290" rx="200" ry="84" fill="none" stroke="#7cf7d4" stroke-width="12" opacity="0.35"/>
+  </g>
+  <circle cx="236" cy="296" r="96" fill="url(#planet)"/>
+  <g transform="rotate(-24 246 290)">
+    <ellipse cx="246" cy="290" rx="200" ry="84" fill="none" stroke="#7cf7d4" stroke-width="12" clip-path="url(#front)"/>
+  </g>
+  <!-- rocket riding the orbit, nose pointing along it -->
+  <g transform="translate(404 214) rotate(-58)">
+    <path d="M -58 -14 L -150 0 L -58 14 Z" fill="url(#flame)"/>
+    <path d="M 66 0 Q 54 -24 20 -26 L -56 -26 L -56 26 L 20 26 Q 54 24 66 0 Z" fill="#eef2fb" stroke="#8a95b5" stroke-width="5"/>
+    <path d="M -56 -26 L -80 -54 L -34 -26 Z M -56 26 L -80 54 L -34 26 Z" fill="#e0574a"/>
+    <circle cx="16" cy="0" r="11" fill="#4fc3ff" stroke="#2a6a9a" stroke-width="4"/>
+  </g>
+</svg>

@@ -1,0 +1,44 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@600;800&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+  html, body { margin: 0; width: 1200px; height: 630px; overflow: hidden; background: #05060d; }
+  canvas { position: absolute; inset: 0; }
+  .text { position: absolute; left: 96px; top: 168px; font-family: "Exo 2", system-ui, sans-serif; color: #dfe6ff; }
+  .logo { display: flex; align-items: center; gap: 28px; }
+  .logo img { width: 132px; height: 132px; border-radius: 30px; box-shadow: 0 18px 60px rgba(0,0,0,0.6); }
+  .word { font-weight: 800; font-size: 112px; letter-spacing: 0.08em; line-height: 1;
+    background: linear-gradient(180deg, #ffffff 0%, #9fc0ff 60%, #6a7dff 100%);
+    -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .tag { margin-top: 34px; font-size: 38px; font-weight: 600; color: #c4cdee; }
+  .meta { margin-top: 22px; font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 22px; letter-spacing: 0.14em; text-transform: uppercase; color: #7cf7d4; }
+</style></head>
+<body>
+<canvas id="c" width="1200" height="630"></canvas>
+<div class="text">
+  <div class="logo"><img src="../../icon.svg" alt=""><div class="word">THRUSTERZ</div></div>
+  <div class="tag">Fly a rocket under real orbital physics.</div>
+  <div class="meta">30 missions · launch · transfer · slingshot · land</div>
+</div>
+<script>
+  const c = document.getElementById('c'), x = c.getContext('2d');
+  let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  for (let i = 0; i < 260; i++) { x.globalAlpha = 0.25 + rnd() * 0.6; x.fillStyle = '#fff'; const s = rnd() * 1.8 + 0.4; x.fillRect(rnd() * 1200, rnd() * 630, s, s); }
+  x.globalAlpha = 1;
+  // Planet on the right with an orbit, a trajectory and a moon.
+  const px = 1010, py = 470;
+  const glow = x.createRadialGradient(px, py, 120, px, py, 300); glow.addColorStop(0, 'rgba(79,143,224,0.35)'); glow.addColorStop(1, 'rgba(79,143,224,0)');
+  x.fillStyle = glow; x.beginPath(); x.arc(px, py, 300, 0, Math.PI * 2); x.fill();
+  const g = x.createRadialGradient(px - 60, py - 70, 20, px, py, 190); g.addColorStop(0, '#9fd0ff'); g.addColorStop(0.6, '#4f8fe0'); g.addColorStop(1, '#1d3f7a');
+  x.fillStyle = g; x.beginPath(); x.arc(px, py, 190, 0, Math.PI * 2); x.fill();
+  x.save(); x.translate(px, py); x.rotate(-0.42);
+  x.strokeStyle = 'rgba(124,247,212,0.55)'; x.lineWidth = 3; x.beginPath(); x.ellipse(0, 0, 420, 170, 0, 0, Math.PI * 2); x.stroke();
+  x.setLineDash([14, 12]); x.strokeStyle = 'rgba(125,200,255,0.85)'; x.lineWidth = 3;
+  x.beginPath(); x.ellipse(-60, 0, 560, 250, 0, Math.PI * 0.95, Math.PI * 1.55); x.stroke(); x.setLineDash([]);
+  x.restore();
+  const mx = 820, my = 96; const mg = x.createRadialGradient(mx - 10, my - 12, 4, mx, my, 34); mg.addColorStop(0, '#f2f4f8'); mg.addColorStop(1, '#7d8496');
+  x.fillStyle = mg; x.beginPath(); x.arc(mx, my, 34, 0, Math.PI * 2); x.fill();
+  x.strokeStyle = 'rgba(247,140,255,0.8)'; x.lineWidth = 3;
+  for (let k = 0; k < 4; k++) { const a = k * Math.PI / 2 + 0.4; x.beginPath(); x.arc(mx, my, 50, a - 0.3, a + 0.3); x.stroke(); }
+</script>
+</body></html>

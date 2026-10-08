@@ -348,3 +348,8 @@ kbd.tbtn.deploy { background: rgba(124, 247, 212, 0.25); border-color: rgba(124,
 #res-score { font-family: var(--mono); font-size: 28px; font-weight: 600; color: var(--text); margin: 4px 0; }
 #res-score .k { font-size: 11px; margin-right: 8px; }
 #res-score .pb { font-size: 12px; color: var(--accent); margin-left: 10px; }
+
+/* Menu brand: app icon beside the wordmark */
+.brand { display: flex; align-items: center; justify-content: center; gap: clamp(12px, 2vw, 22px); }
+.logo-mark { width: clamp(52px, 9vw, 96px); height: auto; border-radius: 22%; box-shadow: 0 12px 40px rgba(0,0,0,0.5); }
+@media (max-height: 500px) { .logo-mark { width: 44px; } }

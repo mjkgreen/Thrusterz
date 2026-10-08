@@ -99,7 +99,6 @@ const CHECK = {
   moonlanding: { burns: 1, guess: [5, Math.PI, 2.2], scale: [30, 0.2, 0.6] },
   trojan: { burns: 2, guess: [0, 0, 0.4, 500, Math.PI, 0.4], scale: [20, 0.1, 0.3, 300, 0.2, 0.3] },
   sundiver: { burns: 1, guess: [0, Math.PI, 5], scale: [5, 0.1, 1.5] },
-  ringside: { burns: 2, guess: [0, 0, 2.9, 31, 0, 2.3], scale: [20, 0.1, 0.5, 5, 0.2, 0.5] },
   eventhorizon: { burns: 1, guess: [92, 0, 0.8], scale: [3, 0.1, 0.3] },
   juggler: { burns: 4, guess: [0, -0.52, 1.55, 294, 3.26, 0, 60, 1.73, 0, 60, 1.22, 1.93], scale: [200, 0.3, 0.4, 150, 0.4, 0.4, 150, 3, 0.6, 150, 3, 0.6] },
   'test-fuel': { burns: 2, guess: [5, 0, 2.6, 40, 0, 3], scale: [40, 0.2, 0.5, 60, 0.4, 1] },

@@ -2,7 +2,7 @@
 
 An orbital mechanics flight game. Pilot a rocket in real time — a fuel-limited
 main engine and side thrusters for rotation — under real Newtonian gravity, and
-hit your destination. Thirty-one missions build up from a single launch to
+hit your destination. Thirty missions build up from a single launch to
 interplanetary transfers, gravity assists and multi-moon tours.
 
 ## Play
@@ -109,10 +109,9 @@ you do it, and stops appearing after you've mastered it.
 | 25 | Interplanetary | Escape burns · transfer windows |
 | 26 | Sundiver | Why the Sun is hard to reach |
 | 27 | Asteroid Belt | Threading moving obstacles |
-| 28 | Ringside | Orbit insertion through obstacles |
-| 29 | Comet Chaser | Eccentric orbits · Kepler's 2nd law |
-| 30 | Moon Juggler | Chained escapes and captures |
-| 31 | Grand Tour | Multi-body trajectory planning |
+| 28 | Comet Chaser | Eccentric orbits · Kepler's 2nd law |
+| 29 | Moon Juggler | Chained escapes and captures |
+| 30 | Grand Tour | Multi-body trajectory planning |
 
 The reference frame starts on **Auto**: it follows the body whose sphere of
 influence you're in, or the star you're orbiting when you're in none.
@@ -147,6 +146,7 @@ js/flight.js        Mission: ship, engines, staging-ready mass model, objectives
 js/levels.js        mission definitions
 js/game.js          rendering, input, HUD, menus, progress (localStorage)
 tools/test-physics.js   physics sanity tests            (npm test)
+tools/brand/            icon + share card sources; render.js regenerates img/
 tools/check-levels.js   autopilot search proving each mission is solvable
                         within its fuel budget           (npm run check-levels)
 ```

@@ -448,21 +448,6 @@
       par: 5.5, bounds: 4000, tMax: 2500, predict: 300, view: { x: 0, y: 0, span: 2500 },
     },
     {
-      id: 'ringside',
-      name: 'Ringside',
-      intro: 'Saturnus wears two rings of rock with a clear gap between them. Climb from inside the inner ring, thread through it, and circularize in the gap. Watch for red CRASH marks on your path.',
-      objective: 'Orbit Saturnus in the ring gap, staying between 200 and 240.',
-      teaches: 'Orbit insertion through obstacles',
-      bodies: [
-        { id: 'saturnus', name: 'Saturnus', gm: 40000, radius: 60, color: C.tan },
-        ...belt('saturnus', 45, 150, 190, 777, 'inner'),
-        ...belt('saturnus', 60, 250, 300, 1999, 'outer'),
-      ],
-      ship: ship({ start: { orbit: { body: 'saturnus', r: 110, angle: 0 } }, heading: 'prograde', dv: 7, accel: 1.2 }),
-      goals: [{ type: 'orbit', body: 'saturnus', rMin: 200, rMax: 240 }],
-      par: 6, bounds: 2500, tMax: 1500, predict: 120, view: { x: 0, y: 0, span: 720 },
-    },
-    {
       id: 'comet',
       name: 'Comet Chaser',
       intro: 'Comet Iris swings on a long, eccentric orbit — fast near the Sun, slow far out. Raise your orbit until it crosses the comet\'s path, then time it so you both arrive together.',
