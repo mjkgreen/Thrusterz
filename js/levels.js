@@ -23,13 +23,13 @@
   };
 
   // A deterministic ring of small, massless rocks on their own circular orbits.
-  function belt(parent, n, rMin, rMax, seed) {
+  function belt(parent, n, rMin, rMax, seed, prefix) {
     let x = seed;
     const rnd = () => (x = (x * 16807) % 2147483647) / 2147483647;
     const rocks = [];
     for (let i = 0; i < n; i++) {
       rocks.push({
-        id: 'rock' + i, name: 'Asteroid', kind: 'rock', noRail: true, gm: 0,
+        id: (prefix || 'rock') + i, name: 'Asteroid', kind: 'rock', noRail: true, gm: 0,
         radius: 7 + rnd() * 9, color: '#8d8478',
         orbit: { parent, a: rMin + rnd() * (rMax - rMin), phase: rnd() * Math.PI * 2 },
       });
@@ -134,6 +134,19 @@
       par: 4.8, bounds: 2000, tMax: 900, predict: 120, view: { x: 0, y: 0, span: 600 },
     },
     {
+      id: 'skimmer',
+      name: 'Skimmer',
+      intro: 'Pyre is heavy, and the survey needs a pass just above its surface. Going down costs fuel just like going up: burn retrograde to drop, then retrograde again at the bottom so you stop falling and skim around.',
+      objective: 'Orbit Pyre between 54 and 68 for 30 s.',
+      teaches: 'Lowering an orbit',
+      bodies: [
+        { id: 'pyre', name: 'Pyre', gm: 30000, radius: 50, color: C.red },
+      ],
+      ship: ship({ start: { orbit: { body: 'pyre', r: 120, angle: 0 } }, heading: 'prograde', dv: 8, accel: 1.3 }),
+      goals: [{ type: 'orbit', body: 'pyre', rMin: 54, rMax: 68, hold: 30 }],
+      par: 7, bounds: 2000, tMax: 900, predict: 80, view: { x: 0, y: 0, span: 400 },
+    },
+    {
       id: 'wrongway',
       name: 'Wrong Way',
       intro: 'You are orbiting clockwise and need to go counter-clockwise. Flipping your velocity directly would take more fuel than you have. Instead, climb high: far out you move slowly, so turning around there is cheap. Then fall back and circularize.',
@@ -178,6 +191,24 @@
       par: 4.6, bounds: 3000, tMax: 1500, predict: 260, view: { x: 0, y: 0, span: 1000 },
     },
     {
+      id: 'cycler',
+      name: 'Cycler',
+      intro: 'A cycler loops between two worlds forever. Fly past Luna, swing back close to Terra, then out past Luna again. Small correction burns on the way back are fine.',
+      objective: 'Luna flyby → Terra pass → Luna flyby.',
+      teaches: 'Repeating trajectories',
+      bodies: [
+        { id: 'terra', name: 'Terra', gm: 20000, radius: 50, color: C.blue },
+        { id: 'luna', name: 'Luna', gm: 1500, radius: 18, color: C.grey, orbit: { parent: 'terra', a: 400, phase: 2.4 } },
+      ],
+      ship: ship({ start: { orbit: { body: 'terra', r: 90, angle: 0 } }, heading: 'prograde', dv: 7, accel: 1 }),
+      goals: [
+        { type: 'reach', body: 'luna', r: 70, label: 'Luna flyby' },
+        { type: 'reach', body: 'terra', r: 110, label: 'Terra pass' },
+        { type: 'reach', body: 'luna', r: 70, label: 'Luna flyby' },
+      ],
+      par: 5, bounds: 3000, tMax: 2500, predict: 300, view: { x: 0, y: 0, span: 1000 },
+    },
+    {
       id: 'inertia',
       name: 'Docking',
       intro: 'Station Kepler orbits below you, and lower orbits are faster. Burn retrograde to drop toward it, then match its speed when you meet. If the station is far ahead or behind, wait an orbit or two: the lower, faster orbit lets it catch up.',
@@ -192,6 +223,40 @@
       par: 3, bounds: 2000, tMax: 1500, predict: 120, view: { x: 0, y: 0, span: 640 },
     },
     {
+      id: 'constellation',
+      name: 'Constellation',
+      intro: 'Three satellites share your orbit, spaced evenly around it. To catch one ahead of you, drop slightly lower: a lower orbit is faster, so you gain on it. Visit all three in order.',
+      objective: 'Fly past Sat A, then B, then C.',
+      teaches: 'Phasing within an orbit',
+      bodies: [
+        { id: 'terra', name: 'Terra', gm: 20000, radius: 50, color: C.blue },
+        { id: 'sata', name: 'Sat A', gm: 0, radius: 4, color: C.station, kind: 'station', orbit: { parent: 'terra', a: 250, phase: 1.05 } },
+        { id: 'satb', name: 'Sat B', gm: 0, radius: 4, color: C.station, kind: 'station', orbit: { parent: 'terra', a: 250, phase: 3.14 } },
+        { id: 'satc', name: 'Sat C', gm: 0, radius: 4, color: C.station, kind: 'station', orbit: { parent: 'terra', a: 250, phase: 5.24 } },
+      ],
+      ship: ship({ start: { orbit: { body: 'terra', r: 250, angle: 0 } }, heading: 'prograde', dv: 6, accel: 0.8 }),
+      goals: [
+        { type: 'reach', body: 'sata', r: 25, label: 'Sat A' },
+        { type: 'reach', body: 'satb', r: 25, label: 'Sat B' },
+        { type: 'reach', body: 'satc', r: 25, label: 'Sat C' },
+      ],
+      par: 2, bounds: 2000, tMax: 1200, predict: 200, view: { x: 0, y: 0, span: 640 },
+    },
+    {
+      id: 'rescue',
+      name: 'Rescue',
+      intro: 'A crew capsule is drifting on a stretched orbit, fast when it swings low and slow at the top. Meet it and match its speed. The slow, high end of its orbit is the easiest place to catch it.',
+      objective: 'Rendezvous with the capsule: within 20, relative speed under 1.',
+      teaches: 'Rendezvous on an eccentric orbit',
+      bodies: [
+        { id: 'terra', name: 'Terra', gm: 20000, radius: 50, color: C.blue },
+        { id: 'capsule', name: 'Capsule', gm: 0, radius: 4, color: C.station, kind: 'station', orbit: { parent: 'terra', a: 260, e: 0.4, phase: 2.0, argp: 1.0 } },
+      ],
+      ship: ship({ start: { orbit: { body: 'terra', r: 95, angle: 0 } }, heading: 'prograde', dv: 8, accel: 1 }),
+      goals: [{ type: 'rendezvous', body: 'capsule', dist: 20, relVel: 1 }],
+      par: 5, bounds: 2500, tMax: 2500, predict: 220, view: { x: 0, y: 0, span: 900 },
+    },
+    {
       id: 'capture',
       name: 'Lunar Capture',
       intro: 'Get to Luna, then burn retrograde near closest approach so Luna\'s gravity captures you. Press V to view your path relative to Luna, which makes the capture orbit easy to see.',
@@ -204,6 +269,20 @@
       ship: ship({ start: { orbit: { body: 'terra', r: 90, angle: 0 } }, heading: 'prograde', dv: 10, accel: 1 }),
       goals: [{ type: 'orbit', body: 'luna', rMin: 30, rMax: 120, hold: 30 }],
       par: 4.5, bounds: 2500, tMax: 1500, predict: 160, view: { x: 0, y: 0, span: 1000 },
+    },
+    {
+      id: 'moonlanding',
+      name: 'Moon Landing',
+      intro: 'You are orbiting Luna, and the landing zone turns with it. Burn retrograde to come down, and watch the end of the dashed path: stop burning when it turns green and reads IMPACT.',
+      objective: 'Land in the zone on Luna.',
+      teaches: 'Landing on a moving, spinning moon',
+      bodies: [
+        { id: 'terra', name: 'Terra', gm: 20000, radius: 50, color: C.blue },
+        { id: 'luna', name: 'Luna', gm: 3000, radius: 16, color: C.grey, spin: 0.08, orbit: { parent: 'terra', a: 400, phase: 0.5 } },
+      ],
+      ship: ship({ start: { orbit: { body: 'luna', r: 40, angle: 0 } }, heading: 'prograde', dv: 4, accel: 1 }),
+      goals: [{ type: 'hit', body: 'luna', site: { angle: Math.PI / 2, width: 0.9 }, label: 'Landing zone' }],
+      par: 2.6, bounds: 2500, tMax: 900, predict: 60, view: { x: 0, y: 0, span: 900 },
     },
     {
       id: 'moon2moon',
@@ -233,6 +312,20 @@
       ship: ship({ start: { orbit: { body: 'terra', r: 150, angle: 0 } }, heading: 'prograde', dv: 8, accel: 1 }),
       goals: [{ type: 'hold', lagrange: { body: 'vesta', lead: Math.PI / 3 }, r: 40, hold: 30, label: 'L4' }],
       par: 5, bounds: 2500, tMax: 2000, predict: 200, view: { x: 0, y: 0, span: 1000 },
+    },
+    {
+      id: 'trojan',
+      name: 'Trojan Swap',
+      intro: 'You are parked at L4, 60° ahead of Vesta. The survey wants you at L5, 60° behind it. Climb a little higher so you orbit slower and drift backwards past Vesta, then drop back down to match.',
+      objective: 'Stay within 40 of L5 for 30 s.',
+      teaches: 'Drifting with orbital period',
+      bodies: [
+        { id: 'terra', name: 'Terra', gm: 20000, radius: 50, color: C.blue },
+        { id: 'vesta', name: 'Vesta', gm: 500, radius: 14, color: C.tan, orbit: { parent: 'terra', a: 400, phase: 0 } },
+      ],
+      ship: ship({ start: { orbit: { body: 'terra', r: 400, angle: Math.PI / 3 } }, heading: 'prograde', dv: 4, accel: 0.8 }),
+      goals: [{ type: 'hold', lagrange: { body: 'vesta', lead: -Math.PI / 3 }, r: 40, hold: 30, label: 'L5' }],
+      par: 1.2, bounds: 2500, tMax: 1500, predict: 400, view: { x: 0, y: 0, span: 1000 },
     },
     {
       id: 'escape',
@@ -292,6 +385,22 @@
       par: 5.5, bounds: 5000, tMax: 3000, predict: 500, view: { x: 0, y: 0, span: 3200 },
     },
     {
+      id: 'sundiver',
+      name: 'Sundiver',
+      intro: 'Falling into a star is surprisingly hard: you have to cancel almost all of your orbital speed. Burn retrograde until your lowest point dips near Sol, dive past it, and coast back out.',
+      objective: 'Pass within 160 of Sol, then climb back out past 850.',
+      teaches: 'Why the Sun is hard to reach',
+      bodies: [
+        { id: 'sun', name: 'Sol', gm: 200000, radius: 60, color: C.sun },
+      ],
+      ship: ship({ start: { orbit: { body: 'sun', r: 900, angle: 0 } }, heading: 'prograde', dv: 8.5, accel: 1.5 }),
+      goals: [
+        { type: 'reach', body: 'sun', r: 160, label: 'Perihelion' },
+        { type: 'escape', body: 'sun', r: 850, label: 'Back out' },
+      ],
+      par: 7.7, bounds: 4000, tMax: 2000, predict: 300, view: { x: 0, y: 0, span: 2000 },
+    },
+    {
       id: 'belt',
       name: 'Asteroid Belt',
       intro: 'Halcyon lies beyond a belt of tumbling rocks. Transfer out as usual, but watch the dashed path: a red CRASH mark means a rock will be in your way. Nudge your timing until the path threads through.',
@@ -307,6 +416,21 @@
       par: 5.5, bounds: 4000, tMax: 2500, predict: 300, view: { x: 0, y: 0, span: 2500 },
     },
     {
+      id: 'ringside',
+      name: 'Ringside',
+      intro: 'Saturnus wears two rings of rock with a clear gap between them. Climb from inside the inner ring, thread through it, and circularize in the gap. Watch for red CRASH marks on your path.',
+      objective: 'Orbit Saturnus between 200 and 240 for 40 s.',
+      teaches: 'Orbit insertion through obstacles',
+      bodies: [
+        { id: 'saturnus', name: 'Saturnus', gm: 40000, radius: 60, color: C.tan },
+        ...belt('saturnus', 45, 150, 190, 777, 'inner'),
+        ...belt('saturnus', 60, 250, 300, 1999, 'outer'),
+      ],
+      ship: ship({ start: { orbit: { body: 'saturnus', r: 110, angle: 0 } }, heading: 'prograde', dv: 7, accel: 1.2 }),
+      goals: [{ type: 'orbit', body: 'saturnus', rMin: 200, rMax: 240, hold: 40 }],
+      par: 6, bounds: 2500, tMax: 1500, predict: 120, view: { x: 0, y: 0, span: 720 },
+    },
+    {
       id: 'comet',
       name: 'Comet Chaser',
       intro: 'Comet Iris swings on a long, eccentric orbit — fast near the Sun, slow far out. Raise your orbit until it crosses the comet\'s path, then time it so you both arrive together.',
@@ -319,6 +443,19 @@
       ship: ship({ start: { orbit: { body: 'sun', r: 300, angle: 0 } }, heading: 'prograde', dv: 6, accel: 1 }),
       goals: [{ type: 'hit', body: 'iris' }],
       par: 3.2, bounds: 5000, tMax: 3000, predict: 400, view: { x: -300, y: -300, span: 3400 },
+    },
+    {
+      id: 'eventhorizon',
+      name: 'Event Horizon',
+      intro: 'A black hole. Your tank holds almost nothing, but at the bottom of your orbit you will be moving incredibly fast, and that is where a burn is worth the most. Coast down, burn prograde at the lowest point, and get out.',
+      objective: 'Get more than 3000 from the black hole.',
+      teaches: 'Extreme Oberth effect',
+      bodies: [
+        { id: 'abyss', name: 'Abyss', gm: 300000, radius: 15, color: '#1a1020', kind: 'blackhole' },
+      ],
+      ship: ship({ start: { orbit: { body: 'abyss', r: 1200, angle: Math.PI / 2, speed: 0.354 } }, heading: 'prograde', dv: 2.4, accel: 2 }),
+      goals: [{ type: 'escape', body: 'abyss', r: 3000, label: 'Escape' }],
+      par: 1.9, bounds: 6000, tMax: 1200, predict: 200, view: { x: 0, y: 0, span: 2600 },
     },
     {
       id: 'tour',

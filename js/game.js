@@ -677,6 +677,7 @@
       if (sx < -r - 200 || sx > W + r + 200 || sy < -r - 200 || sy > H + r + 200) continue;
       if (b.kind === 'station') { drawStation(sx, sy, b); continue; }
       if (b.kind === 'rock') { drawRock(sx, sy, r, b); continue; }
+      if (b.kind === 'blackhole') { drawBlackHole(sx, sy, r, b); continue; }
       const isStar = b.gm >= 30000 && /#ff/.test(b.color);
       if (b.kind === 'comet') drawCometTail(b, sx, sy, r);
       // Glow / atmosphere.
@@ -702,6 +703,28 @@
       }
       label(b.name, sx, sy + r + 14, 'rgba(220,228,255,0.75)');
     }
+  }
+
+  // Black hole: a dark disc inside a glowing, slowly turning accretion disc.
+  function drawBlackHole(sx, sy, r, b) {
+    const t = performance.now() / 1000, R = Math.max(r, 6);
+    const halo = ctx.createRadialGradient(sx, sy, R, sx, sy, R * 9);
+    halo.addColorStop(0, 'rgba(255,170,90,0.35)'); halo.addColorStop(0.4, 'rgba(180,90,255,0.12)'); halo.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = halo; ctx.beginPath(); ctx.arc(sx, sy, R * 9, 0, TAU); ctx.fill();
+    ctx.save(); ctx.translate(sx, sy); ctx.rotate(-0.35);
+    for (let k = 0; k < 3; k++) {
+      ctx.strokeStyle = `rgba(255,${190 - k * 40},${120 - k * 30},${0.75 - k * 0.2})`;
+      ctx.lineWidth = Math.max(1.5, R * (0.55 - k * 0.12));
+      ctx.setLineDash([R * 1.6, R * 0.9]); ctx.lineDashOffset = -t * 30 * (k + 1);
+      ctx.beginPath(); ctx.ellipse(0, 0, R * (2.6 + k * 0.9), R * (0.8 + k * 0.28), 0, 0, TAU); ctx.stroke();
+    }
+    ctx.setLineDash([]); ctx.restore();
+    ctx.fillStyle = '#000';
+    ctx.beginPath(); ctx.arc(sx, sy, R, 0, TAU); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,220,170,0.9)'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(sx, sy, R * 1.08, 0, TAU); ctx.stroke();
+    ctx.lineWidth = 1;
+    label(b.name, sx, sy + R * 3.2 + 12, 'rgba(220,228,255,0.75)');
   }
 
   // Irregular asteroid: a lumpy polygon whose shape is fixed per rock.

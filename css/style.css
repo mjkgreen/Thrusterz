@@ -218,6 +218,8 @@ kbd.tbtn.burn { border-radius: 999px; background: rgba(255, 140, 50, 0.28); bord
 .level-card .lteach { font-size: 12px; color: var(--muted); min-height: 30px; }
 .level-card .lstars { color: var(--gold); margin-top: 6px; font-size: 16px; }
 .menu-foot { margin-top: 24px; }
+.world-title { width: min(1000px, 100%); margin: 0 0 10px; font-size: 18px; font-weight: 800; letter-spacing: 0.02em; }
+.world-title .wnum { font-family: var(--mono); font-size: 12px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); margin-right: 8px; }
 
 @media (max-width: 640px) {
   #mission { max-width: calc(100vw - 172px); padding: 8px 10px; }
