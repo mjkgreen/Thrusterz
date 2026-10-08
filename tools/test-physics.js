@@ -88,7 +88,7 @@ for (const L of LEVELS) {
   const ok = m.deploy();
   const payloadDv = m.dvRemaining();
   check('deploy releases the payload', ok && m.stage === 1 && m.debris.length === 1 && m.mass() < before);
-  check('payload keeps its own small tank', Math.abs(payloadDv - 3.5) < 0.01, `payload Δv=${payloadDv.toFixed(2)} of total ${total.toFixed(2)}`);
+  check('payload keeps its own small tank', Math.abs(payloadDv - m.stageDv0[1]) < 0.01 && payloadDv < total / 2, `payload Δv=${payloadDv.toFixed(2)} of total ${total.toFixed(2)}`);
   check('cannot deploy past the last stage', !m.deploy());
 }
 
@@ -106,6 +106,40 @@ for (const L of LEVELS) {
   check('canister adds its Δv', Math.abs(gained - can.dv) < 1e-6, `gained ${gained.toFixed(3)}`);
   check('canister is collected only once', Math.abs(m.dvRemaining() - dv0 - can.dv) < 1e-6 && m.collected.size === 1);
   check('pickup Δv is not counted as used', Math.abs(m.dvUsed()) < 1e-6);
+}
+
+// 8. Launch levels: a simple gravity turn reaches orbit, and on the satellite
+//    level only deploying the payload gets there.
+{
+  const fly = (L, deploy) => {
+    const gm = L.bodies[0].gm;
+    const m = new Mission(L); let phase = 0;
+    while (m.status === 'flying' && m.t < 900) {
+      const s = m.ship, r = Math.hypot(s.x, s.y); let thrust = false;
+      const v2 = s.vx * s.vx + s.vy * s.vy, a = 1 / (2 / r - v2 / gm), h = s.x * s.vy - s.y * s.vx;
+      const e = Math.sqrt(Math.max(0, 1 - h * h / (gm * a))), peri = a * (1 - e), apo = a * (1 + e);
+      if (phase === 0) {
+        thrust = true;
+        if (!m.landed && m.t > 1.25) { s.angle = Math.atan2(s.y, s.x) + 1.0; s.omega = 0; } // tilt the way Gaia spins
+        if ((!m.landed && apo > 110) || m.stageSpec.fuel <= 1e-9) phase = 1;
+      } else if (phase === 1) {
+        if (deploy && m.canDeploy()) m.deploy();
+        if (s.x * s.vx + s.y * s.vy <= 0) phase = 2;
+      } else if (phase === 2) {
+        s.angle = Math.atan2(s.vy, s.vx); s.omega = 0;
+        thrust = peri < 85 && m.stageSpec.fuel > 0;
+        if (!thrust) phase = 3;
+      }
+      m.advance(thrust || phase === 0 ? 1 / 120 : 0.1, { thrust, throttle: 1, rotate: 0 });
+    }
+    return m;
+  };
+  const ro = fly(LEVELS.find(l => l.id === 'reachorbit'), false);
+  check('Reach Orbit: a gravity turn makes orbit', ro.status === 'won', `${ro.status} dv=${ro.dvUsed().toFixed(2)}`);
+  const sat = LEVELS.find(l => l.id === 'test-satellite');
+  const withDeploy = fly(sat, true), boosterOnly = fly(sat, false);
+  check('Satellite: deploying reaches orbit', withDeploy.status === 'won', withDeploy.status);
+  check('Satellite: the booster alone cannot', boosterOnly.status !== 'won', boosterOnly.status);
 }
 
 process.exit(failed ? 1 : 0);

@@ -2,7 +2,7 @@
 
 An orbital mechanics flight game. Pilot a rocket in real time — a fuel-limited
 main engine and side thrusters for rotation — under real Newtonian gravity, and
-hit your destination. Thirty missions build up from a single launch to
+hit your destination. Thirty-one missions build up from a single launch to
 interplanetary transfers, gravity assists and multi-moon tours.
 
 ## Play
@@ -81,37 +81,38 @@ you do it, and stops appearing after you've mastered it.
 | 2 | Point and Burn | Side thrusters · rotation |
 | 3 | Full Stop | Flip and burn · time warp |
 | 4 | Circularize | Prograde burns · camera |
-| 5 | Deorbit | Retrograde burns |
-| 6 | Landing Zone | Timing a deorbit burn |
-| 7 | Turn and Burn | Two-burn Hohmann transfer |
-| 8 | Skimmer | Lowering an orbit |
-| 9 | Wrong Way | Orbit direction · bi-elliptic transfer |
-| 10 | Moonshot | Intercepting a moving target · phasing |
-| 11 | Free Return | Free-return trajectory |
-| 12 | Cycler | Repeating trajectories |
-| 13 | Docking | Phasing · rendezvous |
-| 14 | Constellation | Phasing within an orbit |
-| 15 | Rescue | Rendezvous on an eccentric orbit |
-| 16 | Lunar Capture | Capture burns · reference frames |
-| 17 | Moon Landing | Landing on a moving, spinning moon |
-| 18 | Moon to Moon | Leaving a moon · nested orbits |
-| 19 | Lagrange Point | Lagrange points · co-orbital rendezvous |
-| 20 | Trojan Swap | Drifting with orbital period |
-| 21 | Event Horizon | Extreme Oberth effect |
-| 22 | Slingshot | Gravity assists |
-| 23 | Twin Suns | Three-body chaos |
-| 24 | Interplanetary | Escape burns · transfer windows |
-| 25 | Sundiver | Why the Sun is hard to reach |
-| 26 | Asteroid Belt | Threading moving obstacles |
-| 27 | Ringside | Orbit insertion through obstacles |
-| 28 | Comet Chaser | Eccentric orbits · Kepler's 2nd law |
-| 29 | Moon Juggler | Chained escapes and captures |
-| 30 | Grand Tour | Multi-body trajectory planning |
+| 5 | Reach Orbit | Launching into orbit · gravity turn |
+| 6 | Deorbit | Retrograde burns |
+| 7 | Landing Zone | Timing a deorbit burn |
+| 8 | Turn and Burn | Two-burn Hohmann transfer |
+| 9 | Skimmer | Lowering an orbit |
+| 10 | Wrong Way | Orbit direction · bi-elliptic transfer |
+| 11 | Moonshot | Intercepting a moving target · phasing |
+| 12 | Free Return | Free-return trajectory |
+| 13 | Cycler | Repeating trajectories |
+| 14 | Docking | Phasing · rendezvous |
+| 15 | Constellation | Phasing within an orbit |
+| 16 | Rescue | Rendezvous on an eccentric orbit |
+| 17 | Lunar Capture | Capture burns · reference frames |
+| 18 | Moon Landing | Landing on a moving, spinning moon |
+| 19 | Moon to Moon | Leaving a moon · nested orbits |
+| 20 | Lagrange Point | Lagrange points · co-orbital rendezvous |
+| 21 | Trojan Swap | Drifting with orbital period |
+| 22 | Event Horizon | Extreme Oberth effect |
+| 23 | Slingshot | Gravity assists |
+| 24 | Twin Suns | Three-body chaos |
+| 25 | Interplanetary | Escape burns · transfer windows |
+| 26 | Sundiver | Why the Sun is hard to reach |
+| 27 | Asteroid Belt | Threading moving obstacles |
+| 28 | Ringside | Orbit insertion through obstacles |
+| 29 | Comet Chaser | Eccentric orbits · Kepler's 2nd law |
+| 30 | Moon Juggler | Chained escapes and captures |
+| 31 | Grand Tour | Multi-body trajectory planning |
 
 The reference frame starts on **Auto**: it follows the body whose sphere of
 influence you're in, or the star you're orbiting when you're in none.
 
-**Test levels:** *Launch a Satellite* (payload deploy) and *Fuel Run* (fuel
+**Test levels:** *Launch a Satellite* (payload deploy, with separate Booster and Satellite fuel gauges) and *Fuel Run* (fuel
 pickups) prototype the next mechanics. See [docs/ROADMAP.md](docs/ROADMAP.md) for
 future worlds, the leaderboard design and the level-maker plan.
 

@@ -33,9 +33,13 @@
   </div>
 
   <div id="gauges" class="panel">
-    <div class="gauge">
-      <div class="glabel"><span>Δv</span><span id="hud-dv">0</span></div>
+    <div class="gauge" id="gauge-fuel">
+      <div class="glabel"><span id="hud-dv-label">Δv</span><span id="hud-dv">0</span></div>
       <div class="bar"><div id="bar-fuel"></div></div>
+    </div>
+    <div class="gauge" id="gauge-payload">
+      <div class="glabel"><span id="hud-pdv-label">Satellite Δv</span><span id="hud-pdv">0</span></div>
+      <div class="bar payload"><div id="bar-payload"></div></div>
     </div>
     <div class="gauge" id="gauge-rcs">
       <div class="glabel"><span>RCS</span><span id="hud-rcs">0</span></div>

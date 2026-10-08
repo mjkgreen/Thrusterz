@@ -77,6 +77,9 @@ button { font-family: var(--sans); }
 .glabel span:first-child { color: var(--muted); }
 .bar { height: 8px; border-radius: 4px; background: rgba(255,255,255,0.08); overflow: hidden; }
 .bar div { height: 100%; background: linear-gradient(90deg, #ff9f43, var(--gold)); transition: width 0.1s linear; }
+.bar.payload div { background: linear-gradient(90deg, #c9a227, #ffe08a); }
+.gauge.spent { opacity: 0.35; }
+.gauge.active-stage .glabel span:first-child { color: var(--text); }
 .bar.rcs div { background: linear-gradient(90deg, #6aa8ff, #a8d4ff); }
 .bar.thr div { background: linear-gradient(90deg, #555f80, #9aa6cc); }
 .row { font-family: var(--mono); font-size: 12px; }

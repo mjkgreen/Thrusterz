@@ -838,7 +838,7 @@
       }
       const [dx, dy] = w2s(d.x, d.y);
       ctx.save(); ctx.globalAlpha = 0.75; ctx.translate(dx, dy); ctx.rotate(-d.angle);
-      drawRocketBody(9);
+      drawRocketBody(9, false);
       ctx.restore();
     }
     if (m.status === 'crashed' || (m.status === 'won' && m.level.goals[m.level.goals.length - 1].type === 'hit')) return;
@@ -855,7 +855,7 @@
       ctx.fillStyle = g;
       ctx.beginPath(); ctx.moveTo(-L + 1, -3.5); ctx.lineTo(-L - 22 * f, 0); ctx.lineTo(-L + 1, 3.5); ctx.fill();
     }
-    if (sat) drawSatelliteBody(); else drawRocketBody(L);
+    if (sat) drawSatelliteBody(); else drawRocketBody(L, m.canDeploy() || (m.landed && m.stages.length > 1));
     ctx.restore();
   }
 
@@ -870,7 +870,8 @@
     ctx.strokeStyle = '#e9edf7'; ctx.beginPath(); ctx.moveTo(4, 0); ctx.lineTo(7, 0); ctx.stroke();
   }
 
-  function drawRocketBody(L) {
+  // `payload`: draw the gold fairing that holds the payload on the nose.
+  function drawRocketBody(L, payload) {
     // Body
     ctx.fillStyle = '#e9edf7';
     ctx.strokeStyle = '#7f8aa8';
@@ -887,6 +888,13 @@
     ctx.fillStyle = '#e0574a';
     ctx.beginPath(); ctx.moveTo(-L + 1, -4.2); ctx.lineTo(-L - 3, -8); ctx.lineTo(-L + 5, -4.2); ctx.fill();
     ctx.beginPath(); ctx.moveTo(-L + 1, 4.2); ctx.lineTo(-L - 3, 8); ctx.lineTo(-L + 5, 4.2); ctx.fill();
+    if (payload) {
+      ctx.fillStyle = '#e8c45a'; ctx.strokeStyle = '#8a6a1a';
+      ctx.beginPath(); ctx.moveTo(L + 3, 0); ctx.quadraticCurveTo(L, -4, 3, -4.2); ctx.lineTo(3, 4.2); ctx.quadraticCurveTo(L, 4, L + 3, 0);
+      ctx.fill(); ctx.stroke();
+      ctx.strokeStyle = 'rgba(0,0,0,0.35)'; ctx.beginPath(); ctx.moveTo(3, -4.2); ctx.lineTo(3, 4.2); ctx.stroke();
+      return;
+    }
     // Window
     ctx.fillStyle = '#4fc3ff';
     ctx.beginPath(); ctx.arc(3, 0, 1.8, 0, TAU); ctx.fill();
@@ -966,6 +974,7 @@
   // doing the thing. Mastered prompts stop appearing in later missions.
   const KEY = (k) => `<kbd class="big">${k}</kbd>`;
   const HINTS = {
+    gravityturn: { key: (m) => `Tilt toward the horizon! Hold ${KEY(turnKey(m, false))}: orbit means going sideways fast`, touch: (m) => `Tilt toward the horizon! Hold ${KEY(turnKey(m, true))}: orbit means going sideways fast` },
     deploy: { key: (m) => `${m.stageSpec.name} empty! Press ${KEY('E')} to deploy the ${m.stages[m.stage + 1].name.toLowerCase()}`, touch: (m) => `${m.stageSpec.name} empty! Tap ${KEY('DEPLOY')} to release the ${m.stages[m.stage + 1].name.toLowerCase()}` },
     launch: { key: () => `Press and hold ${KEY('SPACE')} to launch`, touch: () => `Press and hold ${KEY('BURN')} to launch` },
     burn: { key: () => `Hold ${KEY('SPACE')} to fire the main engine`, touch: () => `Hold ${KEY('BURN')} to fire the main engine` },
@@ -977,7 +986,24 @@
     frame: { key: () => `Press ${KEY('V')} to view your path relative to another body`, touch: () => `Tap ${KEY('V')} to view your path relative to another body` },
     gyro: { key: () => `${KEY('G')} gyro assist stops spin for you (caps the run at ★★)`, touch: () => `${KEY('G')} gyro assist stops spin for you (caps the run at ★★)` },
   };
-  const LEARN_AFTER = { deploy: 99, launch: 99, burn: 2, rotate: 3, counter: 4, warp: 3, camera: 2, frame: 2, gyro: 1 };
+  const LEARN_AFTER = { gravityturn: 2, deploy: 99, launch: 99, burn: 2, rotate: 3, counter: 4, warp: 3, camera: 2, frame: 2, gyro: 1 };
+
+  // Which rotate control tilts the nose toward the way the launch body spins.
+  function turnKey(m, touchUi) {
+    const b = m.launchBody != null ? m.sys.bodies[m.launchBody] : null;
+    const ccw = !b || b.spin >= 0;
+    return touchUi ? (ccw ? '⟲' : '⟳') : (ccw ? 'A' : 'D');
+  }
+
+  // Angle between the nose and straight up from the body we launched from.
+  function tiltFromVertical(m) {
+    const b = m.sys.bodies[m.launchBody];
+    m.sys.update(m.t);
+    const up = Math.atan2(m.ship.y - m.sys.py[b.index], m.ship.x - m.sys.px[b.index]);
+    let d = (m.ship.angle - up) % TAU;
+    if (d > Math.PI) d -= TAU; if (d < -Math.PI) d += TAU;
+    return Math.abs(d);
+  }
 
   function learned(k) { return (progress.learned && progress.learned[k]) || 0; }
 
@@ -1004,6 +1030,7 @@
     c.spinIdle = ctl.rotate || m.gyro ? 0 : c.spinIdle + dt;
     if (m.thrusting) coachDone(m.landed ? 'launch' : 'burn');
     if (!m.landed && m.events.some(e => e.type === 'liftoff')) coachDone('launch');
+    if (m.launchBody != null && !m.landed && tiltFromVertical(m) > 0.6) coachDone('gravityturn');
     if (ctl.rotate) {
       coachDone('rotate');
       if (c.key === 'counter' && Math.sign(ctl.rotate) !== Math.sign(s.omega)) coachDone('counter');
@@ -1016,6 +1043,8 @@
     if (m.status !== 'flying') key = null;
     else if (m.landed) key = 'launch';
     else if (m.canDeploy() && m.stageSpec.fuel <= 1e-9) key = 'deploy';
+    else if (m.launchBody != null && L.ship.canRotate && wants('gravityturn') && m.t - m.liftoffT > 1.2
+      && m.t - m.liftoffT < 40 && tiltFromVertical(m) < 0.35) key = 'gravityturn';
     else if (L.ship.canRotate && wants('rotate') && m.t > 0.5) key = 'rotate';
     else if (L.ship.canRotate && spinning && c.spinIdle > 1.2 && wants('counter')) key = 'counter';
     else if (wants('burn') && m.dvUsed() < 1e-6 && m.t > 2) key = 'burn';
@@ -1053,6 +1082,8 @@
     $('gauge-rcs').style.display = L.ship.rcs ? '' : 'none';
     $('gyro-row').style.display = L.ship.canRotate ? '' : 'none';
     $('stage-row').style.display = L.ship.stages.length > 1 ? '' : 'none';
+    $('gauge-payload').style.display = L.ship.stages.length > 1 ? '' : 'none';
+    $('gauge-fuel').classList.remove('spent');
     document.body.classList.toggle('no-rotate', !L.ship.canRotate);
     renderGoals();
   }
@@ -1094,8 +1125,22 @@
     $('hud-warp').className = state.warp ? 'warn' : '';
     $('hud-frame').textContent = frameName();
     const dv = m.dvRemaining();
-    $('hud-dv').textContent = dv.toFixed(2);
-    $('bar-fuel').style.width = (100 * dv / m.dv0) + '%';
+    if (L.ship.stages.length > 1) {
+      // One gauge per stage: the booster's own Δv, and the payload's tank.
+      const b = m.stageDv(0), p = m.stageDv(1);
+      $('hud-dv-label').textContent = m.stages[0].name + ' Δv';
+      $('hud-dv').textContent = m.stage > 0 ? 'jettisoned' : b.toFixed(2);
+      $('bar-fuel').style.width = (100 * b / m.stageDv0[0]) + '%';
+      $('hud-pdv-label').textContent = m.stages[1].name + ' Δv';
+      $('hud-pdv').textContent = p.toFixed(2);
+      $('bar-payload').style.width = (100 * p / m.stageDv0[1]) + '%';
+      $('gauge-fuel').classList.toggle('spent', m.stage > 0);
+      $('gauge-payload').classList.toggle('active-stage', m.stage > 0);
+    } else {
+      $('hud-dv-label').textContent = 'Δv';
+      $('hud-dv').textContent = dv.toFixed(2);
+      $('bar-fuel').style.width = (100 * dv / m.dv0) + '%';
+    }
     if (L.ship.rcs) {
       $('hud-rcs').textContent = m.rcsFuel.toFixed(1) + 's';
       $('bar-rcs').style.width = (100 * m.rcsFuel / m.rcsFuel0) + '%';

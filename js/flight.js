@@ -46,6 +46,7 @@
       this.landed = null;
       this._initShip(spec);
       this.dv0 = this.dvRemaining();
+      this.stageDv0 = this.stages.map((_, k) => this.stageDv(k));
     }
 
     _initShip(spec) {
@@ -111,6 +112,15 @@
         dv += st.ve * Math.log(m / (m - st.fuel));
       }
       return dv;
+    }
+
+    // Δv left in stage k alone, with every later stage still attached.
+    stageDv(k) {
+      if (k < this.stage) return 0;
+      let m = 0;
+      for (let i = k; i < this.stages.length; i++) m += this.stages[i].dryMass + this.stages[i].fuel;
+      const st = this.stages[k];
+      return st.ve * Math.log(m / (m - st.fuel));
     }
 
     dvUsed() { return this.dv0 + this.dvGained - this.dvRemaining(); }
@@ -204,6 +214,8 @@
           this._syncLanded();
           this.landed = null;
           this.ignoreBody = b.index;
+          this.launchBody = b.index;
+          this.liftoffT = this.t;
           this.events.push({ t: this.t, type: 'liftoff' });
         } else {
           this.t += h;

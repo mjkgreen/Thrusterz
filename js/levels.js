@@ -8,19 +8,22 @@
   // the ship is a booster carrying a lighter second stage (a satellite with a
   // tiny tank of its own): o.dv is the booster's Δv with the payload aboard,
   // payload.dv the payload's own Δv once the booster is dropped.
+  // o.ve: exhaust velocity (defaults to VE). Launch vehicles use a higher one
+  // so a climb from the surface lasts long enough to steer.
   function ship(o) {
     let stages;
+    const ve = o.ve || VE;
     if (o.payload) {
-      const p = o.payload, pDry = p.dry || 0.25;
-      const pFuel = pDry * (Math.exp(p.dv / VE) - 1), pMass = pDry + pFuel;
-      const bFuel = (1 + pMass) * (Math.exp(o.dv / VE) - 1); // booster dry mass 1
+      const p = o.payload, pDry = p.dry || 0.25, pve = p.ve || ve;
+      const pFuel = pDry * (Math.exp(p.dv / pve) - 1), pMass = pDry + pFuel;
+      const bFuel = (1 + pMass) * (Math.exp(o.dv / ve) - 1); // booster dry mass 1
       stages = [
-        { name: o.name || 'Booster', sprite: 'booster', dryMass: 1, fuel: bFuel, thrust: o.accel * (1 + bFuel + pMass), ve: VE },
-        { name: p.name || 'Satellite', sprite: 'satellite', dryMass: pDry, fuel: pFuel, thrust: p.accel * pMass, ve: VE },
+        { name: o.name || 'Booster', sprite: 'booster', dryMass: 1, fuel: bFuel, thrust: o.accel * (1 + bFuel + pMass), ve },
+        { name: p.name || 'Satellite', sprite: 'satellite', dryMass: pDry, fuel: pFuel, thrust: p.accel * pMass, ve: pve },
       ];
     } else {
-      const fuel = Math.exp(o.dv / VE) - 1; // dry mass 1
-      stages = [{ dryMass: 1, fuel, thrust: o.accel * (1 + fuel), ve: VE }];
+      const fuel = Math.exp(o.dv / ve) - 1; // dry mass 1
+      stages = [{ dryMass: 1, fuel, thrust: o.accel * (1 + fuel), ve }];
     }
     return {
       start: o.start,
@@ -108,6 +111,20 @@
       ship: ship({ start: { orbit: { body: 'terra', r: 200, angle: Math.PI / 2, speed: 0.75 } }, heading: 'up', dv: 5, accel: 1 }),
       goals: [{ type: 'orbit', body: 'terra', rMin: 180, rMax: 220, hold: 60 }],
       par: 3.2, bounds: 2000, tMax: 600, predict: 100, view: { x: 0, y: 0, span: 600 },
+    },
+    {
+      id: 'reachorbit',
+      name: 'Reach Orbit',
+      intro: 'Going up is easy. Staying up means going sideways fast enough that you keep falling around the planet instead of into it. Launch straight up to clear the ground, then use A / D to tilt toward the horizon in the direction Gaia spins (its spin gives you free speed), and keep burning. Watch PE, your lowest point: once it is above the ground, you are in orbit.',
+      objective: 'Reach an orbit between 70 and 170 for 20 s.',
+      teaches: 'Launching into orbit · gravity turn',
+      introduces: ['gravityturn'],
+      bodies: [
+        { id: 'gaia', name: 'Gaia', gm: 2000, radius: 40, color: C.blue, spin: 0.085 },
+      ],
+      ship: ship({ start: { landed: { body: 'gaia', angle: Math.PI / 2 } }, dv: 9.5, accel: 1.8, ve: 30 }),
+      goals: [{ type: 'orbit', body: 'gaia', rMin: 70, rMax: 170, hold: 20 }],
+      par: 7, bounds: 2000, tMax: 900, predict: 120, view: { x: 0, y: 0, span: 420 }, startCam: 'overview',
     },
     {
       id: 'deorbit',
@@ -506,15 +523,15 @@
       id: 'test-satellite',
       test: true,
       name: 'Launch a Satellite',
-      intro: 'Your booster can lift the satellite high, but it does not have the fuel to reach orbit. Launch, then tilt toward the horizon as you climb. When the booster runs dry, press E to deploy the satellite. It is much lighter, so its tiny tank goes a long way: coast to the top of the arc and burn prograde to circularize.',
-      objective: 'Put the satellite in orbit between 80 and 150 for 30 s.',
+      intro: 'Your booster can lift the satellite high, but it does not have the fuel to reach orbit. Launch and tilt toward the horizon as you climb, just like in Reach Orbit. When the booster runs dry, press E to deploy the satellite. It is much lighter, so its small tank goes a long way: coast to the top of the arc and burn prograde until your lowest point clears the ground.',
+      objective: 'Put the satellite in orbit between 60 and 200 for 20 s.',
       teaches: 'Payload deploy',
       bodies: [
-        { id: 'gaia', name: 'Gaia', gm: 4000, radius: 40, color: C.blue },
+        { id: 'gaia', name: 'Gaia', gm: 2000, radius: 40, color: C.blue, spin: 0.085 },
       ],
-      ship: ship({ start: { landed: { body: 'gaia', angle: Math.PI / 2 } }, dv: 13, accel: 4, payload: { dv: 3.5, accel: 1.2 } }),
-      goals: [{ type: 'orbit', body: 'gaia', rMin: 80, rMax: 150, hold: 30 }],
-      par: 16.5, bounds: 2000, tMax: 900, predict: 120, view: { x: 0, y: 0, span: 420 }, startCam: 'overview',
+      ship: ship({ start: { landed: { body: 'gaia', angle: Math.PI / 2 } }, dv: 6, accel: 1.8, ve: 30, payload: { dv: 4, accel: 0.9 } }),
+      goals: [{ type: 'orbit', body: 'gaia', rMin: 60, rMax: 200, hold: 20 }],
+      par: 8.5, bounds: 2000, tMax: 900, predict: 120, view: { x: 0, y: 0, span: 420 }, startCam: 'overview',
     },
     {
       id: 'test-fuel',
