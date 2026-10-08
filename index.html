@@ -147,7 +147,7 @@
 <div id="help" class="screen hidden">
   <div class="card">
     <h1>Flight controls</h1>
-    <table class="keys">
+    <table class="keys desktop-only">
       <tr><td><kbd>Space</kbd></td><td>Main engine (hold)</td></tr>
       <tr><td><kbd>A</kbd> <kbd>D</kbd> / <kbd>←</kbd> <kbd>→</kbd></td><td>Side thrusters — rotate</td></tr>
       <tr><td><kbd>W</kbd> <kbd>S</kbd></td><td>Throttle up / down</td></tr>
@@ -156,8 +156,18 @@
       <tr><td><kbd>V</kbd></td><td>Cycle reference frame</td></tr>
       <tr><td><kbd>F</kbd> / <kbd>O</kbd></td><td>Follow ship / overview</td></tr>
       <tr><td><kbd>[</kbd> <kbd>]</kbd></td><td>Shorter / longer trajectory prediction</td></tr>
-      <tr><td>Wheel, drag</td><td>Zoom, pan (pinch on touch screens)</td></tr>
+      <tr><td>Wheel, drag</td><td>Zoom, pan</td></tr>
       <tr><td><kbd>R</kbd> · <kbd>Esc</kbd></td><td>Restart · Pause</td></tr>
+    </table>
+    <table class="keys touch-only">
+      <tr><td><kbd class="tbtn burn">BURN</kbd></td><td>Main engine (hold) · bottom right</td></tr>
+      <tr><td><kbd class="tbtn">⟲</kbd> <kbd class="tbtn">⟳</kbd></td><td>Side thrusters: tap to nudge, hold to turn faster · bottom left</td></tr>
+      <tr><td><kbd class="tbtn">«</kbd> <kbd class="tbtn">»</kbd></td><td>Time warp down / up</td></tr>
+      <tr><td><kbd class="tbtn">V</kbd></td><td>Cycle reference frame</td></tr>
+      <tr><td><kbd class="tbtn">◎</kbd></td><td>Switch between overview and following your ship</td></tr>
+      <tr><td><kbd class="tbtn">G</kbd></td><td>Gyro assist: auto-stops spin, but caps the run at ★★ · top right</td></tr>
+      <tr><td><kbd class="tbtn">❚❚</kbd></td><td>Pause, restart or quit · top right</td></tr>
+      <tr><td>Pinch</td><td>Zoom in and out</td></tr>
     </table>
     <p class="small">Markers around your ship: <span class="pro">◉ prograde</span> (direction of travel), <span class="retro">⊗ retrograde</span>, <span class="tgt">◆ target</span>. The dashed line is where you'll coast if you stop burning.</p>
     <div class="buttons"><button id="btn-help-close" class="primary">Got it</button></div>

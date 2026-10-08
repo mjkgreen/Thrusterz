@@ -186,6 +186,10 @@ kbd {
   font-family: var(--mono); font-size: 12px; padding: 2px 6px; border-radius: 5px;
   background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15);
 }
+body.touch .desktop-only { display: none; }
+body:not(.touch) .touch-only { display: none; }
+kbd.tbtn { display: inline-block; min-width: 30px; text-align: center; padding: 3px 8px; border-radius: 8px; font-size: 13px; }
+kbd.tbtn.burn { border-radius: 999px; background: rgba(255, 140, 50, 0.28); border-color: rgba(255, 170, 90, 0.6); font-weight: 700; letter-spacing: 0.08em; }
 .pro { color: #8df57a; } .retro { color: #f5d47a; } .tgt { color: var(--accent-2); }
 
 /* -------------------------------------------------------------- menu */
@@ -249,6 +253,11 @@ kbd {
   .card { padding: 14px 18px; }
   .card h1 { font-size: 22px; }
   .card p { font-size: 13px; margin: 6px 0; }
+  .keys { font-size: 12px; }
+  .keys td { padding: 2px 0; }
+  kbd.tbtn { min-width: 24px; padding: 1px 6px; font-size: 11px; }
+  #help .card h1 { font-size: 18px; margin: 0 0 4px; }
+  #help .card .small { font-size: 11px; }
   .buttons { margin-top: 10px; }
   #menu { padding-top: 10px; }
   .logo { font-size: 40px; }
@@ -312,3 +321,8 @@ body.touch #touch button { width: 62px; height: 62px; background: rgba(12,16,32,
 body.touch #touch .tgroup.small { flex-wrap: nowrap; max-width: none; }
 body.touch #touch .tgroup.small button { width: 44px; height: 38px; }
 body.touch #touch button.burn { width: 84px; height: 84px; background: rgba(255, 140, 50, 0.28); }
+
+/* Tall cards on short screens scroll instead of being clipped at the top. */
+.screen > .card { margin-block: auto; }
+.screen { justify-content: flex-start; }
+#menu { justify-content: flex-start; }
