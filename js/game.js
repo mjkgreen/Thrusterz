@@ -146,9 +146,20 @@
 
   function deployPayload() {
     const m = state.mission;
+    if (m.canDrop()) {
+      const c = m.release();
+      coachDone('drop');
+      state.predDirty = true;
+      c.path = Phys.predict(m.sys, c, m.t, 400, { bounds: m.level.bounds, maxSteps: 6000 });
+      toast(c.name + ' released', 1.5);
+      return;
+    }
     if (!m.deploy()) { if (m.status === 'flying') toast(m.landed ? 'Launch first' : 'Nothing to deploy', 1.2); return; }
     coachDone('deploy');
     state.predDirty = true;
+    // Show where the spent stage will drift (it can hit things).
+    const d = m.debris[m.debris.length - 1];
+    d.path = Phys.predict(m.sys, d, m.t, 300, { bounds: m.level.bounds, maxSteps: 6000 });
     toast(m.stageSpec.name + ' deployed', 1.5);
   }
 
@@ -500,6 +511,7 @@
     drawGoals();
     drawTrail(disp);
     drawPrediction(disp);
+    drawCrafts(disp);
     sys.update(m.t);
     drawBodies();
     drawParticles();
@@ -665,12 +677,14 @@
     if (p.hit >= 0) {
       const [sx, sy] = disp(p.end.x, p.end.y, p.tEnd);
       const g = m.currentGoal();
-      const good = g && g.type === 'hit' && sys.byId[g.body].index === p.hit && m.siteOk(g, p.end.x, p.end.y, p.tEnd);
+      // With cargo aboard and a cargo goal active, the coast path is a release preview.
+      const preview = g && g.craft && m.canDrop();
+      const good = g && g.type === 'hit' && (!g.craft || preview) && sys.byId[g.body].index === p.hit && m.siteOk(g, p.end.x, p.end.y, p.tEnd);
       ctx.strokeStyle = good ? '#7cf7d4' : '#ff5a5a';
       ctx.lineWidth = 2;
       ctx.beginPath(); ctx.moveTo(sx - 6, sy - 6); ctx.lineTo(sx + 6, sy + 6); ctx.moveTo(sx + 6, sy - 6); ctx.lineTo(sx - 6, sy + 6); ctx.stroke();
-      const missedSite = !good && g && g.site && sys.byId[g.body].index === p.hit;
-      label((good ? 'IMPACT ' : missedSite ? 'OFF TARGET ' : 'CRASH ') + sys.bodies[p.hit].name + ' · ' + fmtT(p.tEnd - m.t), sx, sy - 14, good ? '#7cf7d4' : '#ff7a7a');
+      const missedSite = !good && g && g.site && (!g.craft || preview) && sys.byId[g.body].index === p.hit;
+      label((preview ? 'DROP NOW → ' : '') + (good ? 'IMPACT ' : missedSite ? 'OFF TARGET ' : 'CRASH ') + sys.bodies[p.hit].name + ' · ' + fmtT(p.tEnd - m.t), sx, sy - 14, good ? '#7cf7d4' : '#ff7a7a');
       ctx.lineWidth = 1;
     }
     // Closest approach + ghost of the target at that moment.
@@ -829,6 +843,36 @@
     }
   }
 
+  // Dashed path of something coasting, recorded at release (inertial frame).
+  function drawCoastPath(p, color, disp) {
+    if (!p || p.ts.length < 2) return;
+    const m = state.mission;
+    ctx.strokeStyle = color; ctx.lineWidth = 1.3; ctx.setLineDash([4, 6]);
+    ctx.beginPath();
+    let started = false;
+    for (let i = 0; i < p.ts.length; i += 2) {
+      if (p.ts[i] < m.t) continue;
+      const [sx, sy] = disp(p.xs[i], p.ys[i], p.ts[i]);
+      if (started) ctx.lineTo(sx, sy); else { ctx.moveTo(sx, sy); started = true; }
+    }
+    ctx.stroke(); ctx.setLineDash([]); ctx.lineWidth = 1;
+  }
+
+  function drawCrafts(disp) {
+    const m = state.mission;
+    for (const d of m.debris) if (d.alive) drawCoastPath(d.path, 'rgba(255,107,107,0.55)', disp);
+    for (const c of m.crafts) {
+      if (c.alive) drawCoastPath(c.path, 'rgba(124,247,212,0.6)', disp);
+      if (!c.alive) { if (!c.exploded) { c.exploded = true; explode(c.x, c.y, '#7cf7d4'); } continue; }
+      const [sx, sy] = w2s(c.x, c.y);
+      ctx.save(); ctx.translate(sx, sy); ctx.rotate(-Math.atan2(c.vy, c.vx));
+      ctx.fillStyle = '#e8c45a'; ctx.strokeStyle = '#8a6a1a'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(5, 0); ctx.lineTo(-3, -4); ctx.lineTo(-4, 0); ctx.lineTo(-3, 4); ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.restore();
+      label(c.name, sx, sy - 10, '#7cf7d4');
+    }
+  }
+
   function drawShip() {
     const m = state.mission, s = m.ship;
     for (const d of m.debris) {
@@ -974,6 +1018,7 @@
   // doing the thing. Mastered prompts stop appearing in later missions.
   const KEY = (k) => `<kbd class="big">${k}</kbd>`;
   const HINTS = {
+    drop: { key: (m) => `Path ends on target: press ${KEY('E')} to drop the ${m.cargo[0].name.toLowerCase()}`, touch: (m) => `Path ends on target: tap ${KEY('DROP')} to release the ${m.cargo[0].name.toLowerCase()}` },
     gravityturn: { key: (m) => `Tilt toward the horizon! Hold ${KEY(turnKey(m, false))}: orbit means going sideways fast`, touch: (m) => `Tilt toward the horizon! Hold ${KEY(turnKey(m, true))}: orbit means going sideways fast` },
     deploy: { key: (m) => `${m.stageSpec.name} empty! Press ${KEY('E')} to deploy the ${m.stages[m.stage + 1].name.toLowerCase()}`, touch: (m) => `${m.stageSpec.name} empty! Tap ${KEY('DEPLOY')} to release the ${m.stages[m.stage + 1].name.toLowerCase()}` },
     launch: { key: () => `Press and hold ${KEY('SPACE')} to launch`, touch: () => `Press and hold ${KEY('BURN')} to launch` },
@@ -986,7 +1031,7 @@
     frame: { key: () => `Press ${KEY('V')} to view your path relative to another body`, touch: () => `Tap ${KEY('V')} to view your path relative to another body` },
     gyro: { key: () => `${KEY('G')} gyro assist stops spin for you (caps the run at ★★)`, touch: () => `${KEY('G')} gyro assist stops spin for you (caps the run at ★★)` },
   };
-  const LEARN_AFTER = { gravityturn: 2, deploy: 99, launch: 99, burn: 2, rotate: 3, counter: 4, warp: 3, camera: 2, frame: 2, gyro: 1 };
+  const LEARN_AFTER = { drop: 99, gravityturn: 2, deploy: 99, launch: 99, burn: 2, rotate: 3, counter: 4, warp: 3, camera: 2, frame: 2, gyro: 1 };
 
   // Which rotate control tilts the nose toward the way the launch body spins.
   function turnKey(m, touchUi) {
@@ -1043,6 +1088,9 @@
     if (m.status !== 'flying') key = null;
     else if (m.landed) key = 'launch';
     else if (m.canDeploy() && m.stageSpec.fuel <= 1e-9) key = 'deploy';
+    else if (m.canDrop() && state.pred && state.pred.hit >= 0 && L.goals[m.goalIndex] && L.goals[m.goalIndex].craft
+      && m.siteOk(L.goals[m.goalIndex], state.pred.end.x, state.pred.end.y, state.pred.tEnd)
+      && m.sys.byId[L.goals[m.goalIndex].body].index === state.pred.hit) key = 'drop';
     else if (m.launchBody != null && L.ship.canRotate && wants('gravityturn') && m.t - m.liftoffT > 1.2
       && m.t - m.liftoffT < 40 && tiltFromVertical(m) < 0.35) key = 'gravityturn';
     else if (L.ship.canRotate && wants('rotate') && m.t > 0.5) key = 'rotate';
@@ -1068,7 +1116,8 @@
     else chips.push([t ? '« »' : ', .', 'time warp']);
     const grav = L.bodies.filter(b => b.gm > 0 && !b.hidden).length;
     chips.push([t ? '◎' : 'F O', 'follow / overview']);
-    if (L.ship.stages.length > 1) chips.push([t ? 'DEPLOY' : 'E', 'deploy payload']);
+    if (L.ship.stages.length > 1) chips.push([t ? 'DEPLOY' : 'E', 'drop a spent stage']);
+    if (L.ship.cargo && L.ship.cargo.length) chips.push([t ? 'DROP' : 'E', 'release cargo']);
     if (grav >= 2) chips.push(['V', 'reference frame']);
     if (L.ship.canRotate) chips.push(['G', 'gyro assist (★★ max)']);
     return chips.map(([k, d]) => `<span class="chip"><kbd>${k}</kbd> ${d}</span>`).join('');
@@ -1082,7 +1131,13 @@
     $('gauge-rcs').style.display = L.ship.rcs ? '' : 'none';
     $('gyro-row').style.display = L.ship.canRotate ? '' : 'none';
     $('stage-row').style.display = L.ship.stages.length > 1 ? '' : 'none';
-    $('gauge-payload').style.display = L.ship.stages.length > 1 ? '' : 'none';
+    $('cargo-row').style.display = L.ship.cargo && L.ship.cargo.length ? '' : 'none';
+    // Multi-stage ships get one fuel gauge per stage; single-stage ships keep one Δv bar.
+    const multi = L.ship.stages.length > 1;
+    $('gauge-fuel').style.display = multi ? 'none' : '';
+    $('stage-gauges').innerHTML = multi ? L.ship.stages.map((st, k) => `<div class="gauge" id="sg-${k}">
+        <div class="glabel"><span>${st.name} Δv</span><span id="sg-v-${k}"></span></div>
+        <div class="bar ${k === L.ship.stages.length - 1 ? 'payload' : ''}"><div id="sg-b-${k}"></div></div></div>`).join('') : '';
     $('gauge-fuel').classList.remove('spent');
     document.body.classList.toggle('no-rotate', !L.ship.canRotate);
     renderGoals();
@@ -1105,6 +1160,10 @@
   }
 
   function goalText(g, m) {
+    if (g.craft) {
+      const c = (m.level.ship.cargo || []).find(x => x.id === g.craft);
+      return (c ? c.name : g.craft) + ': ' + goalText(Object.assign({}, g, { craft: null }), m);
+    }
     const name = g.body ? m.sys.byId[g.body].name : (g.label || 'target');
     switch (g.type) {
       case 'hit': return g.site ? `Land in the zone on ${name}` : 'Impact ' + name;
@@ -1126,16 +1185,14 @@
     $('hud-frame').textContent = frameName();
     const dv = m.dvRemaining();
     if (L.ship.stages.length > 1) {
-      // One gauge per stage: the booster's own Δv, and the payload's tank.
-      const b = m.stageDv(0), p = m.stageDv(1);
-      $('hud-dv-label').textContent = m.stages[0].name + ' Δv';
-      $('hud-dv').textContent = m.stage > 0 ? 'jettisoned' : b.toFixed(2);
-      $('bar-fuel').style.width = (100 * b / m.stageDv0[0]) + '%';
-      $('hud-pdv-label').textContent = m.stages[1].name + ' Δv';
-      $('hud-pdv').textContent = p.toFixed(2);
-      $('bar-payload').style.width = (100 * p / m.stageDv0[1]) + '%';
-      $('gauge-fuel').classList.toggle('spent', m.stage > 0);
-      $('gauge-payload').classList.toggle('active-stage', m.stage > 0);
+      // One gauge per stage; dropped stages grey out as jettisoned.
+      m.stages.forEach((st, k) => {
+        const v = m.stageDv(k);
+        $('sg-v-' + k).textContent = k < m.stage ? 'jettisoned' : v.toFixed(2);
+        $('sg-b-' + k).style.width = (100 * v / m.stageDv0[k]) + '%';
+        $('sg-' + k).classList.toggle('spent', k < m.stage);
+        $('sg-' + k).classList.toggle('active-stage', k === m.stage);
+      });
     } else {
       $('hud-dv-label').textContent = 'Δv';
       $('hud-dv').textContent = dv.toFixed(2);
@@ -1153,7 +1210,12 @@
     $('hud-gyro').textContent = m.gyro ? 'ON · max ★★' : (m.assisted ? 'OFF · max ★★' : 'OFF');
     $('hud-gyro').className = m.gyro || m.assisted ? 'warn' : '';
     $('btn-gyro').classList.toggle('on', m.gyro);
-    document.body.classList.toggle('can-deploy', m.canDeploy());
+    document.body.classList.toggle('can-deploy', m.canDeploy() || m.canDrop());
+    const dropBtn = document.querySelector('#touch button.deploy');
+    if (dropBtn) dropBtn.textContent = m.canDrop() ? 'DROP' : 'DEPLOY';
+    if (L.ship.cargo && L.ship.cargo.length) {
+      $('hud-cargo').textContent = m.cargo.length ? m.cargo.map(c => c.name).join(', ') + (isTouch() ? '' : ' · E drops') : 'all dropped';
+    }
     if (L.ship.stages.length > 1) {
       $('hud-stage').textContent = m.stageSpec.name + (m.canDeploy() ? (isTouch() ? '' : ' · E deploys ' + m.stages[m.stage + 1].name) : '');
     }

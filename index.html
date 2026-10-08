@@ -51,10 +51,7 @@
       <div class="glabel"><span id="hud-dv-label">Δv</span><span id="hud-dv">0</span></div>
       <div class="bar"><div id="bar-fuel"></div></div>
     </div>
-    <div class="gauge" id="gauge-payload">
-      <div class="glabel"><span id="hud-pdv-label">Satellite Δv</span><span id="hud-pdv">0</span></div>
-      <div class="bar payload"><div id="bar-payload"></div></div>
-    </div>
+    <div id="stage-gauges"></div>
     <div class="gauge" id="gauge-rcs">
       <div class="glabel"><span>RCS</span><span id="hud-rcs">0</span></div>
       <div class="bar rcs"><div id="bar-rcs"></div></div>
@@ -64,6 +61,7 @@
       <div class="bar thr"><div id="bar-throttle"></div></div>
     </div>
     <div class="row" id="stage-row"><span class="k">STAGE</span> <span id="hud-stage"></span></div>
+    <div class="row" id="cargo-row"><span class="k">CARGO</span> <span id="hud-cargo"></span></div>
     <div class="row" id="gyro-row"><span class="k">SPIN</span> <span id="hud-spin">0°/s</span> · <span class="k">GYRO</span> <span id="hud-gyro">OFF</span></div>
   </div>
 
@@ -176,7 +174,7 @@
       <tr><td><kbd>A</kbd> <kbd>D</kbd> / <kbd>←</kbd> <kbd>→</kbd></td><td>Side thrusters — rotate</td></tr>
       <tr><td><kbd>W</kbd> <kbd>S</kbd></td><td>Throttle up / down</td></tr>
       <tr><td><kbd>G</kbd></td><td>Gyro assist: auto-stops spin, but caps the run at ★★</td></tr>
-      <tr><td><kbd>E</kbd></td><td>Deploy payload (drop the spent booster)</td></tr>
+      <tr><td><kbd>E</kbd></td><td>Drop cargo, or drop a spent stage to fly the next one</td></tr>
       <tr><td><kbd>,</kbd> <kbd>.</kbd></td><td>Time warp down / up</td></tr>
       <tr><td><kbd>V</kbd></td><td>Cycle reference frame</td></tr>
       <tr><td><kbd>F</kbd> / <kbd>O</kbd></td><td>Follow ship / overview</td></tr>

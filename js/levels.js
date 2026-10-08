@@ -10,10 +10,23 @@
   // payload.dv the payload's own Δv once the booster is dropped.
   // o.ve: exhaust velocity (defaults to VE). Launch vehicles use a higher one
   // so a climb from the surface lasts long enough to steer.
+  // o.stack: [{ name, dv, accel, dry?, ve?, sprite? }, ...] from the bottom
+  // stage up; each stage's Δv is with everything above it still attached.
+  // o.cargo: [{ id, name, mass, sprite? }] engineless items dropped with E.
   function ship(o) {
     let stages;
     const ve = o.ve || VE;
-    if (o.payload) {
+    const cargoMass = (o.cargo || []).reduce((a, c) => a + c.mass, 0);
+    if (o.stack) {
+      stages = new Array(o.stack.length);
+      let above = cargoMass;
+      for (let k = o.stack.length - 1; k >= 0; k--) {
+        const st = o.stack[k], sve = st.ve || ve, dry = st.dry != null ? st.dry : 1;
+        const fuel = (dry + above) * (Math.exp(st.dv / sve) - 1);
+        stages[k] = { name: st.name, sprite: st.sprite || (k === o.stack.length - 1 ? 'satellite' : 'booster'), dryMass: dry, fuel, thrust: st.accel * (dry + fuel + above), ve: sve };
+        above += dry + fuel;
+      }
+    } else if (o.payload) {
       const p = o.payload, pDry = p.dry || 0.25, pve = p.ve || ve;
       const pFuel = pDry * (Math.exp(p.dv / pve) - 1), pMass = pDry + pFuel;
       const bFuel = (1 + pMass) * (Math.exp(o.dv / ve) - 1); // booster dry mass 1
@@ -22,13 +35,14 @@
         { name: p.name || 'Satellite', sprite: 'satellite', dryMass: pDry, fuel: pFuel, thrust: p.accel * pMass, ve: pve },
       ];
     } else {
-      const fuel = Math.exp(o.dv / ve) - 1; // dry mass 1
-      stages = [{ dryMass: 1, fuel, thrust: o.accel * (1 + fuel), ve }];
+      const fuel = (1 + cargoMass) * (Math.exp(o.dv / ve) - 1); // dry mass 1, Δv with cargo aboard
+      stages = [{ dryMass: 1, fuel, thrust: o.accel * (1 + fuel + cargoMass), ve }];
     }
     return {
       start: o.start,
       heading: o.heading,
       stages,
+      cargo: o.cargo || [],
       rcs: o.rcs === false ? null : Object.assign({ fuel: 60, accel: 1.2, maxRate: 1.6 }, o.rcs || {}),
       canRotate: o.rcs !== false,
     };
@@ -533,6 +547,59 @@
       ship: ship({ start: { orbit: { body: 'terra', r: 90, angle: 0 } }, heading: 'prograde', dv: 3.2, accel: 1 }),
       goals: [{ type: 'hit', body: 'luna' }],
       par: 5, bounds: 2500, tMax: 1500, predict: 200, view: { x: 0, y: 0, span: 1000 },
+    },
+    {
+      id: 'test-drop',
+      test: true,
+      name: 'Release Point',
+      intro: 'You carry a supply pod with no engine. Drop it and it simply coasts, so your dashed path is exactly where it will go. Burn retrograde until the path ends in the green drop zone (it reads DROP NOW → IMPACT), press E to release the pod, then burn prograde to save yourself before you hit the ground too.',
+      objective: 'Land the pod in the drop zone, then get back into a safe orbit.',
+      teaches: 'Passive drop · release timing',
+      bodies: [
+        { id: 'terra', name: 'Terra', gm: 20000, radius: 50, color: C.blue, spin: 0.03 },
+      ],
+      ship: ship({ start: { orbit: { body: 'terra', r: 80, angle: 0 } }, heading: 'prograde', dv: 6.5, accel: 1, cargo: [{ id: 'pod', name: 'Pod', mass: 0.3 }] }),
+      goals: [
+        { type: 'hit', body: 'terra', craft: 'pod', site: { angle: Math.PI, width: 0.8 }, label: 'Drop zone' },
+        { type: 'orbit', body: 'terra', rMin: 65, rMax: 200 },
+      ],
+      par: 5.5, bounds: 2000, tMax: 900, predict: 60, view: { x: 0, y: 0, span: 360 },
+    },
+    {
+      id: 'test-stack',
+      test: true,
+      name: 'Three Stages',
+      intro: 'A taller rocket for a higher orbit: booster, upper stage, then the satellite. Climb and tilt over as in Reach Orbit. Each time a stage runs dry, press E to drop it and light the next one. Every stage you drop makes the rest of the rocket lighter.',
+      objective: 'Put the satellite in an orbit that stays between 150 and 280 from Atlas.',
+      teaches: 'Multi-stage rockets',
+      bodies: [
+        { id: 'atlas', name: 'Atlas', gm: 2000, radius: 40, color: C.green, spin: 0.085 },
+      ],
+      ship: ship({ start: { landed: { body: 'atlas', angle: Math.PI / 2 } }, ve: 30, stack: [
+        { name: 'Booster', dv: 4.5, accel: 1.8 },
+        { name: 'Upper stage', dv: 4, accel: 1.0, dry: 0.5 },
+        { name: 'Satellite', dv: 3, accel: 0.6, dry: 0.25 },
+      ] }),
+      goals: [{ type: 'orbit', body: 'atlas', rMin: 150, rMax: 280 }],
+      par: 10, bounds: 2500, tMax: 1200, predict: 160, view: { x: 0, y: 0, span: 640 }, startCam: 'overview',
+    },
+    {
+      id: 'test-debris',
+      test: true,
+      name: 'Clear the Station',
+      intro: 'Kepler Station orbits just below you, and spent stages are dangerous: once dropped they drift forever. A booster dropped right here sinks into a lower orbit and drifts straight into the station. Burn the booster first so its leftover orbit sits above the station, then deploy and raise the satellite. The red dashed line shows where a dropped stage will go.',
+      objective: 'Put the satellite in an orbit between 260 and 340 without your spent booster hitting the station.',
+      teaches: 'Debris hazards',
+      bodies: [
+        { id: 'terra', name: 'Terra', gm: 20000, radius: 50, color: C.blue },
+        { id: 'kepler', name: 'Kepler Station', gm: 0, radius: 4, color: C.station, kind: 'station', protect: true, protectRadius: 15, orbit: { parent: 'terra', a: 171, phase: -0.397 } },
+      ],
+      ship: ship({ start: { orbit: { body: 'terra', r: 200, angle: 0 } }, heading: 'prograde', stack: [
+        { name: 'Booster', dv: 0.9, accel: 0.8 },
+        { name: 'Satellite', dv: 2.5, accel: 0.6, dry: 0.3 },
+      ] }),
+      goals: [{ type: 'orbit', body: 'terra', rMin: 260, rMax: 340 }],
+      par: 3, bounds: 2000, tMax: 1200, predict: 160, view: { x: 0, y: 0, span: 760 },
     },
   );
 

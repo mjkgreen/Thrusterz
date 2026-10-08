@@ -35,6 +35,29 @@ Early worlds stay grounded in real spaceflight; stranger ideas come later.
 | Idea | Wormholes | Enter one, exit another with the same velocity | Sci-fi; breaks the real-physics identity, so late or never. |
 | Idea | Collectible stars | Fly a route that grabs three stars along the way | Cut the Rope-style replay layer that works in every world, including World 1. |
 
+## World 2 plan: Payloads (draft)
+
+Built on four sub-mechanics, each with a preview in **Test levels**:
+
+| Sub-mechanic | What it adds | Preview level |
+| --- | --- | --- |
+| A. Hand-off | Drop the spent stage; control passes to the payload | Launch a Satellite |
+| B. Passive drop | Release engineless cargo; it coasts along your current path (the dashed line is the release preview) while you keep flying | Release Point |
+| C. Stacks | Three or more stages, each lighter than the last | Three Stages |
+| D. Debris | Spent stages keep flying and can hit protected objects | Clear the Station |
+
+Draft missions (6 per chapter): *Hand-off* (Launch a Satellite, Burn It Dry, High
+Orbit, Against the Spin, Moon Probe, Lander) · *Passive drop* (Release Point,
+Impactor, Relay Drop, Supply Run, Twin Probes, Constellation) · *Stacks* (Three
+Stages, Kick Stage, Escape Probe, Sundiver Probe, Assist and Release, Outer
+Planet) · *Debris and hazards* (Clear the Station, Busy Orbit, Ring Drop, Fuel
+Depot Drop, Trojan Relay, Binary Survey) · *Grand missions* (Moon Network, Belt
+Survey, Voyager, Lander + Orbiter, Deep Space Network, Grand Deployment).
+
+Fuel pickups appear in World 2 only as an occasional mixer. Refuelling depots
+(rendezvous, then top up) and control switching between craft (booster landing,
+Apollo-style lander and orbiter) are saved for later worlds.
+
 ## Score and leaderboards
 
 ### Score (implemented, local only)

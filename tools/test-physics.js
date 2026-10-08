@@ -175,4 +175,50 @@ for (const L of LEVELS) {
   check('Wrong Way: the climb-high route wins', m.status === 'won', `${m.status} dv=${m.dvUsed().toFixed(2)}`);
 }
 
+// 11. World 2 previews.
+{
+  const orb = (s, gm) => { const r = Math.hypot(s.x, s.y), v2 = s.vx * s.vx + s.vy * s.vy, a = 1 / (2 / r - v2 / gm), h = s.x * s.vy - s.y * s.vx, e = Math.sqrt(Math.max(0, 1 - h * h / (gm * a))); return { r, pe: a * (1 - e), ap: a > 0 ? a * (1 + e) : Infinity }; };
+
+  // Stacks: each stage delivers its advertised Δv with everything above it aboard.
+  const stack = new Mission(LEVELS.find(l => l.id === 'test-stack'));
+  const want = [4.5, 4, 3];
+  check('stack: every stage has its own Δv', stack.stageDv0.every((v, k) => Math.abs(v - want[k]) < 1e-6), stack.stageDv0.map(v => v.toFixed(2)).join(' / '));
+
+  // Release Point: drop the pod on a path into the zone, then climb back to orbit.
+  const drop = new Mission(LEVELS.find(l => l.id === 'test-drop'));
+  { const m = drop, s = m.ship; let ph = 0;
+    while (m.status === 'flying' && m.t < 300) {
+      const o = orb(s, 20000); let thrust = false;
+      if (ph === 0 && m.t >= 4) ph = 1;
+      if (ph === 1) { s.angle = Math.atan2(s.vy, s.vx) + Math.PI; thrust = o.pe > 45; if (!thrust) { m.release(); ph = 2; } }
+      else if (ph === 2) { s.angle = Math.atan2(s.vy, s.vx); thrust = o.pe < 70; if (!thrust) ph = 3; }
+      s.omega = 0;
+      m.advance(thrust ? 1 / 120 : 0.1, { thrust, throttle: 1, rotate: 0 });
+    } }
+  check('Release Point: pod lands in the zone, ship recovers', drop.status === 'won', `${drop.status} ${drop.message}`);
+  const lazy = new Mission(LEVELS.find(l => l.id === 'test-drop'));
+  lazy.release();
+  while (lazy.status === 'flying' && lazy.t < 200) lazy.advance(0.25, { thrust: false, throttle: 1, rotate: 0 });
+  check('Release Point: a pod dropped from orbit never lands', lazy.status !== 'won', lazy.status);
+
+  // Clear the Station: dropping the booster at once hits the station; burning it first is safe.
+  const fly = (careful) => {
+    const m = new Mission(LEVELS.find(l => l.id === 'test-debris')), s = m.ship; let ph = careful ? 0 : 1;
+    if (!careful) m.deploy();
+    while (m.status === 'flying' && m.t < 1200) {
+      const o = orb(s, 20000); let thrust = false;
+      if (ph === 0) { s.angle = Math.atan2(s.vy, s.vx); thrust = o.ap < 300; if (m.stageSpec.fuel <= 1e-9) { m.deploy(); ph = 1; } else if (!thrust) { m.deploy(); ph = 2; } }
+      if (ph === 1) { s.angle = Math.atan2(s.vy, s.vx); thrust = o.ap < 300; if (!thrust) ph = 2; }
+      else if (ph === 2) { if (s.x * s.vx + s.y * s.vy <= 0 && o.r > 270) ph = 3; }
+      else if (ph === 3) { s.angle = Math.atan2(s.vy, s.vx); thrust = o.pe < 285; if (!thrust) ph = 4; }
+      s.omega = 0;
+      m.advance(thrust ? 1 / 120 : 0.1, { thrust, throttle: 1, rotate: 0 });
+    }
+    return m;
+  };
+  const naive = fly(false), careful = fly(true);
+  check('Clear the Station: an early drop hits the station', naive.status === 'crashed' && /station/i.test(naive.message), naive.message);
+  check('Clear the Station: burning the booster first is safe', careful.status === 'won', careful.status);
+}
+
 process.exit(failed ? 1 : 0);

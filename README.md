@@ -116,8 +116,9 @@ you do it, and stops appearing after you've mastered it.
 The reference frame starts on **Auto**: it follows the body whose sphere of
 influence you're in, or the star you're orbiting when you're in none.
 
-**Test levels:** *Launch a Satellite* (payload deploy, with separate Booster and Satellite fuel gauges) and *Fuel Run* (fuel
-pickups) prototype the next mechanics. See [docs/ROADMAP.md](docs/ROADMAP.md) for
+**Test levels** prototype the next mechanics: *Launch a Satellite* (hand-off),
+*Release Point* (passive cargo drop), *Three Stages* (multi-stage stacks),
+*Clear the Station* (debris hazards) and *Fuel Run* (fuel pickups). See [docs/ROADMAP.md](docs/ROADMAP.md) for
 future worlds, the leaderboard design and the level-maker plan.
 
 ## Physics

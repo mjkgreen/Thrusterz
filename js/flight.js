@@ -40,6 +40,8 @@
       this.gyro = false;
       this.assisted = false;
       this.debris = [];          // spent stages left behind after deploying
+      this.cargo = (spec.cargo || []).map(c => Object.assign({}, c)); // aboard, not yet dropped
+      this.crafts = [];          // dropped cargo, coasting on its own
       this.collected = new Set(); // fuel pickups already taken
       this.dvGained = 0;          // Δv added by pickups
       this.ship = { x: 0, y: 0, vx: 0, vy: 0, angle: 0, omega: 0 };
@@ -96,8 +98,10 @@
 
     get stageSpec() { return this.stages[this.stage]; }
 
+    cargoMass() { return this.cargo.reduce((a, c) => a + c.mass, 0); }
+
     mass() {
-      let m = 0;
+      let m = this.cargoMass();
       for (let i = this.stage; i < this.stages.length; i++) m += this.stages[i].dryMass + this.stages[i].fuel;
       return m;
     }
@@ -106,7 +110,7 @@
     dvRemaining() {
       let dv = 0;
       for (let k = this.stage; k < this.stages.length; k++) {
-        let m = 0;
+        let m = this.cargoMass();
         for (let i = k; i < this.stages.length; i++) m += this.stages[i].dryMass + this.stages[i].fuel;
         const st = this.stages[k];
         dv += st.ve * Math.log(m / (m - st.fuel));
@@ -117,7 +121,7 @@
     // Δv left in stage k alone, with every later stage still attached.
     stageDv(k) {
       if (k < this.stage) return 0;
-      let m = 0;
+      let m = this.cargoMass();
       for (let i = k; i < this.stages.length; i++) m += this.stages[i].dryMass + this.stages[i].fuel;
       const st = this.stages[k];
       return st.ve * Math.log(m / (m - st.fuel));
@@ -127,6 +131,36 @@
 
     // Can the current stage be dropped to fly the next one (e.g. a payload)?
     canDeploy() { return this.stage < this.stages.length - 1 && !this.landed && this.status === 'flying'; }
+
+    canDrop() { return this.cargo.length > 0 && !this.landed && this.status === 'flying'; }
+
+    // Drop the next piece of cargo. It has no engine: it keeps the ship's exact
+    // position and velocity and coasts on its own, so the ship's predicted
+    // path at the moment of release is exactly where the cargo will go.
+    release() {
+      if (!this.canDrop()) return null;
+      const c = this.cargo.shift(), s = this.ship;
+      const craft = { id: c.id, name: c.name, sprite: c.sprite || 'pod', x: s.x, y: s.y, vx: s.vx, vy: s.vy, angle: s.angle, alive: true };
+      this.crafts.push(craft);
+      this.events.push({ t: this.t, type: 'release', craft: c.id });
+      return craft;
+    }
+
+    craftById(id) { return this.crafts.find(c => c.id === id) || null; }
+
+    // A dropped craft touched a body: that either completes its landing goal
+    // or fails the mission if it still had work to do.
+    _craftHit(c, idx) {
+      const sys = this.sys, g = this.currentGoal(), b = sys.bodies[idx];
+      if (g && g.craft === c.id && g.type === 'hit' && sys.byId[g.body].index === idx) {
+        if (this.siteOk(g, c.x, c.y, this.t)) { this._completeGoal(); return; }
+        this.status = 'crashed'; this.message = c.name + ' missed the landing zone on ' + b.name + '.';
+        return;
+      }
+      if (this.level.goals.slice(this.goalIndex).some(q => q.craft === c.id)) {
+        this.status = 'crashed'; this.message = c.name + ' crashed into ' + b.name + '.';
+      }
+    }
 
     // Separate: the spent stage drifts away as debris, control passes to the
     // next stage. A small spring push nudges the old stage backwards.
@@ -231,12 +265,28 @@
         Phys.rk4(sys, d, this.t, h, 0, 0);
         d.angle += d.omega * h;
         if (Phys.collision(sys, d.x, d.y, this.t + h) >= 0) { d.alive = false; d.crashT = this.t + h; }
+        // Protected objects (e.g. a crewed station) must never be hit by debris.
+        for (const b of sys.bodies) {
+          if (!b.protect) continue;
+          const r = b.protectRadius || b.radius;
+          if ((d.x - sys.px[b.index]) ** 2 + (d.y - sys.py[b.index]) ** 2 < r * r) {
+            d.alive = false; d.crashT = this.t + h;
+            this.status = 'crashed'; this.message = 'Your spent stage hit ' + b.name + '.';
+          }
+        }
+      }
+      for (const c of this.crafts) {
+        if (!c.alive) continue;
+        Phys.rk4(sys, c, this.t, h, 0, 0);
+        const hit = Phys.collision(sys, c.x, c.y, this.t + h);
+        if (hit >= 0) { c.alive = false; c.hitT = this.t + h; c.hit = hit; this.t += h; this._craftHit(c, hit); this.t -= h; }
       }
       this.t += h;
       this._checks(h);
     }
 
     _checks(h) {
+      if (this.status !== 'flying') return;
       const sys = this.sys, s = this.ship, L = this.level;
       sys.update(this.t);
       // Fuel pickups: fly through to top up the current stage by a fixed Δv.
@@ -260,7 +310,7 @@
           // Still clearing the launch pad.
         } else {
           const g = this.currentGoal();
-          if (g && g.type === 'hit' && sys.byId[g.body].index === hit) {
+          if (g && g.type === 'hit' && !g.craft && sys.byId[g.body].index === hit) {
             if (this.siteOk(g, s.x, s.y, this.t)) { this._completeGoal(); return; }
             this.status = 'crashed';
             this.message = 'Missed the landing zone on ' + sys.bodies[hit].name + '.';
@@ -277,16 +327,18 @@
       }
 
       const g = this.currentGoal();
-      if (g) {
+      // A goal may belong to a dropped craft instead of the ship ("the pod must…").
+      const o = g && g.craft ? this.craftById(g.craft) : s;
+      if (g && o && o.alive !== false) {
         const ref = this.goalPoint(g);
-        const dx = s.x - ref.x, dy = s.y - ref.y;
+        const dx = o.x - ref.x, dy = o.y - ref.y;
         const d = Math.sqrt(dx * dx + dy * dy);
         if (g.type === 'reach' && d < g.r) this._completeGoal();
         else if (g.type === 'escape' && d > g.r) this._completeGoal();
         else if (g.type === 'hold') {
           // Park at a point (e.g. a Lagrange point): inside the zone AND
           // moving with it, so drifting through slowly doesn't count.
-          const rv = Math.hypot(s.vx - ref.vx, s.vy - ref.vy);
+          const rv = Math.hypot(o.vx - ref.vx, o.vy - ref.vy);
           this.goalErr = Math.max(0, d - g.r) + 20 * Math.max(0, rv - (g.relVel || 1));
           if (d < g.r && rv < (g.relVel || 1)) {
             this.holdTime += h;
@@ -297,16 +349,16 @@
           // its lowest and highest points (two-body orbit about the target)
           // must both lie inside it, in the required direction, confirmed for
           // a few seconds with the engine off.
-          const o = this.orbitAbout(ref, g.body);
-          this.orbitNow = o;
-          const dirOk = !g.dir || g.dir === o.dir;
-          this.goalErr = o.bound ? Math.max(0, g.rMin - o.pe) + Math.max(0, o.ap - g.rMax) + (dirOk ? 0 : 200) : 300;
-          if (o.bound && o.pe >= g.rMin && o.ap <= g.rMax && dirOk && !this.thrusting) {
+          const orb = this.orbitAbout(ref, g.body, o);
+          this.orbitNow = orb;
+          const dirOk = !g.dir || g.dir === orb.dir;
+          this.goalErr = orb.bound ? Math.max(0, g.rMin - orb.pe) + Math.max(0, orb.ap - g.rMax) + (dirOk ? 0 : 200) : 300;
+          if (orb.bound && orb.pe >= g.rMin && orb.ap <= g.rMax && dirOk && (o !== s || !this.thrusting)) {
             this.holdTime += h;
             if (this.holdTime >= (g.confirm || 3)) this._completeGoal();
           } else this.holdTime = 0;
         } else if (g.type === 'rendezvous') {
-          const dv = Math.hypot(s.vx - ref.vx, s.vy - ref.vy);
+          const dv = Math.hypot(o.vx - ref.vx, o.vy - ref.vy);
           if (d < g.dist && dv < g.relVel) this._completeGoal();
         }
       }
@@ -318,8 +370,8 @@
 
     // Osculating two-body orbit of the ship about a body: distances of its
     // lowest (pe) and highest (ap) points from the body's centre.
-    orbitAbout(ref, bodyId) {
-      const s = this.ship, gm = this.sys.byId[bodyId].gm;
+    orbitAbout(ref, bodyId, obj) {
+      const s = obj || this.ship, gm = this.sys.byId[bodyId].gm;
       const rx = s.x - ref.x, ry = s.y - ref.y, vx = s.vx - ref.vx, vy = s.vy - ref.vy;
       const r = Math.hypot(rx, ry), v2 = vx * vx + vy * vy;
       const eps = v2 / 2 - gm / r, h = rx * vy - ry * vx;
