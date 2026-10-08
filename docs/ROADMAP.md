@@ -1,6 +1,6 @@
 # Thrusterz roadmap
 
-Living notes on where the game goes next. World 1 (Flight School, 30 missions)
+Living notes on where the game goes next. World 1 (Flight School)
 is complete. New mechanics are prototyped as **Test levels** in the menu before
 they get a world of their own.
 

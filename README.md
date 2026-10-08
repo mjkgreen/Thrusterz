@@ -2,7 +2,7 @@
 
 An orbital mechanics flight game. Pilot a rocket in real time — a fuel-limited
 main engine and side thrusters for rotation — under real Newtonian gravity, and
-hit your destination. Thirty missions build up from a single launch to
+hit your destination. Missions build up from a single launch to
 interplanetary transfers, gravity assists and multi-moon tours.
 
 ## Play
