@@ -70,7 +70,7 @@ you do it, and stops appearing after you've mastered it.
 
 | # | Mission | Teaches |
 | --- | --- | --- |
-| 1 | Liftoff | Main engine · launch timing |
+| 1 | Liftoff | Main engine |
 | 2 | Point and Burn | Side thrusters · rotation |
 | 3 | Full Stop | Flip and burn · time warp |
 | 4 | Circularize | Prograde burns · camera |
@@ -90,7 +90,7 @@ you do it, and stops appearing after you've mastered it.
 | 18 | Moon to Moon | Leaving a moon · nested orbits |
 | 19 | Lagrange Point | Lagrange points · co-orbital rendezvous |
 | 20 | Trojan Swap | Drifting with orbital period |
-| 21 | Escape Velocity | The Oberth effect |
+| 21 | Event Horizon | Extreme Oberth effect |
 | 22 | Slingshot | Gravity assists |
 | 23 | Twin Suns | Three-body chaos |
 | 24 | Interplanetary | Escape burns · transfer windows |
@@ -98,7 +98,7 @@ you do it, and stops appearing after you've mastered it.
 | 26 | Asteroid Belt | Threading moving obstacles |
 | 27 | Ringside | Orbit insertion through obstacles |
 | 28 | Comet Chaser | Eccentric orbits · Kepler's 2nd law |
-| 29 | Event Horizon | Extreme Oberth effect |
+| 29 | Moon Juggler | Chained escapes and captures |
 | 30 | Grand Tour | Multi-body trajectory planning |
 
 The reference frame starts on **Auto**: it follows the body whose sphere of

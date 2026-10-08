@@ -81,7 +81,7 @@ function search(level, iters, seed) {
 
 // Autopilot search spaces: per burn [wait, heading offset from prograde, duration].
 const CHECK = {
-  liftoff: { burns: 1, guess: [19, 0, 3], scale: [3, 0, 2] },
+  liftoff: { burns: 1, guess: [0, 0, 2], scale: [1, 0, 1] },
   point: { burns: 1, absolute: true, guess: [0, 0.36, 2], scale: [2, 0.1, 1] },
   stop: { burns: 2, absolute: true, guess: [0, 0, 2, 183, Math.PI, 2], scale: [1, 0.05, 0.3, 10, 0.05, 0.3] },
   circularize: { burns: 1, guess: [0, 0, 2.5], scale: [2, 0.2, 0.8] },
@@ -91,7 +91,6 @@ const CHECK = {
   freereturn: { burns: 2, guess: [5, 0, 4.2, 100, 0, 0], scale: [10, 0.2, 0.5, 100, 3, 0.3] },
   moon2moon: { burns: 2, guess: [5, 0, 2.5, 100, 0, 0], scale: [20, 0.3, 1, 100, 3, 0.5] },
   lagrange: { burns: 3, guess: [10, 0, 2.6, 60, 0, 2, 5, 0, 0], scale: [100, 0.2, 0.6, 20, 0.3, 0.6, 20, 3, 0.4] },
-  escape: { burns: 1, guess: [55, 0, 1.3], scale: [8, 0.2, 0.4] },
   belt: { burns: 2, guess: [5, 0, 4, 50, 0, 0], scale: [40, 0.2, 1, 100, 3, 0.4] },
   skimmer: { burns: 2, guess: [0, Math.PI, 2.6, 24, Math.PI, 2.5], scale: [5, 0.1, 0.6, 6, 0.2, 0.6] },
   cycler: { burns: 3, guess: [10.9, 0.167, 2.77, 79, 0, 0, 100, 0, 0], scale: [3, 0.1, 0.3, 100, 3, 0.4, 100, 3, 0.4] },
@@ -102,6 +101,7 @@ const CHECK = {
   sundiver: { burns: 1, guess: [0, Math.PI, 5], scale: [5, 0.1, 1.5] },
   ringside: { burns: 2, guess: [0, 0, 2.9, 31, 0, 2.3], scale: [20, 0.1, 0.5, 5, 0.2, 0.5] },
   eventhorizon: { burns: 1, guess: [92, 0, 0.8], scale: [3, 0.1, 0.3] },
+  juggler: { burns: 4, guess: [0, -0.52, 1.55, 294, 3.26, 0, 60, 1.73, 0, 60, 1.22, 1.93], scale: [200, 0.3, 0.4, 150, 0.4, 0.4, 150, 3, 0.6, 150, 3, 0.6] },
   turn: { burns: 2, guess: [0.5, 0, 2.5, 36, 0, 2.0], scale: [5, 0.3, 1, 8, 0.3, 1] },
   moonshot: { burns: 1, guess: [5, 0, 4.2], scale: [10, 0.2, 1] },
   inertia: { burns: 3, guess: [106, Math.PI, 1.3, 63, Math.PI, 1.45, 2, 0, 0], scale: [10, 0.2, 0.5, 5, 0.2, 0.5, 5, 3, 0.3] },
