@@ -1,4 +1,33 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+#!/usr/bin/env python3
+# Usage: python3 tools/brand/make-icon.py [rocket position in degrees, default 50]
+# Generates icon.svg with the rocket placed exactly on the orbit ring and
+# pointing along it (tangent), its exhaust trailing back along the ring.
+import math, sys
+CX, CY = 252, 286          # planet centre = ring centre (a circular orbit seen at an angle)
+RX, RY = 206, 76           # ring radii
+TILT = -22                 # ring tilt, degrees (SVG: negative = counter-clockwise)
+PR = 94                    # planet radius
+T = float(sys.argv[1]) if len(sys.argv) > 1 else 50   # rocket position on the ring, degrees
+SCALE = 0.70               # rocket size
+
+ct, st = math.cos(math.radians(TILT)), math.sin(math.radians(TILT))
+def ring(t):
+    a = math.radians(t)
+    x, y = RX * math.cos(a), RY * math.sin(a)
+    return CX + x * ct - y * st, CY + x * st + y * ct
+def tangent(t):  # direction of motion: decreasing t (up the right-hand side)
+    a = math.radians(t)
+    dx, dy = RX * math.sin(a), -RY * math.cos(a)
+    return math.degrees(math.atan2(dx * st + dy * ct, dx * ct - dy * st))
+
+rx_, ry_ = ring(T)
+ang = tangent(T)
+# Trail: the arc behind the rocket, fading out.
+trail_pts = [ring(T + k) for k in range(0, 95, 3)]
+trail = 'M ' + ' L '.join(f'{x:.1f} {y:.1f}' for x, y in trail_pts)
+tx, ty = trail_pts[-1]
+
+svg = f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
   <defs>
     <radialGradient id="bg" cx="32%" cy="22%" r="95%">
       <stop offset="0" stop-color="#1c2558"/>
@@ -30,12 +59,12 @@
       <stop offset="0.55" stop-color="#e3e8f5"/>
       <stop offset="1" stop-color="#aab3cc"/>
     </linearGradient>
-    <linearGradient id="trail" gradientUnits="userSpaceOnUse" x1="396.6" y1="290.4" x2="116.6" y2="390.0">
+    <linearGradient id="trail" gradientUnits="userSpaceOnUse" x1="{rx_:.1f}" y1="{ry_:.1f}" x2="{tx:.1f}" y2="{ty:.1f}">
       <stop offset="0" stop-color="#b9fff0" stop-opacity="0.95"/>
       <stop offset="1" stop-color="#7cf7d4" stop-opacity="0"/>
     </linearGradient>
     <filter id="glow" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="7"/></filter>
-    <clipPath id="disc"><circle cx="252" cy="286" r="94"/></clipPath>
+    <clipPath id="disc"><circle cx="{CX}" cy="{CY}" r="{PR}"/></clipPath>
     <!-- In the ring's own frame, its lower half passes in front of the planet. -->
     <clipPath id="front"><rect x="-300" y="0" width="600" height="300"/></clipPath>
   </defs>
@@ -48,27 +77,27 @@
     <path d="M 386 140 l 3 9 9 3 -9 3 -3 9 -3 -9 -9 -3 9 -3 z" opacity="0.8"/>
   </g>
   <!-- ring, back half -->
-  <g transform="translate(252 286) rotate(-22)">
-    <ellipse cx="0" cy="0" rx="206" ry="76" fill="none" stroke="#7cf7d4" stroke-width="9" opacity="0.28"/>
+  <g transform="translate({CX} {CY}) rotate({TILT})">
+    <ellipse cx="0" cy="0" rx="{RX}" ry="{RY}" fill="none" stroke="#7cf7d4" stroke-width="9" opacity="0.28"/>
   </g>
   <!-- planet -->
-  <circle cx="252" cy="286" r="110" fill="url(#halo)"/>
-  <circle cx="252" cy="286" r="94" fill="url(#planet)"/>
+  <circle cx="{CX}" cy="{CY}" r="{PR + 16}" fill="url(#halo)"/>
+  <circle cx="{CX}" cy="{CY}" r="{PR}" fill="url(#planet)"/>
   <g clip-path="url(#disc)" opacity="0.18" fill="#ffffff">
-    <ellipse cx="242" cy="248" rx="110" ry="9"/>
-    <ellipse cx="272" cy="292" rx="120" ry="7"/>
-    <ellipse cx="246" cy="332" rx="110" ry="8"/>
+    <ellipse cx="{CX - 10}" cy="{CY - 38}" rx="110" ry="9"/>
+    <ellipse cx="{CX + 20}" cy="{CY + 6}" rx="120" ry="7"/>
+    <ellipse cx="{CX - 6}" cy="{CY + 46}" rx="110" ry="8"/>
   </g>
-  <circle cx="252" cy="286" r="94" fill="url(#night)"/>
+  <circle cx="{CX}" cy="{CY}" r="{PR}" fill="url(#night)"/>
   <!-- ring, front half -->
-  <g transform="translate(252 286) rotate(-22)">
-    <ellipse cx="0" cy="0" rx="206" ry="76" fill="none" stroke="#7cf7d4" stroke-width="9" clip-path="url(#front)"/>
+  <g transform="translate({CX} {CY}) rotate({TILT})">
+    <ellipse cx="0" cy="0" rx="{RX}" ry="{RY}" fill="none" stroke="#7cf7d4" stroke-width="9" clip-path="url(#front)"/>
   </g>
   <!-- the rocket's path behind it, glowing and fading -->
-  <path d="M 396.6 290.4 L 389.7 295.8 L 382.4 301.3 L 374.8 306.7 L 366.8 312.0 L 358.5 317.3 L 349.9 322.4 L 341.1 327.5 L 332.0 332.5 L 322.7 337.3 L 313.2 342.0 L 303.5 346.5 L 293.7 350.9 L 283.8 355.1 L 273.8 359.1 L 263.7 362.9 L 253.6 366.5 L 243.5 369.9 L 233.4 373.0 L 223.4 375.9 L 213.4 378.6 L 203.6 381.0 L 193.9 383.2 L 184.3 385.0 L 174.9 386.7 L 165.8 388.0 L 156.8 389.0 L 148.2 389.8 L 139.8 390.3 L 131.7 390.5 L 124.0 390.4 L 116.6 390.0" fill="none" stroke="url(#trail)" stroke-width="26" stroke-linecap="round" filter="url(#glow)"/>
-  <path d="M 396.6 290.4 L 389.7 295.8 L 382.4 301.3 L 374.8 306.7 L 366.8 312.0 L 358.5 317.3 L 349.9 322.4 L 341.1 327.5 L 332.0 332.5 L 322.7 337.3 L 313.2 342.0 L 303.5 346.5 L 293.7 350.9 L 283.8 355.1 L 273.8 359.1 L 263.7 362.9 L 253.6 366.5 L 243.5 369.9 L 233.4 373.0 L 223.4 375.9 L 213.4 378.6 L 203.6 381.0 L 193.9 383.2 L 184.3 385.0 L 174.9 386.7 L 165.8 388.0 L 156.8 389.0 L 148.2 389.8 L 139.8 390.3 L 131.7 390.5 L 124.0 390.4 L 116.6 390.0" fill="none" stroke="url(#trail)" stroke-width="9" stroke-linecap="round"/>
+  <path d="{trail}" fill="none" stroke="url(#trail)" stroke-width="26" stroke-linecap="round" filter="url(#glow)"/>
+  <path d="{trail}" fill="none" stroke="url(#trail)" stroke-width="9" stroke-linecap="round"/>
   <!-- rocket, centred on the ring and pointing along it -->
-  <g transform="translate(396.6 290.4) rotate(-39.2) scale(0.7)">
+  <g transform="translate({rx_:.1f} {ry_:.1f}) rotate({ang:.1f}) scale({SCALE})">
     <path d="M -50 -13 Q -150 0 -50 13 Z" fill="url(#flame)"/>
     <path d="M -50 -8 Q -96 0 -50 8 Z" fill="#fffbe0" opacity="0.9"/>
     <path d="M -44 -24 L -72 -50 L -58 -50 L -24 -24 Z" fill="#e0574a"/>
@@ -80,3 +109,6 @@
     <circle cx="9" cy="-3" r="3.5" fill="#ffffff" opacity="0.8"/>
   </g>
 </svg>
+'''
+open(sys.argv[2] if len(sys.argv) > 2 else __import__('os').path.join(__import__('os').path.dirname(__file__), '..', '..', 'icon.svg'), 'w').write(svg)
+print(f'rocket at ({rx_:.1f},{ry_:.1f}) heading {ang:.1f} deg; distance from centre {math.hypot(rx_-CX, ry_-CY):.0f}')
