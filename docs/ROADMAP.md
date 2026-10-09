@@ -22,7 +22,7 @@ Early worlds stay grounded in real spaceflight; stranger ideas come later.
 | Status | Mechanic | The decision it adds | Notes |
 | --- | --- | --- | --- |
 | **Built (World 2)** | **Payloads** | When to drop a stage or release cargo, and where the pieces end up | Stages, engineless cargo, debris fates, constellations. |
-| **Prototype → World 3** | **Area denial** | Where you may not go, and where something must end up | Keep-out zones and drop zones. Test levels: *Keep Out*, *Patrol*, *Wide Berth*. See the World 3 plan below. |
+| **Prototype → World 3** | **Area denial** | Where you may not go, and where something must end up | Keep-out zones and drop zones, mixed with side-thruster budgets and zero-G flying. Test levels: *Keep Out*, *Patrol*, *Wide Berth*, *Fixed Heading*, *Spin Burn*, *Asteroid Run*, *Sentry Field*. See the World 3 plan below. |
 | **Prototype** | **Fuel pickups** | Route planning: is the detour worth the fuel? | Canisters on their own orbits. Test level: *Fuel Run*. Used as a mixer in World 2 (*Fuel Depot*). |
 | Idea | Refuelling depot | Rendezvous to refill, then fly a mission your tank alone can't | Builds on Docking. Natural pair with pickups. |
 | Idea | Atmospheres / aerobraking | How deep to skim: free braking vs. burning up | Drag layer + heating limit. No new button; a new surface to read on the predicted path. |
@@ -116,6 +116,47 @@ A world of 30 could run as five chapters of six: *Keep out* (A, B) ·
 - A `zone` goal type for drop zones (craft or ship inside a zone, optionally
   held for a few seconds).
 - A scripted proof in `tools/proofs.js` for every mission, as World 2 has.
+
+### Side-thruster budgets (World 3 mixer)
+
+So far RCS has been a limitless resource: every ship gets 60 s of firing and
+no mission comes close. World 3 can make it a real constraint now and then,
+not on every mission. Turning is a cost, so you plan fewer, slower turns:
+tap (2°/s for 0.08 s of propellant) instead of holding.
+
+**Measuring it.** The autopilot used to set the heading directly, so proofs
+said nothing about turning. With `opts.turn` it now turns with the real
+thrusters (spin up to a capped rate, coast, counter-fire to stop, match a
+target that keeps turning such as prograde, and stop any leftover spin).
+`npm run rcs-report` flies every proof that way. Results with the current
+proofs (turn rate capped at 0.2 rad/s; "lost" means the slower turns broke
+the proof's timing, not that RCS ran out):
+
+| RCS needed | Missions |
+| --- | --- |
+| 0 s (launch only) | Launch a Satellite, Against the Spin, Stationary, Three Stages, Escape Velocity, Splashdown, Busy Orbit, Junkyard |
+| under 3 s | Burn It Dry, Homecoming, Kick Stage, Solar Probe, Clear the Station, Voyager, Belt Survey, Keep Out, Wide Berth |
+| 3–12 s | Moon Probe, Impactor, Relay Drop, Twin Probes, Leave No Junk, Relay Pair, Lander and Orbiter, Deep Impact, Moon Network, Patrol |
+| not measured yet | Release Point, Moon Mail, Constellation, Fuel Depot, Outer Planet, Grand Deployment (need re-tuning for slow turns; launch steps still turn directly) |
+
+So 60 s is 5–60× more than needed. A budget becomes a constraint around
+1.5× what the proof uses: enough for a careful human, not for holding keys.
+Proofs with a budget must use ≤80% of it (checked by `npm test`).
+
+**Test levels.**
+
+| Level | Budget | Proof uses | The idea |
+| --- | --- | --- | --- |
+| *Fixed Heading* | none (no side thrusters) | – | Your nose stays fixed against the stars while prograde swings round as you orbit: wait for them to line up, then burn. Burning early misses Luna |
+| *Spin Burn* | 1.0 s | 0.27 s | Tap up a slow spin and pulse the engine as the nose sweeps past prograde (spin-stabilised stages). Holding a key for one second empties the tank |
+| *Asteroid Run* | 7 s, 10 Δv | 4.9 s, 7.4 Δv | Zero-G: three gates through rocks, then stop at a depot. Every change of direction costs a turn and fuel |
+| *Sentry Field* | 5 s, 7 Δv | 3.2 s, 4.4 Δv | Zero-G + area denial + a drop: throw a beacon into a zone you can't enter, dodge a circling sentry, stop at the depot |
+
+Zero-G levels use a depot with a negligible mass as the HUD's reference, and
+`zeroG: true` hides the orbit readouts. **Open questions:** is it fun or just
+fiddly? Does running dry need a softer outcome (right now you just can't turn,
+and a spin keeps going)? A low-RCS warning on the HUD? Should turn rate depend
+on mass, so dropping cargo makes the ship nimbler?
 
 ## Score and leaderboards
 

@@ -1284,7 +1284,7 @@
     const pa = Math.atan2(rvy, rvx);
     const mark = (a, draw) => { const x = sx + Math.cos(a) * R, y = sy - Math.sin(a) * R; draw(x, y); };
     ctx.lineWidth = 1.5;
-    if (m.level.ship.canRotate) {
+    if (m.level.ship.canRotate || m.level.navMarkers) {
       mark(pa, (x, y) => {
         ctx.strokeStyle = '#8df57a';
         ctx.beginPath(); ctx.arc(x, y, 5, 0, TAU); ctx.stroke();
@@ -1567,10 +1567,12 @@
     const hmom = rx * vy - ry * vx;
     const e = Math.sqrt(Math.max(0, 1 + 2 * eps * hmom * hmom / (b.gm * b.gm)));
     $('hud-ref').textContent = b.name;
-    $('hud-ref-label').textContent = eps < 0 ? 'Orbiting' : 'Near';
+    $('hud-ref-label').textContent = eps < 0 && !L.zeroG ? 'Orbiting' : 'Near';
     $('hud-alt').textContent = (r - b.radius).toFixed(0);
     $('hud-spd').textContent = v.toFixed(2);
-    if (eps < 0) {
+    // Zero-G: no orbit to speak of, so no high or low point.
+    if (L.zeroG) { $('hud-ap').textContent = '–'; $('hud-pe').textContent = '–'; $('hud-pe').className = ''; }
+    else if (eps < 0) {
       const a = -b.gm / (2 * eps);
       $('hud-ap').textContent = (a * (1 + e) - b.radius).toFixed(0);
       const pe = a * (1 - e) - b.radius;

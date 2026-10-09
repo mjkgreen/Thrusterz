@@ -35,6 +35,7 @@ for (const level of LEVELS) {
   if (!best.won) failed++;
   const budget = best.m.dv0;
   console.log(`${level.id.padEnd(15)} ${best.won ? 'SOLVED ' : 'FAILED '} dv=${best.dv.toFixed(2)} / ${budget.toFixed(2)} par=${level.par} ` +
+    (proof.opts && proof.opts.turn ? `rcs=${best.rcs.toFixed(2)} / ${best.m.rcsFuel0.toFixed(2)}s ` : '') +
     `status=${best.status} t=${best.m.t.toFixed(0)} cost=${best.cost.toFixed(2)} (${Date.now() - t0}ms)${best.won ? '' : ' ' + best.message}`);
   console.log('   p:', JSON.stringify(p.map(v => +v.toFixed(3))));
 }

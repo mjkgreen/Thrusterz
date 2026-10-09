@@ -265,7 +265,7 @@ for (const L of LEVELS) {
   const AP = require('./autopilot.js');
   const PROOFS = require('./proofs.js');
   const tests = LEVELS.filter(l => l.test && PROOFS[l.id]);
-  const lost = tests.filter(L => !AP.fly(L, PROOFS[L.id].script(PROOFS[L.id].p, AP)).won).map(l => l.id);
+  const lost = tests.filter(L => !AP.fly(L, PROOFS[L.id].script(PROOFS[L.id].p, AP), PROOFS[L.id].opts).won).map(l => l.id);
   check(`Test levels: all ${tests.length} proofs win`, lost.length === 0, lost.join(', '));
   const patrol = AP.fly(LEVELS.find(l => l.id === 'test-patrol'), [
     { burn: 'pro', until: (m) => AP.orb(m, 'terra').ap >= 330 },
@@ -275,6 +275,27 @@ for (const L of LEVELS) {
   check('Patrol: climbing at once runs into a guard', /keep-out/.test(patrol.message), patrol.message);
   const berth = AP.fly(LEVELS.find(l => l.id === 'test-berth'), [{ wait: 18 }, { burn: 'pro', max: 2.5 }]);
   check('Wide Berth: the close Slingshot pass is off limits', /keep-out/.test(berth.message), berth.message);
+}
+
+// 14. Side-thruster budgets: proofs that turn honestly stay inside the
+//     level's RCS budget, and the budgets and fixed headings really bite.
+{
+  const AP = require('./autopilot.js');
+  const PROOFS = require('./proofs.js');
+  const over = LEVELS.filter(l => PROOFS[l.id] && PROOFS[l.id].opts && PROOFS[l.id].opts.turn).filter((L) => {
+    const r = AP.fly(L, PROOFS[L.id].script(PROOFS[L.id].p, AP), PROOFS[L.id].opts);
+    return !r.won || (L.ship.rcs && r.rcs > L.ship.rcs.fuel * 0.8);
+  }).map(l => l.id);
+  check('honest-turning proofs win with RCS to spare (≤80% of budget)', over.length === 0, over.join(', '));
+  const fixed = LEVELS.find(l => l.id === 'test-fixed');
+  const early = AP.fly(fixed, [{ control: (m, c) => m.t - c.t0 < 3.3 ? { thrust: true, angle: null } : { done: true } }], { turn: true });
+  check('Fixed Heading: burning before prograde lines up misses Luna', !early.won, early.status);
+  const spin = new Mission(LEVELS.find(l => l.id === 'test-spin'));
+  for (let i = 0; i < 120; i++) spin.advance(1 / 120, { thrust: false, throttle: 1, rotate: 1 });
+  check('Spin Burn: holding a rotate key for a second empties the side thrusters', spin.rcsFuel < 0.01, spin.rcsFuel.toFixed(2));
+  const drift = LEVELS.find(l => l.id === 'test-drift');
+  const straight = AP.fly(drift, [{ control: (m, c) => m.t - c.t0 < 1.5 ? { thrust: true, angle: null } : { done: true } }], { turn: true });
+  check('Asteroid Run: the straight line to the depot hits a rock', /Asteroid/.test(straight.message), straight.message);
 }
 
 process.exit(failed ? 1 : 0);
