@@ -39,6 +39,33 @@ function dockAt(x, y, flip) {
   };
 }
 
+// Close Quarters: the depot's starting angle.
+const DEPOT = +(process.env.DP || 1.6);
+
+// Rendezvous with a moving body: steer the velocity toward the body's
+// velocity plus a slow approach (k per unit distance, capped at vMax),
+// burning only when the error is worth fixing.
+function approach(id, k, vMax) {
+  return {
+    control: (m, ctx) => {
+      if (m.status !== 'flying') return { done: true };
+      const sys = m.sys; sys.update(m.t);
+      const i = sys.byId[id].index, s = m.ship;
+      const dx = sys.px[i] - s.x, dy = sys.py[i] - s.y, d = Math.hypot(dx, dy) || 1;
+      const sp = Math.min(vMax, k * d);
+      const ex = sys.vx[i] + sp * dx / d - s.vx, ey = sys.vy[i] + sp * dy / d - s.vy, e = Math.hypot(ex, ey);
+      if (ctx.burning ? e < 0.02 : e < 0.15) { ctx.burning = false; return { thrust: false, angle: null, dt: 0.1 }; }
+      ctx.burning = true;
+      return { thrust: true, angle: Math.atan2(ey, ex), tol: 0.1 };
+    },
+  };
+}
+const distTo = (m, id) => {
+  m.sys.update(m.t);
+  const i = m.sys.byId[id].index;
+  return Math.hypot(m.ship.x - m.sys.px[i], m.ship.y - m.sys.py[i]);
+};
+
 const levels = [
   {
     id: 'asteroidrun',
@@ -56,7 +83,7 @@ const levels = [
       { type: 'reach', x: -174, y: 151, r: 25, label: 'Gate 2' },
       { type: 'orbit', body: 'terra', rMin: 280, rMax: 320 },
     ],
-    par: 3, bounds: 2000, tMax: 1200, predict: 200, view: { x: 0, y: 0, span: 760 },
+    par: 5.5, bounds: 2000, tMax: 600, predict: 200, view: { x: 0, y: 0, span: 760 },
   },
   {
     id: 'debriscloud',
@@ -71,7 +98,22 @@ const levels = [
     ],
     ship: ship({ start: { orbit: { body: 'terra', r: 120, angle: 0 } }, heading: 'prograde', dv: 5, accel: 1 }),
     goals: [{ type: 'hit', body: 'luna' }],
-    par: 4, bounds: 2500, tMax: 1500, predict: 220, view: { x: 0, y: 0, span: 1000 },
+    par: 3.1, bounds: 2500, tMax: 1000, predict: 220, view: { x: 0, y: 0, span: 1000 },
+  },
+  {
+    id: 'detour',
+    name: 'Detour',
+    intro: 'TODO',
+    objective: 'Collect the fuel canister without entering the keep-out zone, then impact Luna.',
+    teaches: 'Is the detour worth the fuel?',
+    bodies: [
+      { id: 'terra', name: 'Terra', gm: 20000, radius: 50, color: C.blue },
+      { id: 'canister', name: 'Fuel', gm: 0, radius: 7, color: '#ffb35a', kind: 'fuel', pickup: true, dv: 5, orbit: { parent: 'terra', a: 220, phase: 1.6 } },
+      { id: 'tanker', name: 'Tanker', gm: 0, radius: 4, color: C.station, kind: 'station', keepOut: 22, orbit: { parent: 'canister', a: 32, n: Math.sqrt(20000 / 220 ** 3), phase: 1.6 + Math.PI } },
+    ],
+    ship: ship({ start: { orbit: { body: 'terra', r: 100, angle: 0 } }, heading: 'prograde', dv: 3.5, accel: 1 }),
+    goals: [{ type: 'orbit', body: 'terra', rMin: 400, rMax: 460 }],
+    par: 4, bounds: 2500, tMax: 600, predict: 220, view: { x: 0, y: 0, span: 1000 },
   },
   {
     id: 'sentryfield',
@@ -94,11 +136,27 @@ const levels = [
     ],
     par: 5.5, bounds: 2500, tMax: 1500, predict: 250, view: { x: 450, y: 0, span: 1200 }, startCam: 'overview',
   },
+  {
+    id: 'closequarters',
+    name: 'Close Quarters',
+    intro: 'TODO',
+    objective: 'Rendezvous with the depot (within 15, relative speed under 0.5) without entering either guard\'s keep-out zone.',
+    teaches: 'Rendezvous from below',
+    bodies: [
+      { id: 'terra', name: 'Terra', gm: 20000, radius: 50, color: C.blue },
+      { id: 'depot', name: 'Depot', gm: 0, radius: 4, color: C.station, kind: 'station', orbit: { parent: 'terra', a: 260, phase: DEPOT } },
+      { id: 'guardA', name: 'Guard A', gm: 0, radius: 4, color: C.station, kind: 'station', keepOut: +(process.env.KO || 35), orbit: { parent: 'terra', a: 260, phase: DEPOT + +(process.env.GS || 0.21) } },
+      { id: 'guardB', name: 'Guard B', gm: 0, radius: 4, color: C.station, kind: 'station', keepOut: +(process.env.KO || 35), orbit: { parent: 'terra', a: 260, phase: DEPOT - +(process.env.GS || 0.21) } },
+    ],
+    ship: ship({ start: { orbit: { body: 'terra', r: 150, angle: 0 } }, heading: 'prograde', dv: 6, accel: 1 }),
+    goals: [{ type: 'rendezvous', body: 'depot', dist: 15, relVel: 0.5 }],
+    par: 4, bounds: 2000, tMax: 1200, predict: 200, view: { x: 0, y: 0, span: 800 },
+  },
 ];
 
 const proofs = {
   asteroidrun: {
-    p: [51, 290, 285], scale: [3, 10, 10],
+    p: [48.673, 286.436, 279.29], scale: [3, 10, 10],
     script: (p, AP) => [
       { wait: p[0] },
       { burn: 'pro', until: (m) => AP.orb(m, 'terra').ap >= p[1] },
@@ -109,10 +167,34 @@ const proofs = {
 };
 
 proofs.debriscloud = {
-  p: [80, 400], scale: [3, 10],
+  p: [79.78, 304.401], scale: [3, 10],
   script: (p, AP) => [
     { wait: p[0] },
     { burn: 'pro', until: (m) => AP.orb(m, 'terra').ap >= p[1] },
+  ],
+};
+
+proofs.detour = {
+  p: [3.671, 233.23, 401.255, 7.519, 400.26], scale: [0.2, 4, 10, 5, 10],
+  script: (p, AP) => [
+    { wait: p[0] },
+    { burn: 'pro', until: (m) => AP.orb(m, 'terra').ap >= p[1] },
+    { coast: (m) => m.collected.size > 0 || m.t > 250 },
+    { wait: Math.max(0, p[3]) },
+    { burn: 'pro', until: (m) => AP.orb(m, 'terra').ap >= p[2] },
+    { coast: (m) => !AP.orb(m, 'terra').rising },
+    { burn: 'pro', until: (m) => AP.orb(m, 'terra').pe >= p[4] },
+  ],
+};
+
+proofs.closequarters = {
+  // Hohmann climb timed to arrive under the depot, then brake onto it.
+  p: [15, 262, 60, 0.05, 0.6], scale: [3, 5, 15, 0.02, 0.2],
+  script: (p, AP) => [
+    { wait: p[0] },
+    { burn: 'pro', until: (m) => AP.orb(m, 'terra').ap >= p[1] },
+    { coast: (m) => distTo(m, 'depot') < p[2] },
+    approach('depot', p[3], p[4]),
   ],
 };
 
@@ -130,6 +212,16 @@ proofs.sentryfield = {
 };
 
 const fails = {
+  detour: [
+    // Skip the canister: the tank alone runs dry on the way up.
+    { name: 'skip the canister', steps: (AP) => [
+      { burn: 'pro', until: (m) => AP.orb(m, 'terra').ap >= 430 },
+      { coast: (m) => !AP.orb(m, 'terra').rising },
+      { burn: 'pro', until: (m) => AP.orb(m, 'terra').pe >= 420 },
+    ] },
+    // The cheap way up to the canister rises right through the tanker's zone.
+    { name: 'straight up into the canister', steps: (AP) => proofs.detour.script([3.0, 221, 430, 0, 420], AP) },
+  ],
   debriscloud: [
     // The usual Moon Shot: burn at the first launch window.
     { name: 'first window', steps: (AP) => proofs.debriscloud.script([9, 400], AP) },

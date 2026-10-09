@@ -326,6 +326,9 @@
           this.rcsFuel = Math.max(0, this.rcsFuel - 0.25 * h);
         }
         if (this.gyro && r.maxRate) s.omega = Math.max(-r.maxRate, Math.min(r.maxRate, s.omega));
+        // Rounding can leave a spin of ~1e-17 after stopping; a tap the other
+        // way would then count as "stopping" it and latch, doing nothing.
+        if (Math.abs(s.omega) < 1e-9) s.omega = 0;
         s.angle += s.omega * h;
       }
 
