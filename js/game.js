@@ -1248,11 +1248,16 @@
     const sat = m.stageSpec && m.stageSpec.sprite === 'satellite';
     const L = sat ? 4 : 9;
     if (m.thrusting) {
-      const f = (0.7 + Math.random() * 0.5) * state.throttle;
-      const g = ctx.createLinearGradient(-L, 0, -L - 22 * f, 0);
-      g.addColorStop(0, 'rgba(255,255,220,0.95)'); g.addColorStop(0.4, 'rgba(255,170,60,0.8)'); g.addColorStop(1, 'rgba(255,80,30,0)');
+      // Two-tone flame like the icon: orange outside, pale yellow core.
+      const f = (0.75 + Math.random() * 0.45) * state.throttle, x0 = -L - 0.5, len = 24 * f;
+      const g = ctx.createLinearGradient(x0, 0, x0 - len, 0);
+      g.addColorStop(0, 'rgba(255,200,70,0.95)'); g.addColorStop(0.55, 'rgba(255,122,26,0.85)'); g.addColorStop(1, 'rgba(255,90,20,0)');
       ctx.fillStyle = g;
-      ctx.beginPath(); ctx.moveTo(-L + 1, -3.5); ctx.lineTo(-L - 22 * f, 0); ctx.lineTo(-L + 1, 3.5); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(x0, -2.6); ctx.quadraticCurveTo(x0 - len * 0.35, -2.4, x0 - len, 0); ctx.quadraticCurveTo(x0 - len * 0.35, 2.4, x0, 2.6); ctx.fill();
+      const c = ctx.createLinearGradient(x0, 0, x0 - len * 0.6, 0);
+      c.addColorStop(0, 'rgba(255,248,200,0.95)'); c.addColorStop(1, 'rgba(255,230,140,0)');
+      ctx.fillStyle = c;
+      ctx.beginPath(); ctx.moveTo(x0, -1.3); ctx.quadraticCurveTo(x0 - len * 0.25, -1.1, x0 - len * 0.6, 0); ctx.quadraticCurveTo(x0 - len * 0.25, 1.1, x0, 1.3); ctx.fill();
     }
     if (sat) drawSatelliteBody(); else drawRocketBody(L, m.canDeploy() || (m.landed && m.stages.length > 1));
     ctx.restore();
@@ -1270,33 +1275,51 @@
   }
 
   // `payload`: draw the gold fairing that holds the payload on the nose.
+  // The rocket, nose along +x, matching the app icon: white hull with a
+  // pointed nose, porthole, swept fins and a dark nozzle. With a payload
+  // aboard, the nose is the gold fairing.
   function drawRocketBody(L, payload) {
-    // Body
-    ctx.fillStyle = '#e9edf7';
-    ctx.strokeStyle = '#7f8aa8';
-    ctx.lineWidth = 1;
+    const W = 3.4, tail = -L + 1;
+    // Fins (behind the hull)
+    ctx.fillStyle = '#d9e0ee'; ctx.strokeStyle = '#7f8aa8'; ctx.lineWidth = 0.8;
+    for (const sgn of [-1, 1]) {
+      ctx.beginPath();
+      ctx.moveTo(-L * 0.15, sgn * W * 0.9);
+      ctx.lineTo(tail - 2.6, sgn * (W + 4.2));
+      ctx.lineTo(tail - 2.2, sgn * (W + 1.6));
+      ctx.lineTo(tail + 1, sgn * W);
+      ctx.closePath(); ctx.fill(); ctx.stroke();
+    }
+    // Hull
+    const g = ctx.createLinearGradient(0, -W, 0, W);
+    g.addColorStop(0, '#ffffff'); g.addColorStop(0.55, '#eef2fa'); g.addColorStop(1, '#b9c4dc');
+    ctx.fillStyle = g; ctx.strokeStyle = '#7f8aa8'; ctx.lineWidth = 0.9;
     ctx.beginPath();
-    ctx.moveTo(L + 3, 0);
-    ctx.quadraticCurveTo(L, -4, 2, -4.2);
-    ctx.lineTo(-L + 1, -4.2);
-    ctx.lineTo(-L + 1, 4.2);
-    ctx.lineTo(2, 4.2);
-    ctx.quadraticCurveTo(L, 4, L + 3, 0);
+    ctx.moveTo(L + 4, 0);
+    ctx.bezierCurveTo(L + 1, -W * 0.9, L * 0.2, -W * 1.08, -L * 0.3, -W);
+    ctx.lineTo(tail, -W * 0.86);
+    ctx.lineTo(tail, W * 0.86);
+    ctx.lineTo(-L * 0.3, W);
+    ctx.bezierCurveTo(L * 0.2, W * 1.08, L + 1, W * 0.9, L + 4, 0);
     ctx.fill(); ctx.stroke();
-    // Fins
-    ctx.fillStyle = '#e0574a';
-    ctx.beginPath(); ctx.moveTo(-L + 1, -4.2); ctx.lineTo(-L - 3, -8); ctx.lineTo(-L + 5, -4.2); ctx.fill();
-    ctx.beginPath(); ctx.moveTo(-L + 1, 4.2); ctx.lineTo(-L - 3, 8); ctx.lineTo(-L + 5, 4.2); ctx.fill();
+    // Nozzle
+    ctx.fillStyle = '#3a4a72';
+    ctx.fillRect(tail - 1.6, -W * 0.62, 1.8, W * 1.24);
     if (payload) {
       ctx.fillStyle = '#e8c45a'; ctx.strokeStyle = '#8a6a1a';
-      ctx.beginPath(); ctx.moveTo(L + 3, 0); ctx.quadraticCurveTo(L, -4, 3, -4.2); ctx.lineTo(3, 4.2); ctx.quadraticCurveTo(L, 4, L + 3, 0);
+      ctx.beginPath();
+      ctx.moveTo(L + 4, 0); ctx.bezierCurveTo(L + 1, -W * 0.9, L * 0.45, -W * 1.06, L * 0.15, -W * 1.04);
+      ctx.lineTo(L * 0.15, W * 1.04); ctx.bezierCurveTo(L * 0.45, W * 1.06, L + 1, W * 0.9, L + 4, 0);
       ctx.fill(); ctx.stroke();
-      ctx.strokeStyle = 'rgba(0,0,0,0.35)'; ctx.beginPath(); ctx.moveTo(3, -4.2); ctx.lineTo(3, 4.2); ctx.stroke();
+      ctx.strokeStyle = 'rgba(0,0,0,0.35)'; ctx.beginPath(); ctx.moveTo(L * 0.15, -W); ctx.lineTo(L * 0.15, W); ctx.stroke();
+      ctx.lineWidth = 1;
       return;
     }
-    // Window
-    ctx.fillStyle = '#4fc3ff';
-    ctx.beginPath(); ctx.arc(3, 0, 1.8, 0, TAU); ctx.fill();
+    // Porthole
+    ctx.fillStyle = '#0b1338'; ctx.beginPath(); ctx.arc(L * 0.3, 0, 2.1, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#2fb8d8'; ctx.beginPath(); ctx.arc(L * 0.3, 0, 1.45, 0, TAU); ctx.fill();
+    ctx.fillStyle = 'rgba(220,250,255,0.9)'; ctx.beginPath(); ctx.arc(L * 0.3 + 0.5, -0.5, 0.5, 0, TAU); ctx.fill();
+    ctx.lineWidth = 1;
   }
 
   // Prograde / retrograde / target markers around the ship.
