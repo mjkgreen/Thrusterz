@@ -345,9 +345,15 @@
     syncSize();
     const realDt = Math.min(0.05, (now - lastTime) / 1000);
     lastTime = now;
-    if (state.screen === 'flight' && !state.paused && $('gate').classList.contains('hidden')) update(realDt);
-    render(realDt);
+    // Schedule the next frame first and contain errors: a bug in one frame
+    // must never stop the game loop (that reads as a frozen game).
     requestAnimationFrame(frame);
+    try {
+      if (state.screen === 'flight' && !state.paused && $('gate').classList.contains('hidden')) update(realDt);
+      render(realDt);
+    } catch (e) {
+      if (!state.loggedError) { state.loggedError = true; console.error(e); }
+    }
   }
 
   function update(realDt) {
@@ -1238,6 +1244,13 @@
     return (intro && intro.includes(k)) || learned(k) < LEARN_AFTER[k];
   }
 
+  // Cargo aboard, and the coast path ends where the current cargo goal wants
+  // it to land: time to press DROP. (Only impact goals have a body to land on.)
+  function dropHint(m, g) {
+    const p = state.pred;
+    return !!g && g.craft && g.type === 'hit' && m.sys.byId[g.body].index === p.hit && m.siteOk(g, p.end.x, p.end.y, p.tEnd);
+  }
+
   function updateCoach(dt, ctl) {
     const m = state.mission, c = state.coach, L = m.level, s = m.ship;
     const active = ctl.thrust || ctl.rotate;
@@ -1258,9 +1271,7 @@
     if (m.status !== 'flying') key = null;
     else if (m.landed) key = 'launch';
     else if (m.canDeploy() && m.stageSpec.fuel <= 1e-9) key = 'deploy';
-    else if (m.canDrop() && state.pred && state.pred.hit >= 0 && L.goals[m.goalIndex] && L.goals[m.goalIndex].craft
-      && m.siteOk(L.goals[m.goalIndex], state.pred.end.x, state.pred.end.y, state.pred.tEnd)
-      && m.sys.byId[L.goals[m.goalIndex].body].index === state.pred.hit) key = 'drop';
+    else if (m.canDrop() && state.pred && state.pred.hit >= 0 && dropHint(m, L.goals[m.goalIndex])) key = 'drop';
     else if (m.launchBody != null && L.ship.canRotate && wants('gravityturn') && m.t - m.liftoffT > 1.2
       && m.t - m.liftoffT < 40 && tiltFromVertical(m) < 0.35) key = 'gravityturn';
     else if (L.ship.canRotate && wants('rotate') && m.t > 0.5) key = 'rotate';
