@@ -135,11 +135,11 @@ the proof's timing, not that RCS ran out):
 | RCS needed | Missions |
 | --- | --- |
 | 0 s (launch only) | Launch a Satellite, Against the Spin, Stationary, Three Stages, Escape Velocity, Splashdown, Busy Orbit, Junkyard |
-| under 3 s | Burn It Dry, Homecoming, Kick Stage, Solar Probe, Clear the Station, Voyager, Belt Survey, Keep Out, Wide Berth |
-| 3–12 s | Moon Probe, Impactor, Relay Drop, Twin Probes, Leave No Junk, Relay Pair, Lander and Orbiter, Deep Impact, Moon Network, Patrol |
+| under 3 s | Burn It Dry, Homecoming, Solar Probe, Clear the Station, Voyager, Belt Survey, Keep Out, Wide Berth |
+| 3–10 s | Kick Stage, Leave No Junk, Deep Impact, Patrol, Relay Pair, Relay Drop, Twin Probes, Moon Network, Moon Probe, Impactor, Lander and Orbiter |
 | not measured yet | Release Point, Moon Mail, Constellation, Fuel Depot, Outer Planet, Grand Deployment (need re-tuning for slow turns; launch steps still turn directly) |
 
-So 60 s is 5–60× more than needed. A budget becomes a constraint around
+So 60 s is 6–60× more than needed. A budget becomes a constraint around
 1.5× what the proof uses: enough for a careful human, not for holding keys.
 Proofs with a budget must use ≤80% of it (checked by `npm test`).
 
