@@ -35,9 +35,13 @@ step 1.
      with Apple key (step 2.3); paste the whole `.p8` file as the value.
      Needed so deleting an account also revokes Sign in with Apple, which
      Apple requires.
-3. Redeploy. `https://<your-domain>/api/board?level=liftoff` should return
-   JSON and `https://<your-domain>/privacy.html` should load.
-4. In `js/config.js` set `apiBase` to `https://<your-domain>`.
+3. Redeploy (Vercel only applies new environment variables to new
+   deployments; a push to `main` does it). Then
+   `https://thrusterz.com/api/board?level=liftoff` should return JSON and
+   `https://thrusterz.com/privacy.html` should load.
+4. `js/config.js` points the app at `https://thrusterz.com`. Make
+   `thrusterz.com` (not `www.`) the primary domain in Vercel, so the app's
+   API calls aren't redirected.
 5. Put your contact email in `privacy.html`.
 
 ## 2. Apple Developer (in the browser)
@@ -94,7 +98,7 @@ just run the build and submit commands again.
 - **Screenshots:** landscape, iPhone 6.9" or 6.5" display and iPad 13".
   Screenshots taken on your own iPhone from the TestFlight build are fine
   for the iPhone size; for iPad, borrow one or ask (the app supports iPad).
-- **Privacy policy URL:** `https://<your-domain>/privacy.html`.
+- **Privacy policy URL:** `https://thrusterz.com/privacy.html`.
 - **App Privacy:** data collected = *User ID*, *Gameplay Content*, *Other
   User Content* (the pilot name); all linked to the user, for App
   Functionality, not used for tracking. (Matches the privacy manifest.)
