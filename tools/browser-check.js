@@ -6,15 +6,18 @@
 //   4. corrupted saved progress never breaks the menu
 //   5. the game loop never stops (sim time keeps advancing)
 'use strict';
-const path = require('path');
 let playwright;
 try { playwright = require('playwright'); } catch (e) { playwright = require('/opt/node22/lib/node_modules/playwright'); }
 
-const URL = 'file://' + path.join(__dirname, '..', 'index.html');
+// Served over HTTP like the website and app (WebKit won't load fonts from file://).
+let URL = '';
 let failed = 0;
 const check = (name, ok, info) => { console.log((ok ? 'ok   ' : 'FAIL ') + name + (info ? '  ' + info : '')); if (!ok) failed++; };
 
 (async () => {
+  const server = require('./dev-server.js');
+  await new Promise(r => server.listen(0, '127.0.0.1', r));
+  URL = 'http://127.0.0.1:' + server.address().port + '/index.html';
   // BROWSER=webkit runs the same checks in Safari's engine (where installed).
   const engine = process.env.BROWSER === 'webkit' ? 'webkit' : 'chromium';
   const browser = await playwright[engine].launch(engine === 'chromium' && process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {});
@@ -139,5 +142,6 @@ const check = (name, ok, info) => { console.log((ok ? 'ok   ' : 'FAIL ') + name 
   }
 
   await browser.close();
+  server.close();
   process.exit(failed ? 1 : 0);
 })().catch((e) => { console.error(e); process.exit(1); });
