@@ -10,6 +10,7 @@
     "test:browser": "node tools/browser-check.js",
     "check-levels": "node tools/check-levels.js",
     "check-scripted": "node tools/check-scripted.js",
+    "rcs-report": "node tools/rcs-report.js",
     "build:mobile": "node tools/build-mobile.js"
   }
 }

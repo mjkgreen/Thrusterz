@@ -570,6 +570,18 @@
         if ((p.xs[i] - bp[0]) ** 2 + (p.ys[i] - bp[1]) ** 2 < r2) { p.pickups.add(b.index); break; }
       }
     }
+    // First point where the path enters a keep-out zone (zones can move, so
+    // check each one where it will be at that moment).
+    p.zone = null;
+    for (const b of m.sys.bodies) {
+      if (!b.keepOut) continue;
+      const r2 = b.keepOut * b.keepOut, bp = [0, 0];
+      const n = p.zone ? p.zone.i : p.ts.length;
+      for (let i = 1; i < n; i++) {
+        m.sys.posAt(b.index, p.ts[i], bp);
+        if ((p.xs[i] - bp[0]) ** 2 + (p.ys[i] - bp[1]) ** 2 < r2) { p.zone = { i, body: b.index }; break; }
+      }
+    }
     state.pred = p;
   }
 
@@ -934,8 +946,16 @@
     const [s0x, s0y] = w2s(m.ship.x, m.ship.y);
     ctx.moveTo(s0x, s0y);
     let lx = s0x, ly = s0y;
+    // The path turns red where it would enter a keep-out zone.
+    const zi = p.zone && p.zone.i > i0 ? p.zone.i : -1;
     for (let i = i0 + 1; i < p.ts.length; i++) {
       const [sx, sy] = disp(p.xs[i], p.ys[i], p.ts[i]);
+      if (i === zi) {
+        ctx.lineTo(sx, sy); ctx.stroke();
+        ctx.strokeStyle = 'rgba(255,107,107,0.85)';
+        ctx.beginPath(); ctx.moveTo(sx, sy); lx = sx; ly = sy;
+        continue;
+      }
       if (Math.abs(sx - lx) + Math.abs(sy - ly) < 2 && i < p.ts.length - 1) continue;
       ctx.lineTo(sx, sy); lx = sx; ly = sy;
     }
@@ -943,6 +963,19 @@
     ctx.setLineDash([]);
 
     const sys = m.sys;
+    // Keep-out warning: where the zone will be when the path meets it.
+    if (zi > 0) {
+      const b = sys.bodies[p.zone.body], bp = [0, 0], t = p.ts[zi];
+      sys.posAt(b.index, t, bp);
+      const [gx, gy] = disp(bp[0], bp[1], t), [sx, sy] = disp(p.xs[zi], p.ys[zi], t);
+      ctx.strokeStyle = 'rgba(255,107,107,0.6)';
+      ctx.setLineDash([3, 5]);
+      ctx.beginPath(); ctx.arc(gx, gy, b.keepOut * state.cam.zoom, 0, TAU); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = '#ff6b6b';
+      ctx.beginPath(); ctx.arc(sx, sy, 3.5, 0, TAU); ctx.fill();
+      label('KEEP OUT · ' + fmtT(t - m.t), sx, sy - 14, '#ff7a7a');
+    }
     // Impact marker.
     if (p.hit >= 0) {
       const [sx, sy] = disp(p.end.x, p.end.y, p.tEnd);
@@ -1278,7 +1311,7 @@
     const pa = Math.atan2(rvy, rvx);
     const mark = (a, draw) => { const x = sx + Math.cos(a) * R, y = sy - Math.sin(a) * R; draw(x, y); };
     ctx.lineWidth = 1.5;
-    if (m.level.ship.canRotate) {
+    if (m.level.ship.canRotate || m.level.navMarkers) {
       mark(pa, (x, y) => {
         ctx.strokeStyle = '#8df57a';
         ctx.beginPath(); ctx.arc(x, y, 5, 0, TAU); ctx.stroke();
@@ -1561,10 +1594,12 @@
     const hmom = rx * vy - ry * vx;
     const e = Math.sqrt(Math.max(0, 1 + 2 * eps * hmom * hmom / (b.gm * b.gm)));
     $('hud-ref').textContent = b.name;
-    $('hud-ref-label').textContent = eps < 0 ? 'Orbiting' : 'Near';
+    $('hud-ref-label').textContent = eps < 0 && !L.zeroG ? 'Orbiting' : 'Near';
     $('hud-alt').textContent = (r - b.radius).toFixed(0);
     $('hud-spd').textContent = v.toFixed(2);
-    if (eps < 0) {
+    // Zero-G: no orbit to speak of, so no high or low point.
+    if (L.zeroG) { $('hud-ap').textContent = '–'; $('hud-pe').textContent = '–'; $('hud-pe').className = ''; }
+    else if (eps < 0) {
       const a = -b.gm / (2 * eps);
       $('hud-ap').textContent = (a * (1 + e) - b.radius).toFixed(0);
       const pe = a * (1 - e) - b.radius;
