@@ -14,8 +14,11 @@ No build step. Open `index.html` in a browser, or serve the folder:
 npm start            # http://localhost:8080
 ```
 
-Every mission is open from the start; the first one you haven't cleared is marked
-*Next up*. `?level=N` jumps straight to mission N, counting across all worlds
+The menu shows one world per tab. World 1 is open from the start; each later
+world opens once the world before it has earned enough stars (World 2 needs
+50 of World 1's 90). Every mission inside an open world is playable, and the
+first one you haven't cleared is marked *Next up*. `?unlock` opens every
+world. `?level=N` jumps straight to mission N, counting across all worlds
 in menu order.
 
 ### Controls

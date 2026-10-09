@@ -221,8 +221,6 @@ kbd.tbtn.burn { border-radius: 999px; background: rgba(255, 140, 50, 0.28); bord
 .level-card .lteach { font-size: 12px; color: var(--muted); min-height: 30px; }
 .level-card .lstars { color: var(--gold); margin-top: 6px; font-size: 16px; }
 .menu-foot { margin-top: 24px; }
-.world-title { width: min(1000px, 100%); margin: 0 0 10px; font-size: 18px; font-weight: 800; letter-spacing: 0.02em; }
-.world-title .wnum { font-family: var(--mono); font-size: 12px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); margin-right: 8px; }
 
 @media (max-width: 640px) {
   #mission { max-width: calc(100vw - 172px); padding: 8px 10px; }
@@ -332,9 +330,6 @@ body.touch #touch button.burn { width: 84px; height: 84px; background: rgba(255,
 .screen { justify-content: flex-start; }
 #menu { justify-content: flex-start; }
 
-/* Test levels section */
-.world-title.tests { margin-top: 28px; }
-.world-title.tests .wnum { color: var(--warn); }
 .level-card.test .num { color: var(--warn); }
 
 /* Deploy button: only while a payload can be released */
@@ -354,10 +349,41 @@ kbd.tbtn.deploy { background: rgba(124, 247, 212, 0.25); border-color: rgba(124,
 .logo-mark { width: clamp(52px, 9vw, 96px); height: auto; border-radius: 22%; box-shadow: 0 12px 40px rgba(0,0,0,0.5); }
 @media (max-height: 500px) { .logo-mark { width: 44px; } }
 
-/* World sections in the menu */
-.world-title + .level-grid ~ .world-title { margin-top: 28px; }
-.world-title.w2 .wnum { color: #b4f06a; }
 .level-grid.w2 .level-card { background: rgba(10, 24, 22, 0.8); border-color: rgba(150, 230, 140, 0.18); }
 .level-grid.w2 .level-card:hover, .level-grid.w2 .level-card.next { border-color: rgba(180, 240, 106, 0.6); }
 .level-grid.w2 .nexttag { color: #b4f06a; }
-#worlds { width: min(1000px, 100%); display: flex; flex-direction: column; align-items: center; }
+
+/* World tabs */
+#world-tabs { display: flex; flex-shrink: 0; gap: 8px; width: min(1000px, 100%); margin-bottom: 12px; overflow-x: auto; scrollbar-width: none; }
+#world-tabs::-webkit-scrollbar { display: none; }
+.wtab {
+  flex: 1 1 0; min-width: 150px; display: grid; grid-template-columns: 1fr auto; align-items: baseline; gap: 2px 10px;
+  text-align: left; padding: 10px 14px; border-radius: 12px; cursor: pointer;
+  background: rgba(12, 16, 32, 0.6); border: 1px solid var(--panel-border); color: var(--muted);
+  font-family: var(--sans); transition: border-color 0.15s, background 0.15s;
+}
+.wtab .wnum { font-family: var(--mono); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); }
+.wtab .wname { grid-column: 1; font-size: 17px; font-weight: 800; color: var(--text); }
+.wtab .wstars { grid-column: 2; grid-row: 1 / span 2; align-self: center; font-family: var(--mono); font-size: 12px; color: var(--gold); white-space: nowrap; }
+.wtab:hover { border-color: rgba(124, 247, 212, 0.4); }
+.wtab.active { background: rgba(20, 30, 52, 0.9); border-color: rgba(124, 247, 212, 0.7); box-shadow: 0 0 0 1px rgba(124, 247, 212, 0.25) inset; }
+.wtab.w2 .wnum { color: #b4f06a; }
+.wtab.w2.active { background: rgba(14, 34, 28, 0.92); border-color: rgba(180, 240, 106, 0.7); box-shadow: 0 0 0 1px rgba(180, 240, 106, 0.25) inset; }
+.wtab.locked .wname { color: var(--muted); }
+.wtab.locked .wstars { color: var(--muted); }
+.wtab.tests { flex: 0 0 auto; min-width: 0; }
+.wtab.tests .wnum { color: var(--warn); }
+.wtab.tests .wname { font-size: 13px; font-weight: 600; color: var(--muted); }
+#world-info { flex-shrink: 0; width: min(1000px, 100%); margin: 0 0 12px; font-family: var(--mono); font-size: 12px; color: var(--muted); }
+#world-info .lock { display: block; font-family: var(--sans); font-size: 16px; font-weight: 700; color: var(--text); margin-bottom: 8px; }
+.unlockbar { height: 6px; border-radius: 3px; background: rgba(255, 255, 255, 0.08); overflow: hidden; margin-bottom: 6px; max-width: 420px; }
+.unlockbar > div { height: 100%; background: linear-gradient(90deg, var(--gold), #b4f06a); }
+.level-grid.locked .level-card { opacity: 0.4; cursor: not-allowed; transform: none; }
+.level-grid.locked .level-card:hover { border-color: var(--panel-border); }
+.level-grid.tests .level-card .num { color: var(--warn); }
+#res-msg .unlocked { display: block; margin-top: 10px; font-weight: 700; color: #b4f06a; }
+@media (max-height: 500px) {
+  .wtab { padding: 6px 10px; min-width: 120px; }
+  .wtab .wname { font-size: 14px; }
+  #world-tabs { margin-bottom: 8px; }
+}

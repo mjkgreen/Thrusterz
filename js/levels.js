@@ -1073,10 +1073,11 @@
     },
   );
 
-  // Worlds in menu order. theme picks the in-flight backdrop.
+  // Worlds in menu order. theme picks the in-flight backdrop; unlock is how
+  // many stars the previous world must have earned to open this one.
   const WORLDS = [
     { n: 1, name: 'Flight School', theme: 'deep' },
-    { n: 2, name: 'Payloads', theme: 'nebula' },
+    { n: 2, name: 'Payloads', theme: 'nebula', unlock: 50 },
   ];
 
   const Levels = { LEVELS, WORLDS, ship, VE };

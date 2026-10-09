@@ -45,6 +45,8 @@
   function saveProgress() { try { localStorage.setItem(STORE, JSON.stringify(progress)); } catch (e) { /* ignore */ } }
   const progress = loadProgress();
   if (/[?&]unlock/.test(location.search)) progress.unlocked = LEVELS.length - 1;
+  // ?unlock opens every world (for testing).
+  const UNLOCK_ALL = /[?&]unlock/.test(location.search);
 
   // ---------------------------------------------------------------- setup
   // The canvas fills the screen through CSS; its pixel buffer must always match
@@ -1475,36 +1477,90 @@
   function show(id) { $(id).classList.remove('hidden'); }
   function hide(id) { $(id).classList.add('hidden'); }
 
+  // The menu shows one world at a time as tabs (plus the test levels). A
+  // world opens once the world before it has earned enough stars; every
+  // mission inside an open world is playable.
+  const TEST_TAB = 'test';
+  const worldStars = (n) => worldLevels(n).reduce((a, l) => a + (progress.stars[l.id] || 0), 0);
+  function worldOpen(n) {
+    const w = WORLDS.find(x => x.n === n);
+    if (!w || !w.unlock || UNLOCK_ALL) return true;
+    return worldOpen(n - 1) && worldStars(n - 1) >= w.unlock;
+  }
+  function levelOpen(i) { return LEVELS[i].test || worldOpen(worldOf(LEVELS[i])); }
+
+  function defaultTab() {
+    // The furthest open world that still has missions without stars.
+    let tab = 1;
+    for (const w of WORLDS) if (worldOpen(w.n) && worldLevels(w.n).some(l => !progress.stars[l.id])) { tab = w.n; }
+    return tab;
+  }
+
   function showMenu() {
     state.screen = 'menu';
     hide('hud'); hide('briefing'); hide('result'); hide('pause'); hide('help');
     show('menu');
-    const worlds = $('worlds'), tests = $('test-grid');
-    worlds.innerHTML = ''; tests.innerHTML = '';
-    const grids = {};
+    const hasTests = LEVELS.some(l => l.test);
+    if (state.menuTab == null || (state.menuTab !== TEST_TAB && !WORLDS.some(w => w.n === state.menuTab))) state.menuTab = progress.tab != null ? progress.tab : defaultTab();
+    const tabs = $('world-tabs');
+    tabs.innerHTML = '';
     for (const w of WORLDS) {
-      const head = document.createElement('div');
-      head.className = 'world-title w' + w.n;
-      head.innerHTML = `<span class="wnum">World ${w.n}</span> ${w.name}`;
-      const grid = document.createElement('div');
-      grid.className = 'level-grid w' + w.n;
-      worlds.append(head, grid);
-      grids[w.n] = grid;
+      const open = worldOpen(w.n), max = worldLevels(w.n).length * 3;
+      const b = document.createElement('button');
+      b.className = 'wtab w' + w.n + (state.menuTab === w.n ? ' active' : '') + (open ? '' : ' locked');
+      b.setAttribute('role', 'tab');
+      b.setAttribute('aria-selected', state.menuTab === w.n);
+      b.innerHTML = `<span class="wnum">World ${w.n}</span><span class="wname">${w.name}</span>`
+        + `<span class="wstars">${open ? '★ ' + worldStars(w.n) + '/' + max : '🔒 ' + w.unlock + '★'}</span>`;
+      b.onclick = () => selectTab(w.n);
+      tabs.appendChild(b);
     }
-    const nextUp = LEVELS.findIndex(l => !l.test && !progress.stars[l.id]);
-    LEVELS.forEach((L, i) => {
-      // Every mission is open; the first uncleared one is highlighted as next up.
+    if (hasTests) {
+      const b = document.createElement('button');
+      b.className = 'wtab tests' + (state.menuTab === TEST_TAB ? ' active' : '');
+      b.setAttribute('role', 'tab');
+      b.innerHTML = '<span class="wnum">Test</span><span class="wname">In development</span>';
+      b.onclick = () => selectTab(TEST_TAB);
+      tabs.appendChild(b);
+    }
+    renderTab();
+  }
+
+  function selectTab(t) {
+    state.menuTab = t; progress.tab = t; saveProgress();
+    showMenu();
+  }
+
+  function renderTab() {
+    const t = state.menuTab, grid = $('world-grid'), info = $('world-info');
+    grid.innerHTML = '';
+    grid.className = 'level-grid' + (t === TEST_TAB ? ' tests' : ' w' + t);
+    const list = LEVELS.map((L, i) => [L, i]).filter(([L]) => t === TEST_TAB ? L.test : !L.test && worldOf(L) === t);
+    const open = t === TEST_TAB || worldOpen(t);
+    if (t === TEST_TAB) info.innerHTML = '<span class="k">Prototypes of upcoming mechanics</span>';
+    else if (open) info.innerHTML = `<span class="k">${worldStars(t)} of ${list.length * 3} ★ earned</span>`;
+    else {
+      const w = WORLDS.find(x => x.n === t), have = worldStars(t - 1);
+      info.innerHTML = `<span class="lock">🔒 Earn ${w.unlock} ★ in World ${t - 1} to open ${w.name}</span>`
+        + `<div class="unlockbar"><div style="width:${Math.min(100, 100 * have / w.unlock)}%"></div></div>`
+        + `<span class="k">${have} / ${w.unlock} ★ · ${Math.max(0, w.unlock - have)} to go</span>`;
+    }
+    grid.classList.toggle('locked', !open);
+    const nextUp = open ? list.find(([L]) => !progress.stars[L.id]) : null;
+    for (const [L, i] of list) {
+      // Every mission in an open world is playable; the first uncleared one is marked next up.
       const stars = progress.stars[L.id] || 0;
-      const next = i === nextUp;
+      const next = nextUp && nextUp[1] === i;
       const card = document.createElement('button');
       card.className = 'level-card' + (stars ? ' cleared' : '') + (next ? ' next' : '') + (L.test ? ' test' : '');
+      card.disabled = !open;
       card.innerHTML = `<div class="num">${L.test ? 'TEST' : String(missionNum(i)).padStart(2, '0')}</div>
         <div class="lname">${L.name}</div>
         <div class="lteach">${L.teaches}</div>
         <div class="lstars">${starStr(stars)}${next ? '<span class="nexttag">Next up</span>' : ''}</div>`;
-      card.addEventListener('click', () => showBriefing(i));
-      (L.test ? tests : grids[worldOf(L)]).appendChild(card);
-    });
+      if (open) card.addEventListener('click', () => showBriefing(i));
+      grid.appendChild(card);
+    }
   }
 
   // Missions are numbered within their world: "World 2 · Mission 5 of 30".
@@ -1517,7 +1573,7 @@
   }
   function nextIndex(i) {
     const j = i + 1;
-    return j < LEVELS.length && !!LEVELS[j].test === !!LEVELS[i].test ? j : -1;
+    return j < LEVELS.length && !!LEVELS[j].test === !!LEVELS[i].test && levelOpen(j) ? j : -1;
   }
 
   function starStr(n) { return '★'.repeat(n) + '<span class="dim">' + '★'.repeat(3 - n) + '</span>'; }
@@ -1545,9 +1601,13 @@
     const m = state.mission, L = m.level;
     const won = m.status === 'won';
     const stars = m.stars();
+    state.worldUnlocked = null;
     if (won) {
+      const wasOpen = WORLDS.map(w => worldOpen(w.n));
       progress.unlocked = Math.max(progress.unlocked, Math.min(LEVELS.length - 1, state.levelIndex + 1));
       progress.stars[L.id] = Math.max(progress.stars[L.id] || 0, stars);
+      const opened = WORLDS.find((w, k) => !wasOpen[k] && worldOpen(w.n));
+      if (opened) { state.worldUnlocked = opened; progress.tab = opened.n; }
       if (!progress.best[L.id] || m.dvUsed() < progress.best[L.id]) progress.best[L.id] = m.dvUsed();
       progress.score = progress.score || {};
       state.newBest = m.score() > (progress.score[L.id] || 0);
@@ -1565,6 +1625,7 @@
       : stars === 3 ? 'Textbook flying.'
       : m.assisted && m.dvUsed() <= L.par ? 'Gyro assist was on, so this run tops out at two stars. Fly without it for three.'
       : `Use ≤ ${L.par} Δv${m.assisted ? ' without gyro assist' : ''} for three stars.`;
+    if (state.worldUnlocked) $('res-msg').innerHTML += `<span class="unlocked">🔓 World ${state.worldUnlocked.n} · ${state.worldUnlocked.name} is open!</span>`;
     $('res-stats').innerHTML = `<span><span class="k">Δv used</span> ${m.dvUsed().toFixed(2)}</span>
       <span><span class="k">Time</span> ${fmtT(m.t)}</span>
       ${progress.best[L.id] ? `<span><span class="k">Best</span> ${progress.best[L.id].toFixed(2)}</span>` : ''}`;
