@@ -669,21 +669,21 @@
       par: 6, bounds: 2000, tMax: 1200, predict: 200, view: { x: 0, y: 0, span: 760 },
     },
     {
-      id: 'supplyrun',
-      name: 'Supply Run',
-      intro: 'Haven Station needs supplies, but no ship may come inside its red keep-out zone. Get on a path that meets the station, release the pod before you reach the zone so it drifts in on its own, then turn away and settle back into a lower orbit.',
-      objective: 'Deliver the pod to Haven Station without entering the keep-out zone, then orbit Terra between 100 and 250.',
-      teaches: 'Throw, don\'t carry',
+      id: 'moonmail',
+      name: 'Moon Mail',
+      intro: 'Luna Base needs a supply pod, but your carrier only has fuel for one trip out and a nudge, not a landing. Burn so your path ends on Luna, drop the pod (E) while it still reads DROP NOW → IMPACT, then nudge yourself sideways so you swing around behind Luna instead. Luna\'s gravity throws you home on a free return.',
+      objective: 'Land the pod on Luna, then come back within 110 of Terra.',
+      teaches: 'Drop on a flyby',
       bodies: [
         { id: 'terra', name: 'Terra', gm: 20000, radius: 50, color: C.blue },
-        { id: 'haven', name: 'Haven Station', gm: 0, radius: 4, color: C.station, kind: 'station', keepOut: 45, orbit: { parent: 'terra', a: 300, phase: 1.2 } },
+        { id: 'luna', name: 'Luna', gm: 1500, radius: 18, color: C.grey, orbit: { parent: 'terra', a: 400, phase: 2.4 } },
       ],
-      ship: ship({ start: { orbit: { body: 'terra', r: 150, angle: 0 } }, heading: 'prograde', dv: 4.5, accel: 1, cargo: [{ id: 'pod', name: 'Pod', mass: 0.3 }] }),
+      ship: ship({ start: { orbit: { body: 'terra', r: 90, angle: 0 } }, heading: 'prograde', dv: 5.5, accel: 1, cargo: [{ id: 'pod', name: 'Pod', mass: 0.3 }] }),
       goals: [
-        { type: 'reach', body: 'haven', craft: 'pod', r: 12, label: 'Docking arm' },
-        { type: 'orbit', body: 'terra', rMin: 100, rMax: 250 },
+        { type: 'hit', body: 'luna', craft: 'pod' },
+        { type: 'reach', body: 'terra', r: 110, label: 'Home' },
       ],
-      par: 3, bounds: 2000, tMax: 1200, predict: 200, view: { x: 0, y: 0, span: 760 },
+      par: 4.7, bounds: 3000, tMax: 1500, predict: 260, view: { x: 0, y: 0, span: 1000 },
     },
     {
       id: 'twinprobes',
@@ -1080,6 +1080,24 @@
       ship: ship({ start: { orbit: { body: 'terra', r: 90, angle: 0 } }, heading: 'prograde', dv: 3.2, accel: 1 }),
       goals: [{ type: 'hit', body: 'luna' }],
       par: 5, bounds: 2500, tMax: 1500, predict: 200, view: { x: 0, y: 0, span: 1000 },
+    },
+    {
+      id: 'test-keepout',
+      test: true,
+      name: 'Keep Out',
+      intro: 'Haven Station needs supplies, but no ship may come inside its red keep-out zone. Get on a path that meets the station, release the pod before you reach the zone so it drifts in on its own, then turn away and settle back into a lower orbit.',
+      objective: 'Deliver the pod to Haven Station without entering the keep-out zone, then orbit Terra between 100 and 250.',
+      teaches: 'Keep-out zones',
+      bodies: [
+        { id: 'terra', name: 'Terra', gm: 20000, radius: 50, color: C.blue },
+        { id: 'haven', name: 'Haven Station', gm: 0, radius: 4, color: C.station, kind: 'station', keepOut: 45, orbit: { parent: 'terra', a: 300, phase: 1.2 } },
+      ],
+      ship: ship({ start: { orbit: { body: 'terra', r: 150, angle: 0 } }, heading: 'prograde', dv: 4.5, accel: 1, cargo: [{ id: 'pod', name: 'Pod', mass: 0.3 }] }),
+      goals: [
+        { type: 'reach', body: 'haven', craft: 'pod', r: 12, label: 'Docking arm' },
+        { type: 'orbit', body: 'terra', rMin: 100, rMax: 250 },
+      ],
+      par: 3, bounds: 2000, tMax: 1200, predict: 200, view: { x: 0, y: 0, span: 760 },
     },
   );
 

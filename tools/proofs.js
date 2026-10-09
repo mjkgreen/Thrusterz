@@ -85,7 +85,7 @@ module.exports = {
     ],
   },
 
-  supplyrun: {
+  'test-keepout': {
     p: [-6.026, 288.216, 149.765, 156.874, 249.37], scale: [15, 10, 15, 20, 10],
     script: (p, AP) => [
       { wait: p[0] },
@@ -95,6 +95,17 @@ module.exports = {
       { burn: 'retro', rel: 'terra', until: (m) => AP.orb(m, 'terra').pe <= p[3] },
       { coast: (m) => AP.orb(m, 'terra').rising },
       { burn: 'retro', rel: 'terra', until: (m) => AP.orb(m, 'terra').ap <= p[4] },
+    ],
+  },
+
+  moonmail: {
+    p: [4.651, 431.839, 235.228, 0.57, 0.114], scale: [6, 15, 40, 1.5, 0.4],
+    script: (p, AP) => [
+      { wait: p[0] },
+      { burn: 'pro', until: (m) => AP.orb(m, 'terra').ap >= p[1] },
+      { coast: (m) => AP.orb(m, 'luna').r < p[2] },
+      { drop: true },
+      { burn: p[3], rel: 'luna', max: Math.max(0, p[4]) },
     ],
   },
 

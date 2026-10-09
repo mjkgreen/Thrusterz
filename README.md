@@ -89,8 +89,9 @@ you do it, and stops appearing after you've mastered it.
   when they're dropped: burn up on reentry (fine), drift clear, or threaten a
   protected object. A stage left on a bound orbit that crosses a protected
   object's orbit fails the mission at once, since it would hit eventually; the
-  danger band and crossing points are shown. Some stations also have a
-  keep-out zone your ship may not enter.
+  danger band and crossing points are shown.
+- **Keep-out zones** (prototype for World 3) — a red zone your ship may not
+  enter, though cargo may. Test level: *Keep Out*.
 - **Δv used** is the Δv you actually burned, so dropping cargo (which leaves
   the rest of the ship lighter) doesn't count as saving fuel.
 - **Fuel pickups** — fly through a canister to add its Δv to the current
@@ -146,7 +147,7 @@ you do it, and stops appearing after you've mastered it.
 | 7 | Release Point | Passive drop · release timing |
 | 8 | Impactor | Drop, then dodge |
 | 9 | Relay Drop | Place cargo on an orbit |
-| 10 | Supply Run | Throw, don't carry |
+| 10 | Moon Mail | Drop on a flyby |
 | 11 | Twin Probes | Two drops, two targets |
 | 12 | Constellation | Phasing orbits |
 | 13 | Three Stages | Multi-stage rockets |
@@ -173,7 +174,7 @@ influence you're in, or the star you're orbiting when you're in none.
 
 World 2 flies through a green nebula with distant planets in the background,
 so you can always tell the worlds apart. **Test levels** prototype upcoming
-mechanics (currently *Fuel Run*). See [docs/ROADMAP.md](docs/ROADMAP.md) for
+mechanics (currently *Fuel Run* and *Keep Out*). See [docs/ROADMAP.md](docs/ROADMAP.md) for
 future worlds, the leaderboard design and the level-maker plan.
 
 ## Physics
