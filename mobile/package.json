@@ -1,0 +1,28 @@
+{
+  "name": "thrusterz-mobile",
+  "version": "1.0.0",
+  "main": "index.js",
+  "dependencies": {
+    "@react-native-async-storage/async-storage": "2.2.0",
+    "expo": "~57.0.27",
+    "expo-apple-authentication": "~57.0.2",
+    "expo-asset": "~57.0.19",
+    "expo-file-system": "~57.0.7",
+    "expo-haptics": "~57.0.3",
+    "expo-splash-screen": "~57.0.9",
+    "expo-status-bar": "~57.0.1",
+    "expo-system-ui": "~57.0.4",
+    "react": "19.2.3",
+    "react-native": "0.86.3",
+    "react-native-webview": "13.16.1"
+  },
+  "scripts": {
+    "build:game": "node ../tools/build-mobile.js",
+    "prestart": "npm run build:game",
+    "start": "expo start",
+    "eas-build-post-install": "npm run build:game",
+    "build:ios": "npm run build:game && eas build --platform ios --profile production",
+    "submit:ios": "eas submit --platform ios --latest"
+  },
+  "private": true
+}

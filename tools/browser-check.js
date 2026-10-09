@@ -125,6 +125,48 @@ const check = (name, ok, info) => { console.log((ok ? 'ok   ' : 'FAIL ') + name 
     await ctx.close();
   }
 
+  // 3b. The bundled app page (mobile/assets/game/game.html) talking to a fake
+  //     native shell: saved data handed in at launch, saves sent back, Sign in
+  //     with Apple answered, haptics, no fullscreen prompt on a phone.
+  if (engine === 'chromium') {
+    require('./build-mobile.js');
+    const html = require('fs').readFileSync(require('path').join(__dirname, '..', 'mobile', 'assets', 'game', 'game.html'), 'utf8');
+    const ctx = await browser.newContext({ viewport: { width: 844, height: 390 }, isMobile: true, hasTouch: true });
+    const p = await ctx.newPage();
+    watch(p);
+    await p.route('https://app.thrusterz.game/', r => r.fulfill({ contentType: 'text/html', body: html }));
+    await p.route('https://thrusterz.vercel.app/**', r => r.fulfill({ status: 503, contentType: 'application/json', body: '{"error":"offline in test"}' }));
+    await p.addInitScript(() => {
+      window.__sent = [];
+      window.__THRUSTERZ_NATIVE = { platform: 'ios', appleSignIn: true, store: { 'thrusterz.progress.v1': JSON.stringify({ stars: { liftoff: 3, point: 2 }, best: {}, unlocked: 1 }) } };
+      window.ReactNativeWebView = { postMessage: (s) => {
+        const m = JSON.parse(s); window.__sent.push(m);
+        if (m.type === 'appleSignIn') setTimeout(() => window.__nativeReply(m.id, false, 'Sign in was cancelled'), 10);
+      } };
+    });
+    await p.goto('https://app.thrusterz.game/');
+    await p.waitForTimeout(600);
+    const r = await p.evaluate(async () => {
+      const gateHidden = document.getElementById('gate').classList.contains('hidden');
+      const stars = document.querySelector('.wtab.active .wstars').textContent;
+      let apple = null;
+      try { await window.Bridge.call('appleSignIn'); } catch (e) { apple = e.message; }
+      window.Thrusterz.startLevel(0);
+      const m = window.Thrusterz.state.mission; m.status = 'crashed'; m.message = 'x';
+      await new Promise(res => setTimeout(res, 300));
+      return { gateHidden, stars, apple, sent: window.__sent.map(x => x.type + (x.key ? ':' + x.key : '') + (x.kind ? ':' + x.kind : '')) };
+    });
+    check('app shell: saved stars handed in at launch appear', /★ 5\/90/.test(r.stars), r.stars);
+    check('app shell: no fullscreen prompt inside the app', r.gateHidden);
+    check('app shell: progress is saved back to native storage', r.sent.includes('set:thrusterz.progress.v1'), r.sent.join(','));
+    check('app shell: Sign in with Apple answers come back (here: cancelled)', r.apple === 'Sign in was cancelled', r.apple);
+    check('app shell: a crash buzzes', r.sent.includes('haptic:heavy'), r.sent.join(','));
+    const real = errors.filter(e => !/Failed to load resource/.test(e)); // the fake API's 503s
+    check('app shell: no page errors', real.length === 0, real.slice(0, 3).join(' | '));
+    errors.length = 0;
+    await ctx.close();
+  }
+
   // 4. Corrupted or outdated saves.
   {
     const p = await browser.newPage();

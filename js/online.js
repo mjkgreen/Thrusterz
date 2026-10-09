@@ -6,9 +6,8 @@
   'use strict';
 
   const CFG = root.THRUSTERZ_CONFIG || {};
-  const Cap = () => root.Capacitor;
-  const native = () => !!(Cap() && Cap().isNativePlatform && Cap().isNativePlatform());
-  const plugin = (name) => (Cap() && Cap().Plugins && Cap().Plugins[name]) || null;
+  const Bridge = root.Bridge || { inApp: false };
+  const native = () => Bridge.inApp;
 
   // The website talks to its own /api; the app to the configured server.
   function apiBase() {
@@ -19,21 +18,18 @@
 
   // ------------------------------------------------------------ storage
   // localStorage is the fast synchronous copy. In the app every write is also
-  // mirrored to native Preferences, which the OS doesn't clear under storage
+  // mirrored to native storage, which the OS doesn't clear under storage
   // pressure the way it can clear WebView storage.
   const Store = {
     get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } },
     set(k, v) {
       const s = JSON.stringify(v);
       try { localStorage.setItem(k, s); } catch (e) { /* full or blocked */ }
-      const P = plugin('Preferences');
-      if (P) P.set({ key: k, value: s }).catch(() => {});
+      if (Bridge.inApp) Bridge.save(k, s);
     },
-    // Native copy, read once at startup (async).
+    // Native copy, as the app had it at launch.
     async getNative(k) {
-      const P = plugin('Preferences');
-      if (!P) return null;
-      try { const r = await P.get({ key: k }); return r && r.value ? JSON.parse(r.value) : null; } catch (e) { return null; }
+      try { const s = Bridge.inApp ? Bridge.stored(k) : null; return s ? JSON.parse(s) : null; } catch (e) { return null; }
     },
   };
 
@@ -166,14 +162,13 @@
 
   async function restore(code) { return adopt(await api('POST', 'restore', { code })); }
 
-  const appleAvailable = () => native() && !!plugin('SignInWithApple');
+  const appleAvailable = () => native() && Bridge.appleSignIn;
 
+  // The native sheet returns Apple's identity token and one-time code.
   async function appleToken() {
-    const r = await plugin('SignInWithApple').authorize({
-      clientId: CFG.appleClientId, redirectURI: 'https://appleid.apple.com', scopes: '',
-      state: Math.random().toString(36).slice(2), nonce: Math.random().toString(36).slice(2),
-    });
-    return { identityToken: r.response.identityToken, authorizationCode: r.response.authorizationCode };
+    const r = await Bridge.call('appleSignIn');
+    if (!r || !r.identityToken) throw new Error('Sign in with Apple did not return a token');
+    return { identityToken: r.identityToken, authorizationCode: r.authorizationCode };
   }
 
   // Signed in with a code-only account: link Apple to it. Otherwise sign in.

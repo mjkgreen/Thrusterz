@@ -232,14 +232,18 @@ JavaScript engine. Offline, everything still works and runs wait in a queue.
 api/                Vercel Functions: player, restore, apple, progress, runs, board
 api/_lib/           routes, Upstash Redis store (in-memory locally)
 js/online.js        client: account, sync, run queue, Apple sign-in
-js/config.js        API address for the app, Sign in with Apple client ID
+js/bridge.js        talks to the native app shell (mobile/App.js)
+js/config.js        API address for the app
 npm run dev         game + API on http://localhost:8080
 ```
 
-## iOS app
+## iOS app (Expo)
 
-`ios/` is a Capacitor 8 project; `npm run ios` builds `www/`, syncs and opens
-Xcode. Step-by-step release guide: [docs/APP_STORE.md](docs/APP_STORE.md).
+`mobile/` is an Expo app that runs the game full screen in a WebView, built
+and signed in the cloud with EAS (no Mac needed). The game is packed into one
+file (`npm run build:mobile`), and `js/bridge.js` connects it to native
+storage, Sign in with Apple and haptics. Release guide:
+[docs/APP_STORE.md](docs/APP_STORE.md).
 
 ## Stability
 

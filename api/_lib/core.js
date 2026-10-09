@@ -21,7 +21,7 @@ class HttpError extends Error { constructor(status, message) { super(message); t
 
 function cors(res) {
   // Auth is a bearer token, never a cookie, so any origin (the web build, the
-  // iOS app's capacitor://localhost) may call the API.
+  // iOS app's WebView) may call the API.
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');

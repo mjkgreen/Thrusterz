@@ -577,11 +577,7 @@
   function shipImpactWin(m) { const g = m.level.goals[m.level.goals.length - 1]; return g.type === 'hit' && !g.craft; }
 
   // A small buzz on the phone (app only) when a mission ends.
-  function haptic(won) {
-    const H = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Haptics;
-    if (!H) return;
-    (won ? H.notification({ type: 'SUCCESS' }) : H.impact({ style: 'HEAVY' })).catch(() => {});
-  }
+  function haptic(won) { Bridge.haptic(won ? 'success' : 'heavy'); }
 
   function onMissionEnd() {
     const m = state.mission;
@@ -1804,9 +1800,9 @@
   // leaving fullscreen, switching apps) pauses the mission.
   const fsEl = () => document.fullscreenElement || document.webkitFullscreenElement;
   const fsSupported = () => !!(document.fullscreenEnabled || document.webkitFullscreenEnabled);
-  // Inside a native wrapper (Capacitor, for the app stores) the app is
-  // already fullscreen, so it counts the same as a home-screen web app.
-  const nativeApp = () => !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+  // Inside the native app (mobile/, for the app stores) the game is already
+  // fullscreen, so it counts the same as a home-screen web app.
+  const nativeApp = () => Bridge.inApp;
   const standalone = () => nativeApp() || window.matchMedia('(display-mode: fullscreen), (display-mode: standalone)').matches || navigator.standalone === true;
   const isPhone = () => isTouch() && Math.min(screen.width, screen.height) < 600;
   const isIOS = () => /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -1990,8 +1986,12 @@
     btn.disabled = false; renderProfile();
   };
   $('btn-profile').onclick = showProfile;
-  // In the app the bundled page can't open in a new tab: link to the website copy.
-  if (Online.native() && (window.THRUSTERZ_CONFIG || {}).apiBase) document.querySelector('#profile a.plain').href = window.THRUSTERZ_CONFIG.apiBase + '/privacy.html';
+  // In the app, open the website's copy of the privacy policy in Safari.
+  if (Bridge.inApp) {
+    const a = document.querySelector('#profile a.plain');
+    a.href = ((window.THRUSTERZ_CONFIG || {}).apiBase || '') + '/privacy.html';
+    a.onclick = (e) => { e.preventDefault(); Bridge.open(a.href); };
+  }
   $('btn-pf-close').onclick = () => { hide('profile'); showMenu(); };
   $('btn-pf-rename').onclick = () => busy($('btn-pf-rename'), async () => { await Online.rename($('pf-name-input').value); toast('Name saved', 1.2); });
   $('btn-pf-restore').onclick = () => busy($('btn-pf-restore'), async () => {

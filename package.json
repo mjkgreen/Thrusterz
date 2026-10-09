@@ -10,18 +10,6 @@
     "test:browser": "node tools/browser-check.js",
     "check-levels": "node tools/check-levels.js",
     "check-scripted": "node tools/check-scripted.js",
-    "build:www": "node tools/build-www.js",
-    "ios": "node tools/build-www.js && npx cap sync ios && npx cap open ios"
-  },
-  "dependencies": {
-    "@capacitor-community/apple-sign-in": "^7.1.0",
-    "@capacitor/core": "^8.5.3",
-    "@capacitor/haptics": "^8.0.2",
-    "@capacitor/ios": "^8.5.3",
-    "@capacitor/preferences": "^8.0.1",
-    "@capacitor/status-bar": "^8.0.4"
-  },
-  "devDependencies": {
-    "@capacitor/cli": "^8.5.3"
+    "build:mobile": "node tools/build-mobile.js"
   }
 }
