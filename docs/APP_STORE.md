@@ -30,7 +30,7 @@ step 1.
    tier) and connect it to the project. Without a database the API answers
    "not set up yet" and the game simply plays offline.
 2. Environment variables (Settings → Environment Variables):
-   - `APPLE_CLIENT_ID` = your bundle ID (step 2), e.g. `com.thrusterz.game`
+   - `APPLE_CLIENT_ID` = `com.thrusterz.app` (the bundle ID, step 2)
    - `APPLE_TEAM_ID`, `APPLE_KEY_ID`, `APPLE_PRIVATE_KEY`: from the Sign in
      with Apple key (step 2.3); paste the whole `.p8` file as the value.
      Needed so deleting an account also revokes Sign in with Apple, which
@@ -46,10 +46,9 @@ step 1.
 
 ## 2. Apple Developer (in the browser)
 
-1. **Bundle ID.** `com.thrusterz.game` is a placeholder: pick your own
-   (reverse domain, e.g. `com.yourname.thrusterz`) and set it in
-   `mobile/app.json` (`ios.bundleIdentifier` and `android.package`) and as
-   `APPLE_CLIENT_ID` on Vercel.
+1. **Bundle ID** is `com.thrusterz.app` (`ios.bundleIdentifier` and
+   `android.package` in `mobile/app.json`). It must match `APPLE_CLIENT_ID`
+   on Vercel.
 2. EAS registers the App ID and turns on Sign in with Apple for you during
    the first build, so there's nothing to click here for that.
 3. For the server: developer.apple.com → Certificates, Identifiers &

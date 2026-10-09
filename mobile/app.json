@@ -8,7 +8,7 @@
     "userInterfaceStyle": "dark",
     "backgroundColor": "#05060d",
     "ios": {
-      "bundleIdentifier": "com.thrusterz.game",
+      "bundleIdentifier": "com.thrusterz.app",
       "buildNumber": "1",
       "supportsTablet": true,
       "requireFullScreen": true,
@@ -50,7 +50,7 @@
       }
     },
     "android": {
-      "package": "com.thrusterz.game",
+      "package": "com.thrusterz.app",
       "versionCode": 1,
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon-foreground.png",
