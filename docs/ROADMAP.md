@@ -22,7 +22,7 @@ Early worlds stay grounded in real spaceflight; stranger ideas come later.
 | Status | Mechanic | The decision it adds | Notes |
 | --- | --- | --- | --- |
 | **Built (World 2)** | **Payloads** | When to drop a stage or release cargo, and where the pieces end up | Stages, engineless cargo, debris fates, constellations. |
-| **Prototype → World 3** | **Area denial** | Where you may not go, and where something must end up | Keep-out zones and drop zones. Test level: *Keep Out*. See the World 3 plan below. |
+| **Prototype → World 3** | **Area denial** | Where you may not go, and where something must end up | Keep-out zones and drop zones. Test levels: *Keep Out*, *Patrol*, *Wide Berth*. See the World 3 plan below. |
 | **Prototype** | **Fuel pickups** | Route planning: is the detour worth the fuel? | Canisters on their own orbits. Test level: *Fuel Run*. Used as a mixer in World 2 (*Fuel Depot*). |
 | Idea | Refuelling depot | Rendezvous to refill, then fly a mission your tank alone can't | Builds on Docking. Natural pair with pickups. |
 | Idea | Atmospheres / aerobraking | How deep to skim: free braking vs. burning up | Drag layer + heating limit. No new button; a new surface to read on the predicted path. |
@@ -91,11 +91,11 @@ would cross a zone.
 | --- | --- | --- |
 | Passive drop (W2) | **Keep Out** (built): throw the pod into the station's bubble | Release point vs. bubble edge |
 | Phasing (W1 Docking) | **Approach Corridor**: dock with a station only through a cone on its trailing side | Match the orbit from behind, not from below |
-| Gravity assist (W1 Slingshot) | **Dark Side**: the near side of a moon is denied, so the slingshot must pass behind it | Higher periapsis, weaker assist, tighter aim |
+| Gravity assist (W1 Slingshot) | **Wide Berth** (test level): Slingshot with a keep-out zone around Goliath. Later, **Dark Side**: only the near side is denied | Higher periapsis, weaker assist, tighter aim |
 | Landing zone (W1) | **Restricted Ground**: a spinning planet with no-landing arcs between two allowed pads | Deorbit timing against the planet's spin |
 | Debris (W2) | **Range Safety**: spent stages may not fall into a populated surface arc | Where the booster drops, not just whether it reenters |
 | Hohmann / bi-elliptic (W1) | **Radiation Belt**: a ring-shaped zone with a time limit inside it (ship only) | Cross fast or go around the long way |
-| Moving zone + phasing | **Patrol**: a zone circles the planet on its own orbit | Wait for a gap, or change your lap time to dodge it |
+| Moving zone + phasing | **Patrol** (test level): guard satellites with keep-out zones circle between you and your target orbit | Wait for a gap, or change your lap time to dodge it |
 | Timed zone | **Solar Storm**: the whole sky is denied except the planet's shadow for 60 s | Get into the shadow, and stay in it as you orbit |
 | Constellation (W2) | **Blackout Arc**: spread satellites, but none may park over a denied longitude | Spacing with a hole in it |
 | Fuel pickups | **Detour**: the canister sits just past a zone, so the cheap straight route is forbidden | Is the long way round still worth the fuel? |
@@ -111,8 +111,8 @@ A world of 30 could run as five chapters of six: *Keep out* (A, B) ·
 
 - Zones as their own list on a level (shape, owner body or orbit, who they
   apply to, schedule), instead of `keepOut` on a body.
-- The coast predictor checks zones for the ship and for each cargo's release
-  preview, and colours the path red from the first crossing.
+- The coast predictor checks zones for the ship (done: the path turns red at
+  the first crossing) and for each cargo's release preview (to do).
 - A `zone` goal type for drop zones (craft or ship inside a zone, optionally
   held for a few seconds).
 - A scripted proof in `tools/proofs.js` for every mission, as World 2 has.

@@ -91,7 +91,9 @@ you do it, and stops appearing after you've mastered it.
   object's orbit fails the mission at once, since it would hit eventually; the
   danger band and crossing points are shown.
 - **Keep-out zones** (prototype for World 3) — a red zone your ship may not
-  enter, though cargo may. Test level: *Keep Out*.
+  enter, though cargo may. Zones can ride their own orbits; the dashed path
+  turns red where it would cross one, with a ghost of the zone at that moment.
+  Test levels: *Keep Out*, *Patrol*, *Wide Berth*.
 - **Δv used** is the Δv you actually burned, so dropping cargo (which leaves
   the rest of the ship lighter) doesn't count as saving fuel.
 - **Fuel pickups** — fly through a canister to add its Δv to the current
@@ -174,7 +176,7 @@ influence you're in, or the star you're orbiting when you're in none.
 
 World 2 flies through a green nebula with distant planets in the background,
 so you can always tell the worlds apart. **Test levels** prototype upcoming
-mechanics (currently *Fuel Run* and *Keep Out*). See [docs/ROADMAP.md](docs/ROADMAP.md) for
+mechanics (currently *Fuel Run*, *Keep Out*, *Patrol* and *Wide Berth*). See [docs/ROADMAP.md](docs/ROADMAP.md) for
 future worlds, the leaderboard design and the level-maker plan.
 
 ## Physics

@@ -1099,6 +1099,37 @@
       ],
       par: 3, bounds: 2000, tMax: 1200, predict: 200, view: { x: 0, y: 0, span: 760 },
     },
+    {
+      id: 'test-patrol',
+      test: true,
+      name: 'Patrol',
+      intro: 'Two guard satellites patrol the orbit between you and the high orbit you need, each inside a red keep-out zone that moves with it. Your dashed path turns red where it would cross a zone. Wait for a gap, then climb through it and round off your orbit up top.',
+      objective: 'Orbit Terra between 300 and 360 without entering either keep-out zone.',
+      teaches: 'Moving keep-out zones',
+      bodies: [
+        { id: 'terra', name: 'Terra', gm: 20000, radius: 50, color: C.blue },
+        { id: 'guard1', name: 'Guard 1', gm: 0, radius: 4, color: C.station, kind: 'station', keepOut: 45, orbit: { parent: 'terra', a: 220, phase: 0.9 } },
+        { id: 'guard2', name: 'Guard 2', gm: 0, radius: 4, color: C.station, kind: 'station', keepOut: 45, orbit: { parent: 'terra', a: 220, phase: 0.9 + Math.PI } },
+      ],
+      ship: ship({ start: { orbit: { body: 'terra', r: 120, angle: 0 } }, heading: 'prograde', dv: 6, accel: 1 }),
+      goals: [{ type: 'orbit', body: 'terra', rMin: 300, rMax: 360 }],
+      par: 4.8, bounds: 2000, tMax: 1500, predict: 200, view: { x: 0, y: 0, span: 800 },
+    },
+    {
+      id: 'test-berth',
+      test: true,
+      name: 'Wide Berth',
+      intro: 'Slingshot again, but Goliath now has a radiation belt: no ship may come inside its red keep-out zone. A wider pass behind Goliath still bends your path, just less, so you need a little more speed going in.',
+      objective: 'Fly through the Jump Gate without entering Goliath\'s keep-out zone.',
+      teaches: 'Gravity assist around a keep-out zone',
+      bodies: [
+        { id: 'terra', name: 'Terra', gm: 20000, radius: 50, color: C.blue },
+        { id: 'goliath', name: 'Goliath', gm: 5000, radius: 26, color: C.tan, keepOut: 110, orbit: { parent: 'terra', a: 350, phase: 2.0 } },
+      ],
+      ship: ship({ start: { orbit: { body: 'terra', r: 90, angle: 0 } }, heading: 'prograde', dv: 5, accel: 1 }),
+      goals: [{ type: 'reach', x: -1500, y: 0, r: 120, label: 'Jump Gate' }],
+      par: 3.7, bounds: 3500, tMax: 1500, predict: 300, view: { x: -500, y: 0, span: 2400 },
+    },
   );
 
   // Worlds in menu order. theme picks the in-flight backdrop; unlock is how

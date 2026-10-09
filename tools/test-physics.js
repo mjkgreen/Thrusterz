@@ -260,4 +260,21 @@ for (const L of LEVELS) {
   check(`World 2: all ${w2.length} proofs win`, lost.length === 0, lost.join('; '));
 }
 
+// 13. Test levels with a proof still win, and keep-out zones actually bite.
+{
+  const AP = require('./autopilot.js');
+  const PROOFS = require('./proofs.js');
+  const tests = LEVELS.filter(l => l.test && PROOFS[l.id]);
+  const lost = tests.filter(L => !AP.fly(L, PROOFS[L.id].script(PROOFS[L.id].p, AP)).won).map(l => l.id);
+  check(`Test levels: all ${tests.length} proofs win`, lost.length === 0, lost.join(', '));
+  const patrol = AP.fly(LEVELS.find(l => l.id === 'test-patrol'), [
+    { burn: 'pro', until: (m) => AP.orb(m, 'terra').ap >= 330 },
+    { coast: (m) => !AP.orb(m, 'terra').rising },
+    { burn: 'pro', until: (m) => AP.orb(m, 'terra').pe >= 330 },
+  ]);
+  check('Patrol: climbing at once runs into a guard', /keep-out/.test(patrol.message), patrol.message);
+  const berth = AP.fly(LEVELS.find(l => l.id === 'test-berth'), [{ wait: 18 }, { burn: 'pro', max: 2.5 }]);
+  check('Wide Berth: the close Slingshot pass is off limits', /keep-out/.test(berth.message), berth.message);
+}
+
 process.exit(failed ? 1 : 0);

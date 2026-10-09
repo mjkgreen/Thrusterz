@@ -109,6 +109,23 @@ module.exports = {
     ],
   },
 
+  'test-patrol': {
+    // Wait for a gap between the guards, then a Hohmann climb through it.
+    p: [41.552, 305.444, 300.404], scale: [40, 10, 10],
+    script: (p, AP) => [
+      { wait: p[0] },
+      { burn: 'pro', until: (m) => AP.orb(m, 'terra').ap >= p[1] },
+      { coast: (m) => !AP.orb(m, 'terra').rising },
+      { burn: 'pro', until: (m) => AP.orb(m, 'terra').pe >= p[2] },
+    ],
+  },
+
+  'test-berth': {
+    // One burn onto a wide pass behind Goliath, outside its keep-out zone.
+    p: [54, 2.8], scale: [6, 0.3],
+    script: (p) => [{ wait: p[0] }, { burn: 'pro', max: p[1] }],
+  },
+
   twinprobes: {
     p: [13.029, 257.144, 0.333, 458.463, -43.355, -0.089, -0.805], scale: [10, 8, 20, 10, 30, 2, 1.5],
     script: (p, AP) => [
