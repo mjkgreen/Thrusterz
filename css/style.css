@@ -81,6 +81,9 @@ button { font-family: var(--sans); }
 .gauge.spent { opacity: 0.35; }
 .gauge.active-stage .glabel span:first-child { color: var(--text); }
 .bar.rcs div { background: linear-gradient(90deg, #6aa8ff, #a8d4ff); }
+#gauge-rcs.low .bar.rcs div { background: linear-gradient(90deg, #ff6b6b, #ffb35a); }
+#gauge-rcs.low .glabel { color: #ff9a7a; animation: rcs-low 1s ease-in-out infinite alternate; }
+@keyframes rcs-low { from { opacity: 1; } to { opacity: 0.55; } }
 .bar.thr div { background: linear-gradient(90deg, #555f80, #9aa6cc); }
 .row { font-family: var(--mono); font-size: 12px; }
 
@@ -352,6 +355,9 @@ kbd.tbtn.deploy { background: rgba(124, 247, 212, 0.25); border-color: rgba(124,
 .level-grid.w2 .level-card { background: rgba(10, 24, 22, 0.8); border-color: rgba(150, 230, 140, 0.18); }
 .level-grid.w2 .level-card:hover, .level-grid.w2 .level-card.next { border-color: rgba(180, 240, 106, 0.6); }
 .level-grid.w2 .nexttag { color: #b4f06a; }
+.level-grid.w3 .level-card { background: rgba(26, 14, 12, 0.8); border-color: rgba(255, 150, 90, 0.18); }
+.level-grid.w3 .level-card:hover, .level-grid.w3 .level-card.next { border-color: rgba(255, 170, 90, 0.6); }
+.level-grid.w3 .nexttag { color: #ffaa5a; }
 
 /* World tabs */
 #world-tabs { display: flex; flex-shrink: 0; gap: 8px; width: min(1000px, 100%); margin-bottom: 12px; overflow-x: auto; scrollbar-width: none; }
@@ -368,6 +374,8 @@ kbd.tbtn.deploy { background: rgba(124, 247, 212, 0.25); border-color: rgba(124,
 .wtab:hover { border-color: rgba(124, 247, 212, 0.4); }
 .wtab.active { background: rgba(20, 30, 52, 0.9); border-color: rgba(124, 247, 212, 0.7); box-shadow: 0 0 0 1px rgba(124, 247, 212, 0.25) inset; }
 .wtab.w2 .wnum { color: #b4f06a; }
+.wtab.w3 .wnum { color: #ffaa5a; }
+.wtab.w3.active { background: rgba(34, 18, 12, 0.92); border-color: rgba(255, 170, 90, 0.7); box-shadow: 0 0 0 1px rgba(255, 170, 90, 0.25) inset; }
 .wtab.w2.active { background: rgba(14, 34, 28, 0.92); border-color: rgba(180, 240, 106, 0.7); box-shadow: 0 0 0 1px rgba(180, 240, 106, 0.25) inset; }
 .wtab.locked .wname { color: var(--muted); }
 .wtab.locked .wstars { color: var(--muted); }

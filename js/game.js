@@ -126,6 +126,7 @@
     state.throttle = 1;
     state.coach = { done: new Set(), key: null, idle: 0, spinIdle: 0 };
     state.eventsSeen = 0;
+    state.rcsWarned = 0;
     state.frameMode = 'auto';
     state.predictScale = 1;
     state.trail = [];
@@ -709,16 +710,31 @@
   }
 
   // World backdrops. World 2 (Payloads) flies through a green nebula with
-  // distant planets: busy space, places to deliver things to. The picture is
-  // painted once per level and screen size into an offscreen canvas, then
-  // drifts very slightly with the camera.
+  // distant planets: busy space, places to deliver things to. World 3
+  // (No-Fly Zones) is a warmer, ember-red nebula, the colour of its zones.
+  // The picture is painted once per level and screen size into an offscreen
+  // canvas, then drifts very slightly with the camera.
+  const THEMES = {
+    nebula: {
+      base: ['#04110f', '#050b10', '#070612'],
+      hues: [[60, 200, 140], [90, 220, 120], [40, 170, 170], [150, 230, 110], [120, 90, 200], [200, 80, 170]],
+      dust: '2,6,8', glint: '200,255,220', rim: '160,240,200',
+      planets: [['#3f8f7a', '#1b4a44', '#9fe0c0'], ['#8a7fd0', '#2e2a5a', '#c8c0ff'], ['#c9a46a', '#5a4022', '#ffe0a8'], ['#5fa0c8', '#1e3a5a', '#bfe4ff']],
+    },
+    ember: {
+      base: ['#140806', '#0c0608', '#08060f'],
+      hues: [[230, 110, 60], [220, 70, 60], [240, 160, 70], [200, 90, 110], [110, 80, 190], [80, 140, 200]],
+      dust: '8,3,4', glint: '255,220,190', rim: '255,190,150',
+      planets: [['#c9744a', '#4a1e14', '#ffc6a0'], ['#8a7fd0', '#2e2a5a', '#c8c0ff'], ['#d8b67a', '#5a4022', '#ffe8c0'], ['#a85a6a', '#3a1620', '#ffb8c8']],
+    },
+  };
   const backdrop = { key: '', canvas: null };
   function drawBackdrop(L) {
     const w = WORLDS.find(x => x.n === worldOf(L));
-    if (!w || w.theme !== 'nebula') return;
+    if (!w || !THEMES[w.theme]) return;
     const M = 0.06; // drift margin, as a fraction of the screen
     const key = [W, H, DPR, L.id].join(':');
-    if (backdrop.key !== key) { backdrop.canvas = paintNebula(Math.ceil(W * (1 + 2 * M)), Math.ceil(H * (1 + 2 * M)), seedOf(L.id)); backdrop.key = key; }
+    if (backdrop.key !== key) { backdrop.canvas = paintNebula(Math.ceil(W * (1 + 2 * M)), Math.ceil(H * (1 + 2 * M)), seedOf(L.id), THEMES[w.theme]); backdrop.key = key; }
     const c = state.cam, k = 0.004;
     const ox = Math.max(-1, Math.min(1, -c.x * c.zoom * k / (W * M))) * W * M;
     const oy = Math.max(-1, Math.min(1, c.y * c.zoom * k / (H * M))) * H * M;
@@ -727,7 +743,7 @@
 
   function seedOf(str) { let h = 2166136261; for (const ch of str) h = Math.imul(h ^ ch.charCodeAt(0), 16777619); return (h >>> 0) % 2147483646 + 1; }
 
-  function paintNebula(w, h, seed) {
+  function paintNebula(w, h, seed, th) {
     const cv = document.createElement('canvas');
     cv.width = Math.ceil(w * DPR); cv.height = Math.ceil(h * DPR);
     const g = cv.getContext('2d');
@@ -735,12 +751,12 @@
     let x = seed;
     const rnd = () => (x = (x * 16807) % 2147483647) / 2147483647;
     const base = g.createLinearGradient(0, 0, w, h);
-    base.addColorStop(0, '#04110f'); base.addColorStop(0.55, '#050b10'); base.addColorStop(1, '#070612');
+    base.addColorStop(0, th.base[0]); base.addColorStop(0.55, th.base[1]); base.addColorStop(1, th.base[2]);
     g.fillStyle = base; g.fillRect(0, 0, w, h);
     // Glowing gas along a wandering band across the screen.
     const ang = rnd() * Math.PI, cx = w * (0.35 + rnd() * 0.3), cy = h * (0.35 + rnd() * 0.3);
     const ux = Math.cos(ang), uy = Math.sin(ang), span = Math.hypot(w, h) * 0.6, S = Math.min(w, h);
-    const hues = [[60, 200, 140], [90, 220, 120], [40, 170, 170], [150, 230, 110], [120, 90, 200], [200, 80, 170]];
+    const hues = th.hues;
     g.globalCompositeOperation = 'lighter';
     for (let i = 0; i < 70; i++) {
       const t = (rnd() * 2 - 1) * span, off = (rnd() + rnd() + rnd() - 1.5) * S * 0.35;
@@ -760,25 +776,25 @@
       const t = (rnd() * 2 - 1) * span, off = (rnd() - 0.5) * S * 0.2;
       const px = cx + ux * t - uy * off, py = cy + uy * t + ux * off, r = S * (0.04 + rnd() * 0.12);
       const gr = g.createRadialGradient(px, py, 0, px, py, r);
-      gr.addColorStop(0, 'rgba(2,6,8,0.35)'); gr.addColorStop(1, 'rgba(2,6,8,0)');
+      gr.addColorStop(0, `rgba(${th.dust},0.35)`); gr.addColorStop(1, `rgba(${th.dust},0)`);
       g.fillStyle = gr; g.beginPath(); g.arc(px, py, r, 0, TAU); g.fill();
     }
     // Faint embedded stars, brighter where the gas is.
     for (let i = 0; i < 260; i++) {
       const px = rnd() * w, py = rnd() * h, b = rnd();
-      g.fillStyle = `rgba(${b < 0.2 ? '200,255,220' : '255,255,255'},${0.15 + b * 0.35})`;
+      g.fillStyle = `rgba(${b < 0.2 ? th.glint : '255,255,255'},${0.15 + b * 0.35})`;
       g.fillRect(px, py, b > 0.93 ? 1.6 : 1, b > 0.93 ? 1.6 : 1);
     }
     // Distant planets: one big world low in a corner, a ringed one, a small moon.
     const corner = rnd() < 0.5 ? 1 : -1;
-    paintPlanet(g, w * (corner > 0 ? 0.88 : 0.12), h * (0.86 + rnd() * 0.1), S * (0.2 + rnd() * 0.08), rnd, { ring: false });
-    paintPlanet(g, w * (corner > 0 ? 0.12 + rnd() * 0.12 : 0.76 + rnd() * 0.12), h * (0.14 + rnd() * 0.18), S * (0.035 + rnd() * 0.025), rnd, { ring: true });
-    paintPlanet(g, w * (0.4 + rnd() * 0.25), h * (0.08 + rnd() * 0.12), S * 0.012, rnd, { ring: false, plain: true });
+    paintPlanet(g, w * (corner > 0 ? 0.88 : 0.12), h * (0.86 + rnd() * 0.1), S * (0.2 + rnd() * 0.08), rnd, { ring: false, th });
+    paintPlanet(g, w * (corner > 0 ? 0.12 + rnd() * 0.12 : 0.76 + rnd() * 0.12), h * (0.14 + rnd() * 0.18), S * (0.035 + rnd() * 0.025), rnd, { ring: true, th });
+    paintPlanet(g, w * (0.4 + rnd() * 0.25), h * (0.08 + rnd() * 0.12), S * 0.012, rnd, { ring: false, plain: true, th });
     return cv;
   }
 
   function paintPlanet(g, px, py, r, rnd, o) {
-    const pal = [['#3f8f7a', '#1b4a44', '#9fe0c0'], ['#8a7fd0', '#2e2a5a', '#c8c0ff'], ['#c9a46a', '#5a4022', '#ffe0a8'], ['#5fa0c8', '#1e3a5a', '#bfe4ff']];
+    const pal = o.th.planets;
     const [mid, dark, lite] = pal[Math.floor(rnd() * pal.length)];
     const lx = -0.5, ly = -0.6; // light comes from the upper left
     g.save();
@@ -804,7 +820,7 @@
       g.fillStyle = night; g.fillRect(px - r, py - r, 2 * r, 2 * r);
       g.restore();
       // Thin atmosphere rim.
-      g.strokeStyle = 'rgba(160,240,200,0.25)'; g.lineWidth = Math.max(1, r * 0.03);
+      g.strokeStyle = `rgba(${o.th.rim},0.25)`; g.lineWidth = Math.max(1, r * 0.03);
       g.beginPath(); g.arc(px, py, r, Math.PI * 0.85, Math.PI * 1.75); g.stroke();
     }
     if (o.ring) {
@@ -1025,13 +1041,17 @@
       const r = Math.max(b.radius * z, b.kind === 'station' ? 0 : 2.5);
       if (sx < -r - 200 || sx > W + r + 200 || sy < -r - 200 || sy > H + r + 200) continue;
       if (b.keepOut) {
-        // Keep-out zone: a red dashed fence the ship must stay outside.
-        const kr = b.keepOut * z;
-        ctx.fillStyle = 'rgba(255,90,90,0.05)'; ctx.beginPath(); ctx.arc(sx, sy, kr, 0, TAU); ctx.fill();
-        ctx.strokeStyle = 'rgba(255,107,107,0.55)'; ctx.setLineDash([5, 5]); ctx.lineDashOffset = -performance.now() / 120;
+        // Keep-out zone: a red dashed fence the ship must stay outside. A
+        // zone closed to everything (cargo and spent stages too) is amber,
+        // with a solid inner ring.
+        const kr = b.keepOut * z, all = b.zone === 'all';
+        const rgb = all ? '255,170,70' : '255,107,107';
+        ctx.fillStyle = all ? 'rgba(255,170,70,0.08)' : 'rgba(255,90,90,0.05)'; ctx.beginPath(); ctx.arc(sx, sy, kr, 0, TAU); ctx.fill();
+        ctx.strokeStyle = 'rgba(' + rgb + ',0.6)'; ctx.setLineDash([5, 5]); ctx.lineDashOffset = -performance.now() / 120;
         ctx.beginPath(); ctx.arc(sx, sy, kr, 0, TAU); ctx.stroke();
         ctx.setLineDash([]); ctx.lineDashOffset = 0;
-        if (kr > 30) label('KEEP OUT', sx, sy - kr - 8, 'rgba(255,107,107,0.8)');
+        if (all && kr > 8) { ctx.strokeStyle = 'rgba(' + rgb + ',0.25)'; ctx.beginPath(); ctx.arc(sx, sy, kr - 3, 0, TAU); ctx.stroke(); }
+        if (kr > 30) label(all ? 'KEEP OUT · ALL CRAFT' : 'KEEP OUT', sx, sy - kr - 8, 'rgba(' + rgb + ',0.85)');
       }
       if (b.kind === 'station') { drawStation(sx, sy, b); continue; }
       if (b.kind === 'rock') { drawRock(sx, sy, r, b); continue; }
@@ -1205,9 +1225,10 @@
     }
     const [bx, by] = w2s(sys.px[b.index], sys.py[b.index]);
     ctx.strokeStyle = 'rgba(255,90,90,' + pulse + ')'; ctx.lineWidth = 1.5;
-    ctx.beginPath(); ctx.arc(bx, by, Math.max(10, (b.protectRadius || b.radius) * state.cam.zoom), 0, TAU); ctx.stroke();
+    const gr = b.protect ? b.protectRadius || b.radius : b.keepOut;
+    ctx.beginPath(); ctx.arc(bx, by, Math.max(10, gr * state.cam.zoom), 0, TAU); ctx.stroke();
     ctx.lineWidth = 1;
-    label('COLLISION RISK', bx, by - Math.max(14, (b.protectRadius || b.radius) * state.cam.zoom + 6), '#ff6b6b');
+    label(f.zone ? 'ZONE BREACH RISK' : 'COLLISION RISK', bx, by - Math.max(14, gr * state.cam.zoom + 6), '#ff6b6b');
   }
 
   function drawCrafts(disp) {
@@ -1586,6 +1607,14 @@
     if (L.ship.rcs) {
       $('hud-rcs').textContent = m.rcsFuel.toFixed(1) + 's';
       $('bar-rcs').style.width = (100 * m.rcsFuel / m.rcsFuel0) + '%';
+      // A real budget (World 3): warn once at a quarter left, and when empty.
+      const low = m.rcsFuel0 < 30 && m.rcsFuel < m.rcsFuel0 * 0.25;
+      $('gauge-rcs').classList.toggle('low', low);
+      const lvl = !low ? 0 : m.rcsFuel <= 0 ? 2 : 1;
+      if (lvl > (state.rcsWarned || 0) && m.status === 'flying') {
+        toast(lvl === 2 ? 'Side thrusters empty: you can no longer turn or stop a spin.' : 'Side thrusters low: tap, don\'t hold.', 3);
+      }
+      state.rcsWarned = Math.max(state.rcsWarned || 0, lvl);
     }
     $('hud-throttle').textContent = Math.round(state.throttle * 100) + '%';
     $('bar-throttle').style.width = (state.throttle * 100) + '%';

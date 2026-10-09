@@ -5,6 +5,11 @@
   const Phys = root.Phys || (typeof require !== 'undefined' ? require('./physics.js') : null);
   const DM = root.DMath || (typeof require !== 'undefined' ? require('./dmath.js') : null);
 
+  // How close debris may come to a guarded body: a protected object's own
+  // radius (or protectRadius), or a zone's edge when the zone is closed to
+  // everything (keepOut with zone: 'all'; plain keep-out zones bar only the ship).
+  const guardRadius = (b) => (b.protect ? b.protectRadius || b.radius : b.keepOut);
+
   const FIXED_DT = 1 / 120;      // step size while engines fire
   const MAX_COAST_DT = 0.25;     // largest coast step
 
@@ -195,7 +200,9 @@
         // It would miss this time around but its orbit crosses the protected
         // object's, so the two meet sooner or later. Fail now and say why.
         this.status = 'crashed';
-        this.message = 'Your spent stage is stuck in an orbit that crosses ' + d.fate.name + '\'s. Sooner or later they collide.';
+        this.message = d.fate.zone
+          ? 'Your spent stage is stuck in an orbit that crosses ' + d.fate.name + '\'s keep-out zone. Sooner or later it drifts in.'
+          : 'Your spent stage is stuck in an orbit that crosses ' + d.fate.name + '\'s. Sooner or later they collide.';
       }
       return true;
     }
@@ -206,7 +213,7 @@
     // once. A stage still in a bound orbit that crosses a protected object's
     // orbit will meet it eventually ('cross'). Returns the sampled path too.
     debrisFate(d0) {
-      const sys = this.sys, prot = sys.bodies.filter(b => b.protect);
+      const sys = this.sys, prot = sys.bodies.filter(b => b.protect || b.zone === 'all');
       const s = { x: d0.x, y: d0.y, vx: d0.vx, vy: d0.vy };
       sys.update(this.t);
       const H = sys.dominant(s.x, s.y, this.t), hb = sys.bodies[H];
@@ -223,21 +230,34 @@
         ts.push(t); xs.push(s.x); ys.push(s.y);
         if (Phys.collision(sys, s.x, s.y, t) >= 0) return fate('ground');
         for (const b of prot) {
-          const r = b.protectRadius || b.radius;
-          if ((s.x - sys.px[b.index]) ** 2 + (s.y - sys.py[b.index]) ** 2 < r * r) return fate('hit', { body: b.index, name: b.name });
+          const r = guardRadius(b);
+          if ((s.x - sys.px[b.index]) ** 2 + (s.y - sys.py[b.index]) ** 2 < r * r) return fate('hit', { body: b.index, name: b.name, zone: !b.protect });
         }
         if (s.x * s.x + s.y * s.y > this.level.bounds * this.level.bounds) return fate('gone');
       }
       if (orb.bound) {
         for (const b of prot) {
           if (!b.orbit || b.parent !== H) continue;
-          const r = b.protectRadius || b.radius, o = b.orbit;
+          const r = guardRadius(b), o = b.orbit;
           if (orb.pe <= o.a * (1 + o.e) + r && orb.ap >= o.a * (1 - o.e) - r) {
-            return fate('cross', { body: b.index, name: b.name, band: [o.a * (1 - o.e) - r, o.a * (1 + o.e) + r] });
+            return fate('cross', { body: b.index, name: b.name, zone: !b.protect, band: [o.a * (1 - o.e) - r, o.a * (1 + o.e) + r] });
           }
         }
       }
       return fate('safe');
+    }
+
+    // The protected body or closed zone an object is inside at time t, if
+    // any. zonesOnly: just zones closed to everything (for cargo).
+    _guardHit(o, t, zonesOnly) {
+      const sys = this.sys;
+      sys.update(t);
+      for (const b of sys.bodies) {
+        if (zonesOnly ? b.zone !== 'all' : !(b.protect || b.zone === 'all')) continue;
+        const r = zonesOnly ? b.keepOut : guardRadius(b);
+        if ((o.x - sys.px[b.index]) ** 2 + (o.y - sys.py[b.index]) ** 2 < r * r) return b;
+      }
+      return null;
     }
 
     thrustAccel() { const st = this.stageSpec; return st ? st.thrust / this.mass() : 0; }
@@ -345,14 +365,14 @@
         d.angle += d.omega * h;
         const hit = Phys.collision(sys, d.x, d.y, this.t + h);
         if (hit >= 0) { d.alive = false; d.crashT = this.t + h; this.t += h; this._craftHit(d, hit); this.t -= h; }
-        // Protected objects (e.g. a crewed station) must never be hit by debris.
-        for (const b of sys.bodies) {
-          if (!b.protect) continue;
-          const r = b.protectRadius || b.radius;
-          if ((d.x - sys.px[b.index]) ** 2 + (d.y - sys.py[b.index]) ** 2 < r * r) {
-            d.alive = false; d.crashT = this.t + h;
-            this.status = 'crashed'; this.message = 'Your spent stage hit ' + b.name + '.';
-          }
+        // Protected objects (e.g. a crewed station) must never be hit by
+        // debris, and zones closed to everything must never be entered.
+        if (!d.alive) continue;
+        const b = this._guardHit(d, this.t + h);
+        if (b) {
+          d.alive = false; d.crashT = this.t + h;
+          this.status = 'crashed';
+          this.message = b.protect ? 'Your spent stage hit ' + b.name + '.' : 'Your spent stage drifted into ' + b.name + '\'s keep-out zone.';
         }
       }
       for (const c of this.crafts) {
@@ -360,6 +380,13 @@
         Phys.rk4(sys, c, this.t, h, 0, 0);
         const hit = Phys.collision(sys, c.x, c.y, this.t + h);
         if (hit >= 0) { c.alive = false; c.hitT = this.t + h; c.hit = hit; this.t += h; this._craftHit(c, hit); this.t -= h; }
+        // Cargo may not enter a zone closed to everything, unless that zone
+        // is where it's being delivered (before or after it arrives).
+        const z = c.alive && this._guardHit(c, this.t + h, true);
+        if (z && !this.level.goals.some(g => g.craft === c.id && g.body === z.id)) {
+          c.alive = false;
+          this.status = 'crashed'; this.message = c.name + ' drifted into ' + z.name + '\'s keep-out zone.';
+        }
       }
       this.t += h;
       this._checks(h);
@@ -553,7 +580,7 @@
         const doomed = this.debris.find(d => d.alive && d.fate && d.fate.kind === 'hit');
         if (doomed) {
           this.status = 'crashed';
-          this.message = 'Your spent stage is about to hit ' + doomed.fate.name + '.';
+          this.message = doomed.fate.zone ? 'Your spent stage is about to drift into ' + doomed.fate.name + '\'s keep-out zone.' : 'Your spent stage is about to hit ' + doomed.fate.name + '.';
           return;
         }
         this.status = 'won';

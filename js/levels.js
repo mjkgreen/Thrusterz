@@ -1229,7 +1229,7 @@
     { n: 2, name: 'Payloads', theme: 'nebula', unlock: 50 },
   ];
 
-  const Levels = { LEVELS, WORLDS, ship, VE };
+  const Levels = { LEVELS, WORLDS, ship, VE, C, belt };
   if (typeof module !== 'undefined' && module.exports) module.exports = Levels;
   else root.Levels = Levels;
 })(typeof window !== 'undefined' ? window : globalThis);
