@@ -4,9 +4,8 @@
   const { LEVELS, WORLDS } = Levels;
   const { Mission } = Flight;
 
-  const WARPS = [1, 2, 5, 10, 25, 50, 100];
+  const WARPS = Replay.WARPS;
   const SIM_BUDGET_MS = 8;      // physics time allowed per frame
-  const SIM_CHUNK = 0.5;        // sim seconds per advance() call within a frame
   const PRED_MS_BURNING = 70;   // how often the predicted path refreshes during a burn
   const TAU = Math.PI * 2;
   const $ = (id) => document.getElementById(id);
@@ -48,6 +47,9 @@
   function loadProgress() {
     let raw = null;
     try { raw = JSON.parse(localStorage.getItem(STORE)); } catch (e) { raw = null; }
+    return cleanProgress(raw);
+  }
+  function cleanProgress(raw) {
     const p = { unlocked: 0, stars: {}, best: {}, score: {}, learned: {}, tab: null };
     if (!raw || typeof raw !== 'object') return p;
     const ids = new Set(LEVELS.map(l => l.id));
@@ -68,7 +70,18 @@
     if (raw.tab === 'test' || (typeof raw.tab === 'number' && WORLDS.some(w => w.n === raw.tab))) p.tab = raw.tab;
     return p;
   }
-  function saveProgress() { try { localStorage.setItem(STORE, JSON.stringify(progress)); } catch (e) { /* ignore */ } }
+  // Saved locally (and to native storage in the app), then to the cloud.
+  function saveProgress() { Online.Store.set(STORE, progress); Online.saveProgressSoon(); }
+  // Fold in progress from elsewhere (cloud, native copy, another device).
+  // Only ever adds: more stars, better bests.
+  function mergeIn(other) {
+    const merged = Sync.mergeProgress(progress, cleanProgress(other));
+    if (JSON.stringify(merged) === JSON.stringify(Sync.mergeProgress(progress, {}))) return false;
+    Object.assign(progress, merged);
+    Online.Store.set(STORE, progress);
+    if (state.screen === 'menu' && !$('menu').classList.contains('hidden')) showMenu();
+    return true;
+  }
   const progress = loadProgress();
   if (/[?&]unlock/.test(location.search)) progress.unlocked = LEVELS.length - 1;
   // ?unlock opens every world (for testing).
@@ -121,7 +134,8 @@
     state.resultShown = false;
     state.endHandled = false;
     state.paused = false;
-    state.overload = 0; state.predWall = 0;
+    state.overload = 0; state.predWall = 0; state.acc = 0;
+    state.rec = new Replay.Recorder(level.id, Replay.levelHash(level));
     releaseTouch();
     buildRails();
     const m = state.mission;
@@ -132,7 +146,7 @@
     if (level.startCam === 'overview') { overview(true); state.cam.x = state.cam.tx; state.cam.y = state.cam.ty; state.cam.zoom = state.cam.tzoom; }
     setupHud();
     show('hud');
-    hide('menu'); hide('briefing'); hide('result'); hide('pause'); hide('help');
+    hide('menu'); hide('briefing'); hide('result'); hide('pause'); hide('help'); hide('board'); hide('profile');
     state.screen = 'flight';
     $('coach').classList.remove('show');
   }
@@ -178,6 +192,7 @@
   function deployPayload() {
     const m = state.mission;
     if (m.canDrop()) {
+      state.rec.event('drop');
       const c = m.release();
       coachDone('drop');
       state.predDirty = true;
@@ -185,7 +200,9 @@
       toast(c.name + ' released', 1.5);
       return;
     }
-    if (!m.deploy()) { if (m.status === 'flying') toast(m.landed ? 'Launch first' : 'Nothing to deploy', 1.2); return; }
+    if (!m.canDeploy()) { if (m.status === 'flying') toast(m.landed ? 'Launch first' : 'Nothing to deploy', 1.2); return; }
+    state.rec.event('deploy');
+    m.deploy();
     coachDone('deploy');
     state.predDirty = true;
     // Show where the spent stage will drift (it can hit things).
@@ -198,6 +215,8 @@
   function toggleGyro() {
     const m = state.mission;
     if (!m.level.ship.canRotate) { toast('No side thrusters on this ship', 1.5); return; }
+    if (m.status !== 'flying') return;
+    state.rec.event('gyro');
     m.gyro = !m.gyro;
     coachDone('gyro');
     toast(m.gyro ? 'Gyro assist ON · this run is capped at ★★' : 'Gyro assist OFF', 2);
@@ -456,18 +475,22 @@
     // simulation can need more steps than a phone can run in one frame; then
     // it falls a little behind real time instead of stalling the screen, and
     // if that keeps happening the warp steps down.
+    // The simulation runs in fixed ticks so a run can be recorded and replayed
+    // exactly (leaderboards re-fly every submitted run).
     const budgetEnd = performance.now() + SIM_BUDGET_MS;
-    let simLeft = realDt * WARPS[state.warp];
-    while (simLeft > 1e-9 && m.status === 'flying') {
-      const chunk = Math.min(simLeft, SIM_CHUNK);
-      m.advance(chunk, c);
-      simLeft -= chunk;
-      if (performance.now() > budgetEnd) break;
+    state.acc += realDt;
+    let behind = false;
+    while (state.acc >= Replay.TICK - 1e-9 && m.status === 'flying') {
+      if (performance.now() > budgetEnd) { behind = true; state.acc = 0; break; }
+      const tc = controls();
+      state.rec.tick(state.warp, tc);
+      m.advance(WARPS[state.warp] * Replay.TICK, tc);
+      state.acc -= Replay.TICK;
     }
     // The moment a burn ends, show the exact coast path.
     if (state.wasThrusting && !m.thrusting) state.predDirty = true;
     state.wasThrusting = m.thrusting;
-    state.overload = simLeft > 1e-9 ? state.overload + 1 : 0;
+    state.overload = behind ? state.overload + 1 : 0;
     if (state.overload > 20 && state.warp > 0) {
       state.overload = 0;
       state.warp--;
@@ -565,8 +588,12 @@
   // Did the ship itself end the mission by hitting its target?
   function shipImpactWin(m) { const g = m.level.goals[m.level.goals.length - 1]; return g.type === 'hit' && !g.craft; }
 
+  // A small buzz on the phone (app only) when a mission ends.
+  function haptic(won) { Bridge.haptic(won ? 'success' : 'heavy'); }
+
   function onMissionEnd() {
     const m = state.mission;
+    haptic(m.status === 'won');
     state.endTime = performance.now();
     state.endDelay = 1600;
     // A spent stage doomed to hit something: pull back and let the player see
@@ -1663,7 +1690,7 @@
 
   function showMenu() {
     state.screen = 'menu';
-    hide('hud'); hide('briefing'); hide('result'); hide('pause'); hide('help');
+    hide('hud'); hide('briefing'); hide('result'); hide('pause'); hide('help'); hide('board'); hide('profile');
     show('menu');
     const hasTests = LEVELS.some(l => l.test);
     if (state.menuTab == null || (state.menuTab !== TEST_TAB && !WORLDS.some(w => w.n === state.menuTab))) state.menuTab = progress.tab != null ? progress.tab : defaultTab();
@@ -1799,6 +1826,8 @@
     $('btn-res-next').style.display = won && hasNext ? '' : 'none';
     $('btn-res-retry').className = won && hasNext ? '' : 'primary';
     show('result');
+    $('res-online').innerHTML = '';
+    if (won && !L.test) submitRun(L);
   }
 
   // ------------------------------------------------------------ phone gate
@@ -1806,9 +1835,9 @@
   // leaving fullscreen, switching apps) pauses the mission.
   const fsEl = () => document.fullscreenElement || document.webkitFullscreenElement;
   const fsSupported = () => !!(document.fullscreenEnabled || document.webkitFullscreenEnabled);
-  // Inside a native wrapper (Capacitor, for the app stores) the app is
-  // already fullscreen, so it counts the same as a home-screen web app.
-  const nativeApp = () => !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+  // Inside the native app (mobile/, for the app stores) the game is already
+  // fullscreen, so it counts the same as a home-screen web app.
+  const nativeApp = () => Bridge.inApp;
   const standalone = () => nativeApp() || window.matchMedia('(display-mode: fullscreen), (display-mode: standalone)').matches || navigator.standalone === true;
   const isPhone = () => isTouch() && Math.min(screen.width, screen.height) < 600;
   const isIOS = () => /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -1906,6 +1935,123 @@
     const [r, g, b] = parseHex(c).map(v => Math.max(0, Math.min(255, Math.round(v * k))));
     return `rgb(${r},${g},${b})`;
   }
+
+  // ---------------------------------------------------------- online
+  document.body.classList.toggle('online', Online.available());
+  Online.bindProgress(() => ({ unlocked: progress.unlocked, stars: progress.stars, best: progress.best, score: progress.score, learned: progress.learned }), mergeIn);
+  const fmtVal = (kind, v) => (kind === 'time' ? fmtT(v) : Math.round(v).toLocaleString());
+
+  async function submitRun(L) {
+    const el = $('res-online');
+    el.textContent = 'Checking your run for the leaderboard…';
+    const r = await Online.submitRun(state.rec.toJSON());
+    if (state.screen !== 'result') return;
+    if (r.run) {
+      el.innerHTML = `Leaderboard: <b>#${r.rank.score}</b> of ${r.total} by score · <b>#${r.rank.time}</b> fastest (${fmtT(r.best.time)})`;
+    } else if (r.queued) el.textContent = 'Offline: your run will be submitted when you reconnect.';
+    else if (r.unavailable) el.textContent = '';
+    else el.textContent = 'Leaderboard: ' + r.error;
+  }
+
+  // Leaderboard screen for one mission.
+  let boardLevel = null, boardKind = 'score', boardReturn = null;
+  function showBoard(i, from) {
+    boardLevel = LEVELS[i]; boardReturn = from;
+    $('board-title').textContent = boardLevel.name;
+    $('board-eyebrow').textContent = 'Leaderboard · ' + missionLabel(i);
+    hide(from); show('board');
+    loadBoard();
+  }
+  async function loadBoard() {
+    const list = $('board-list'), me = $('board-me'), L = boardLevel, kind = boardKind;
+    for (const b of document.querySelectorAll('.board-tabs button')) b.classList.toggle('active', b.dataset.kind === kind);
+    list.innerHTML = '<li class="empty">Loading…</li>'; me.textContent = '';
+    try {
+      const r = await Online.board(L.id, kind);
+      if (boardLevel !== L || boardKind !== kind) return;
+      list.innerHTML = r.top.length ? '' : '<li class="empty">No runs yet. Be the first!</li>';
+      for (const e of r.top) {
+        const li = document.createElement('li');
+        if (e.me) li.className = 'me';
+        li.innerHTML = `<span class="rk">#${e.rank}</span><span class="nm"></span><span>${fmtVal(kind, e.value)}</span>`;
+        li.querySelector('.nm').textContent = e.name;
+        list.appendChild(li);
+      }
+      me.textContent = r.me ? `You: #${r.me.rank} of ${r.total} · ${fmtVal(kind, r.me.value)}` : (r.total ? `${r.total} pilots · finish the mission to get on the board` : '');
+    } catch (e) {
+      list.innerHTML = '';
+      const li = document.createElement('li'); li.className = 'empty'; li.textContent = e.offline ? 'You\'re offline.' : e.message; list.appendChild(li);
+    }
+  }
+  for (const b of document.querySelectorAll('.board-tabs button')) b.onclick = () => { boardKind = b.dataset.kind; loadBoard(); };
+  $('btn-board-close').onclick = () => { hide('board'); show(boardReturn || 'menu'); };
+  $('btn-brief-board').onclick = () => showBoard(state.levelIndex, 'briefing');
+  $('btn-res-board').onclick = () => showBoard(state.levelIndex, 'result');
+
+  // Pilot profile: name, Sign in with Apple, restore code.
+  function renderProfile() {
+    const a = Online.state.account, p = a && a.player;
+    const total = Object.values(progress.stars).reduce((x, y) => x + y, 0);
+    const max = LEVELS.filter(l => !l.test).length * 3;
+    $('pf-name').textContent = p ? p.name : 'Pilot';
+    $('pf-stats').innerHTML = `<span><span class="k">Stars</span> ${total} / ${max}</span><span><span class="k">Missions</span> ${Object.keys(progress.stars).length}</span>`;
+    if (document.activeElement !== $('pf-name-input')) $('pf-name-input').value = p ? p.name : '';
+    $('pf-code').textContent = p ? p.code : '····-····-····';
+    $('pf-apple-row').style.display = Online.appleAvailable() ? '' : 'none';
+    $('btn-pf-apple').style.display = p && p.apple ? 'none' : '';
+    $('btn-pf-delete').style.display = p ? '' : 'none';
+    $('pf-apple-state').textContent = p && p.apple ? '✓ Signed in with Apple. Your stars follow your Apple ID.' : '';
+    const st = Online.state.status, el = $('pf-status');
+    el.className = 'small' + (st === 'offline' ? ' warn' : '');
+    el.textContent = !Online.available() ? 'Accounts and leaderboards work in the app and on the website.'
+      : st === 'syncing' ? 'Syncing…' : st === 'synced' ? '✓ Your progress is saved to the cloud.'
+      : st === 'offline' ? 'Offline. Your progress is safe on this device and will sync later.'
+      : Online.state.lastError || '';
+  }
+  async function showProfile() {
+    hide('menu'); show('profile'); renderProfile();
+    if (Online.available()) {
+      try { await Online.ensureAccount(); await Online.syncNow(); } catch (e) { /* status shows it */ }
+      renderProfile();
+    }
+  }
+  const busy = async (btn, fn) => {
+    btn.disabled = true;
+    try { await fn(); } catch (e) { $('pf-status').className = 'small warn'; $('pf-status').textContent = e.message; btn.disabled = false; return; }
+    btn.disabled = false; renderProfile();
+  };
+  $('btn-profile').onclick = showProfile;
+  // In the app, open the website's copy of the privacy policy in Safari.
+  if (Bridge.inApp) {
+    const a = document.querySelector('#profile a.plain');
+    a.href = ((window.THRUSTERZ_CONFIG || {}).apiBase || '') + '/privacy.html';
+    a.onclick = (e) => { e.preventDefault(); Bridge.open(a.href); };
+  }
+  $('btn-pf-close').onclick = () => { hide('profile'); showMenu(); };
+  $('btn-pf-rename').onclick = () => busy($('btn-pf-rename'), async () => { await Online.rename($('pf-name-input').value); toast('Name saved', 1.2); });
+  $('btn-pf-restore').onclick = () => busy($('btn-pf-restore'), async () => {
+    const code = $('pf-restore-input').value.trim();
+    if (!code) throw new Error('Enter a restore code first');
+    await Online.restore(code);
+    $('pf-restore-input').value = '';
+    toast('Account restored. Your stars are back.', 2);
+  });
+  $('btn-pf-apple').onclick = () => busy($('btn-pf-apple'), async () => { await Online.signInWithApple(); toast('Signed in with Apple', 1.5); });
+  $('btn-pf-delete').onclick = () => busy($('btn-pf-delete'), async () => {
+    if (!Online.state.account) throw new Error('There is no online account on this device');
+    if (!confirm('Delete your pilot account? Your name, leaderboard runs and cloud save are removed for good. Stars on this device stay.')) return;
+    await Online.deleteAccount();
+    toast('Account deleted', 1.5);
+  });
+  $('btn-pf-copy').onclick = async () => {
+    const a = Online.state.account; if (!a) return;
+    try { await navigator.clipboard.writeText(a.player.code); toast('Restore code copied', 1.2); } catch (e) { toast(a.player.code, 3); }
+  };
+  Online.onChange(() => { if (!$('profile').classList.contains('hidden')) renderProfile(); });
+
+  // In the app, the native copy of progress survives the OS clearing WebView
+  // storage; fold it back in, then sync with the cloud.
+  Online.Store.getNative(STORE).then((p) => { if (p) mergeIn(p); }).finally(() => Online.start());
 
   // ---------------------------------------------------------------- boot
   const qs = new URLSearchParams(location.search);

@@ -387,3 +387,37 @@ kbd.tbtn.deploy { background: rgba(124, 247, 212, 0.25); border-color: rgba(124,
   .wtab .wname { font-size: 14px; }
   #world-tabs { margin-bottom: 8px; }
 }
+
+/* Online: leaderboard, pilot profile, result rank */
+.online-only { display: none; }
+body.online .online-only { display: inline-block; }
+.menu-foot { display: flex; gap: 10px; justify-content: center; }
+.board-card, .profile-card { width: min(560px, 100%); }
+.board-tabs { display: flex; gap: 8px; margin: 10px 0 12px; }
+.board-tabs button { flex: 1; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--panel-border); background: rgba(255,255,255,0.04); color: var(--muted); font: 600 14px var(--sans); cursor: pointer; }
+.board-tabs button.active { color: var(--text); border-color: rgba(124, 247, 212, 0.6); background: rgba(124, 247, 212, 0.08); }
+#board-list { list-style: none; margin: 0; padding: 0; max-height: 46vh; overflow-y: auto; font-family: var(--mono); font-size: 14px; }
+#board-list li { display: grid; grid-template-columns: 3em 1fr auto; gap: 10px; padding: 7px 10px; border-radius: 8px; }
+#board-list li:nth-child(odd) { background: rgba(255,255,255,0.03); }
+#board-list li.me { background: rgba(124, 247, 212, 0.12); color: var(--accent); }
+#board-list li .rk { color: var(--muted); }
+#board-list li:nth-child(1) .rk { color: var(--gold); }
+#board-list li.empty { display: block; color: var(--muted); text-align: center; padding: 18px; }
+#board-me { margin-top: 10px; font-family: var(--mono); color: var(--muted); }
+#res-online { font-family: var(--mono); font-size: 13px; color: var(--muted); margin-top: 10px; min-height: 1.2em; }
+#res-online b { color: var(--accent); font-weight: 600; }
+.pf-row { display: flex; flex-direction: column; gap: 6px; margin-top: 16px; }
+.pf-row .k { font-family: var(--mono); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+.pf-inline { display: flex; gap: 8px; align-items: center; }
+.pf-inline input { flex: 1; min-width: 0; padding: 9px 12px; border-radius: 10px; border: 1px solid var(--panel-border); background: rgba(0,0,0,0.35); color: var(--text); font: 16px var(--sans); -webkit-user-select: text; user-select: text; }
+.pf-inline button, .pf-row > button { padding: 9px 14px; border-radius: 10px; border: 1px solid var(--panel-border); background: rgba(255,255,255,0.06); color: var(--text); font: 600 14px var(--sans); cursor: pointer; }
+#pf-code { flex: 1; font-family: var(--mono); font-size: 20px; letter-spacing: 0.12em; color: var(--accent); -webkit-user-select: text; user-select: text; }
+button.apple { background: #fff !important; color: #000 !important; border-color: #fff !important; font-size: 16px !important; padding: 11px 14px !important; }
+#pf-status { min-height: 1.4em; }
+#pf-status.warn { color: var(--warn); }
+@media (max-height: 500px) {
+  .pf-row { margin-top: 10px; }
+  #board-list { max-height: 38vh; }
+}
+button.danger { color: var(--bad) !important; border-color: rgba(255, 107, 107, 0.35) !important; }
+a.plain { color: var(--muted); }

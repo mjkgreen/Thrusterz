@@ -15,5 +15,12 @@ jobs:
         run: npm test
       - name: Install headless Chromium
         run: npm install --no-save playwright@1.56.1 && npx playwright install --with-deps chromium
-      - name: Browser checks
+      - name: Browser checks (Chromium)
         run: npm run test:browser
+      - name: Install WebKit (Safari's engine)
+        run: npx playwright install --with-deps webkit
+      - name: Browser checks (WebKit), including replay matching Node exactly
+        run: BROWSER=webkit npm run test:browser
+      - name: Mobile app bundles (Expo)
+        working-directory: mobile
+        run: npm ci && npm run build:game && EXPO_OFFLINE=1 npx expo export --platform ios --output-dir /tmp/expo-export

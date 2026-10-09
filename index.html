@@ -106,6 +106,7 @@
   <div id="world-info"></div>
   <div id="world-grid" class="level-grid"></div>
   <div class="menu-foot">
+    <button id="btn-profile" class="ghost">Pilot</button>
     <button id="btn-help-menu" class="ghost">Controls</button>
   </div>
 </div>
@@ -120,6 +121,7 @@
     <div class="stats" id="brief-stats"></div>
     <div class="chips" id="brief-controls"></div>
     <div class="buttons">
+      <button id="btn-brief-board" class="ghost online-only">Leaderboard</button>
       <button id="btn-brief-back" class="ghost">Levels</button>
       <button id="btn-brief-go" class="primary">Launch ▸</button>
     </div>
@@ -133,7 +135,9 @@
     <div id="res-score"></div>
     <p id="res-msg"></p>
     <div class="stats" id="res-stats"></div>
+    <div id="res-online"></div>
     <div class="buttons">
+      <button id="btn-res-board" class="ghost online-only">Leaderboard</button>
       <button id="btn-res-menu" class="ghost">Levels</button>
       <button id="btn-res-retry">Retry</button>
       <button id="btn-res-next" class="primary">Next ▸</button>
@@ -149,6 +153,52 @@
       <button id="btn-restart">Restart (R)</button>
       <button id="btn-help">Controls</button>
       <button id="btn-quit" class="ghost">Levels</button>
+    </div>
+  </div>
+</div>
+
+<div id="board" class="screen hidden">
+  <div class="card board-card">
+    <div class="eyebrow" id="board-eyebrow">Leaderboard</div>
+    <h1 id="board-title"></h1>
+    <div class="board-tabs" role="tablist">
+      <button data-kind="score" class="active">Top score</button>
+      <button data-kind="time">Fastest</button>
+    </div>
+    <ol id="board-list"></ol>
+    <div id="board-me" class="small"></div>
+    <div class="buttons"><button id="btn-board-close" class="primary">Done</button></div>
+  </div>
+</div>
+
+<div id="profile" class="screen hidden">
+  <div class="card profile-card">
+    <div class="eyebrow">Pilot</div>
+    <h1 id="pf-name">Pilot</h1>
+    <div class="stats" id="pf-stats"></div>
+    <div class="pf-row">
+      <label for="pf-name-input" class="k">Name on leaderboards</label>
+      <div class="pf-inline"><input id="pf-name-input" maxlength="16" autocomplete="off" autocapitalize="words" spellcheck="false"><button id="btn-pf-rename">Save</button></div>
+    </div>
+    <div class="pf-row" id="pf-apple-row">
+      <span class="k">Keep your stars on every device</span>
+      <button id="btn-pf-apple" class="apple">  Sign in with Apple</button>
+      <span class="small" id="pf-apple-state"></span>
+    </div>
+    <div class="pf-row">
+      <span class="k">Restore code</span>
+      <div class="pf-inline"><code id="pf-code">····-····-····</code><button id="btn-pf-copy" class="ghost">Copy</button></div>
+      <span class="small">Write this down. On a new device, enter it below to get your stars back.</span>
+    </div>
+    <div class="pf-row">
+      <label for="pf-restore-input" class="k">Restore an account</label>
+      <div class="pf-inline"><input id="pf-restore-input" placeholder="XXXX-XXXX-XXXX" maxlength="16" autocomplete="off" autocapitalize="characters" spellcheck="false"><button id="btn-pf-restore">Restore</button></div>
+    </div>
+    <p class="small" id="pf-status"></p>
+    <p class="small"><a href="privacy.html" target="_blank" rel="noopener" class="plain">Privacy policy</a></p>
+    <div class="buttons">
+      <button id="btn-pf-delete" class="ghost danger">Delete account</button>
+      <button id="btn-pf-close" class="primary">Done</button>
     </div>
   </div>
 </div>
@@ -197,9 +247,15 @@
   </div>
 </div>
 
+<script src="js/config.js"></script>
+<script src="js/bridge.js"></script>
+<script src="js/dmath.js"></script>
 <script src="js/physics.js"></script>
 <script src="js/flight.js"></script>
 <script src="js/levels.js"></script>
+<script src="js/replay.js"></script>
+<script src="js/sync.js"></script>
+<script src="js/online.js"></script>
 <script src="js/game.js"></script>
 </body>
 </html>

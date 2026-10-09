@@ -228,14 +228,42 @@ tools/rcs-report.js     RCS seconds each proof needs with honest turning
 `physics.js`, `flight.js` and `levels.js` have no DOM dependencies and run
 under Node, which is how the tools use them.
 
+## Online: accounts, cloud save, leaderboards
+
+A pilot account is created the first time it's needed (no sign-up). Progress
+syncs to the server and merges both ways, keeping the best of each; a
+restore code or Sign in with Apple brings it back on another device. Every
+win is submitted to per-mission leaderboards (top score and fastest): the
+game records each flight's control inputs tick by tick (`js/replay.js`) and
+the server re-flies them with the same simulation before ranking, using
+deterministic math (`js/dmath.js`) so a run replays identically on any
+JavaScript engine. Offline, everything still works and runs wait in a queue.
+
+```
+api/                Vercel Functions: player, restore, apple, progress, runs, board
+api/_lib/           routes, Upstash Redis store (in-memory locally)
+js/online.js        client: account, sync, run queue, Apple sign-in
+js/bridge.js        talks to the native app shell (mobile/App.js)
+js/config.js        API address for the app
+npm run dev         game + API on http://localhost:8080
+```
+
+## iOS app (Expo)
+
+`mobile/` is an Expo app that runs the game full screen in a WebView, built
+and signed in the cloud with EAS (no Mac needed). The game is packed into one
+file (`npm run build:mobile`), and `js/bridge.js` connects it to native
+storage, Sign in with Apple and haptics. Release guide:
+[docs/APP_STORE.md](docs/APP_STORE.md).
+
 ## Stability
 
 The game loop survives a failing frame, physics and path prediction run on
 per-frame time budgets (time warp steps down if a device can't keep up),
 numerical blow-ups end the mission cleanly, and saved progress is validated
 on load. Add `?debug` to the URL for an fps / script-time readout. Both test
-suites run on every push (`.github/workflows/test.yml`). For packaging as an
-iOS / Android app see [docs/APP_STORE.md](docs/APP_STORE.md).
+suites run on every push (`.github/workflows/test.yml`). For the App Store
+release steps see [docs/APP_STORE.md](docs/APP_STORE.md).
 
 ## Roadmap
 
