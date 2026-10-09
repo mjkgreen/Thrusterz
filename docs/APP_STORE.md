@@ -42,7 +42,7 @@ step 1.
 4. `js/config.js` points the app at `https://thrusterz.com`. Make
    `thrusterz.com` (not `www.`) the primary domain in Vercel, so the app's
    API calls aren't redirected.
-5. Put your contact email in `privacy.html`.
+5. The contact email in `privacy.html` is thrusterz.app@gmail.com.
 
 ## 2. Apple Developer (in the browser)
 
