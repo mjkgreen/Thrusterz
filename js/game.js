@@ -1760,6 +1760,12 @@
         + `<div class="unlockbar"><div style="width:${Math.min(100, 100 * have / w.unlock)}%"></div></div>`
         + `<span class="k">${have} / ${w.unlock} ★ · ${Math.max(0, w.unlock - have)} to go</span>`;
     }
+    if (t !== TEST_TAB) {
+      const b = document.createElement('button');
+      b.className = 'wi-board online-only'; b.textContent = '🏆 World leaderboard';
+      b.onclick = () => showBoard({ world: t }, 'menu');
+      info.prepend(b);
+    }
     grid.classList.toggle('locked', !open);
     const nextUp = open ? list.find(([L]) => !progress.stars[L.id]) : null;
     for (const [L, i] of list) {
@@ -1946,6 +1952,7 @@
   function fmtT(t) {
     t = Math.max(0, t);
     if (t < 60) return t.toFixed(1) + 's';
+    if (t >= 3600) return Math.floor(t / 3600) + 'h' + String(Math.floor(t % 3600 / 60)).padStart(2, '0') + 'm';
     const mnt = Math.floor(t / 60), sec = Math.floor(t % 60);
     return mnt + 'm' + String(sec).padStart(2, '0') + 's';
   }
@@ -1976,23 +1983,58 @@
     else el.textContent = 'Leaderboard: ' + r.error;
   }
 
-  // Leaderboard screen for one mission.
-  let boardLevel = null, boardKind = 'score', boardReturn = null;
-  function showBoard(i, from) {
-    boardLevel = LEVELS[i]; boardReturn = from;
-    $('board-title').textContent = boardLevel.name;
-    $('board-eyebrow').textContent = 'Leaderboard · ' + missionLabel(i);
+  // Leaderboard screen: a whole world (total score; total time once every
+  // mission is done) or a single mission, picked from a list.
+  let boardSel = null, boardKind = 'score', boardReturn = null;
+  function fillBoardPick() {
+    const sel = $('board-pick');
+    if (sel.options.length) return;
+    for (const w of WORLDS) {
+      const o = document.createElement('option');
+      o.value = 'w' + w.n; o.textContent = `World ${w.n} · ${w.name} (all missions)`;
+      sel.appendChild(o);
+    }
+    for (const w of WORLDS) {
+      const g = document.createElement('optgroup');
+      g.label = `World ${w.n} · ${w.name}`;
+      for (const L of worldLevels(w.n)) {
+        const i = LEVELS.indexOf(L), o = document.createElement('option');
+        o.value = 'm' + i; o.textContent = `${w.n}-${missionNum(i)} ${L.name}`;
+        g.appendChild(o);
+      }
+      sel.appendChild(g);
+    }
+  }
+  // sel: { world: n } or { level: index }
+  function showBoard(sel, from) {
+    boardReturn = from;
+    fillBoardPick();
     hide(from); show('board');
+    pickBoard(sel);
+  }
+  function pickBoard(sel) {
+    boardSel = sel;
+    $('board-pick').value = sel.world != null ? 'w' + sel.world : 'm' + sel.level;
+    if (sel.world != null) {
+      const w = WORLDS.find(x => x.n === sel.world);
+      $('board-title').textContent = w.name;
+      $('board-eyebrow').textContent = `Leaderboard · World ${w.n} · all ${worldLevels(w.n).length} missions`;
+    } else {
+      $('board-title').textContent = LEVELS[sel.level].name;
+      $('board-eyebrow').textContent = 'Leaderboard · ' + missionLabel(sel.level);
+    }
     loadBoard();
   }
   async function loadBoard() {
-    const list = $('board-list'), me = $('board-me'), L = boardLevel, kind = boardKind;
+    const list = $('board-list'), me = $('board-me'), sel = boardSel, kind = boardKind;
     for (const b of document.querySelectorAll('.board-tabs button')) b.classList.toggle('active', b.dataset.kind === kind);
     list.innerHTML = '<li class="empty">Loading…</li>'; me.textContent = '';
     try {
-      const r = await Online.board(L.id, kind);
-      if (boardLevel !== L || boardKind !== kind) return;
-      list.innerHTML = r.top.length ? '' : '<li class="empty">No runs yet. Be the first!</li>';
+      const r = await Online.board(sel.world != null ? { world: sel.world } : { level: LEVELS[sel.level].id }, kind);
+      if (boardSel !== sel || boardKind !== kind) return;
+      const empty = sel.world != null && kind === 'time' ? 'No one has finished every mission yet.' : 'No runs yet. Be the first!';
+      list.innerHTML = '';
+      if (!r.top.length) { const li = document.createElement('li'); li.className = 'empty'; li.textContent = empty; list.appendChild(li); }
       for (const e of r.top) {
         const li = document.createElement('li');
         if (e.me) li.className = 'me';
@@ -2000,16 +2042,27 @@
         li.querySelector('.nm').textContent = e.name;
         list.appendChild(li);
       }
-      me.textContent = r.me ? `You: #${r.me.rank} of ${r.total} · ${fmtVal(kind, r.me.value)}` : (r.total ? `${r.total} pilots · finish the mission to get on the board` : '');
+      if (r.me) me.textContent = `You: #${r.me.rank} of ${r.total} · ${fmtVal(kind, r.me.value)}`;
+      else if (sel.world != null) {
+        const p = r.progress;
+        me.textContent = kind === 'time'
+          ? `World time counts once you finish all ${r.missions} missions` + (p ? ` · ${p.done} of ${p.of} done` : '')
+          : 'Finish any mission in this world to get on the board';
+      } else me.textContent = r.total ? `${r.total} pilots · finish the mission to get on the board` : '';
     } catch (e) {
       list.innerHTML = '';
       const li = document.createElement('li'); li.className = 'empty'; li.textContent = e.offline ? 'You\'re offline.' : e.message; list.appendChild(li);
     }
   }
+  $('board-pick').onchange = () => {
+    const v = $('board-pick').value;
+    pickBoard(v[0] === 'w' ? { world: +v.slice(1) } : { level: +v.slice(1) });
+  };
   for (const b of document.querySelectorAll('.board-tabs button')) b.onclick = () => { boardKind = b.dataset.kind; loadBoard(); };
   $('btn-board-close').onclick = () => { hide('board'); show(boardReturn || 'menu'); };
-  $('btn-brief-board').onclick = () => showBoard(state.levelIndex, 'briefing');
-  $('btn-res-board').onclick = () => showBoard(state.levelIndex, 'result');
+  $('btn-boards-menu').onclick = () => showBoard({ world: typeof state.menuTab === 'number' ? state.menuTab : 1 }, 'menu');
+  $('btn-brief-board').onclick = () => showBoard({ level: state.levelIndex }, 'briefing');
+  $('btn-res-board').onclick = () => showBoard({ level: state.levelIndex }, 'result');
 
   // Pilot profile: name, Sign in with Apple, restore code.
   function renderProfile() {

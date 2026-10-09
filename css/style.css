@@ -375,6 +375,8 @@ kbd.tbtn.deploy { background: rgba(124, 247, 212, 0.25); border-color: rgba(124,
 .wtab.tests .wnum { color: var(--warn); }
 .wtab.tests .wname { font-size: 13px; font-weight: 600; color: var(--muted); }
 #world-info { flex-shrink: 0; width: min(1000px, 100%); margin: 0 0 12px; font-family: var(--mono); font-size: 12px; color: var(--muted); }
+#world-info .wi-board { float: right; margin: -4px 0 0 12px; padding: 4px 10px; border-radius: 8px; border: 1px solid var(--panel-border); background: rgba(255,255,255,0.04); color: var(--text); font: 600 12px var(--sans); cursor: pointer; }
+#world-info .wi-board:hover { background: rgba(255,255,255,0.1); }
 #world-info .lock { display: block; font-family: var(--sans); font-size: 16px; font-weight: 700; color: var(--text); margin-bottom: 8px; }
 .unlockbar { height: 6px; border-radius: 3px; background: rgba(255, 255, 255, 0.08); overflow: hidden; margin-bottom: 6px; max-width: 420px; }
 .unlockbar > div { height: 100%; background: linear-gradient(90deg, var(--gold), #b4f06a); }
@@ -393,6 +395,8 @@ kbd.tbtn.deploy { background: rgba(124, 247, 212, 0.25); border-color: rgba(124,
 body.online .online-only { display: inline-block; }
 .menu-foot { display: flex; gap: 10px; justify-content: center; }
 .board-card, .profile-card { width: min(560px, 100%); }
+#board-pick { width: 100%; margin-top: 10px; padding: 9px 12px; border-radius: 10px; border: 1px solid var(--panel-border); background: rgba(255,255,255,0.06); color: var(--text); font: 600 14px var(--sans); }
+#board-pick option, #board-pick optgroup { background: #0b1020; color: #e8eefc; }
 .board-tabs { display: flex; gap: 8px; margin: 10px 0 12px; }
 .board-tabs button { flex: 1; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--panel-border); background: rgba(255,255,255,0.04); color: var(--muted); font: 600 14px var(--sans); cursor: pointer; }
 .board-tabs button.active { color: var(--text); border-color: rgba(124, 247, 212, 0.6); background: rgba(124, 247, 212, 0.08); }

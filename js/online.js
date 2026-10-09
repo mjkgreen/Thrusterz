@@ -138,7 +138,8 @@
   }
 
   // ------------------------------------------------------------ account
-  const board = (level, kind) => api('GET', 'board', null, { level, kind });
+  // which: { level: id } for one mission, { world: n } for a whole world.
+  const board = (which, kind) => api('GET', 'board', null, Object.assign({ kind }, typeof which === 'string' ? { level: which } : which));
 
   async function rename(name) {
     return guard(async () => {

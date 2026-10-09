@@ -100,6 +100,25 @@ function winningLog(wait = 0) {
   const again = await call('POST', 'runs', { log: slow }, tokA);
   check('a worse repeat does not lower your best', again.body.best.score === sub.body.run.score && again.body.rank.score === 1);
 
+  // World boards: total score over the world's missions; a world time only
+  // once every mission in it has been finished.
+  const core = require('../api/_lib/core.js'), store = require('../api/_lib/store.js').getStore();
+  const w1 = core.WORLD_LEVELS[1];
+  check('world 1 run reports world progress', sub.body.world && sub.body.world.score === sub.body.run.score && sub.body.world.time === null && sub.body.world.done === 1 && sub.body.world.of === w1.length, JSON.stringify(sub.body.world));
+  let ws = await call('GET', 'board', null, tokA, { world: 1, kind: 'score' });
+  check('world score board ranks total score', ws.status === 200 && ws.body.top.length === 2 && ws.body.top[0].me && ws.body.top[0].value === sub.body.run.score && ws.body.missions === w1.length, JSON.stringify(ws.body));
+  let wt = await call('GET', 'board', null, tokA, { world: 1, kind: 'time' });
+  check('no world time until every mission is done', wt.status === 200 && wt.body.total === 0 && wt.body.me === null && wt.body.progress.done === 1, JSON.stringify(wt.body));
+  // Pretend A has finished every other world-1 mission in 100 s each.
+  for (const L of w1) if (L.id !== 'deorbit') { await store.zadd(core.boardKey(L) + ':score', a.body.player.id, 1000, 'GT'); await store.zadd(core.boardKey(L) + ':time', a.body.player.id, 100, 'LT'); }
+  const last = await call('POST', 'runs', { log: win.log }, tokA);
+  const wantTime = +(100 * (w1.length - 1) + sub.body.best.time).toFixed(2);
+  check('finishing the world posts a world time', last.body.world.time === wantTime && last.body.world.done === w1.length, JSON.stringify(last.body.world));
+  wt = await call('GET', 'board', null, tokA, { world: 1, kind: 'time' });
+  check('world time board shows it', wt.body.total === 1 && wt.body.me.rank === 1 && wt.body.top[0].value === wantTime, JSON.stringify(wt.body));
+  check('unknown worlds are refused', (await call('GET', 'board', null, null, { world: 9 })).status === 404 && (await call('GET', 'board', null, null, { world: '__proto__' })).status === 404);
+  check('world 2 board starts empty', (await call('GET', 'board', null, tokA, { world: 2, kind: 'score' })).body.total === 0);
+
   // Account deletion (required by the App Store), including Apple revocation.
   const ec = crypto.generateKeyPairSync('ec', { namedCurve: 'P-256' });
   Object.assign(process.env, { APPLE_TEAM_ID: 'TEAM', APPLE_KEY_ID: 'KEY', APPLE_PRIVATE_KEY: ec.privateKey.export({ type: 'pkcs8', format: 'pem' }) });
@@ -121,7 +140,8 @@ function winningLog(wait = 0) {
   const after = await call('GET', 'board', null, null, { level: 'deorbit', kind: 'score' });
   check('delete account removes it everywhere', del.status === 200 && (await call('GET', 'player', null, c.body.token)).status === 401
     && !after.body.top.some(e => e.value === win.m.score() && e.name.startsWith('Pilot-')) && after.body.total === 2
-    && (await call('POST', 'restore', { code: c.body.player.code })).status === 404, JSON.stringify(after.body.top));
+    && (await call('POST', 'restore', { code: c.body.player.code })).status === 404
+    && (await call('GET', 'board', null, null, { world: 1, kind: 'score' })).body.total === 2, JSON.stringify(after.body.top));
   check('deleting revokes the Sign in with Apple token', del.body.appleRevoked === true && appleCalls.length === 2 && appleCalls.every(x => x.okSig)
     && appleCalls[1].url.endsWith('/revoke') && appleCalls[1].form.token === 'rt-1', JSON.stringify(appleCalls.map(x => x.url)));
 

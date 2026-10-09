@@ -10,6 +10,14 @@ function redisStore(url, token) {
     if (j.error) throw new Error('redis: ' + j.error);
     return j.result;
   };
+  // Several commands in one round trip (Upstash's /pipeline endpoint).
+  const pipeline = async (cmds) => {
+    if (!cmds.length) return [];
+    const r = await fetch(url.replace(/\/$/, '') + '/pipeline', { method: 'POST', headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' }, body: JSON.stringify(cmds) });
+    const j = await r.json();
+    if (!Array.isArray(j)) throw new Error('redis: ' + (j && j.error));
+    return j.map((x) => { if (x.error) throw new Error('redis: ' + x.error); return x.result; });
+  };
   return {
     kind: 'redis',
     get: async (k) => { const v = await cmd('GET', k); return v == null ? null : JSON.parse(v); },
@@ -29,6 +37,9 @@ function redisStore(url, token) {
     },
     zcard: async (k) => cmd('ZCARD', k),
     zrem: async (k, member) => { await cmd('ZREM', k, member); },
+    // One member's score in each of several sorted sets.
+    zscores: async (keys, member) => (await pipeline(keys.map(k => ['ZSCORE', k, member]))).map(v => (v == null ? null : +v)),
+    zremAll: async (keys, member) => { await pipeline(keys.map(k => ['ZREM', k, member])); },
     mget: async (keys) => (keys.length ? (await cmd('MGET', ...keys)).map(v => (v == null ? null : JSON.parse(v))) : []),
   };
 }
@@ -53,6 +64,8 @@ function memoryStore() {
     zrange: async (k, start, stop, desc) => sorted(k, desc).slice(start, stop + 1),
     zcard: async (k) => zs(k).size,
     zrem: async (k, member) => { zs(k).delete(member); },
+    zscores: async (keys, member) => keys.map(k => (zs(k).has(member) ? zs(k).get(member) : null)),
+    zremAll: async (keys, member) => { for (const k of keys) zs(k).delete(member); },
     mget: async (keys) => keys.map(k => (kv.has(k) ? JSON.parse(kv.get(k)) : null)),
     _reset: () => { kv.clear(); z.clear(); },
   };

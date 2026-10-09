@@ -15,6 +15,30 @@ const { mergeProgress } = require('../../js/sync.js');
 
 const LEVEL_BY_ID = Object.fromEntries(LEVELS.filter(l => !l.test).map(l => [l.id, l]));
 const HASHES = Object.fromEntries(Object.values(LEVEL_BY_ID).map(l => [l.id, Replay.levelHash(l)]));
+const boardKey = (L) => 'board:' + L.id + ':' + HASHES[L.id];
+
+// World boards rank the sum of a pilot's best runs over a world's missions.
+// The key carries a hash of every mission's hash, so changing any mission
+// starts a fresh world board, as it does for the mission's own board.
+const WORLD_LEVELS = {};
+for (const L of Object.values(LEVEL_BY_ID)) (WORLD_LEVELS[L.world || 1] = WORLD_LEVELS[L.world || 1] || []).push(L);
+const fnv = (str) => { let h = 0x811c9dc5; for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; } return h.toString(36); };
+const WORLD_KEYS = Object.fromEntries(Object.entries(WORLD_LEVELS).map(([n, ls]) => [n, 'wboard:' + n + ':' + fnv(ls.map(boardKey).join('|'))]));
+
+// Recompute one pilot's world totals from their mission bests. Score counts
+// every mission flown; time only once every mission in the world is done.
+async function updateWorld(store, n, playerId) {
+  const ls = WORLD_LEVELS[n], key = WORLD_KEYS[n];
+  const vals = await store.zscores(ls.flatMap(L => [boardKey(L) + ':score', boardKey(L) + ':time']), playerId);
+  let score = 0, time = 0, flown = 0, done = 0;
+  for (let i = 0; i < ls.length; i++) {
+    if (vals[2 * i] != null) { score += vals[2 * i]; flown++; }
+    if (vals[2 * i + 1] != null) { time += vals[2 * i + 1]; done++; }
+  }
+  if (flown) await store.zadd(key + ':score', playerId, score, 'GT');
+  if (done === ls.length) await store.zadd(key + ':time', playerId, +time.toFixed(2), 'LT');
+  return { score, time: done === ls.length ? +time.toFixed(2) : null, done, of: ls.length };
+}
 
 // ------------------------------------------------------------------ http
 class HttpError extends Error { constructor(status, message) { super(message); this.status = status; } }
@@ -185,11 +209,9 @@ const routes = {
     if (req.method === 'DELETE') {
       // Delete everything the server holds about this pilot.
       const revoked = await appleRevoke(p);
-      for (const L of Object.values(LEVEL_BY_ID)) {
-        const key = 'board:' + L.id + ':' + HASHES[L.id];
-        await store.zrem(key + ':score', p.id); await store.zrem(key + ':time', p.id);
-        await store.del('best:' + key + ':' + p.id);
-      }
+      const boards = Object.values(LEVEL_BY_ID).map(boardKey).concat(Object.values(WORLD_KEYS));
+      await store.zremAll(boards.flatMap(k => [k + ':score', k + ':time']), p.id);
+      for (const L of Object.values(LEVEL_BY_ID)) await store.del('best:' + boardKey(L) + ':' + p.id);
       await store.del('progress:' + p.id);
       await store.del('code:' + p.code);
       if (p.appleSub) await store.del('apple:' + p.appleSub);
@@ -256,41 +278,47 @@ const routes = {
   runs: route(['POST'], async ({ req, body, store }) => {
     const p = await authed(req, store);
     await limit(store, 'run:' + p.id, 30, 60);
-    const log = body.log, L = log && LEVEL_BY_ID[log.level];
+    const log = body.log, L = log && Object.hasOwn(LEVEL_BY_ID, log.level) && LEVEL_BY_ID[log.level];
     if (!L || !Replay.validLog(log)) throw new HttpError(400, 'Not a valid run');
     if (log.hash !== HASHES[L.id]) throw new HttpError(409, 'This mission has changed; update the game to submit runs');
     const m = Replay.replay(L, log, Mission);
     if (m.status !== 'won') throw new HttpError(422, 'The run could not be verified');
     const run = { score: m.score(), time: +m.t.toFixed(2), dv: +m.dvUsed().toFixed(3), stars: m.stars(), at: Date.now() };
-    const key = 'board:' + L.id + ':' + HASHES[L.id];
+    const key = boardKey(L);
     const prevScore = await store.zscore(key + ':score', p.id), prevTime = await store.zscore(key + ':time', p.id);
     await store.zadd(key + ':score', p.id, run.score, 'GT');
     await store.zadd(key + ':time', p.id, run.time, 'LT');
     if (prevScore == null || run.score > prevScore) await store.set('best:' + key + ':' + p.id, { run, log }); // replay kept for ghosts / audits
+    const world = await updateWorld(store, L.world || 1, p.id);
     const rank = async (kind) => { const r = await store.zrank(key + ':' + kind, p.id, kind === 'score'); return r == null ? null : r + 1; };
-    return { run, best: { score: Math.max(run.score, prevScore || 0), time: prevTime == null ? run.time : Math.min(prevTime, run.time) }, rank: { score: await rank('score'), time: await rank('time') }, total: await store.zcard(key + ':score') };
+    return { world, run, best: { score: Math.max(run.score, prevScore || 0), time: prevTime == null ? run.time : Math.min(prevTime, run.time) }, rank: { score: await rank('score'), time: await rank('time') }, total: await store.zcard(key + ':score') };
   }),
 
-  // Leaderboard for one mission: ?level=id&kind=score|time
+  // Leaderboard for one mission (?level=id) or a whole world (?world=n),
+  // with &kind=score|time.
   board: route(['GET'], async ({ req, query, store }) => {
-    const L = LEVEL_BY_ID[query.level];
-    if (!L) throw new HttpError(404, 'Unknown mission');
+    const L = Object.hasOwn(LEVEL_BY_ID, query.level) && LEVEL_BY_ID[query.level];
+    const W = Object.hasOwn(WORLD_KEYS, query.world) && WORLD_KEYS[query.world];
+    if (!L && !W) throw new HttpError(404, query.world != null ? 'Unknown world' : 'Unknown mission');
     const kind = query.kind === 'time' ? 'time' : 'score', desc = kind === 'score';
-    const key = 'board:' + L.id + ':' + HASHES[L.id] + ':' + kind;
+    const key = (L ? boardKey(L) : W) + ':' + kind;
+    const me = await authed(req, store, true);
+    // Looking at a world board also brings your own total up to date (it
+    // covers runs flown before world boards existed).
+    const progress = W && me ? await updateWorld(store, query.world, me.id) : undefined;
     const top = await store.zrange(key, 0, 19, desc);
     const players = await store.mget(top.map(([id]) => 'player:' + id));
-    const me = await authed(req, store, true);
     let mine = null;
     if (me) {
       const r = await store.zrank(key, me.id, desc);
       if (r != null) mine = { rank: r + 1, value: await store.zscore(key, me.id), name: me.name };
     }
     return {
-      level: L.id, kind, total: await store.zcard(key),
+      level: L ? L.id : undefined, world: L ? undefined : +query.world, missions: L ? undefined : WORLD_LEVELS[query.world].length, kind, total: await store.zcard(key),
       top: top.map(([id, value], i) => ({ rank: i + 1, name: players[i] ? players[i].name : 'Pilot', value, me: !!me && me.id === id })),
-      me: mine,
+      me: mine, progress,
     };
   }),
 };
 
-module.exports = { routes, HttpError, mergeProgress, cleanName, normCode, HASHES };
+module.exports = { routes, HttpError, mergeProgress, cleanName, normCode, HASHES, WORLD_LEVELS, boardKey };

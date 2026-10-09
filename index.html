@@ -108,6 +108,7 @@
   <div id="world-info"></div>
   <div id="world-grid" class="level-grid"></div>
   <div class="menu-foot">
+    <button id="btn-boards-menu" class="ghost online-only">Leaderboards</button>
     <button id="btn-profile" class="ghost">Pilot</button>
     <button id="btn-help-menu" class="ghost">Controls</button>
   </div>
@@ -163,6 +164,7 @@
   <div class="card board-card">
     <div class="eyebrow" id="board-eyebrow">Leaderboard</div>
     <h1 id="board-title"></h1>
+    <select id="board-pick" aria-label="Which leaderboard"></select>
     <div class="board-tabs" role="tablist">
       <button data-kind="score" class="active">Top score</button>
       <button data-kind="time">Fastest</button>
