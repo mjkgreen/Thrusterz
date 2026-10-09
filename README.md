@@ -217,14 +217,38 @@ tools/check-scripted.js re-tunes a proof's parameters    (npm run check-scripted
 `physics.js`, `flight.js` and `levels.js` have no DOM dependencies and run
 under Node, which is how the tools use them.
 
+## Online: accounts, cloud save, leaderboards
+
+A pilot account is created the first time it's needed (no sign-up). Progress
+syncs to the server and merges both ways, keeping the best of each; a
+restore code or Sign in with Apple brings it back on another device. Every
+win is submitted to per-mission leaderboards (top score and fastest): the
+game records each flight's control inputs tick by tick (`js/replay.js`) and
+the server re-flies them with the same simulation before ranking, using
+deterministic math (`js/dmath.js`) so a run replays identically on any
+JavaScript engine. Offline, everything still works and runs wait in a queue.
+
+```
+api/                Vercel Functions: player, restore, apple, progress, runs, board
+api/_lib/           routes, Upstash Redis store (in-memory locally)
+js/online.js        client: account, sync, run queue, Apple sign-in
+js/config.js        API address for the app, Sign in with Apple client ID
+npm run dev         game + API on http://localhost:8080
+```
+
+## iOS app
+
+`ios/` is a Capacitor 8 project; `npm run ios` builds `www/`, syncs and opens
+Xcode. Step-by-step release guide: [docs/APP_STORE.md](docs/APP_STORE.md).
+
 ## Stability
 
 The game loop survives a failing frame, physics and path prediction run on
 per-frame time budgets (time warp steps down if a device can't keep up),
 numerical blow-ups end the mission cleanly, and saved progress is validated
 on load. Add `?debug` to the URL for an fps / script-time readout. Both test
-suites run on every push (`.github/workflows/test.yml`). For packaging as an
-iOS / Android app see [docs/APP_STORE.md](docs/APP_STORE.md).
+suites run on every push (`.github/workflows/test.yml`). For the App Store
+release steps see [docs/APP_STORE.md](docs/APP_STORE.md).
 
 ## Roadmap
 

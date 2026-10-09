@@ -1,6 +1,7 @@
 // Level definitions. Each level introduces or combines a mechanic.
 (function (root) {
   'use strict';
+  const DM = root.DMath || (typeof require !== 'undefined' ? require('./dmath.js') : null);
 
   const VE = 10; // exhaust velocity for all stock engines
 
@@ -22,20 +23,20 @@
       let above = cargoMass;
       for (let k = o.stack.length - 1; k >= 0; k--) {
         const st = o.stack[k], sve = st.ve || ve, dry = st.dry != null ? st.dry : 1;
-        const fuel = (dry + above) * (Math.exp(st.dv / sve) - 1);
+        const fuel = (dry + above) * (DM.exp(st.dv / sve) - 1);
         stages[k] = { id: st.id, name: st.name, sprite: st.sprite || (k === o.stack.length - 1 ? 'satellite' : 'booster'), dryMass: dry, fuel, thrust: st.accel * (dry + fuel + above), ve: sve };
         above += dry + fuel;
       }
     } else if (o.payload) {
       const p = o.payload, pDry = p.dry || 0.25, pve = p.ve || ve;
-      const pFuel = pDry * (Math.exp(p.dv / pve) - 1), pMass = pDry + pFuel;
-      const bFuel = (1 + pMass) * (Math.exp(o.dv / ve) - 1); // booster dry mass 1
+      const pFuel = pDry * (DM.exp(p.dv / pve) - 1), pMass = pDry + pFuel;
+      const bFuel = (1 + pMass) * (DM.exp(o.dv / ve) - 1); // booster dry mass 1
       stages = [
         { name: o.name || 'Booster', sprite: 'booster', dryMass: 1, fuel: bFuel, thrust: o.accel * (1 + bFuel + pMass), ve },
         { name: p.name || 'Satellite', sprite: 'satellite', dryMass: pDry, fuel: pFuel, thrust: p.accel * pMass, ve: pve },
       ];
     } else {
-      const fuel = (1 + cargoMass) * (Math.exp(o.dv / ve) - 1); // dry mass 1, Δv with cargo aboard
+      const fuel = (1 + cargoMass) * (DM.exp(o.dv / ve) - 1); // dry mass 1, Δv with cargo aboard
       stages = [{ dryMass: 1, fuel, thrust: o.accel * (1 + fuel + cargoMass), ve }];
     }
     return {

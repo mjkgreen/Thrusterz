@@ -3,6 +3,7 @@
 (function (root) {
   'use strict';
   const Phys = root.Phys || (typeof require !== 'undefined' ? require('./physics.js') : null);
+  const DM = root.DMath || (typeof require !== 'undefined' ? require('./dmath.js') : null);
 
   const FIXED_DT = 1 / 120;      // step size while engines fire
   const MAX_COAST_DT = 0.25;     // largest coast step
@@ -71,12 +72,12 @@
       const o = spec.start.orbit;
       const b = sys.byId[o.body], i = b.index;
       const dir = o.dir || 1, v = (o.speed || 1) * Math.sqrt(b.gm / o.r);
-      s.x = sys.px[i] + o.r * Math.cos(o.angle);
-      s.y = sys.py[i] + o.r * Math.sin(o.angle);
-      s.vx = sys.vx[i] - dir * v * Math.sin(o.angle);
-      s.vy = sys.vy[i] + dir * v * Math.cos(o.angle);
+      s.x = sys.px[i] + o.r * DM.cos(o.angle);
+      s.y = sys.py[i] + o.r * DM.sin(o.angle);
+      s.vx = sys.vx[i] - dir * v * DM.sin(o.angle);
+      s.vy = sys.vy[i] + dir * v * DM.cos(o.angle);
       const h = spec.heading;
-      const pro = Math.atan2(s.vy - sys.vy[i], s.vx - sys.vx[i]);
+      const pro = DM.atan2(s.vy - sys.vy[i], s.vx - sys.vx[i]);
       if (h === 'prograde' || h == null) s.angle = pro;
       else if (h === 'retrograde') s.angle = pro + Math.PI;
       else if (h === 'up') s.angle = o.angle;
@@ -90,10 +91,10 @@
       sys.update(this.t);
       const th = L.theta0 + b.spin * this.t;
       const R = b.radius * 1.0005;
-      s.x = sys.px[L.body] + R * Math.cos(th);
-      s.y = sys.py[L.body] + R * Math.sin(th);
-      s.vx = sys.vx[L.body] - b.spin * R * Math.sin(th);
-      s.vy = sys.vy[L.body] + b.spin * R * Math.cos(th);
+      s.x = sys.px[L.body] + R * DM.cos(th);
+      s.y = sys.py[L.body] + R * DM.sin(th);
+      s.vx = sys.vx[L.body] - b.spin * R * DM.sin(th);
+      s.vy = sys.vy[L.body] + b.spin * R * DM.cos(th);
       s.angle = th;
       s.omega = b.spin;
     }
@@ -115,7 +116,7 @@
         let m = this.cargoMass();
         for (let i = k; i < this.stages.length; i++) m += this.stages[i].dryMass + this.stages[i].fuel;
         const st = this.stages[k];
-        dv += st.ve * Math.log(m / (m - st.fuel));
+        dv += st.ve * DM.log(m / (m - st.fuel));
       }
       return dv;
     }
@@ -126,7 +127,7 @@
       let m = this.cargoMass();
       for (let i = k; i < this.stages.length; i++) m += this.stages[i].dryMass + this.stages[i].fuel;
       const st = this.stages[k];
-      return st.ve * Math.log(m / (m - st.fuel));
+      return st.ve * DM.log(m / (m - st.fuel));
     }
 
     // Δv actually burned. Dropping cargo or a stage makes the rest of the
@@ -183,7 +184,7 @@
       const s = this.ship, push = 0.4, st = this.stageSpec;
       this.debris.push({
         id: st.id || 'stage' + (this.stage + 1), name: st.name || 'Booster',
-        x: s.x, y: s.y, vx: s.vx - push * Math.cos(s.angle), vy: s.vy - push * Math.sin(s.angle),
+        x: s.x, y: s.y, vx: s.vx - push * DM.cos(s.angle), vy: s.vy - push * DM.sin(s.angle),
         angle: s.angle, omega: s.omega + 0.6, alive: true, sprite: this.stageSpec.sprite || 'booster',
       });
       this.stage++;
@@ -210,7 +211,7 @@
       sys.update(this.t);
       const H = sys.dominant(s.x, s.y, this.t), hb = sys.bodies[H];
       const orb = this.orbitAbout({ x: sys.px[H], y: sys.py[H], vx: sys.vx[H], vy: sys.vy[H] }, hb.id, s);
-      const period = orb.bound ? 2 * Math.PI * Math.sqrt(Math.pow((orb.pe + orb.ap) / 2, 3) / hb.gm) : 0;
+      const period = orb.bound ? 2 * Math.PI * Math.sqrt(DM.pow((orb.pe + orb.ap) / 2, 3) / hb.gm) : 0;
       const horizon = orb.bound ? Math.min(1.05 * period, 3000) : 600;
       const ts = [this.t], xs = [s.x], ys = [s.y];
       let t = this.t;
@@ -313,7 +314,7 @@
       if (throttle > 0) {
         const st = this.stageSpec;
         const a = st.thrust * throttle / this.mass();
-        tax = a * Math.cos(s.angle); tay = a * Math.sin(s.angle);
+        tax = a * DM.cos(s.angle); tay = a * DM.sin(s.angle);
         this.dvSpent += a * h;
         st.fuel = Math.max(0, st.fuel - st.thrust * throttle / st.ve * h);
       }
@@ -322,7 +323,7 @@
         // Lift off once thrust beats local gravity.
         const b = sys.bodies[this.landed.body];
         const g = b.gm / (b.radius * b.radius);
-        if (throttle > 0 && Math.hypot(tax, tay) > g) {
+        if (throttle > 0 && DM.hypot(tax, tay) > g) {
           this._syncLanded();
           this.landed = null;
           this.ignoreBody = b.index;
@@ -376,7 +377,7 @@
           this.collected.add(b.index);
           const st = this.stageSpec;
           if (st) {
-            st.fuel += this.mass() * (Math.exp(b.dv / st.ve) - 1);
+            st.fuel += this.mass() * (DM.exp(b.dv / st.ve) - 1);
             this.dvGained += b.dv;
           }
           this.events.push({ t: this.t, type: 'pickup', dv: b.dv, body: b.index });
@@ -393,7 +394,7 @@
       const hit = Phys.collision(sys, s.x, s.y, this.t);
       if (hit >= 0) {
         const pad = hit === this.ignoreBody ? sys.bodies[hit] : null;
-        if (pad && Math.hypot(s.x - sys.px[hit], s.y - sys.py[hit]) > pad.radius * 0.99) {
+        if (pad && DM.hypot(s.x - sys.px[hit], s.y - sys.py[hit]) > pad.radius * 0.99) {
           // Still clearing the launch pad.
         } else {
           const g = this.currentGoal();
@@ -409,7 +410,7 @@
         }
       } else if (this.ignoreBody != null) {
         const b = sys.bodies[this.ignoreBody];
-        const d = Math.hypot(s.x - sys.px[b.index], s.y - sys.py[b.index]);
+        const d = DM.hypot(s.x - sys.px[b.index], s.y - sys.py[b.index]);
         if (d > b.radius * 1.05) this.ignoreBody = null;
       }
 
@@ -426,7 +427,7 @@
         else if (g.type === 'hold') {
           // Park at a point (e.g. a Lagrange point): inside the zone AND
           // moving with it, so drifting through slowly doesn't count.
-          const rv = Math.hypot(o.vx - ref.vx, o.vy - ref.vy);
+          const rv = DM.hypot(o.vx - ref.vx, o.vy - ref.vy);
           this.goalErr = Math.max(0, d - g.r) + 20 * Math.max(0, rv - (g.relVel || 1));
           if (d < g.r && rv < (g.relVel || 1)) {
             this.holdTime += h;
@@ -446,13 +447,13 @@
             if (this.holdTime >= (g.confirm || 3)) this._completeGoal();
           } else this.holdTime = 0;
         } else if (g.type === 'rendezvous') {
-          const dv = Math.hypot(o.vx - ref.vx, o.vy - ref.vy);
+          const dv = DM.hypot(o.vx - ref.vx, o.vy - ref.vy);
           if (d < g.dist && dv < g.relVel) this._completeGoal();
         }
       }
 
       if (this.status !== 'flying') return;
-      if (Math.hypot(s.x, s.y) > L.bounds) { this.status = 'lost'; this.message = 'Lost in deep space.'; }
+      if (DM.hypot(s.x, s.y) > L.bounds) { this.status = 'lost'; this.message = 'Lost in deep space.'; }
       else if (this.t > L.tMax) { this.status = 'timeout'; this.message = 'Mission clock ran out.'; }
     }
 
@@ -468,7 +469,7 @@
         const e = orb.bound ? Math.max(0, g.rMin - orb.pe) + Math.max(0, orb.ap - g.rMax) : 300;
         if (e === 0) inBand++;
         err += e;
-        angs.push(Math.atan2(c.y - ref.y, c.x - ref.x));
+        angs.push(DM.atan2(c.y - ref.y, c.x - ref.x));
       }
       let sep = Infinity;
       for (let i = 0; i < angs.length; i++) for (let j = i + 1; j < angs.length; j++) {
@@ -494,7 +495,7 @@
     orbitAbout(ref, bodyId, obj) {
       const s = obj || this.ship, gm = this.sys.byId[bodyId].gm;
       const rx = s.x - ref.x, ry = s.y - ref.y, vx = s.vx - ref.vx, vy = s.vy - ref.vy;
-      const r = Math.hypot(rx, ry), v2 = vx * vx + vy * vy;
+      const r = DM.hypot(rx, ry), v2 = vx * vx + vy * vy;
       const eps = v2 / 2 - gm / r, h = rx * vy - ry * vx;
       const e = Math.sqrt(Math.max(0, 1 + 2 * eps * h * h / (gm * gm)));
       if (eps >= 0) return { bound: false, pe: h * h / (gm * (1 + e)), ap: Infinity, dir: h > 0 ? 1 : -1 };
@@ -511,7 +512,7 @@
       if (g.lagrange) {
         // Point sharing the body's orbit, `lead` radians ahead of it (L4 = +60°).
         const b = sys.byId[g.lagrange.body], i = b.index, p = b.parent;
-        const c = Math.cos(g.lagrange.lead), sn = Math.sin(g.lagrange.lead);
+        const c = DM.cos(g.lagrange.lead), sn = DM.sin(g.lagrange.lead);
         const rx = sys.px[i] - sys.px[p], ry = sys.py[i] - sys.py[p];
         const ux = sys.vx[i] - sys.vx[p], uy = sys.vy[i] - sys.vy[p];
         return {
@@ -532,7 +533,7 @@
       if (!g.site) return true;
       const sys = this.sys, b = sys.byId[g.body];
       sys.update(t);
-      const a = Math.atan2(y - sys.py[b.index], x - sys.px[b.index]) - b.spin * t;
+      const a = DM.atan2(y - sys.py[b.index], x - sys.px[b.index]) - b.spin * t;
       let d = (a - g.site.angle) % (2 * Math.PI);
       if (d > Math.PI) d -= 2 * Math.PI;
       if (d < -Math.PI) d += 2 * Math.PI;

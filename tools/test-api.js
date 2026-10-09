@@ -100,6 +100,31 @@ function winningLog(wait = 0) {
   const again = await call('POST', 'runs', { log: slow }, tokA);
   check('a worse repeat does not lower your best', again.body.best.score === sub.body.run.score && again.body.rank.score === 1);
 
+  // Account deletion (required by the App Store), including Apple revocation.
+  const ec = crypto.generateKeyPairSync('ec', { namedCurve: 'P-256' });
+  Object.assign(process.env, { APPLE_TEAM_ID: 'TEAM', APPLE_KEY_ID: 'KEY', APPLE_PRIVATE_KEY: ec.privateKey.export({ type: 'pkcs8', format: 'pem' }) });
+  const appleCalls = [];
+  const prevFetch = globalThis.fetch;
+  globalThis.fetch = async (url, opts) => {
+    if (/appleid\.apple\.com\/auth\/(token|revoke)/.test(url)) {
+      const f = new URLSearchParams(opts.body), secret = f.get('client_secret').split('.');
+      const okSig = crypto.verify('sha256', Buffer.from(secret[0] + '.' + secret[1]), { key: ec.publicKey, dsaEncoding: 'ieee-p1363' }, Buffer.from(secret[2], 'base64url'));
+      appleCalls.push({ url: String(url), okSig, form: Object.fromEntries(f) });
+      return { ok: true, json: async () => ({ refresh_token: 'rt-1' }) };
+    }
+    return prevFetch(url, opts);
+  };
+  const c = await call('POST', 'player');
+  await call('POST', 'apple', { identityToken: appleToken('apple-user-del'), authorizationCode: 'code-1', link: true }, c.body.token);
+  await call('POST', 'runs', { log: win.log }, c.body.token);
+  const del = await call('DELETE', 'player', null, c.body.token);
+  const after = await call('GET', 'board', null, null, { level: 'deorbit', kind: 'score' });
+  check('delete account removes it everywhere', del.status === 200 && (await call('GET', 'player', null, c.body.token)).status === 401
+    && !after.body.top.some(e => e.value === win.m.score() && e.name.startsWith('Pilot-')) && after.body.total === 2
+    && (await call('POST', 'restore', { code: c.body.player.code })).status === 404, JSON.stringify(after.body.top));
+  check('deleting revokes the Sign in with Apple token', del.body.appleRevoked === true && appleCalls.length === 2 && appleCalls.every(x => x.okSig)
+    && appleCalls[1].url.endsWith('/revoke') && appleCalls[1].form.token === 'rt-1', JSON.stringify(appleCalls.map(x => x.url)));
+
   server.close();
   process.exit(failed ? 1 : 0);
 })().catch((e) => { console.error(e); process.exit(1); });

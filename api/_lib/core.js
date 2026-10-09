@@ -23,7 +23,7 @@ function cors(res) {
   // Auth is a bearer token, never a cookie, so any origin (the web build, the
   // iOS app's capacitor://localhost) may call the API.
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   res.setHeader('Access-Control-Max-Age', '86400');
 }
@@ -137,19 +137,65 @@ async function verifyAppleToken(idToken) {
   const ok = crypto.verify('RSA-SHA256', Buffer.from(parts[0] + '.' + parts[1]), crypto.createPublicKey({ key: jwk, format: 'jwk' }), Buffer.from(parts[2], 'base64url'));
   if (!ok) throw new HttpError(401, 'Apple token signature is invalid');
   if (claims.iss !== 'https://appleid.apple.com' || !aud.includes(claims.aud) || claims.exp * 1000 < Date.now()) throw new HttpError(401, 'Apple token is expired or not for this app');
-  return claims.sub;
+  return claims;
+}
+
+// Apple requires that deleting an account also revokes its Sign in with Apple
+// tokens. With APPLE_TEAM_ID, APPLE_KEY_ID and APPLE_PRIVATE_KEY (a .p8 key
+// with Sign in with Apple enabled) set, the server trades the one-time
+// authorization code for a refresh token at sign-in and revokes it on delete.
+function appleClientSecret(clientId) {
+  const { APPLE_TEAM_ID: team, APPLE_KEY_ID: kid } = process.env;
+  const pem = (process.env.APPLE_PRIVATE_KEY || '').replace(/\\n/g, '\n');
+  if (!team || !kid || !pem) return null;
+  const enc = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
+  const now = Math.floor(Date.now() / 1000);
+  const data = enc({ alg: 'ES256', kid }) + '.' + enc({ iss: team, iat: now, exp: now + 300, aud: 'https://appleid.apple.com', sub: clientId });
+  const sig = crypto.sign('sha256', Buffer.from(data), { key: pem, dsaEncoding: 'ieee-p1363' });
+  return data + '.' + sig.toString('base64url');
+}
+async function appleForm(endpoint, fields) {
+  const r = await fetch('https://appleid.apple.com/auth/' + endpoint, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams(fields).toString() });
+  return endpoint === 'token' ? r.json() : r.ok;
+}
+async function appleRefreshToken(code, clientId) {
+  const secret = code && appleClientSecret(clientId);
+  if (!secret) return null;
+  try {
+    const j = await appleForm('token', { client_id: clientId, client_secret: secret, code, grant_type: 'authorization_code' });
+    return j.refresh_token || null;
+  } catch (e) { return null; }
+}
+async function appleRevoke(p) {
+  const secret = p.appleRefresh && appleClientSecret(p.appleAud);
+  if (!secret) return false;
+  try { return await appleForm('revoke', { client_id: p.appleAud, client_secret: secret, token: p.appleRefresh, token_type_hint: 'refresh_token' }); } catch (e) { return false; }
 }
 
 // ---------------------------------------------------------------- routes
 const routes = {
   // POST: create an account (first launch). GET: who am I. PATCH: rename.
-  player: route(['GET', 'POST', 'PATCH'], async ({ req, body, store }) => {
+  player: route(['GET', 'POST', 'PATCH', 'DELETE'], async ({ req, body, store }) => {
     if (req.method === 'POST') {
       await limit(store, 'new:' + clientIp(req), 20, 3600);
       const { player, token } = await createPlayer(store);
       return { player: publicPlayer(player), token };
     }
     const p = await authed(req, store);
+    if (req.method === 'DELETE') {
+      // Delete everything the server holds about this pilot.
+      const revoked = await appleRevoke(p);
+      for (const L of Object.values(LEVEL_BY_ID)) {
+        const key = 'board:' + L.id + ':' + HASHES[L.id];
+        await store.zrem(key + ':score', p.id); await store.zrem(key + ':time', p.id);
+        await store.del('best:' + key + ':' + p.id);
+      }
+      await store.del('progress:' + p.id);
+      await store.del('code:' + p.code);
+      if (p.appleSub) await store.del('apple:' + p.appleSub);
+      await store.del('player:' + p.id);
+      return { deleted: true, appleRevoked: revoked };
+    }
     if (req.method === 'PATCH') {
       await limit(store, 'name:' + p.id, 10, 3600);
       p.name = cleanName(body.name);
@@ -172,16 +218,23 @@ const routes = {
   // Not signed in: return the linked account, or make a new one.
   apple: route(['POST'], async ({ req, body, store }) => {
     await limit(store, 'apple:' + clientIp(req), 20, 600);
-    const sub = await verifyAppleToken(body.identityToken);
+    const claims = await verifyAppleToken(body.identityToken), sub = claims.sub;
     const linked = await store.get('apple:' + sub);
     const me = await authed(req, store, true);
+    const attach = async (p) => {
+      p.appleSub = sub; p.appleAud = claims.aud;
+      const refresh = await appleRefreshToken(body.authorizationCode, claims.aud);
+      if (refresh) p.appleRefresh = refresh;
+      await store.set('player:' + p.id, p); await store.set('apple:' + sub, p.id);
+    };
     if (me && body.link) {
       if (linked && linked !== me.id) throw new HttpError(409, 'That Apple ID is already linked to another pilot');
-      me.appleSub = sub; await store.set('player:' + me.id, me); await store.set('apple:' + sub, me.id);
+      await attach(me);
       return { player: publicPlayer(me) };
     }
     let p = linked && await store.get('player:' + linked);
-    if (!p) { p = (await createPlayer(store)).player; p.appleSub = sub; await store.set('apple:' + sub, p.id); }
+    if (!p) { p = (await createPlayer(store)).player; await attach(p); }
+    else if (!p.appleRefresh && body.authorizationCode) await attach(p);
     const token = await newSession(store, p);
     return { player: publicPlayer(p), token, progress: (await store.get('progress:' + p.id)) || {} };
   }),

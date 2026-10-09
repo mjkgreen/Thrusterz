@@ -15,7 +15,10 @@ let failed = 0;
 const check = (name, ok, info) => { console.log((ok ? 'ok   ' : 'FAIL ') + name + (info ? '  ' + info : '')); if (!ok) failed++; };
 
 (async () => {
-  const browser = await playwright.chromium.launch(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {});
+  // BROWSER=webkit runs the same checks in Safari's engine (where installed).
+  const engine = process.env.BROWSER === 'webkit' ? 'webkit' : 'chromium';
+  const browser = await playwright[engine].launch(engine === 'chromium' && process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {});
+  console.log('engine: ' + engine);
   const errors = [];
   const watch = (p) => {
     p.on('pageerror', e => errors.push(e.message));
@@ -52,8 +55,35 @@ const check = (name, ok, info) => { console.log((ok ? 'ok   ' : 'FAIL ') + name 
     await p.close();
   }
 
-  // 3. Two-finger taps on a phone: pause and retry while BURN is held.
+  // 2b. A flight recorded by the real game loop replays identically in Node
+  //     (what the leaderboard server does with a submitted run).
   {
+    globalThis.Phys = globalThis.Phys || require('../js/physics.js');
+    const { Mission } = require('../js/flight.js');
+    const { LEVELS } = require('../js/levels.js');
+    const Replay = require('../js/replay.js');
+    const p = await browser.newPage({ viewport: { width: 1000, height: 600 } });
+    watch(p);
+    await p.goto(URL + '?unlock');
+    await p.waitForTimeout(300);
+    const bad = [];
+    for (const i of [3, 12, 30, 36, 59]) {
+      await p.evaluate((i) => { window.Thrusterz.startLevel(i); document.getElementById('gate').classList.add('hidden'); }, i);
+      for (const [key, ms] of [['KeyA', 300], ['Space', 900], ['KeyD', 200], ['KeyE', 50], ['Space', 600], ['Period', 50], ['Period', 50], ['KeyG', 50]]) {
+        await p.keyboard.down(key); await p.waitForTimeout(ms); await p.keyboard.up(key);
+      }
+      await p.waitForTimeout(800);
+      const r = await p.evaluate(() => { const S = window.Thrusterz.state, m = S.mission; S.paused = true; return { log: JSON.parse(JSON.stringify(S.rec)), t: m.t, x: m.ship.x, y: m.ship.y, status: m.status, id: m.level.id }; });
+      const L = LEVELS.find(l => l.id === r.id), m = Replay.replay(L, r.log, Mission);
+      if (!(m.t === r.t && m.ship.x === r.x && m.ship.y === r.y && m.status === r.status)) bad.push(`${r.id} (browser t=${r.t} x=${r.x}, node t=${m.t} x=${m.ship.x})`);
+    }
+    check('flights recorded in the browser replay exactly in Node', bad.length === 0, bad.join('; '));
+    await p.close();
+  }
+
+  // 3. Two-finger taps on a phone: pause and retry while BURN is held.
+  //    (Raw multi-touch input needs Chromium's DevTools protocol.)
+  if (engine === 'chromium') {
     const ctx = await browser.newContext({ viewport: { width: 844, height: 390 }, isMobile: true, hasTouch: true });
     const p = await ctx.newPage();
     watch(p);

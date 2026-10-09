@@ -173,15 +173,15 @@
       clientId: CFG.appleClientId, redirectURI: 'https://appleid.apple.com', scopes: '',
       state: Math.random().toString(36).slice(2), nonce: Math.random().toString(36).slice(2),
     });
-    return r.response.identityToken;
+    return { identityToken: r.response.identityToken, authorizationCode: r.response.authorizationCode };
   }
 
   // Signed in with a code-only account: link Apple to it. Otherwise sign in.
   async function signInWithApple() {
-    const identityToken = await appleToken();
+    const tok = await appleToken();
     if (state.account && state.account.token) {
       try {
-        const r = await api('POST', 'apple', { identityToken, link: true });
+        const r = await api('POST', 'apple', Object.assign({ link: true }, tok));
         saveAccount(Object.assign({}, state.account, { player: r.player }));
         return r.player;
       } catch (e) {
@@ -189,7 +189,17 @@
         // That Apple ID already has a pilot: switch to it (keeping local stars).
       }
     }
-    return adopt(await api('POST', 'apple', { identityToken }));
+    return adopt(await api('POST', 'apple', tok));
+  }
+
+  // Delete the account and everything the server holds about it. Stars on
+  // this device stay; a fresh account is made the next time one is needed.
+  async function deleteAccount() {
+    if (!(state.account && state.account.token)) return;
+    await api('DELETE', 'player');
+    state.queue = []; Store.set(QUEUE, []);
+    saveAccount(null);
+    setStatus('idle');
   }
 
   // At startup: pull the native copies (they survive WebView storage being
@@ -204,7 +214,7 @@
 
   const Online = {
     state, Store, start, bindProgress, saveProgressSoon, syncNow, submitRun, board, rename, restore,
-    signInWithApple, appleAvailable, ensureAccount,
+    signInWithApple, appleAvailable, ensureAccount, deleteAccount,
     available: () => apiBase() != null,
     onChange: (f) => listeners.push(f),
     native,

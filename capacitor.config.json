@@ -1,0 +1,14 @@
+{
+  "appId": "com.thrusterz.game",
+  "appName": "Thrusterz",
+  "webDir": "www",
+  "backgroundColor": "#05060d",
+  "ios": {
+    "contentInset": "never",
+    "backgroundColor": "#05060d",
+    "scrollEnabled": false
+  },
+  "plugins": {
+    "StatusBar": { "overlaysWebView": true, "style": "DARK" }
+  }
+}

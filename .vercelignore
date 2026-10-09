@@ -1,0 +1,6 @@
+# Native projects and tooling don't belong on the website.
+ios
+android
+www
+tools
+docs

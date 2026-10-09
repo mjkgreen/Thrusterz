@@ -419,3 +419,5 @@ button.apple { background: #fff !important; color: #000 !important; border-color
   .pf-row { margin-top: 10px; }
   #board-list { max-height: 38vh; }
 }
+button.danger { color: var(--bad) !important; border-color: rgba(255, 107, 107, 0.35) !important; }
+a.plain { color: var(--muted); }

@@ -576,8 +576,16 @@
   // Did the ship itself end the mission by hitting its target?
   function shipImpactWin(m) { const g = m.level.goals[m.level.goals.length - 1]; return g.type === 'hit' && !g.craft; }
 
+  // A small buzz on the phone (app only) when a mission ends.
+  function haptic(won) {
+    const H = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Haptics;
+    if (!H) return;
+    (won ? H.notification({ type: 'SUCCESS' }) : H.impact({ style: 'HEAVY' })).catch(() => {});
+  }
+
   function onMissionEnd() {
     const m = state.mission;
+    haptic(m.status === 'won');
     state.endTime = performance.now();
     state.endDelay = 1600;
     // A spent stage doomed to hit something: pull back and let the player see
@@ -1960,6 +1968,7 @@
     $('pf-code').textContent = p ? p.code : '····-····-····';
     $('pf-apple-row').style.display = Online.appleAvailable() ? '' : 'none';
     $('btn-pf-apple').style.display = p && p.apple ? 'none' : '';
+    $('btn-pf-delete').style.display = p ? '' : 'none';
     $('pf-apple-state').textContent = p && p.apple ? '✓ Signed in with Apple. Your stars follow your Apple ID.' : '';
     const st = Online.state.status, el = $('pf-status');
     el.className = 'small' + (st === 'offline' ? ' warn' : '');
@@ -1981,6 +1990,8 @@
     btn.disabled = false; renderProfile();
   };
   $('btn-profile').onclick = showProfile;
+  // In the app the bundled page can't open in a new tab: link to the website copy.
+  if (Online.native() && (window.THRUSTERZ_CONFIG || {}).apiBase) document.querySelector('#profile a.plain').href = window.THRUSTERZ_CONFIG.apiBase + '/privacy.html';
   $('btn-pf-close').onclick = () => { hide('profile'); showMenu(); };
   $('btn-pf-rename').onclick = () => busy($('btn-pf-rename'), async () => { await Online.rename($('pf-name-input').value); toast('Name saved', 1.2); });
   $('btn-pf-restore').onclick = () => busy($('btn-pf-restore'), async () => {
@@ -1991,6 +2002,12 @@
     toast('Account restored. Your stars are back.', 2);
   });
   $('btn-pf-apple').onclick = () => busy($('btn-pf-apple'), async () => { await Online.signInWithApple(); toast('Signed in with Apple', 1.5); });
+  $('btn-pf-delete').onclick = () => busy($('btn-pf-delete'), async () => {
+    if (!Online.state.account) throw new Error('There is no online account on this device');
+    if (!confirm('Delete your pilot account? Your name, leaderboard runs and cloud save are removed for good. Stars on this device stay.')) return;
+    await Online.deleteAccount();
+    toast('Account deleted', 1.5);
+  });
   $('btn-pf-copy').onclick = async () => {
     const a = Online.state.account; if (!a) return;
     try { await navigator.clipboard.writeText(a.player.code); toast('Restore code copied', 1.2); } catch (e) { toast(a.player.code, 3); }

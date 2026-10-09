@@ -28,6 +28,7 @@ function redisStore(url, token) {
       return out;
     },
     zcard: async (k) => cmd('ZCARD', k),
+    zrem: async (k, member) => { await cmd('ZREM', k, member); },
     mget: async (keys) => (keys.length ? (await cmd('MGET', ...keys)).map(v => (v == null ? null : JSON.parse(v))) : []),
   };
 }
@@ -51,6 +52,7 @@ function memoryStore() {
     zrank: async (k, member, desc) => { const i = sorted(k, desc).findIndex(e => e[0] === member); return i < 0 ? null : i; },
     zrange: async (k, start, stop, desc) => sorted(k, desc).slice(start, stop + 1),
     zcard: async (k) => zs(k).size,
+    zrem: async (k, member) => { zs(k).delete(member); },
     mget: async (keys) => keys.map(k => (kv.has(k) ? JSON.parse(kv.get(k)) : null)),
     _reset: () => { kv.clear(); z.clear(); },
   };

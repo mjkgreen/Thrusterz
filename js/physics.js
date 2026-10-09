@@ -5,12 +5,14 @@
 // particle feeling the gravity of every massive body.
 (function (root) {
   'use strict';
+  // Deterministic sin/cos/exp/log (see dmath.js): replays must match on every engine.
+  const DM = root.DMath || (typeof require !== 'undefined' ? require('./dmath.js') : null);
 
   function solveKepler(M, e) {
     if (e === 0) return M;
     let E = e < 0.8 ? M : Math.PI;
     for (let i = 0; i < 40; i++) {
-      const dE = (E - e * Math.sin(E) - M) / (1 - e * Math.cos(E));
+      const dE = (E - e * DM.sin(E) - M) / (1 - e * DM.cos(E));
       E -= dE;
       if (Math.abs(dE) < 1e-12) break;
     }
@@ -65,7 +67,7 @@
         const reflex = o.reflex !== false && b.msys > 0;
         if (!o.n) o.n = Math.sqrt((o.mu != null ? o.mu : p.gm + (reflex ? b.msys : 0)) / (o.a * o.a * o.a));
         o.b = o.a * Math.sqrt(1 - o.e * o.e);
-        o.cw = Math.cos(o.argp); o.sw = Math.sin(o.argp);
+        o.cw = DM.cos(o.argp); o.sw = DM.sin(o.argp);
         o.w = reflex ? b.msys / p.msys : 0; // share of the relative orbit taken by the parent
         o.mu = o.n * o.n * o.a * o.a * o.a;   // effective two-body μ of the rail
       }
@@ -73,7 +75,7 @@
       for (const b of this.bodies) {
         // Comparable-mass partners (binary stars) have no meaningful SOI.
         const ratio = b.orbit && b.gm > 0 ? b.gm / this.bodies[b.parent].gm : 0;
-        b.soi = ratio > 0 && ratio < 0.25 ? b.orbit.a * Math.pow(ratio, 0.4) : Infinity;
+        b.soi = ratio > 0 && ratio < 0.25 ? b.orbit.a * DM.pow(ratio, 0.4) : Infinity;
         b.depth = b.orbit ? 1 + (this.bodies[b.parent].depth || 0) : 0;
       }
       const n = this.bodies.length;
@@ -96,7 +98,7 @@
     _rel(i, t) {
       const o = this.bodies[i].orbit;
       const E = solveKepler(o.phase + o.n * t, o.e);
-      const cE = Math.cos(E), sE = Math.sin(E);
+      const cE = DM.cos(E), sE = DM.sin(E);
       const Ed = o.n / (1 - o.e * cE);
       const x = o.a * (cE - o.e), ux = -o.a * sE * Ed;
       let y = o.b * sE, uy = o.b * cE * Ed;
@@ -170,8 +172,8 @@
     _relAt(i, t, out) {
       const o = this.bodies[i].orbit;
       const E = solveKepler(o.phase + o.n * t, o.e);
-      const x = o.a * (Math.cos(E) - o.e);
-      let y = o.b * Math.sin(E);
+      const x = o.a * (DM.cos(E) - o.e);
+      let y = o.b * DM.sin(E);
       if (o.dir < 0) y = -y;
       out[0] = x * o.cw - y * o.sw; out[1] = x * o.sw + y * o.cw;
       return out;
