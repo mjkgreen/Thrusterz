@@ -92,10 +92,15 @@ you do it, and stops appearing after you've mastered it.
   protected object. A stage left on a bound orbit that crosses a protected
   object's orbit fails the mission at once, since it would hit eventually; the
   danger band and crossing points are shown.
-- **Keep-out zones** (prototype for World 3) — a red zone your ship may not
-  enter, though cargo may. Zones can ride their own orbits; the dashed path
-  turns red where it would cross one, with a ghost of the zone at that moment.
-  Test levels: *Keep Out*, *Patrol*, *Wide Berth*.
+- **Keep-out zones** (World 3) — a red zone your ship may not enter, though
+  cargo may. An amber zone (`zone: 'all'`) is closed to everything: dropped
+  cargo may enter only the zone it is delivered to, and spent stages are
+  judged like World 2 debris. Zones ride their own orbits; the dashed path
+  turns red where it would cross one, and before you deploy the HUD says where
+  the spent stage would end up.
+- **Side-thruster budgets** (World 3) — some missions give the side thrusters
+  only a few seconds of propellant, so every flip counts. The HUD warns when
+  it runs low.
 - **Δv used** is the Δv you actually burned, so dropping cargo (which leaves
   the rest of the ship lighter) doesn't count as saving fuel.
 - **Fuel pickups** — fly through a canister to add its Δv to the current
@@ -177,10 +182,11 @@ The reference frame starts on **Auto**: it follows the body whose sphere of
 influence you're in, or the star you're orbiting when you're in none.
 
 World 2 flies through a green nebula with distant planets in the background,
-so you can always tell the worlds apart. **Test levels** prototype upcoming
-mechanics: *Fuel Run*; keep-out zones (*Keep Out*, *Patrol*, *Wide Berth*);
-side-thruster budgets (*Fixed Heading*, *Spin Burn*); and zero-G flying with
-both (*Asteroid Run*, *Sentry Field*). See [docs/ROADMAP.md](docs/ROADMAP.md) for
+World 3 through an ember-red one, so you can always tell the worlds apart.
+**Test levels** prototype upcoming mechanics (now just *Fuel Run*). World 3's
+missions are built in `tools/w3/` (levels, proofs and naive plans that must
+lose, one file per chapter) and written into `js/levels.js` with
+`npm run build:w3`. See [docs/ROADMAP.md](docs/ROADMAP.md) for
 future worlds, the leaderboard design and the level-maker plan.
 
 ## Physics

@@ -1,4 +1,5 @@
 // Scripted flight plans that prove each World 2 mission can be won.
+// World 3's proofs live with their levels in tools/w3/ch*.js and are added at the end.
 // p: stored parameters (a known win), scale: search step per parameter.
 // script(p, AP) returns the step list for tools/autopilot.js.
 'use strict';
@@ -7,36 +8,6 @@ const until = {
   apAbove: (id, v) => (m, c, AP) => AP.orb(m, id).ap >= v,
 };
 
-// Zero-G guidance: fly toward (x, y) at speed V until done(m). Burns only
-// when the velocity error is worth fixing, and only along that error, so
-// turns (and RCS) are spent where they matter. Use with opts.turn.
-function goTo(x, y, V, done) {
-  return {
-    control: (m, ctx) => {
-      if (done(m)) return { done: true };
-      const s = m.ship, dx = x - s.x, dy = y - s.y, d = Math.hypot(dx, dy) || 1;
-      const ex = V * dx / d - s.vx, ey = V * dy / d - s.vy, e = Math.hypot(ex, ey);
-      if (ctx.burning ? e < 0.04 : e < 0.3) { ctx.burning = false; return { thrust: false, angle: null, dt: 0.1 }; }
-      ctx.burning = true;
-      return { thrust: true, angle: Math.atan2(ey, ex), tol: 0.1 };
-    },
-  };
-}
-
-// Zero-G stop, the way a pilot does it: coast in, flip to retrograde once
-// (flip seconds ahead, at the turn rate), brake to a crawl, drift the rest.
-function dockAt(x, y, flip) {
-  return {
-    control: (m, ctx) => {
-      if (m.status !== 'flying') return { done: true };
-      const s = m.ship, d = Math.hypot(x - s.x, y - s.y), v = Math.hypot(s.vx, s.vy);
-      if (!ctx.braking && d < v * flip + v * v / 1.6 + 10) ctx.braking = true;
-      if (!ctx.braking || v < 0.3) return { thrust: false, angle: ctx.braking ? Math.atan2(-s.vy, -s.vx) : null, dt: 0.1 };
-      return { thrust: true, angle: Math.atan2(-s.vy, -s.vx), tol: 0.08 };
-    },
-  };
-}
-const goalPast = (i) => (m) => m.goalIndex > i;
 
 module.exports = {
   satellite: {
@@ -116,19 +87,6 @@ module.exports = {
     ],
   },
 
-  'test-keepout': {
-    p: [-6.026, 288.216, 149.765, 156.874, 249.37], scale: [15, 10, 15, 20, 10],
-    script: (p, AP) => [
-      { wait: p[0] },
-      { burn: 'pro', until: (m) => AP.orb(m, 'terra').ap >= p[1] },
-      { coast: (m) => { m.sys.update(m.t); const i = m.sys.byId.haven.index; return Math.hypot(m.ship.x - m.sys.px[i], m.ship.y - m.sys.py[i]) < p[2]; } },
-      { drop: true },
-      { burn: 'retro', rel: 'terra', until: (m) => AP.orb(m, 'terra').pe <= p[3] },
-      { coast: (m) => AP.orb(m, 'terra').rising },
-      { burn: 'retro', rel: 'terra', until: (m) => AP.orb(m, 'terra').ap <= p[4] },
-    ],
-  },
-
   moonmail: {
     p: [4.651, 431.839, 235.228, 0.57, 0.114], scale: [6, 15, 40, 1.5, 0.4],
     script: (p, AP) => [
@@ -137,73 +95,6 @@ module.exports = {
       { coast: (m) => AP.orb(m, 'luna').r < p[2] },
       { drop: true },
       { burn: p[3], rel: 'luna', max: Math.max(0, p[4]) },
-    ],
-  },
-
-  'test-patrol': {
-    // Wait for a gap between the guards, then a Hohmann climb through it.
-    p: [41.552, 305.444, 300.404], scale: [40, 10, 10],
-    script: (p, AP) => [
-      { wait: p[0] },
-      { burn: 'pro', until: (m) => AP.orb(m, 'terra').ap >= p[1] },
-      { coast: (m) => !AP.orb(m, 'terra').rising },
-      { burn: 'pro', until: (m) => AP.orb(m, 'terra').pe >= p[2] },
-    ],
-  },
-
-  'test-berth': {
-    // One burn onto a wide pass behind Goliath, outside its keep-out zone.
-    p: [54, 2.8], scale: [6, 0.3],
-    script: (p) => [{ wait: p[0] }, { burn: 'pro', max: p[1] }],
-  },
-
-  'test-fixed': {
-    // No side thrusters: wait for prograde to swing round to the nose, then burn.
-    p: [11.048, 2.344], scale: [3, 0.2], opts: { turn: true },
-    script: (p) => [
-      { wait: p[0] },
-      { control: (m, c) => m.t - c.t0 < p[1] ? { thrust: true, angle: null } : { done: true } },
-    ],
-  },
-
-  'test-spin': {
-    // Tap up a slow spin, then pulse the engine whenever the nose sweeps past
-    // prograde: once to raise the high point, again at the top.
-    p: [0.156, 250.176, 0.326, 243.859], scale: [0.05, 10, 0.15, 10], opts: { turn: true },
-    script: (p, AP) => {
-      const near = (m) => Math.abs(AP.wrap(AP.orb(m, 'terra').pro - m.ship.angle)) < p[2];
-      return [
-        { control: (m) => m.ship.omega < p[0] ? { rotate: 1, angle: null } : { done: true } },
-        { control: (m) => AP.orb(m, 'terra').ap >= p[1] ? { done: true } : { thrust: near(m), rotate: 0, angle: null, dt: 0.05 } },
-        { coast: (m) => !AP.orb(m, 'terra').rising },
-        { control: (m) => AP.orb(m, 'terra').pe >= p[3] ? { done: true } : { thrust: near(m), rotate: 0, angle: null, dt: 0.05 } },
-      ];
-    },
-  },
-
-  'test-drift': {
-    // Gate to gate at cruise speed p[0], aiming a little past each gate's
-    // centre (p[1..]) so the next leg starts with less to fix.
-    p: [1.5, 0, 0, 0], scale: [0.3, 15, 15, 15], opts: { turn: true, turnRate: 0.15 },
-    script: (p) => [
-      goTo(250, 120 + p[1], p[0], goalPast(0)),
-      goTo(550, -110 + p[2], p[0], goalPast(1)),
-      goTo(800, 90 + p[3], p[0], goalPast(2)),
-      goTo(1030, -15, p[0], (m) => Math.hypot(m.ship.x - 1030, m.ship.y + 15) < 120),
-      dockAt(1030, -15, 25),
-    ],
-  },
-
-  'test-sentry': {
-    // Head for the survey mark, drop the beacon on the way in, swerve below
-    // the closed zone through waypoint (p[1], p[2]), then stop at the depot.
-    p: [1.5, 450, -150, 200], scale: [0.3, 40, 20, 30], opts: { turn: true, turnRate: 0.15 },
-    script: (p) => [
-      goTo(450, 0, p[0], (m) => m.ship.x > 450 - 90 - p[3]),
-      { drop: true },
-      goTo(p[1], p[2], p[0], (m) => Math.hypot(m.ship.x - p[1], m.ship.y - p[2]) < 40),
-      goTo(885, -12, p[0], (m) => Math.hypot(m.ship.x - 885, m.ship.y + 12) < 120),
-      dockAt(885, -12, 25),
     ],
   },
 
@@ -457,3 +348,6 @@ module.exports = {
     },
   },
 };
+
+// World 3: each chapter file keeps its levels, proofs and naive "fails" together.
+for (const ch of ['ch1', 'ch2', 'ch3', 'ch4', 'ch5']) Object.assign(module.exports, require('./w3/' + ch).proofs);

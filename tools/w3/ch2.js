@@ -2,10 +2,6 @@
 'use strict';
 const { ship, C, belt } = require('../../js/levels.js');
 
-const rock = (id, parent, a, phase, radius) => ({
-  id, name: 'Asteroid', kind: 'rock', gm: 0, radius, color: C.rock, noRail: true, orbit: { parent, a, phase },
-});
-
 // Debris clouds sharing one orbit, evenly spaced: keep-out zones around small rocks.
 const cloudRing = (parent, n, a, phase0, keepOut) => Array.from({ length: n }, (_, k) => ({
   id: 'cloud' + k, name: 'Debris Cloud', kind: 'rock', gm: 0, radius: 5, color: C.rock, noRail: k > 0, keepOut,
@@ -40,7 +36,7 @@ function dockAt(x, y, flip) {
 }
 
 // Close Quarters: the depot's starting angle.
-const DEPOT = +(process.env.DP || 1.6);
+const DEPOT = 1.6;
 
 // Rendezvous with a moving body: steer the velocity toward the body's
 // velocity plus a slow approach (k per unit distance, capped at vMax),
@@ -70,7 +66,7 @@ const levels = [
   {
     id: 'asteroidrun',
     name: 'Asteroid Run',
-    intro: 'TODO',
+    intro: 'A ring of tumbling rocks circles Terra between your low orbit and the one you need. Climb through Gate 1 and Gate 2 in order, then round off your orbit above the rocks. The gates line up with your climb once a lap, but the rocks drift at their own pace: if the dashed path shows a CRASH mark, wait a lap and look again.',
     objective: 'Fly through Gates 1 and 2, then orbit Terra between 270 and 330.',
     teaches: 'Weaving through orbiting rocks',
     bodies: [
@@ -88,7 +84,7 @@ const levels = [
   {
     id: 'debriscloud',
     name: 'Debris Cloud',
-    intro: 'TODO',
+    intro: 'A ring of debris clouds drifts around Terra, between you and Luna, and no ship may enter one. Your usual Moon Shot window sends you straight through a cloud. Watch where the dashed path turns red: wait for a later window, or burn a little harder or later so you cross the ring in a gap.',
     objective: 'Impact Luna without entering any debris cloud.',
     teaches: 'Timing a transfer through a gap',
     bodies: [
@@ -103,8 +99,8 @@ const levels = [
   {
     id: 'detour',
     name: 'Detour',
-    intro: 'TODO',
-    objective: 'Collect the fuel canister without entering the keep-out zone, then impact Luna.',
+    intro: 'Your tank can\'t reach the high orbit on its own, but a fuel canister circles at 220. It floats just above a tanker\'s keep-out zone, so the cheap climb straight up into it is closed. Aim a little higher than the canister and let it drift in under you from ahead (it glows green when your path will collect it), then push on up.',
+    objective: 'Collect the fuel canister without entering the tanker\'s keep-out zone, then orbit Terra between 400 and 460.',
     teaches: 'Is the detour worth the fuel?',
     bodies: [
       { id: 'terra', name: 'Terra', gm: 20000, radius: 50, color: C.blue },
@@ -113,7 +109,7 @@ const levels = [
     ],
     ship: ship({ start: { orbit: { body: 'terra', r: 100, angle: 0 } }, heading: 'prograde', dv: 3.5, accel: 1 }),
     goals: [{ type: 'orbit', body: 'terra', rMin: 400, rMax: 460 }],
-    par: 4, bounds: 2500, tMax: 600, predict: 220, view: { x: 0, y: 0, span: 1000 },
+    par: 7.6, bounds: 2500, tMax: 600, predict: 220, view: { x: 0, y: 0, span: 1000 },
   },
   {
     id: 'sentryfield',
@@ -137,20 +133,38 @@ const levels = [
     par: 5.5, bounds: 2500, tMax: 1500, predict: 250, view: { x: 450, y: 0, span: 1200 }, startCam: 'overview',
   },
   {
+    id: 'moonmaze',
+    name: 'Moon Maze',
+    intro: 'Goliath\'s inner moons each carry a keep-out zone: three on one ring, two on the next, all moving at different speeds. Titan, far out, is open. Most Titan windows run into a zone somewhere on the way out. Keep checking the dashed path window after window until it threads both rings.',
+    objective: 'Impact Titan without entering any keep-out zone.',
+    teaches: 'Threading several moving zones',
+    bodies: [
+      { id: 'goliath', name: 'Goliath', gm: 30000, radius: 40, color: C.tan },
+      ...[['mimas', 'Mimas', C.grey], ['enceladus', 'Enceladus', C.ice], ['tethys', 'Tethys', C.grey]].slice(0, 3).map(([id, name, color], k, all) => (
+        { id, name, gm: 100, radius: 9, color, keepOut: 50, orbit: { parent: 'goliath', a: 160, phase: 2.09 + k * 2 * Math.PI / all.length } })),
+      ...[['rhea', 'Rhea', C.purple], ['dione', 'Dione', C.grey], ['hyperion', 'Hyperion', C.tan]].slice(0, 2).map(([id, name, color], k, all) => (
+        { id, name, gm: 150, radius: 11, color, keepOut: 60, orbit: { parent: 'goliath', a: 330, phase: 3.34 + k * 2 * Math.PI / all.length } })),
+      { id: 'titan', name: 'Titan', gm: 600, radius: 18, color: C.ice, orbit: { parent: 'goliath', a: 520, phase: 3.86 } },
+    ],
+    ship: ship({ start: { orbit: { body: 'goliath', r: 90, angle: 0 } }, heading: 'prograde', dv: 9, accel: 1 }),
+    goals: [{ type: 'hit', body: 'titan' }],
+    par: 6, bounds: 3000, tMax: 800, predict: 250, view: { x: 0, y: 0, span: 1100 },
+  },
+  {
     id: 'closequarters',
     name: 'Close Quarters',
-    intro: 'TODO',
-    objective: 'Rendezvous with the depot (within 15, relative speed under 0.5) without entering either guard\'s keep-out zone.',
+    intro: 'The depot shares its orbit with two guard satellites just ahead of it and just behind it, and their keep-out zones close the usual approach along the orbit. Come straight up from below instead: time your climb so you arrive just under the depot as it passes, then burn to match its speed.',
+    objective: 'Rendezvous with the depot (within 12, relative speed under 0.3) without entering either guard\'s keep-out zone.',
     teaches: 'Rendezvous from below',
     bodies: [
       { id: 'terra', name: 'Terra', gm: 20000, radius: 50, color: C.blue },
       { id: 'depot', name: 'Depot', gm: 0, radius: 4, color: C.station, kind: 'station', orbit: { parent: 'terra', a: 260, phase: DEPOT } },
-      { id: 'guardA', name: 'Guard A', gm: 0, radius: 4, color: C.station, kind: 'station', keepOut: +(process.env.KO || 35), orbit: { parent: 'terra', a: 260, phase: DEPOT + +(process.env.GS || 0.21) } },
-      { id: 'guardB', name: 'Guard B', gm: 0, radius: 4, color: C.station, kind: 'station', keepOut: +(process.env.KO || 35), orbit: { parent: 'terra', a: 260, phase: DEPOT - +(process.env.GS || 0.21) } },
+      { id: 'guardA', name: 'Guard A', gm: 0, radius: 4, color: C.station, kind: 'station', keepOut: 35, orbit: { parent: 'terra', a: 260, phase: DEPOT + 0.19 } },
+      { id: 'guardB', name: 'Guard B', gm: 0, radius: 4, color: C.station, kind: 'station', keepOut: 35, orbit: { parent: 'terra', a: 260, phase: DEPOT - 0.19 } },
     ],
-    ship: ship({ start: { orbit: { body: 'terra', r: 150, angle: 0 } }, heading: 'prograde', dv: 10, accel: 1 }),
-    goals: [{ type: 'rendezvous', body: 'depot', dist: 15, relVel: 0.5 }],
-    par: 4, bounds: 2000, tMax: 1200, predict: 200, view: { x: 0, y: 0, span: 800 },
+    ship: ship({ start: { orbit: { body: 'terra', r: 150, angle: 0 } }, heading: 'prograde', dv: 4, accel: 1 }),
+    goals: [{ type: 'rendezvous', body: 'depot', dist: 12, relVel: 0.3 }],
+    par: 2.4, bounds: 2000, tMax: 600, predict: 200, view: { x: 0, y: 0, span: 800 },
   },
 ];
 
@@ -175,7 +189,7 @@ proofs.debriscloud = {
 };
 
 proofs.detour = {
-  p: [3.671, 233.23, 401.255, 7.519, 400.26], scale: [0.2, 4, 10, 5, 10],
+  p: [3.704, 234.193, 400.25, 7.038, 399.82], scale: [0.2, 4, 10, 5, 10],
   script: (p, AP) => [
     { wait: p[0] },
     { burn: 'pro', until: (m) => AP.orb(m, 'terra').ap >= p[1] },
@@ -187,9 +201,19 @@ proofs.detour = {
   ],
 };
 
+proofs.moonmaze = {
+  // Wait for the Titan window where both rings of zones have a gap in the
+  // right place, then one long climb.
+  p: [73.461, 401.408], scale: [1, 15],
+  script: (p, AP) => [
+    { wait: p[0] },
+    { burn: 'pro', until: (m) => AP.orb(m, 'goliath').ap >= p[1] },
+  ],
+};
+
 proofs.closequarters = {
   // Hohmann climb timed to arrive under the depot, then brake onto it.
-  p: [14.379, 269.626, 42.617, 0.062, 0.842], scale: [3, 8, 15, 0.03, 0.3],
+  p: [12.6, 248.686, 11.527, -0.002, 0.421], scale: [1, 8, 15, 0.03, 0.3],
   script: (p, AP) => [
     { wait: p[0] },
     { burn: 'pro', until: (m) => AP.orb(m, 'terra').ap >= p[1] },
@@ -212,6 +236,24 @@ proofs.sentryfield = {
 };
 
 const fails = {
+  moonmaze: [
+    // The first two Titan windows: both hit Titan if the zones weren't there.
+    { name: 'first Titan window', steps: (AP) => proofs.moonmaze.script([7.5, 500], AP) },
+    { name: 'second Titan window', steps: (AP) => proofs.moonmaze.script([42, 480], AP) },
+  ],
+  closequarters: [
+    // Arrive a little early and let the depot come to you along the orbit
+    // (fine without the guards, but Guard A is in the way).
+    { name: 'drift in along the orbit', steps: (AP) => proofs.closequarters.script([17, 255, 30, 0.03, 0.5], AP) },
+    // Climb to the depot's orbit a little behind it, then close in: Guard B is in the way.
+    { name: 'climb in just behind the depot', steps: (AP) => [
+      { wait: 8 },
+      { burn: 'pro', until: (m) => AP.orb(m, 'terra').ap >= 260 },
+      { coast: (m) => !AP.orb(m, 'terra').rising },
+      { burn: 'pro', until: (m) => AP.orb(m, 'terra').pe >= 255 },
+      approach('depot', 0.05, 1),
+    ] },
+  ],
   detour: [
     // Skip the canister: the tank alone runs dry on the way up.
     { name: 'skip the canister', steps: (AP) => [

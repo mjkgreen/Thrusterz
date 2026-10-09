@@ -311,25 +311,35 @@ for (const L of LEVELS) {
   check('malformed logs are rejected', !Replay.validLog({ v: 1, ticks: [[1, 9, 0, 10, 0]], events: [] }) && !Replay.validLog({ v: 1, ticks: [], events: [[0, 'warp9']] }) && !Replay.validLog(null));
 }
 
-// 14. Test levels with a proof still win, and keep-out zones actually bite.
+// 14. World 3: every mission has a proof that wins, every naive plan in its
+//     chapter's "fails" loses, and js/levels.js matches the chapter files.
 {
   const AP = require('./autopilot.js');
   const PROOFS = require('./proofs.js');
-  const tests = LEVELS.filter(l => l.test && PROOFS[l.id]);
-  const lost = tests.filter(L => !AP.fly(L, PROOFS[L.id].script(PROOFS[L.id].p, AP), PROOFS[L.id].opts).won).map(l => l.id);
-  check(`Test levels: all ${tests.length} proofs win`, lost.length === 0, lost.join(', '));
-  const patrol = AP.fly(LEVELS.find(l => l.id === 'test-patrol'), [
-    { burn: 'pro', until: (m) => AP.orb(m, 'terra').ap >= 330 },
-    { coast: (m) => !AP.orb(m, 'terra').rising },
-    { burn: 'pro', until: (m) => AP.orb(m, 'terra').pe >= 330 },
-  ]);
-  check('Patrol: climbing at once runs into a guard', /keep-out/.test(patrol.message), patrol.message);
-  const berth = AP.fly(LEVELS.find(l => l.id === 'test-berth'), [{ wait: 18 }, { burn: 'pro', max: 2.5 }]);
-  check('Wide Berth: the close Slingshot pass is off limits', /keep-out/.test(berth.message), berth.message);
+  const w3 = LEVELS.filter(l => l.world === 3);
+  check('World 3 has 30 missions', w3.length === 30, String(w3.length));
+  const lost = [], wins = [], stale = [];
+  for (const ch of ['ch1', 'ch2', 'ch3', 'ch4', 'ch5']) {
+    const C = require('./w3/' + ch);
+    for (const L0 of C.levels) {
+      const L = LEVELS.find(l => l.id === L0.id);
+      if (!L || JSON.stringify(Object.assign({}, L0, { world: 3 })) !== JSON.stringify(L)) stale.push(L0.id);
+      for (const f of (C.fails && C.fails[L0.id]) || []) if (AP.fly(L || L0, f.steps(AP), f.opts).won) wins.push(L0.id + ': ' + f.name);
+    }
+  }
+  check('js/levels.js World 3 matches tools/w3 (npm run build:w3)', stale.length === 0, stale.join(', '));
+  for (const L of w3) {
+    const P = PROOFS[L.id];
+    const r = P && AP.fly(L, P.script(P.p, AP), P.opts);
+    if (!r || !r.won) lost.push(`${L.id} (${r ? r.status + ': ' + r.message : 'no proof'})`);
+    else if (r.dv > L.par) lost.push(`${L.id} (proof Δv ${r.dv.toFixed(2)} over par ${L.par})`);
+  }
+  check(`World 3: all ${w3.length} proofs win within par`, lost.length === 0, lost.join('; '));
+  check('World 3: every naive plan loses (zones, rocks and budgets bite)', wins.length === 0, wins.join('; '));
 }
 
 // 15. Side-thruster budgets: proofs that turn honestly stay inside the
-//     level's RCS budget, and the budgets and fixed headings really bite.
+//     level's RCS budget, and holding a key really drains a small one.
 {
   const AP = require('./autopilot.js');
   const PROOFS = require('./proofs.js');
@@ -338,15 +348,30 @@ for (const L of LEVELS) {
     return !r.won || (L.ship.rcs && r.rcs > L.ship.rcs.fuel * 0.8);
   }).map(l => l.id);
   check('honest-turning proofs win with RCS to spare (≤80% of budget)', over.length === 0, over.join(', '));
-  const fixed = LEVELS.find(l => l.id === 'test-fixed');
-  const early = AP.fly(fixed, [{ control: (m, c) => m.t - c.t0 < 3.3 ? { thrust: true, angle: null } : { done: true } }], { turn: true });
-  check('Fixed Heading: burning before prograde lines up misses Luna', !early.won, early.status);
-  const spin = new Mission(LEVELS.find(l => l.id === 'test-spin'));
+  const spin = new Mission(LEVELS.find(l => l.id === 'spinburn'));
   for (let i = 0; i < 120; i++) spin.advance(1 / 120, { thrust: false, throttle: 1, rotate: 1 });
   check('Spin Burn: holding a rotate key for a second empties the side thrusters', spin.rcsFuel < 0.01, spin.rcsFuel.toFixed(2));
-  const drift = LEVELS.find(l => l.id === 'test-drift');
-  const straight = AP.fly(drift, [{ control: (m, c) => m.t - c.t0 < 1.5 ? { thrust: true, angle: null } : { done: true } }], { turn: true });
-  check('Asteroid Run: the straight line to the depot hits a rock', /Asteroid/.test(straight.message), straight.message);
+  // A tap the other way right after stopping a spin must turn the ship.
+  const tap = new Mission(LEVELS.find(l => l.id === 'oneflip'));
+  for (let i = 0; i < 10; i++) tap.advance(1 / 120, { thrust: false, throttle: 1, rotate: 1 });
+  for (let i = 0; i < 40 && tap.ship.omega !== 0; i++) tap.advance(1 / 120, { thrust: false, throttle: 1, rotate: -1 });
+  tap.advance(1 / 120, { thrust: false, throttle: 1, rotate: 0 });
+  for (let i = 0; i < 10; i++) tap.advance(1 / 120, { thrust: false, throttle: 1, rotate: -1 });
+  check('a tap right after stopping a spin still turns the ship', tap.ship.omega < 0, String(tap.ship.omega));
+}
+
+// 16. Zones closed to everything: cargo and spent stages may not enter.
+{
+  const L = JSON.parse(JSON.stringify(LEVELS.find(l => l.id === 'supplyrun')));
+  const haven = L.bodies.find(b => b.id === 'haven');
+  haven.zone = 'all';
+  const AP = require('./autopilot.js');
+  const PROOFS = require('./proofs.js');
+  const ok = AP.fly(L, PROOFS.supplyrun.script(PROOFS.supplyrun.p, AP), PROOFS.supplyrun.opts);
+  check('a pod may enter the zone it is delivered into', ok.won, ok.message);
+  L.goals = [{ type: 'reach', x: 1e5, y: 0, r: 1 }]; // nothing to finish: just watch the pod
+  const bad = AP.fly(L, PROOFS.supplyrun.script(PROOFS.supplyrun.p, AP), PROOFS.supplyrun.opts);
+  check('cargo may not drift into a zone closed to everything', /Pod drifted into/.test(bad.message), bad.message);
 }
 
 process.exit(failed ? 1 : 0);

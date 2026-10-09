@@ -1,7 +1,7 @@
 # Thrusterz roadmap
 
-Living notes on where the game goes next. World 1 (Flight School) and World 2
-(Payloads) are complete. New mechanics are prototyped as **Test levels** in the
+Living notes on where the game goes next. World 1 (Flight School), World 2
+(Payloads) and World 3 (No-Fly Zones) are complete. New mechanics are prototyped as **Test levels** in the
 menu before they get a world of their own.
 
 ## Principles for a world mechanic
@@ -22,7 +22,7 @@ Early worlds stay grounded in real spaceflight; stranger ideas come later.
 | Status | Mechanic | The decision it adds | Notes |
 | --- | --- | --- | --- |
 | **Built (World 2)** | **Payloads** | When to drop a stage or release cargo, and where the pieces end up | Stages, engineless cargo, debris fates, constellations. |
-| **Prototype → World 3** | **Area denial** | Where you may not go, and where something must end up | Keep-out zones and drop zones, mixed with side-thruster budgets and zero-G flying. Test levels: *Keep Out*, *Patrol*, *Wide Berth*, *Fixed Heading*, *Spin Burn*, *Asteroid Run*, *Sentry Field*. See the World 3 plan below. |
+| **Built (World 3)** | **Area denial** | Where you may not go, and where things may end up | Keep-out zones (ship only, or closed to everything), weaving, side-thruster budgets and flip burns, combined with stages and probes. See World 3 below. |
 | **Prototype** | **Fuel pickups** | Route planning: is the detour worth the fuel? | Canisters on their own orbits. Test level: *Fuel Run*. Used as a mixer in World 2 (*Fuel Depot*). |
 | Idea | Refuelling depot | Rendezvous to refill, then fly a mission your tank alone can't | Builds on Docking. Natural pair with pickups. |
 | Idea | Atmospheres / aerobraking | How deep to skim: free braking vs. burning up | Drag layer + heating limit. No new button; a new surface to read on the predicted path. |
@@ -62,7 +62,34 @@ Fuel pickups appear in World 2 only as an occasional mixer. Refuelling depots
 (rendezvous, then top up) and control switching between craft (booster landing,
 Apollo-style lander and orbiter) are saved for later worlds.
 
-## World 3: No-Fly Zones (planned)
+## World 3: No-Fly Zones (built)
+
+Five chapters of six, building to the world's core: **probes and stages
+combined with keep-out zones and flip burns on a side-thruster budget**.
+
+| Chapter | Missions | What it adds |
+| --- | --- | --- |
+| *Keep Out* | No-Fly Zone, Patrol, Supply Run, Wide Berth, Hot Moon, Crowded Trojans | Ship-only zones: wait for a gap, drop into a bubble, slingshot or capture outside a zone, drift the other way round |
+| *Weaving* | Asteroid Run, Debris Cloud, Detour, Sentry Field, Moon Maze, Close Quarters | Threading orbiting rocks and fields of moving zones (Sentry Field is the one zero-G mission) |
+| *Flip Burns* | Spin Burn, One Flip, Brake at Luna, Station Stop, Down Through the Gap, Round Trip | Side-thruster budgets: slow, planned turns; holding the keys runs dry |
+| *Zone Drops* | Clean Zone, Shielded Moon, Range Safety, Air Drop, Twin Zones, Crossing Traffic | Zones closed to everything (amber): where a probe or spent stage ends up |
+| *Grand missions* | Resupply Run, Blockade Run, Moon Courier, Slingshot Relay, Survey Drop, The Long Haul | Everything at once, every mission on a budget |
+
+The *Fixed Heading* prototype was cut; *Asteroid Run* moved from zero-G into
+gravity (weaving through orbiting rocks). Each mission lives in
+`tools/w3/ch*.js` with its scripted proof and the naive plans that must lose
+(`npm test` flies them all); `npm run build:w3` writes the levels into
+`js/levels.js`, and `node tools/w3/check.js chN [id] [iterations] [opt]`
+re-tunes a proof.
+
+Notes from building it, for later: the `rendezvous` goal checks one instant
+(touch-and-go counts; a short hold would be stricter); massless markers that
+share a moon's orbit need `mu` set by hand to stay with it; stations around a
+planet with a heavy moon circle the barycentre, so debris bands are a little
+wider than `debrisFate` assumes; the autopilot's honest turning chases moving
+targets and over-spends RCS (chapter files carry better helpers).
+
+### Original plan
 
 Area denial was tried in World 2 (*Supply Run*, a keep-out bubble around a
 station) but nothing else in that world used it, so it moved to the test

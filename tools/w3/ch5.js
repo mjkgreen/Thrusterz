@@ -25,6 +25,16 @@ const peRetro = (rel, off) => (m) => {
   return Math.atan2(ey, ex) + (h > 0 ? -Math.PI / 2 : Math.PI / 2) + (off || 0);
 };
 
+// A burn held in the direction dir(m) gives as it starts: flip once, then
+// hold still instead of chasing a direction that drifts as the orbit changes.
+const heldBurn = (dir, until) => {
+  let a = null;
+  return [
+    { fn: () => { a = null; } },
+    { burn: (m) => (a == null ? (a = dir(m)) : a), until },
+  ];
+};
+
 // A burn of a set Δv in a direction (turning first doesn't count).
 const dvBurn = (dir, rel, amount) => {
   const st = { d0: 0 };
@@ -34,12 +44,13 @@ const dvBurn = (dir, rel, amount) => {
   ];
 };
 
-const LUNA = +(process.env.LUNA || 3.29), GATE = +(process.env.GATE || 3.88);
+// Finale phases, fitted so the proof's Luna pass sits under Luna Gate.
+const HAVEN = 3.2, LUNA = 3.54, GATE = 0;
 const levels = [
   {
     id: 'resupplyrun',
     name: 'Resupply Run',
-    intro: 'Haven Station needs its supply pod, and its amber zone is closed to everything: you, the pod on its way in excepted, and your spent kick stage. A stage dropped in an orbit that reaches Haven\'s height will drift in sooner or later, so drop it while your high point is still well below the station. Then the carrier climbs the rest, releases the pod (E), and turns round to brake back down into a low orbit.',
+    intro: 'Haven Station\'s amber zone is closed to everything but its supply pod, and that includes your spent kick stage: a stage left in an orbit that reaches Haven\'s height drifts in sooner or later. So drop the kick stage (the stage button) while your high point is still well below the station. Then climb the rest with the carrier, release the pod (E) on a path that meets Haven, and turn round to brake back down.',
     objective: 'Deliver the pod to Haven Station, then orbit Terra between 100 and 220, leaving nothing in Haven\'s way.',
     teaches: 'Stage before the zone · flip to come home',
     bodies: [
@@ -59,7 +70,7 @@ const levels = [
   {
     id: 'blockade',
     name: 'Blockade Run',
-    intro: 'Three patrol ships guard the orbit at 220, each inside an amber zone closed to everything. Your shuttle has to get down through their band to a low orbit, riding a big descent stage. A spent stage left in an orbit that still reaches the patrol band will drift into a zone sooner or later, so carry the stage through the band and only drop it once its whole orbit is below the patrols. Burning to go down means turning round first.',
+    intro: 'Three patrol ships guard the orbit at 220, each inside an amber zone closed to everything. Ride the big descent stage down through their band to a low orbit, timing your fall to pass between them. Don\'t drop the stage after the first burn: an empty stage whose orbit still reaches the band drifts into a zone sooner or later, so only let it go once its whole orbit is below the patrols.',
     objective: 'Orbit Terra between 100 and 150 without your ship or its stage entering a patrol zone.',
     teaches: 'Carry the stage across the band',
     bodies: [
@@ -78,7 +89,7 @@ const levels = [
   {
     id: 'mooncourier',
     name: 'Moon Courier',
-    intro: 'Luna Gate circles Luna inside an amber zone closed to everything but its supply pod. Ride the transfer stage out to Luna, then drop it (the pod can only go once the stage is gone). Release the pod early on a path that meets the Gate, steer yourself clear of the zone, and flip round to brake into a low orbit beneath it.',
+    intro: 'Luna Gate circles Luna inside an amber zone closed to everything but its supply pod. Ride the transfer stage out, drop it, and release the pod (E) early, on a path that meets the Gate. Then nudge yourself clear of the zone and flip late to brake into a low orbit beneath it: turning round early and chasing retrograde all the way in empties the side thrusters.',
     objective: 'Deliver the pod to Luna Gate, then orbit Luna between 30 and 70 without entering the Gate\'s zone.',
     teaches: 'Stage, drop, swerve, capture',
     bodies: [
@@ -99,7 +110,7 @@ const levels = [
   {
     id: 'relaysling',
     name: 'Slingshot Relay',
-    intro: 'The deep-space relay needs Goliath\'s slingshot to leave Terra for good, but you don\'t: your carrier stays home to talk to it. Goliath\'s radiation zone is closed to everything, relay and spent stage included. Put the stack on a path that swings wide behind Goliath, drop the stage and release the relay (E) on it, then flip and brake so that you fall back into a low orbit while the relay flies on.',
+    intro: 'The relay needs Goliath\'s slingshot to leave Terra for good; your carrier stays home to talk to it. Put the stack on a path that swings wide of Goliath\'s zone, which is closed to everything, then drop the stage and release the relay (E) on it. Flip and brake so you fall back into a low orbit while the relay flies on.',
     objective: 'Send the relay 1600 away from Terra, then orbit Terra between 120 and 250 yourself.',
     teaches: 'Send the cargo, stay home',
     bodies: [
@@ -119,7 +130,7 @@ const levels = [
   {
     id: 'surveydrop',
     name: 'Survey Drop',
-    intro: 'Two survey sites ride the asteroid belt, each in an amber zone closed to everything but its own probe. Drop the transfer stage while your high point is still below the belt, then climb on with the carrier and release the probes on the way: probe A when your path meets Site A, then a little more climb and probe B for Site B. Then turn round, stay clear of the zones and the rocks, and brake back down to your home orbit.',
+    intro: 'Two survey sites ride the asteroid belt, each in an amber zone closed to everything but its own probe. Drop the transfer stage while your high point is still below the belt, then release probe A (E) when your path meets Site A, climb a little more and release probe B for Site B. Then turn round before the zones and rocks and brake back down to your home orbit.',
     objective: 'Deliver probe A to Site A and probe B to Site B, then orbit Sol between 430 and 520.',
     teaches: 'Two drops on one climb · flip home',
     bodies: [
@@ -128,42 +139,41 @@ const levels = [
       { id: 'siteb', name: 'Site B', gm: 0, radius: 4, color: C.station, kind: 'station', keepOut: 30, zone: 'all', orbit: { parent: 'sun', a: 840, phase: 1.05 } },
       ...belt('sun', 26, 690, 870, 977),
     ],
-    ship: ship({ start: { orbit: { body: 'sun', r: 450, angle: 0 } }, heading: 'prograde', rcs: { fuel: 6 }, stack: [
+    ship: ship({ start: { orbit: { body: 'sun', r: 450, angle: 0 } }, heading: 'prograde', rcs: { fuel: 3.3 }, stack: [
       { name: 'Transfer stage', dv: 3.2, accel: 1.2 },
-      { name: 'Carrier', dv: 3.5, accel: 0.6, dry: 0.4, sprite: 'satellite' },
+      { name: 'Carrier', dv: 4.2, accel: 0.6, dry: 0.4, sprite: 'satellite' },
     ], cargo: [{ id: 'pa', name: 'Probe A', mass: 0.2 }, { id: 'pb', name: 'Probe B', mass: 0.2 }] }),
     goals: [
       { type: 'reach', body: 'sitea', craft: 'pa', r: 12, label: 'Site A' },
       { type: 'reach', body: 'siteb', craft: 'pb', r: 12, label: 'Site B' },
       { type: 'orbit', body: 'sun', rMin: 430, rMax: 520 },
     ],
-    par: 6, bounds: 4000, tMax: 3000, predict: 400, view: { x: 0, y: 0, span: 2200 },
+    par: 5.9, bounds: 4000, tMax: 1200, predict: 400, view: { x: 0, y: 0, span: 2200 },
   },
   {
     id: 'longhaul',
     name: 'The Long Haul',
-    intro: 'Everything at once. Climb through the patrol band at 200 and only drop the booster once its whole orbit is above it. Then aim the transfer stage at Luna itself and drop it there, since an empty stage left looping out toward Luna would drift into Haven\'s zone. Nudge the carrier off the collision course onto a path past Luna Gate, release the pod, swerve wide of the Gate\'s zone, and flip to brake into orbit. Every zone here is closed to everything, and the side thrusters have little to spare.',
-    objective: 'Deliver the pod to Luna Gate, then orbit Luna between 100 and 160, leaving no stage where it can drift into a zone.',
+    intro: 'Everything at once, and every zone is closed to everything. Ride the booster up through the patrol band and drop it in the gap below Haven Station, where its whole orbit touches neither zone. Fly the carrier to Luna and brake into a low orbit beneath Luna Gate. Then, at your low point, raise your high point to the Gate, release the pod (E) and flip at once to come back down before you reach the zone.',
+    objective: 'Deliver pod A to Haven Station and pod B to Luna Gate, then orbit Luna between 25 and 55.',
     teaches: 'Everything at once',
     bodies: [
       { id: 'terra', name: 'Terra', gm: 20000, radius: 50, color: C.blue },
       { id: 'pat1', name: 'Patrol 1', gm: 0, radius: 4, color: C.station, kind: 'station', keepOut: 30, zone: 'all', orbit: { parent: 'terra', a: 200, phase: 0.3 } },
       { id: 'pat2', name: 'Patrol 2', gm: 0, radius: 4, color: C.station, kind: 'station', keepOut: 30, zone: 'all', orbit: { parent: 'terra', a: 200, phase: 0.3 + 2.094 } },
       { id: 'pat3', name: 'Patrol 3', gm: 0, radius: 4, color: C.station, kind: 'station', keepOut: 30, zone: 'all', orbit: { parent: 'terra', a: 200, phase: 0.3 + 4.189 } },
-      { id: 'haven', name: 'Haven Station', gm: 0, radius: 4, color: C.station, kind: 'station', keepOut: 30, zone: 'all', orbit: { parent: 'terra', a: 340, phase: 4.0 } },
-      { id: 'luna', name: 'Luna', gm: 1500, radius: 18, color: C.grey, orbit: { parent: 'terra', a: 480, phase: LUNA } },
-      { id: 'gate', name: 'Luna Gate', gm: 0, radius: 4, color: C.station, kind: 'station', keepOut: 18, zone: 'all', orbit: { parent: 'luna', a: 60, phase: GATE } },
+      { id: 'haven', name: 'Haven Station', gm: 0, radius: 4, color: C.station, kind: 'station', keepOut: 30, zone: 'all', orbit: { parent: 'terra', a: 340, phase: HAVEN } },
+      { id: 'luna', name: 'Luna', gm: 800, radius: 16, color: C.grey, orbit: { parent: 'terra', a: 480, phase: LUNA } },
+      { id: 'gate', name: 'Luna Gate', gm: 0, radius: 4, color: C.station, kind: 'station', keepOut: 15, zone: 'all', orbit: { parent: 'luna', a: 80, phase: GATE } },
     ],
-    ship: ship({ start: { orbit: { body: 'terra', r: 110, angle: 0 } }, heading: 'prograde', rcs: { fuel: 8 }, stack: [
+    ship: ship({ start: { orbit: { body: 'terra', r: 110, angle: 0 } }, heading: 'prograde', rcs: { fuel: 15 }, stack: [
       { name: 'Booster', dv: 5.6, accel: 1 },
-      { name: 'Transfer stage', dv: 1.6, accel: 0.8 },
-      { name: 'Carrier', dv: 3, accel: 0.5, dry: 0.4, sprite: 'satellite' },
+      { name: 'Carrier', dv: 6.5, accel: 0.5, dry: 0.4, sprite: 'satellite' },
     ], cargo: [{ id: 'pod', name: 'Supply pod', mass: 0.3 }] }),
     goals: [
-      { type: 'reach', body: 'gate', craft: 'pod', r: 10, label: 'Docking arm' },
-      { type: 'orbit', body: 'luna', rMin: 100, rMax: 160 },
+      { type: 'reach', body: 'gate', craft: 'pod', r: 10, label: 'Gate dock' },
+      { type: 'orbit', body: 'luna', rMin: 25, rMax: 55 },
     ],
-    par: 9, bounds: 2500, tMax: 2000, predict: 260, view: { x: 0, y: 0, span: 1200 },
+    par: 10, bounds: 2500, tMax: 1200, predict: 260, view: { x: 0, y: 0, span: 1200 },
   },
 ];
 
@@ -240,28 +250,33 @@ const proofs = {
     ],
   },
   longhaul: {
-    p: [0, 300, 292, 0, 470, 5, 1.57, 0.3, 100, 60, 150], scale: [20, 6, 4, 15, 6, 4, 1, 0.2, 20, 15, 8], opts: { turn: true, turnRate: 0.2 },
+    p: [-34.72, 302.578, 285.316, 3.692, 481.982, 163.839, 0.801, 60.651, -3.165, 82.515, 50.681], scale: [20, 6, 4, 15, 4, 30, 15, 6, 30, 4, 4], opts: { turn: true, turnRate: 0.5 },
     script: (p, AP) => [
-      // Through the patrol band on the booster; drop it once its orbit is clear above.
+      // Through the patrol band on the booster; drop it in the gap above.
       { wait: Math.max(0, p[0]) },
       { burn: 'pro', until: (m) => AP.orb(m, 'terra').ap >= p[1] },
       hold((m) => AP.orb(m, 'terra').r > p[1] - 30),
       { coast: (m) => !AP.orb(m, 'terra').rising },
       { burn: 'pro', until: (m) => AP.orb(m, 'terra').pe >= p[2] },
       { deploy: true },
-      // Transfer stage onto a path that hits Luna, then let it go.
+      // Past Haven's band to Luna on the carrier.
       { wait: Math.max(0, p[3]) },
       { burn: 'pro', until: (m) => AP.orb(m, 'terra').ap >= p[4] },
-      { deploy: true },
-      { wait: Math.max(0, p[5]) },
+      // Flip late, brake at the low point.
+      hold((m) => dist(m, 'luna') < p[5]),
+      { coast: (m) => { const o = AP.orb(m, 'luna'); return o.r < p[6] + 60 || o.rising; } },
+      ...heldBurn(peRetro('luna'), (m) => { const o = AP.orb(m, 'luna'); return o.bound && o.ap <= p[7]; }),
+      // The pod: at the low point, raise the high point to the Gate, drop, and come back down.
+      hold((m, c) => { const o = AP.orb(m, 'luna'); return m.t - c.t0 > Math.max(0, p[8]) && !o.rising && o.r < o.pe + 4; }),
+      ...heldBurn(peRetro('luna', Math.PI), (m) => AP.orb(m, 'luna').ap >= p[9]),
       { drop: true },
-      // Swerve off the collision course, then brake at the low point.
-      ...dvBurn(p[6], 'terra', p[7]),
-      hold((m) => dist(m, 'luna') < p[8]),
-      { coast: (m) => { const o = AP.orb(m, 'luna'); return o.r < p[9] + 60 || o.rising; } },
-      { burn: peRetro('luna'), until: (m) => { const o = AP.orb(m, 'luna'); return o.bound && o.ap <= p[10]; } },
+      // Flip at once and lower your own high point before you reach the Gate.
+      { burn: 'retro', rel: 'luna', until: (m) => AP.orb(m, 'luna').ap <= p[10] },
     ],
   },
+
+
+
 };
 
 const fails = {
@@ -305,6 +320,34 @@ const fails = {
     } },
     { name: 'aim close to Goliath for a bigger kick', opts: { turn: true, turnRate: 0.2 }, steps: (AP) => proofs.relaysling.script([15.153, 340, 300, 117], AP) },
     { name: 'flip fast (holding the keys)', opts: { turn: true, turnRate: 1.2 }, steps: (AP) => proofs.relaysling.script(proofs.relaysling.p, AP) },
+  ],
+  surveydrop: [
+    { name: 'burn the transfer stage dry, then stage', opts: { turn: true, turnRate: 0.2 }, steps: (AP) => {
+      const s = proofs.surveydrop.script(proofs.surveydrop.p, AP);
+      return [{ burn: 'pro', until: () => false }, { deploy: true }, ...s.slice(4)];
+    } },
+    { name: 'drop both probes together', opts: { turn: true, turnRate: 0.2 }, steps: (AP) => {
+      const s = proofs.surveydrop.script(proofs.surveydrop.p, AP);
+      return [...s.slice(0, 6), { drop: true }, ...s.slice(9)];
+    } },
+    { name: 'keep climbing after the drops', opts: { turn: true, turnRate: 0.2 }, steps: (AP) => proofs.surveydrop.script(proofs.surveydrop.p, AP).slice(0, 9) },
+    { name: 'flip fast (holding the keys)', opts: { turn: true, turnRate: 1.2 }, steps: (AP) => proofs.surveydrop.script(proofs.surveydrop.p, AP) },
+  ],
+  longhaul: [
+    { name: 'drop the booster once it is through the band', opts: { turn: true, turnRate: 0.5 }, steps: (AP) => {
+      const s = proofs.longhaul.script(proofs.longhaul.p, AP);
+      return [s[0], s[1], { deploy: true }, ...s.slice(2, 5), ...s.slice(6)];
+    } },
+    { name: 'burn the booster dry on the way up', opts: { turn: true, turnRate: 0.5 }, steps: (AP) => {
+      const s = proofs.longhaul.script(proofs.longhaul.p, AP);
+      return [s[0], { burn: 'pro', until: () => false }, { deploy: true }, ...s.slice(6)];
+    } },
+    { name: 'park the booster up at Haven\'s height', opts: { turn: true, turnRate: 0.5 }, steps: (AP) => {
+      const p = proofs.longhaul.p.slice(); p[1] = 345; p[2] = 330;
+      return proofs.longhaul.script(p, AP);
+    } },
+    { name: 'no flip after the pod drop', opts: { turn: true, turnRate: 0.5 }, steps: (AP) => proofs.longhaul.script(proofs.longhaul.p, AP).slice(0, -1) },
+    { name: 'flip fast (holding the keys)', opts: { turn: true, turnRate: 1.6 }, steps: (AP) => proofs.longhaul.script(proofs.longhaul.p, AP) },
   ],
   resupplyrun: [
     { name: 'burn the kick stage dry, then stage', opts: { turn: true, turnRate: 0.2 }, steps: (AP) => [

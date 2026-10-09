@@ -38,32 +38,13 @@ function closestNow(m, id, T) {
 // Coast with the nose held still (no side thrusters spent tracking a target).
 const still = (until) => ({ control: (m) => until(m) ? { done: true } : { thrust: false, angle: null, dt: 0.25 } });
 
-// Turn to face dir once (relative to Terra), then hold still until done(m):
-// a pilot pre-pointing for the next burn without chasing it with the thrusters.
-function turnThen(dir, done) {
-  return {
-    control: (m, ctx) => {
-      if (done(m)) return { done: true };
-      if (!ctx.aligned) {
-        const a = AP_.aim(m, dir, 'terra'), err = AP_.wrap(a - m.ship.angle);
-        if (Math.abs(err) < 0.03 && Math.abs(m.ship.omega) < 0.02) ctx.aligned = true;
-        else return { thrust: false, angle: a, dt: 0.1 };
-      }
-      return { thrust: false, angle: null, dt: 0.25 };
-    },
-  };
-}
-
-// Match a body's motion plus a drift of V toward it (until within 0.05).
-function approach(id, V, tol) {
+// Turn to face dir (relative to Terra) and stop there (honest turning only).
+function turnTo(dir) {
   return {
     control: (m) => {
-      m.sys.update(m.t);
-      const i = m.sys.byId[id].index, s = m.ship;
-      const dx = m.sys.px[i] - s.x, dy = m.sys.py[i] - s.y, d = Math.hypot(dx, dy);
-      const wx = m.sys.vx[i] + V * dx / d - s.vx, wy = m.sys.vy[i] + V * dy / d - s.vy;
-      if (Math.hypot(wx, wy) < (tol || 0.05)) return { done: true };
-      return { thrust: true, angle: Math.atan2(wy, wx) };
+      const a = AP_.aim(m, dir, 'terra'), err = AP_.wrap(a - m.ship.angle);
+      if (Math.abs(err) < 0.04) return { done: true };
+      return { thrust: false, angle: a, dt: 0.1 };
     },
     max: 60,
   };
@@ -90,7 +71,7 @@ const levels = [
   {
     id: 'shieldedmoon',
     name: 'Shielded Moon',
-    intro: 'Science wants a crater on Luna and close-up photos of it, but Luna now has a red keep-out zone for ships. Probes may pass. Aim your whole ship at Luna and drop the probe (E) while the path still ends on Luna, then nudge yourself off the collision course so you sweep past just outside the zone. The earlier you dodge, the smaller the nudge.',
+    intro: 'Science wants a crater on Luna and close-up photos of it, but Luna now has a red keep-out zone for ships. Probes may pass. Aim your whole ship at Luna and drop the probe (E) while the path still ends on Luna, then nudge yourself off the collision course so you sweep past just outside the zone. The earlier you dodge, the smaller the nudge. After the flyby, any orbit around Terra will do.',
     objective: 'Crash the probe into Luna, then pass within 75 of Luna without entering its zone, and stay in an orbit between 80 and 600 from Terra.',
     teaches: 'Drop, then dodge a zone',
     bodies: [
@@ -128,7 +109,7 @@ const levels = [
   {
     id: 'airdrop',
     name: 'Air Drop',
-    intro: 'The survey beacon has to settle inside an amber drop zone that rides its own orbit, and you may not follow it in. Thrown in fast, it just sails through. Fly up close to the zone, match its motion, then give the ship a gentle push toward the marker and drop the beacon (E): it drifts in slowly while you turn away and burn retrograde, down to your working orbit.',
+    intro: 'The survey beacon has to settle inside an amber drop zone that rides its own orbit, and you may not follow it in. Thrown in from a transfer orbit, it just sails through. Round off your orbit a little below the zone\'s, behind it, so you creep up on it slowly. Drop the beacon (E) and it drifts through the marker slowly enough to count. But you are on the same path: leave it at once, down to your working orbit.',
     objective: 'Get the beacon within 20 of the marker, moving slower than 1.5 relative to it, for 8 s; then orbit Terra between 150 and 250 without entering the zone.',
     teaches: 'Drop zones in space',
     bodies: [
@@ -140,26 +121,44 @@ const levels = [
       { type: 'hold', body: 'mark', craft: 'beacon', r: 20, hold: 8, relVel: 1.5, label: 'Marker' },
       { type: 'orbit', body: 'terra', rMin: 150, rMax: 250 },
     ],
-    par: 6, bounds: 2000, tMax: 1200, predict: 200, view: { x: 0, y: 0, span: 760 },
+    par: 4.1, bounds: 2000, tMax: 900, predict: 200, view: { x: 0, y: 0, span: 760 },
   },
   {
     id: 'twinzones',
     name: 'Twin Zones',
-    intro: 'Two stations, one probe each, and both amber zones are closed to everything: each lets in only its own probe. Line up on Station Alpha, drop Probe A (E) before its zone, and burn on toward Beta at once, which also takes you off A\'s collision course. Drop Probe B the same way, then come back down. The side thrusters are short on propellant: turn slowly, and only when you must.',
+    intro: 'Two stations, one probe each, and both amber zones are closed to everything: each lets in only its own probe. Get on a path through Station Alpha, drop Probe A (E) short of its zone, and burn on toward Beta at once: that is also your dodge. Drop Probe B the same way and push a little higher so Beta passes beneath you. Then turn round once and brake down to your working orbit. Side-thruster propellant is short: hold still between burns and turn slowly.',
     objective: 'Deliver Probe A to Alpha and Probe B to Beta (each within 12) without any craft entering the wrong zone, then orbit Terra between 100 and 180.',
     teaches: 'Two drops, two closed zones',
     bodies: [
       { id: 'terra', name: 'Terra', gm: 20000, radius: 50, color: C.blue },
       { id: 'alpha', name: 'Station Alpha', gm: 0, radius: 4, color: C.station, kind: 'station', keepOut: 30, zone: 'all', orbit: { parent: 'terra', a: 210, phase: 1.26 } },
-      { id: 'beta', name: 'Station Beta', gm: 0, radius: 4, color: C.station, kind: 'station', keepOut: 35, zone: 'all', orbit: { parent: 'terra', a: 330, phase: 2.3 } },
+      { id: 'beta', name: 'Station Beta', gm: 0, radius: 4, color: C.station, kind: 'station', keepOut: 35, zone: 'all', orbit: { parent: 'terra', a: 330, phase: 2.45 } },
     ],
-    ship: ship({ start: { orbit: { body: 'terra', r: 120, angle: 0 } }, heading: 'prograde', dv: 8, accel: 1, rcs: { fuel: 60 }, cargo: [{ id: 'a', name: 'Probe A', mass: 0.25 }, { id: 'b', name: 'Probe B', mass: 0.25 }] }),
+    ship: ship({ start: { orbit: { body: 'terra', r: 120, angle: 0 } }, heading: 'prograde', dv: 9.5, accel: 1, rcs: { fuel: 6.5 }, cargo: [{ id: 'a', name: 'Probe A', mass: 0.25 }, { id: 'b', name: 'Probe B', mass: 0.25 }] }),
     goals: [
       { type: 'reach', body: 'alpha', craft: 'a', r: 12, label: 'Alpha dock' },
       { type: 'reach', body: 'beta', craft: 'b', r: 12, label: 'Beta dock' },
       { type: 'orbit', body: 'terra', rMin: 100, rMax: 180 },
     ],
-    par: 6, bounds: 2500, tMax: 1500, predict: 200, view: { x: 0, y: 0, span: 860 },
+    par: 6.2, bounds: 2500, tMax: 1000, predict: 200, view: { x: 0, y: 0, span: 860 },
+  },
+  {
+    id: 'crossingtraffic',
+    name: 'Crossing Traffic',
+    intro: 'Two guard satellites patrol a long, stretched orbit, and their amber zones are closed to everything. Their lane sweeps from 85 to 405, so any spent stage left in orbit here crosses it sooner or later. The booster has to come down. At the top of your climb, burn it retrograde until its path falls into Terra, then flip once, deploy, and let the satellite round off the orbit. Side-thruster propellant is short: your nose already points the right way at the top, if you leave it alone.',
+    objective: 'Put the satellite in an orbit between 300 and 360, with the booster brought down and no craft entering a guard\'s zone.',
+    teaches: 'Planned flips · deorbiting a booster',
+    bodies: [
+      { id: 'terra', name: 'Terra', gm: 20000, radius: 50, color: C.blue },
+      { id: 'guard1', name: 'Guard 1', gm: 0, radius: 4, color: C.station, kind: 'station', keepOut: 25, zone: 'all', orbit: { parent: 'terra', a: 245, e: 0.55, phase: 1.0, argp: 2.0 } },
+      { id: 'guard2', name: 'Guard 2', gm: 0, radius: 4, color: C.station, kind: 'station', keepOut: 25, zone: 'all', orbit: { parent: 'terra', a: 245, e: 0.55, phase: 1.0 + Math.PI, argp: 2.0 } },
+    ],
+    ship: ship({ start: { orbit: { body: 'terra', r: 62, angle: 0, speed: 1.2976 } }, heading: 'prograde', rcs: { fuel: 1.6 }, stack: [
+      { id: 'booster', name: 'Booster', dv: 2, accel: 0.8 },
+      { name: 'Satellite', dv: 4, accel: 0.6, dry: 0.3 },
+    ] }),
+    goals: [{ type: 'orbit', body: 'terra', rMin: 300, rMax: 360 }],
+    par: 3.8, bounds: 2000, tMax: 600, predict: 200, view: { x: 0, y: 0, span: 900 },
   },
 ];
 
@@ -215,22 +214,40 @@ const proofs = {
     ],
   },
   twinzones: {
-    p: [5, 6, 50, 330, 50, 172, 155], scale: [8, 3, 15, 8, 10, 8, 8], opts: { turn: true, turnRate: 0.2 },
-    script: (p, AP) => [
+    p: [11.278, 5.459, 85.229, 6.892, 100.42, 0.639, 152.84, 173.858], scale: [6, 3, 12, 3, 12, 0.3, 10, 5], opts: { turn: true, turnRate: 0.15 },
+    script: (p, AP) => { let d0 = null; return [
       { wait: p[0] },
       // Burn until the path runs through Alpha, coast in and drop short of the zone.
       { burn: 'pro', until: (m) => closest(m, 'alpha', 120) < p[1] },
       still((m) => dist(m, 'alpha') < p[2]),
       { drop: true },
       // Burning on for Beta is also the dodge.
-      { burn: 'pro', until: (m) => AP.orb(m, 'terra').ap >= p[3] },
-      // Beta catches up from behind: face retrograde, drop at the top, get out of its way.
-      turnThen('retro', (m) => !AP.orb(m, 'terra').rising || dist(m, 'beta') < p[4]),
+      { burn: 'pro', until: (m) => closest(m, 'beta', 250) < p[3] },
+      still((m) => dist(m, 'beta') < p[4]),
       { drop: true },
-      { burn: 'retro', until: (m) => AP.orb(m, 'terra').pe <= p[5] },
-      still((m) => AP.orb(m, 'terra').rising),
+      // A short prograde push and Beta passes beneath you.
+      { burn: 'pro', until: (m) => m.dvUsed() - (d0 == null ? (d0 = m.dvUsed()) : d0) >= p[5] },
+      // One flip, then brake at the top and again at the bottom.
       still((m) => !AP.orb(m, 'terra').rising),
-      { burn: 'retro', until: (m) => AP.orb(m, 'terra').ap <= p[6] },
+      { burn: 'retro', until: (m) => AP.orb(m, 'terra').pe <= p[6] },
+      // Face retrograde again just before the low point (it has swung round).
+      still((m) => AP.orb(m, 'terra').r < p[6] + 40),
+      turnTo('retro'),
+      still((m) => AP.orb(m, 'terra').rising),
+      { burn: 'retro', until: (m) => AP.orb(m, 'terra').ap <= p[7] },
+    ]; },
+  },
+  crossingtraffic: {
+    p: [72.892, 300.468, 317.654], scale: [4, 8, 25], opts: { turn: true, turnRate: 0.2 },
+    script: (p, AP) => [
+      // Coast up with the nose held still: near the top it faces retrograde.
+      still((m) => AP.orb(m, 'terra').r > p[2]),
+      { burn: 'retro', until: (m) => AP.orb(m, 'terra').pe <= p[0] },
+      // The one flip: prograde, so the separation spring pushes the booster down.
+      turnTo('pro'),
+      { deploy: true },
+      still((m) => !AP.orb(m, 'terra').rising),
+      { burn: 'pro', until: (m) => AP.orb(m, 'terra').pe >= p[1] },
     ],
   },
 };
@@ -242,6 +259,11 @@ const fails = {
       { deploy: true },
       { coast: (m) => !AP.orb(m, 'terra').rising },
       { burn: 'pro', until: (m) => AP.orb(m, 'terra').pe >= 325 },
+    ] },
+    { name: 'burn the booster dry', steps: (AP) => [
+      { burn: 'pro', until: () => false },
+      { deploy: true },
+      { burn: 'retro', until: (m) => AP.orb(m, 'terra').ap <= 380 },
     ] },
   ],
   shieldedmoon: [
@@ -288,6 +310,48 @@ const fails = {
       { coast: (m) => dist(m, 'mark') < 107 },
       { drop: true },
     ] },
+  ],
+  crossingtraffic: [
+    { name: 'round off on the booster', opts: { turn: true, turnRate: 0.2 }, steps: (AP) => [
+      { coast: (m) => { const o = AP.orb(m, 'terra'); return o.r > 300 && !o.rising; } },
+      { burn: 'pro', stage: true, until: (m) => AP.orb(m, 'terra').pe >= 310 },
+    ] },
+    { name: 'drop the booster at once', opts: { turn: true, turnRate: 0.2 }, steps: (AP) => [
+      { deploy: true },
+      { coast: (m) => { const o = AP.orb(m, 'terra'); return o.r > 300 && !o.rising; } },
+      { burn: 'pro', until: (m) => AP.orb(m, 'terra').pe >= 310 },
+    ] },
+    { name: 'track prograde all the way up, fast turns', opts: { turn: true, turnRate: 0.6 }, steps: (AP) => [
+      { coast: (m) => AP.orb(m, 'terra').r > 317 },
+      { burn: 'retro', until: (m) => AP.orb(m, 'terra').pe <= 73 },
+      { coast: (m) => Math.abs(AP.wrap(AP.aim(m, 'pro') - m.ship.angle)) < 0.04 },
+      { deploy: true },
+      { coast: (m) => !AP.orb(m, 'terra').rising },
+      { burn: 'pro', until: (m) => AP.orb(m, 'terra').pe >= 300 },
+    ] },
+  ],
+  twinzones: [
+    { name: 'drop both probes for Alpha', opts: { turn: true, turnRate: 0.15 }, steps: (AP) => {
+      const p = proofs.twinzones.p;
+      return [
+        { wait: p[0] },
+        { burn: 'pro', until: (m) => closest(m, 'alpha', 120) < p[1] },
+        still((m) => dist(m, 'alpha') < p[2]),
+        { drop: true },
+        { drop: true },
+        { burn: 'pro', until: (m) => closest(m, 'beta', 250) < p[3] },
+      ];
+    } },
+    { name: 'follow Probe A in', opts: { turn: true, turnRate: 0.15 }, steps: (AP) => {
+      const p = proofs.twinzones.p;
+      return [
+        { wait: p[0] },
+        { burn: 'pro', until: (m) => closest(m, 'alpha', 120) < p[1] },
+        still((m) => dist(m, 'alpha') < p[2]),
+        { drop: true },
+      ];
+    } },
+    { name: 'the same flight with fast turns (wins with 9.2 s of RCS, runs dry on 6.5)', opts: { turn: true, turnRate: 0.6 }, steps: (AP) => proofs.twinzones.script(proofs.twinzones.p, AP) },
   ],
 };
 

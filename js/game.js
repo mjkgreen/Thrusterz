@@ -43,7 +43,12 @@
   const STORE = 'thrusterz.progress.v1';
   // Saved progress is checked field by field, so a corrupted or old save can
   // never break the menu: anything unrecognised is dropped.
-  const RENAMED = { 'test-satellite': 'satellite', 'test-drop': 'releasepoint', 'test-stack': 'threestages', 'test-debris': 'clearstation' };
+  const RENAMED = {
+    'test-satellite': 'satellite', 'test-drop': 'releasepoint', 'test-stack': 'threestages', 'test-debris': 'clearstation',
+    // Prototypes that became World 3 missions.
+    'test-keepout': 'supplyrun', 'test-patrol': 'patrol', 'test-berth': 'wideberth', 'test-spin': 'spinburn',
+    'test-drift': 'asteroidrun', 'test-sentry': 'sentryfield',
+  };
   function loadProgress() {
     let raw = null;
     try { raw = JSON.parse(localStorage.getItem(STORE)); } catch (e) { raw = null; }
@@ -127,6 +132,7 @@
     state.coach = { done: new Set(), key: null, idle: 0, spinIdle: 0 };
     state.eventsSeen = 0;
     state.rcsWarned = 0;
+    state.stageFate = null;
     state.frameMode = 'auto';
     state.predictScale = 1;
     state.trail = [];
@@ -584,6 +590,27 @@
       }
     }
     state.pred = p;
+    stageFatePreview(m);
+  }
+
+  // Where would the spent stage end up if you deployed it now? Only on levels
+  // where that matters (something protected, or a zone closed to everything),
+  // and not while the engine is firing; a few times a second is plenty.
+  function stageFatePreview(m) {
+    const guarded = m.sys.bodies.some(b => b.protect || b.zone === 'all');
+    if (!guarded || !m.canDeploy() || m.thrusting) { state.stageFate = null; return; }
+    const now = performance.now();
+    if (state.stageFate && now - state.stageFate.wall < 300) return;
+    const s = m.ship, push = 0.4;
+    const f = m.debrisFate({ x: s.x, y: s.y, vx: s.vx - push * Math.cos(s.angle), vy: s.vy - push * Math.sin(s.angle) });
+    m.sys.update(m.t); // the look-ahead moved the bodies forward; put them back
+    const name = f.name;
+    const text = f.kind === 'ground' ? 'STAGE NOW → BURNS UP'
+      : f.kind === 'gone' ? 'STAGE NOW → LEAVES THE SYSTEM'
+      : f.kind === 'safe' ? 'STAGE NOW → SAFE ORBIT'
+      : f.kind === 'cross' ? 'STAGE NOW → ORBIT CROSSES ' + (f.zone ? name.toUpperCase() + '\'S ZONE' : name.toUpperCase())
+      : f.zone ? 'STAGE NOW → DRIFTS INTO ' + name.toUpperCase() + '\'S ZONE' : 'STAGE NOW → HITS ' + name.toUpperCase();
+    state.stageFate = { wall: now, kind: f.kind, text, bad: f.kind === 'cross' || f.kind === 'hit' };
   }
 
   // Did the ship itself end the mission by hitting its target?
@@ -1002,13 +1029,20 @@
       const dropGoal = next && next.id && m.level.goals.find((q, j) => j >= m.goalIndex && !m.done.has(j) && q.craft === next.id && q.type === 'hit');
       const preview = !!dropGoal;
       const tg = preview ? dropGoal : g && !g.craft ? g : null;
-      const good = tg && tg.type === 'hit' && sys.byId[tg.body].index === p.hit && m.siteOk(tg, p.end.x, p.end.y, p.tEnd);
+      // A stage that would come down inside a zone closed to everything isn't a good drop.
+      const zoned = preview && !m.canDrop() && state.stageFate && state.stageFate.bad;
+      const good = !zoned && tg && tg.type === 'hit' && sys.byId[tg.body].index === p.hit && m.siteOk(tg, p.end.x, p.end.y, p.tEnd);
       ctx.strokeStyle = good ? '#7cf7d4' : '#ff5a5a';
       ctx.lineWidth = 2;
       ctx.beginPath(); ctx.moveTo(sx - 6, sy - 6); ctx.lineTo(sx + 6, sy + 6); ctx.moveTo(sx + 6, sy - 6); ctx.lineTo(sx - 6, sy + 6); ctx.stroke();
       const missedSite = !good && tg && tg.site && sys.byId[tg.body].index === p.hit;
       label((preview ? (m.canDrop() ? 'DROP NOW → ' : 'DEPLOY NOW → ') : '') + (good ? 'IMPACT ' : missedSite ? 'OFF TARGET ' : 'CRASH ') + sys.bodies[p.hit].name + ' · ' + fmtT(p.tEnd - m.t), sx, sy - 14, good ? '#7cf7d4' : '#ff7a7a');
       ctx.lineWidth = 1;
+    }
+    // Where the spent stage would end up if deployed now.
+    if (state.stageFate) {
+      const [sx, sy] = w2s(m.ship.x, m.ship.y);
+      label(state.stageFate.text, sx, sy + 30, state.stageFate.bad ? '#ff7a7a' : state.stageFate.kind === 'ground' ? '#7cf7d4' : '#9fb3d8');
     }
     // Closest approach + ghost of the target at that moment.
     const ca = p.ca;
