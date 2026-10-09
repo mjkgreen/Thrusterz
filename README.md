@@ -58,8 +58,10 @@ you do it, and stops appearing after you've mastered it.
   rate, and you keep spinning until you counter-fire. A quick tap is a fixed
   small nudge (2°/s); holding ramps up. Holding the opposite key brakes the spin
   to exactly zero and stops there. The HUD shows your spin rate. RCS propellant
-  is limited. **Gyro assist** (`G`) damps the spin for you, but switching it on
-  caps that run at ★★.
+  is limited (60 s of firing by default, which no mission comes close to; the
+  test levels *Spin Burn*, *Asteroid Run* and *Sentry Field* set real budgets,
+  and *Fixed Heading* has none at all). **Gyro assist** (`G`) damps the spin for
+  you, but switching it on caps that run at ★★.
 - **Trajectory prediction** — the dashed line is your coast path. The magenta
   marker and ghost show the closest approach to your current objective and where
   the target will be at that moment.
@@ -89,8 +91,11 @@ you do it, and stops appearing after you've mastered it.
   when they're dropped: burn up on reentry (fine), drift clear, or threaten a
   protected object. A stage left on a bound orbit that crosses a protected
   object's orbit fails the mission at once, since it would hit eventually; the
-  danger band and crossing points are shown. Some stations also have a
-  keep-out zone your ship may not enter.
+  danger band and crossing points are shown.
+- **Keep-out zones** (prototype for World 3) — a red zone your ship may not
+  enter, though cargo may. Zones can ride their own orbits; the dashed path
+  turns red where it would cross one, with a ghost of the zone at that moment.
+  Test levels: *Keep Out*, *Patrol*, *Wide Berth*.
 - **Δv used** is the Δv you actually burned, so dropping cargo (which leaves
   the rest of the ship lighter) doesn't count as saving fuel.
 - **Fuel pickups** — fly through a canister to add its Δv to the current
@@ -146,7 +151,7 @@ you do it, and stops appearing after you've mastered it.
 | 7 | Release Point | Passive drop · release timing |
 | 8 | Impactor | Drop, then dodge |
 | 9 | Relay Drop | Place cargo on an orbit |
-| 10 | Supply Run | Throw, don't carry |
+| 10 | Moon Mail | Drop on a flyby |
 | 11 | Twin Probes | Two drops, two targets |
 | 12 | Constellation | Phasing orbits |
 | 13 | Three Stages | Multi-stage rockets |
@@ -173,7 +178,9 @@ influence you're in, or the star you're orbiting when you're in none.
 
 World 2 flies through a green nebula with distant planets in the background,
 so you can always tell the worlds apart. **Test levels** prototype upcoming
-mechanics (currently *Fuel Run*). See [docs/ROADMAP.md](docs/ROADMAP.md) for
+mechanics: *Fuel Run*; keep-out zones (*Keep Out*, *Patrol*, *Wide Berth*);
+side-thruster budgets (*Fixed Heading*, *Spin Burn*); and zero-G flying with
+both (*Asteroid Run*, *Sentry Field*). See [docs/ROADMAP.md](docs/ROADMAP.md) for
 future worlds, the leaderboard design and the level-maker plan.
 
 ## Physics
@@ -208,10 +215,14 @@ tools/browser-check.js  headless Chromium: every mission under random input,
 tools/brand/            icon + share card sources; render.js regenerates img/
 tools/check-levels.js   random burn search proving World 1 missions solvable
                         within their fuel budget         (npm run check-levels)
-tools/autopilot.js      scripted autopilot (launch, burns, drops, deploys)
-tools/proofs.js         a winning flight plan for every World 2 mission;
-                        npm test flies them all
+tools/autopilot.js      scripted autopilot (launch, burns, drops, deploys); with
+                        opts.turn it turns with the real side thrusters and
+                        reports the RCS seconds used
+tools/proofs.js         a winning flight plan for every World 2 mission and the
+                        test levels; npm test flies them all
 tools/check-scripted.js re-tunes a proof's parameters    (npm run check-scripted [id] [iters] [opt])
+tools/rcs-report.js     RCS seconds each proof needs with honest turning
+                                                         (npm run rcs-report [id])
 ```
 
 `physics.js`, `flight.js` and `levels.js` have no DOM dependencies and run

@@ -21,7 +21,8 @@ Early worlds stay grounded in real spaceflight; stranger ideas come later.
 
 | Status | Mechanic | The decision it adds | Notes |
 | --- | --- | --- | --- |
-| **Built (World 2)** | **Payloads** | When to drop a stage or release cargo, and where the pieces end up | Stages, engineless cargo, debris fates, keep-out zones, constellations. |
+| **Built (World 2)** | **Payloads** | When to drop a stage or release cargo, and where the pieces end up | Stages, engineless cargo, debris fates, constellations. |
+| **Prototype → World 3** | **Area denial** | Where you may not go, and where something must end up | Keep-out zones and drop zones, mixed with side-thruster budgets and zero-G flying. Test levels: *Keep Out*, *Patrol*, *Wide Berth*, *Fixed Heading*, *Spin Burn*, *Asteroid Run*, *Sentry Field*. See the World 3 plan below. |
 | **Prototype** | **Fuel pickups** | Route planning: is the detour worth the fuel? | Canisters on their own orbits. Test level: *Fuel Run*. Used as a mixer in World 2 (*Fuel Depot*). |
 | Idea | Refuelling depot | Rendezvous to refill, then fly a mission your tank alone can't | Builds on Docking. Natural pair with pickups. |
 | Idea | Atmospheres / aerobraking | How deep to skim: free braking vs. burning up | Drag layer + heating limit. No new button; a new surface to read on the predicted path. |
@@ -48,7 +49,7 @@ Four sub-mechanics, combined in five chapters of six missions:
 
 Chapters: *Hand-off* (Launch a Satellite, Burn It Dry, Against the Spin,
 Stationary, Moon Probe, Homecoming) · *Passive drop* (Release Point, Impactor,
-Relay Drop, Supply Run, Twin Probes, Constellation) · *Stacks* (Three Stages,
+Relay Drop, Moon Mail, Twin Probes, Constellation) · *Stacks* (Three Stages,
 Kick Stage, Escape Velocity, Solar Probe, Outer Planet, Splashdown) · *Debris*
 (Clear the Station, Busy Orbit, Leave No Junk, Fuel Depot, Relay Pair,
 Junkyard) · *Grand missions* (Lander and Orbiter, Deep Impact, Voyager, Moon
@@ -60,6 +61,102 @@ flown by `npm test`; pars were set from the cheapest routes the search found.
 Fuel pickups appear in World 2 only as an occasional mixer. Refuelling depots
 (rendezvous, then top up) and control switching between craft (booster landing,
 Apollo-style lander and orbiter) are saved for later worlds.
+
+## World 3: No-Fly Zones (planned)
+
+Area denial was tried in World 2 (*Supply Run*, a keep-out bubble around a
+station) but nothing else in that world used it, so it moved to the test
+levels as *Keep Out* and World 2's slot 10 became *Moon Mail* (drop on a
+flyby, carrier comes home on a free return). It becomes World 3's mechanic.
+
+The idea has two sides: **zones you may not enter** and **zones something must
+end up in**. It's grounded (real stations have a keep-out sphere and an
+approach corridor; real launches have range-safety and no-fly areas), needs no
+new button, and shows on the predicted path: the dashed line turns red where it
+would cross a zone.
+
+### Building blocks
+
+| Block | What it adds | Rule |
+| --- | --- | --- |
+| A. Keep-out bubble | A circle around a body or a point that rides its orbit | Ship may not enter; cargo may (prototype rule) |
+| B. Zone rules per object | Who a zone applies to: ship, cargo, spent stages, or all | One flag per zone, shown by colour/pattern |
+| C. Shapes | Circle, ring (an altitude band, e.g. a radiation belt), surface arc (restricted ground), cone/corridor (the only way in) | Same check, different geometry |
+| D. Timing | Zones that switch on and off, sweep around, or move on their own orbit | Shown as a countdown and a ghost of where the zone will be |
+| E. Drop zone | The inverse: an area cargo (or the ship) must finish inside | Generalises today's surface landing zone to space |
+
+### Combinations with earlier mechanics
+
+| Combine with | Level idea | The decision |
+| --- | --- | --- |
+| Passive drop (W2) | **Keep Out** (built): throw the pod into the station's bubble | Release point vs. bubble edge |
+| Phasing (W1 Docking) | **Approach Corridor**: dock with a station only through a cone on its trailing side | Match the orbit from behind, not from below |
+| Gravity assist (W1 Slingshot) | **Wide Berth** (test level): Slingshot with a keep-out zone around Goliath. Later, **Dark Side**: only the near side is denied | Higher periapsis, weaker assist, tighter aim |
+| Landing zone (W1) | **Restricted Ground**: a spinning planet with no-landing arcs between two allowed pads | Deorbit timing against the planet's spin |
+| Debris (W2) | **Range Safety**: spent stages may not fall into a populated surface arc | Where the booster drops, not just whether it reenters |
+| Hohmann / bi-elliptic (W1) | **Radiation Belt**: a ring-shaped zone with a time limit inside it (ship only) | Cross fast or go around the long way |
+| Moving zone + phasing | **Patrol** (test level): guard satellites with keep-out zones circle between you and your target orbit | Wait for a gap, or change your lap time to dodge it |
+| Timed zone | **Solar Storm**: the whole sky is denied except the planet's shadow for 60 s | Get into the shadow, and stay in it as you orbit |
+| Constellation (W2) | **Blackout Arc**: spread satellites, but none may park over a denied longitude | Spacing with a hole in it |
+| Fuel pickups | **Detour**: the canister sits just past a zone, so the cheap straight route is forbidden | Is the long way round still worth the fuel? |
+| Lagrange (W1) | **Crowded Trojans**: L4 is denied, park at L5 | Same physics, opposite direction of drift |
+| Drop zone (E) | **Air Drop**: put cargo inside a space zone, not on a surface | Release point and speed both matter |
+| Two zones | **Customs**: pass through a checkpoint zone first, then deliver | Chained zones, order matters |
+| Rendezvous + bubble | **Tow Away**: dock with a dead satellite drifting toward a protected bubble and haul it clear | Finale; needs the asteroid-tug mechanic |
+
+A world of 30 could run as five chapters of six: *Keep out* (A, B) ·
+*Shapes* (C) · *Moving zones* (D) · *Drop zones* (E) · *Grand missions*.
+
+### What it needs in code
+
+- Zones as their own list on a level (shape, owner body or orbit, who they
+  apply to, schedule), instead of `keepOut` on a body.
+- The coast predictor checks zones for the ship (done: the path turns red at
+  the first crossing) and for each cargo's release preview (to do).
+- A `zone` goal type for drop zones (craft or ship inside a zone, optionally
+  held for a few seconds).
+- A scripted proof in `tools/proofs.js` for every mission, as World 2 has.
+
+### Side-thruster budgets (World 3 mixer)
+
+So far RCS has been a limitless resource: every ship gets 60 s of firing and
+no mission comes close. World 3 can make it a real constraint now and then,
+not on every mission. Turning is a cost, so you plan fewer, slower turns:
+tap (2°/s for 0.08 s of propellant) instead of holding.
+
+**Measuring it.** The autopilot used to set the heading directly, so proofs
+said nothing about turning. With `opts.turn` it now turns with the real
+thrusters (spin up to a capped rate, coast, counter-fire to stop, match a
+target that keeps turning such as prograde, and stop any leftover spin).
+`npm run rcs-report` flies every proof that way. Results with the current
+proofs (turn rate capped at 0.2 rad/s; "lost" means the slower turns broke
+the proof's timing, not that RCS ran out):
+
+| RCS needed | Missions |
+| --- | --- |
+| 0 s (launch only) | Launch a Satellite, Against the Spin, Stationary, Three Stages, Escape Velocity, Splashdown, Busy Orbit, Junkyard |
+| under 3 s | Burn It Dry, Homecoming, Solar Probe, Clear the Station, Voyager, Belt Survey, Keep Out, Wide Berth |
+| 3–10 s | Kick Stage, Leave No Junk, Deep Impact, Patrol, Relay Pair, Relay Drop, Twin Probes, Moon Network, Moon Probe, Impactor, Lander and Orbiter |
+| not measured yet | Release Point, Moon Mail, Constellation, Fuel Depot, Outer Planet, Grand Deployment (need re-tuning for slow turns; launch steps still turn directly) |
+
+So 60 s is 6–60× more than needed. A budget becomes a constraint around
+1.5× what the proof uses: enough for a careful human, not for holding keys.
+Proofs with a budget must use ≤80% of it (checked by `npm test`).
+
+**Test levels.**
+
+| Level | Budget | Proof uses | The idea |
+| --- | --- | --- | --- |
+| *Fixed Heading* | none (no side thrusters) | – | Your nose stays fixed against the stars while prograde swings round as you orbit: wait for them to line up, then burn. Burning early misses Luna |
+| *Spin Burn* | 1.0 s | 0.27 s | Tap up a slow spin and pulse the engine as the nose sweeps past prograde (spin-stabilised stages). Holding a key for one second empties the tank |
+| *Asteroid Run* | 7 s, 10 Δv | 4.9 s, 7.4 Δv | Zero-G: three gates through rocks, then stop at a depot. Every change of direction costs a turn and fuel |
+| *Sentry Field* | 5 s, 7 Δv | 3.2 s, 4.4 Δv | Zero-G + area denial + a drop: throw a beacon into a zone you can't enter, dodge a circling sentry, stop at the depot |
+
+Zero-G levels use a depot with a negligible mass as the HUD's reference, and
+`zeroG: true` hides the orbit readouts. **Open questions:** is it fun or just
+fiddly? Does running dry need a softer outcome (right now you just can't turn,
+and a spin keeps going)? A low-RCS warning on the HUD? Should turn rate depend
+on mass, so dropping cargo makes the ship nimbler?
 
 ## Score and leaderboards
 
