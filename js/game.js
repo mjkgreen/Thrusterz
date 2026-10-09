@@ -95,6 +95,7 @@
     state.resultShown = false;
     state.endHandled = false;
     state.paused = false;
+    releaseTouch();
     buildRails();
     const m = state.mission;
     const zoom = Math.min(W, H) / level.view.span;
@@ -290,7 +291,9 @@
       btn.classList.add('on');
     };
     const off = (e) => { e.preventDefault(); if (k in touch) touch[k] = false; btn.classList.remove('on'); };
-    btn.addEventListener('pointerdown', on);
+    // Capture the pointer so the release always reaches this button, even if
+    // the finger slides off it or an overlay appears on top.
+    btn.addEventListener('pointerdown', (e) => { try { btn.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ } on(e); });
     btn.addEventListener('pointerup', off);
     btn.addEventListener('pointercancel', off);
     btn.addEventListener('pointerleave', off);
@@ -315,6 +318,39 @@
   window.addEventListener('touchstart', () => {
     if (!isTouch()) { document.body.classList.add('touch'); state.coach.id = null; updateGate(); }
   }, { once: true, passive: true });
+
+  // Phones don't fire a click for a tap made while another finger is down
+  // (holding BURN or a rotate button), so pause, retry and every other button
+  // would ignore it. Touch taps on buttons are handled on pointerup instead,
+  // and the browser's own (possibly missing) click is swallowed.
+  const pressed = new Map();
+  let swallow = null;
+  document.addEventListener('pointerdown', (e) => {
+    if (e.pointerType !== 'touch') return;
+    const b = e.target.closest && e.target.closest('button');
+    if (b && !b.closest('#touch')) pressed.set(e.pointerId, b);
+  }, true);
+  document.addEventListener('pointercancel', (e) => pressed.delete(e.pointerId), true);
+  document.addEventListener('pointerup', (e) => {
+    const b = pressed.get(e.pointerId);
+    pressed.delete(e.pointerId);
+    if (!b || b.disabled) return;
+    const t = document.elementFromPoint(e.clientX, e.clientY);
+    if (!t || t.closest('button') !== b) return;
+    swallow = { el: b, until: performance.now() + 700 };
+    b.click();
+  }, true);
+  document.addEventListener('click', (e) => {
+    if (!e.isTrusted || !swallow || performance.now() > swallow.until) return;
+    const b = e.target.closest && e.target.closest('button');
+    if (b === swallow.el) { e.stopPropagation(); e.preventDefault(); swallow = null; }
+  }, true);
+
+  // Let go of every held touch control (when a menu or result card covers them).
+  function releaseTouch() {
+    for (const k of Object.keys(touch)) touch[k] = false;
+    for (const b of document.querySelectorAll('#touch button.on')) b.classList.remove('on');
+  }
 
   // A quick tap still fires the side thrusters for a minimum pulse, so every
   // tap is the same small, repeatable nudge.
@@ -1609,6 +1645,7 @@
 
   function showResult() {
     state.resultShown = true;
+    releaseTouch();
     const m = state.mission, L = m.level;
     const won = m.status === 'won';
     const stars = m.stars();
@@ -1665,7 +1702,7 @@
 
   function pauseMission() {
     if (state.screen === 'flight' && !state.paused && !state.resultShown) {
-      state.paused = true; show('pause');
+      state.paused = true; releaseTouch(); show('pause');
     }
   }
 
@@ -1711,7 +1748,7 @@
 
   function togglePause() {
     state.paused = !state.paused;
-    if (state.paused) { show('pause'); state.screen = 'flight'; }
+    if (state.paused) { releaseTouch(); show('pause'); state.screen = 'flight'; }
     else { hide('pause'); hide('help'); }
   }
 
