@@ -260,4 +260,55 @@ for (const L of LEVELS) {
   check(`World 2: all ${w2.length} proofs win`, lost.length === 0, lost.join('; '));
 }
 
+// 13. Recorded runs replay exactly (the leaderboard re-flies submissions).
+{
+  const Replay = require('../js/replay.js');
+  // Fly like the game does: fixed ticks, controls per tick, actions between ticks.
+  const flyRecorded = (L, plan) => {
+    const m = new Mission(L), rec = new Replay.Recorder(L.id, Replay.levelHash(L));
+    for (let n = 0; n < plan.length && m.status === 'flying'; n++) {
+      const step = plan[n];
+      if (step.action) {
+        rec.event(step.action);
+        if (step.action === 'deploy') m.deploy(); else if (step.action === 'drop') m.release(); else m.gyro = !m.gyro;
+      }
+      rec.tick(step.w, step.c);
+      m.advance(Replay.WARPS[step.w] * Replay.TICK, step.c);
+    }
+    return { m, log: JSON.parse(JSON.stringify(rec)) };
+  };
+  let seed = 3; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  let mismatches = [];
+  for (const id of ['moonshot', 'satellite', 'releasepoint', 'twinprobes', 'granddeploy', 'beltsurvey']) {
+    const L = LEVELS.find(l => l.id === id), plan = [];
+    let c = { thrust: true, throttle: 1, rotate: 0 }, w = 0;
+    for (let n = 0; n < 6000; n++) {
+      if (rnd() < 0.02) c = { thrust: rnd() < 0.4, throttle: Math.round(rnd() * 10) / 10 || 0.1, rotate: [-1, 0, 0, 1][Math.floor(rnd() * 4)] };
+      if (rnd() < 0.01) w = c.thrust || c.rotate ? 0 : Math.floor(rnd() * 5);
+      const action = rnd() < 0.002 ? ['deploy', 'drop', 'gyro'][Math.floor(rnd() * 3)] : null;
+      plan.push({ c, w: c.thrust || c.rotate ? 0 : w, action });
+    }
+    const { m, log } = flyRecorded(L, plan);
+    const r = Replay.replay(L, log, Mission);
+    const same = r.status === m.status && r.t === m.t && r.ship.x === m.ship.x && r.ship.vy === m.ship.vy && r.dvUsed() === m.dvUsed() && r.goalIndex === m.goalIndex;
+    if (!same || !Replay.validLog(log)) mismatches.push(id);
+  }
+  check('recorded runs replay bit-for-bit', mismatches.length === 0, mismatches.join(', '));
+  // A real win (deorbit: turn around, burn) survives the round trip as a win.
+  const L = LEVELS.find(l => l.id === 'deorbit');
+  let win = null;
+  for (let turn = 40; turn <= 140 && !win; turn += 4) for (let burn = 100; burn <= 260 && !win; burn += 20) {
+    const plan = [];
+    for (let n = 0; n < turn; n++) plan.push({ c: { thrust: false, throttle: 1, rotate: 1 }, w: 0 });
+    for (let n = 0; n < turn; n++) plan.push({ c: { thrust: false, throttle: 1, rotate: -1 }, w: 0 });
+    for (let n = 0; n < burn; n++) plan.push({ c: { thrust: true, throttle: 1, rotate: 0 }, w: 0 });
+    for (let n = 0; n < 4000; n++) plan.push({ c: { thrust: false, throttle: 1, rotate: 0 }, w: 3 });
+    const r = flyRecorded(L, plan);
+    if (r.m.status === 'won') win = r;
+  }
+  const again = win && Replay.replay(L, win.log, Mission);
+  check('a recorded win replays as the same win', !!win && again.status === 'won' && again.score() === win.m.score() && again.t === win.m.t, win ? `score ${win.m.score()} ticks ${win.log.ticks.length} runs` : 'no win found');
+  check('malformed logs are rejected', !Replay.validLog({ v: 1, ticks: [[1, 9, 0, 10, 0]], events: [] }) && !Replay.validLog({ v: 1, ticks: [], events: [[0, 'warp9']] }) && !Replay.validLog(null));
+}
+
 process.exit(failed ? 1 : 0);
