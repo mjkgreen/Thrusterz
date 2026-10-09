@@ -148,7 +148,7 @@ const levels = [
       { id: 'guardA', name: 'Guard A', gm: 0, radius: 4, color: C.station, kind: 'station', keepOut: +(process.env.KO || 35), orbit: { parent: 'terra', a: 260, phase: DEPOT + +(process.env.GS || 0.21) } },
       { id: 'guardB', name: 'Guard B', gm: 0, radius: 4, color: C.station, kind: 'station', keepOut: +(process.env.KO || 35), orbit: { parent: 'terra', a: 260, phase: DEPOT - +(process.env.GS || 0.21) } },
     ],
-    ship: ship({ start: { orbit: { body: 'terra', r: 150, angle: 0 } }, heading: 'prograde', dv: 6, accel: 1 }),
+    ship: ship({ start: { orbit: { body: 'terra', r: 150, angle: 0 } }, heading: 'prograde', dv: 10, accel: 1 }),
     goals: [{ type: 'rendezvous', body: 'depot', dist: 15, relVel: 0.5 }],
     par: 4, bounds: 2000, tMax: 1200, predict: 200, view: { x: 0, y: 0, span: 800 },
   },
@@ -189,7 +189,7 @@ proofs.detour = {
 
 proofs.closequarters = {
   // Hohmann climb timed to arrive under the depot, then brake onto it.
-  p: [15, 262, 60, 0.05, 0.6], scale: [3, 5, 15, 0.02, 0.2],
+  p: [14.379, 269.626, 42.617, 0.062, 0.842], scale: [3, 8, 15, 0.03, 0.3],
   script: (p, AP) => [
     { wait: p[0] },
     { burn: 'pro', until: (m) => AP.orb(m, 'terra').ap >= p[1] },
