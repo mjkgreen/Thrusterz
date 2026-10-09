@@ -135,7 +135,12 @@ const check = (name, ok, info) => { console.log((ok ? 'ok   ' : 'FAIL ') + name 
     const p = await ctx.newPage();
     watch(p);
     await p.route('https://app.thrusterz.game/', r => r.fulfill({ contentType: 'text/html', body: html }));
-    await p.route('https://thrusterz.vercel.app/**', r => r.fulfill({ status: 503, contentType: 'application/json', body: '{"error":"offline in test"}' }));
+    // Stand in for the live API (whatever js/config.js points at), so the
+    // test never depends on the real server.
+    const cfg = {}; new Function('window', require('fs').readFileSync(require('path').join(__dirname, '..', 'js', 'config.js'), 'utf8'))(cfg);
+    await p.route(cfg.THRUSTERZ_CONFIG.apiBase.replace(/\/$/, '') + '/**', r => r.fulfill({ status: 503, contentType: 'application/json',
+      headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'Content-Type, Authorization', 'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS' },
+      body: '{"error":"offline in test"}' }));
     await p.addInitScript(() => {
       window.__sent = [];
       window.__THRUSTERZ_NATIVE = { platform: 'ios', appleSignIn: true, store: { 'thrusterz.progress.v1': JSON.stringify({ stars: { liftoff: 3, point: 2 }, best: {}, unlocked: 1 }) } };
