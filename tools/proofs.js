@@ -99,7 +99,7 @@ module.exports = {
   },
 
   twinprobes: {
-    p: [13.077, 247.78, -6.071, 474.044, 21.801, -2.796], scale: [10, 8, 20, 10, 30, 2],
+    p: [13.029, 257.144, 0.333, 458.463, -43.355, -0.089, -0.805], scale: [10, 8, 20, 10, 30, 2, 1.5],
     script: (p, AP) => [
       { wait: p[0] },
       { burn: 'pro', until: (m) => AP.orb(m, 'terra').ap >= p[1] },
@@ -108,13 +108,20 @@ module.exports = {
       { burn: 'pro', until: (m) => AP.orb(m, 'terra').ap >= p[3] },
       { wait: p[4] },
       { drop: true },
-      { burn: 'pro', max: Math.max(0, p[5]) },
+      { burn: p[6], max: Math.max(0, p[5]) },
+      // Then settle the carrier into a safe orbit of its own.
+      { wait: 30 },
+      { coast: (m) => !AP.orb(m, 'terra').rising },
+      { burn: 'pro', until: (m) => AP.orb(m, 'terra').pe >= 120 },
+      { wait: 10 },
+      { coast: (m) => AP.orb(m, 'terra').rising },
+      { burn: 'retro', until: (m) => AP.orb(m, 'terra').ap <= 550 },
     ],
   },
 
   satnet: {
     // Circularise in the band, drop, then a 4/3-period phasing lap between drops.
-    p: [188.968, 188.707, 263.98, 202.421], scale: [4, 4, 6, 3],
+    p: [183.727, 183.789, 271.451, 208.95, 305.524, 291.474], scale: [4, 4, 6, 3, 15, 10],
     script: (p, AP) => {
       const lap = [
         { burn: 'pro', until: (m) => AP.orb(m, 'terra').ap >= p[2] },
@@ -130,6 +137,12 @@ module.exports = {
         { burn: 'pro', until: (m) => AP.orb(m, 'terra').pe >= p[1] },
         { drop: true },
         ...lap, ...lap.map(st => Object.assign({}, st)),
+        // Graveyard orbit for the empty carrier.
+        { wait: 5 },
+        { burn: 'pro', until: (m) => AP.orb(m, 'terra').ap >= p[4] },
+        { wait: 10 },
+        { coast: (m) => !AP.orb(m, 'terra').rising },
+        { burn: 'pro', until: (m) => AP.orb(m, 'terra').pe >= p[5] },
       ];
     },
   },
@@ -215,8 +228,8 @@ module.exports = {
   trojanrelay: {
     // Drop at L4, climb a little to drift back to L5, then match L5's motion
     // plus a slow drift toward it, and drop as you arrive.
-    p: [0.37, 66.476, 0.552, 0.248], scale: [0.15, 15, 0.2, 0.1],
-    script: (p) => {
+    p: [1.478, 37.308, 0.374, 0.271, 268.032, 267.893], scale: [0.15, 15, 0.2, 0.1, 20, 15],
+    script: (p, AP) => {
       const l5 = (m) => {
         const q = m.goalPoint(m.level.goals[1]), s = m.ship, d = Math.hypot(q.x - s.x, q.y - s.y);
         const wx = q.vx + p[2] * (q.x - s.x) / d - s.vx, wy = q.vy + p[2] * (q.y - s.y) / d - s.vy;
@@ -231,6 +244,11 @@ module.exports = {
         // Close in: keep matching L5's motion plus a slow drift toward it.
         { control: (m) => { const q = l5(m); return q.d < 20 ? { done: true } : { thrust: q.w > Math.max(0.05, p[3]), angle: q.wa }; }, max: 400 },
         { drop: true },
+        { wait: 2 },
+        { burn: 'retro', rel: 'terra', until: (m) => AP.orb(m, 'terra').pe <= p[4] },
+        { wait: 5 },
+        { coast: (m) => AP.orb(m, 'terra').rising },
+        { burn: 'retro', rel: 'terra', until: (m) => AP.orb(m, 'terra').ap <= p[5] },
       ];
     },
   },
@@ -286,11 +304,13 @@ module.exports = {
       { coast: (m) => { const o = AP.orb(m, 'selene'); return o.r < 180 && o.rising; } },
       { burn: 'retro', rel: 'selene', until: (m) => { const o = AP.orb(m, 'selene'); return o.bound && o.ap <= p[5]; } },
       { drop: true },
+      { wait: 6 },
+      { burn: 'retro', rel: 'selene', until: (m) => AP.orb(m, 'selene').pe <= 8 },
     ],
   },
 
   beltsurvey: {
-    p: [21.925, 670.202, 25.19, 860.566, 24.998], scale: [20, 15, 30, 15, 40],
+    p: [28.617, 688.006, 1.744, 852.925, 6.74, 1060.627], scale: [20, 15, 30, 15, 40, 40],
     script: (p, AP) => [
       { wait: p[0] },
       { burn: 'pro', until: (m) => AP.orb(m, 'sun').ap >= p[1] },
@@ -299,11 +319,13 @@ module.exports = {
       { burn: 'pro', until: (m) => AP.orb(m, 'sun').ap >= p[3] },
       { wait: p[4] },
       { drop: true },
+      { wait: 2 },
+      { burn: 'pro', until: (m) => AP.orb(m, 'sun').ap >= p[5] },
     ],
   },
 
   granddeploy: {
-    p: [201.488, 197.456, 0.244, -1.966, 240.237, 285.021, 10.945], scale: [4, 4, 0.05, 0.5, 15, 6, 3],
+    p: [194.087, 188.486, 0.194, -2.645, 249.475, 273.26, 8.219], scale: [4, 4, 0.05, 0.5, 15, 6, 3],
     script: (p, AP) => {
       const lap = [
         { burn: 'pro', until: (m) => AP.orb(m, 'gaia').ap >= p[5] },
@@ -320,6 +342,8 @@ module.exports = {
         { deploy: true },
         { drop: true },
         ...lap, ...lap.map(st => Object.assign({}, st)),
+        { wait: 6 },
+        { burn: 'retro', until: (m) => AP.orb(m, 'gaia').pe <= 20 },
       ];
     },
   },

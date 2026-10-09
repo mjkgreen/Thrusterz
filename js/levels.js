@@ -688,8 +688,8 @@
     {
       id: 'twinprobes',
       name: 'Twin Probes',
-      intro: 'Two probes, two moons. Each probe only follows the path you are on when you drop it, so line up a path to one moon, drop a probe, then change course for the other and drop the second. They can land in either order. Don\'t follow them in.',
-      objective: 'Land probe A on Io and probe B on Rhea.',
+      intro: 'Two probes, two moons. Each probe only follows the path you are on when you drop it, so line up a path to one moon, drop a probe, then change course for the other and drop the second. They can land in either order. Don\'t follow them in: the carrier has to end up in a safe orbit of its own.',
+      objective: 'Land probe A on Io and probe B on Rhea, then put the carrier in an orbit between 80 and 600.',
       teaches: 'Two drops, two targets',
       bodies: [
         { id: 'terra', name: 'Terra', gm: 20000, radius: 50, color: C.blue },
@@ -700,23 +700,27 @@
       goals: [
         { type: 'hit', body: 'io', craft: 'a' },
         { type: 'hit', body: 'rhea', craft: 'b' },
+        { type: 'orbit', body: 'terra', rMin: 80, rMax: 600 },
       ],
-      par: 4.5, bounds: 2500, tMax: 1500, predict: 200, view: { x: 0, y: 0, span: 1100 },
+      par: 4.8, bounds: 2500, tMax: 1500, predict: 200, view: { x: 0, y: 0, span: 1100 },
     },
     {
       id: 'satnet',
       name: 'Constellation',
-      intro: 'Three satellites cover a whole planet if they are spread evenly around it. But a dropped satellite rides right alongside you on the same orbit, so waiting does nothing. Change your lap time instead: after a drop, burn prograde so one lap takes about a third longer. When you come back around, the last satellite is a third of a lap ahead. Burn retrograde at the same spot to round off, and drop the next.',
-      objective: 'Spread three satellites at least 100° apart in orbits between 180 and 230 from Terra.',
+      intro: 'Three satellites cover a whole planet if they are spread evenly around it. But a dropped satellite rides right alongside you on the same orbit, so waiting does nothing. Change your lap time instead: after a drop, burn prograde so one lap takes about a third longer. When you come back around, the last satellite is a third of a lap ahead. Burn retrograde at the same spot to round off, and drop the next. Last, park the empty carrier in a graveyard orbit above the constellation, out of everyone\'s way.',
+      objective: 'Spread three satellites at least 100° apart in orbits between 180 and 230 from Terra, then park the carrier in an orbit between 280 and 400.',
       teaches: 'Phasing orbits',
       bodies: [
         { id: 'terra', name: 'Terra', gm: 20000, radius: 50, color: C.blue },
       ],
-      ship: ship({ start: { orbit: { body: 'terra', r: 120, angle: 0 } }, heading: 'prograde', dv: 7.5, accel: 1, cargo: [
+      ship: ship({ start: { orbit: { body: 'terra', r: 120, angle: 0 } }, heading: 'prograde', dv: 8.5, accel: 1, cargo: [
         { id: 's1', name: 'Sat 1', mass: 0.2 }, { id: 's2', name: 'Sat 2', mass: 0.2 }, { id: 's3', name: 'Sat 3', mass: 0.2 },
       ] }),
-      goals: [{ type: 'spread', body: 'terra', crafts: ['s1', 's2', 's3'], rMin: 180, rMax: 230, minSep: 100 * Math.PI / 180 }],
-      par: 6, bounds: 2000, tMax: 1200, predict: 200, view: { x: 0, y: 0, span: 640 },
+      goals: [
+        { type: 'spread', body: 'terra', crafts: ['s1', 's2', 's3'], rMin: 180, rMax: 230, minSep: 100 * Math.PI / 180 },
+        { type: 'orbit', body: 'terra', rMin: 280, rMax: 400, label: 'Graveyard orbit' },
+      ],
+      par: 8, bounds: 2000, tMax: 1200, predict: 200, view: { x: 0, y: 0, span: 640 },
     },
 
     // Chapter 3 · Stacks: three or more stages, each lighter than the last.
@@ -875,7 +879,7 @@
         { name: 'Satellite', dv: 5.4, accel: 0.9, dry: 0.3 },
       ] }),
       goals: [
-        { type: 'hit', body: 'terra', craft: 'upper', label: 'Reentry' },
+        { type: 'hit', body: 'terra', craft: 'upper', deorbit: true },
         { type: 'orbit', body: 'terra', rMin: 220, rMax: 280 },
       ],
       par: 7.8, bounds: 2000, tMax: 1200, predict: 200, view: { x: 0, y: 0, span: 640 },
@@ -900,21 +904,22 @@
     {
       id: 'trojanrelay',
       name: 'Relay Pair',
-      intro: 'Two relays for Vesta\'s Lagrange points, where anything parked rides along with Vesta forever. You start at L4, 60° ahead of Vesta: drop the first relay right away. Then climb a little to drift back past Vesta to L5, match its motion, and drop the second.',
-      objective: 'Park one relay at L4 and one at L5, each staying within 40 for 30 s.',
+      intro: 'Two relays for Vesta\'s Lagrange points, where anything parked rides along with Vesta forever. You start at L4, 60° ahead of Vesta: drop the first relay right away. Vesta sits between the two points. Either climb well above its orbit (a nudge too small leaves you drifting into Vesta: watch the dashed path) to drift back to L5, or drop lower to race ahead the long way round. Match L5\'s motion and drop the second relay, then head down to a working orbit.',
+      objective: 'Park one relay at L4 and one at L5, each staying within 40 for 30 s, then return to an orbit between 150 and 300.',
       teaches: 'Lagrange drops',
       bodies: [
         { id: 'terra', name: 'Terra', gm: 20000, radius: 50, color: C.blue },
-        { id: 'vesta', name: 'Vesta', gm: 500, radius: 14, color: C.tan, orbit: { parent: 'terra', a: 400, phase: 0 } },
+        { id: 'vesta', name: 'Vesta', gm: 200, radius: 10, color: C.tan, orbit: { parent: 'terra', a: 400, phase: 0 } },
       ],
-      ship: ship({ start: { orbit: { body: 'terra', r: 400, angle: Math.PI / 3 } }, heading: 'prograde', dv: 4, accel: 0.8, cargo: [
+      ship: ship({ start: { orbit: { body: 'terra', r: 400, angle: Math.PI / 3 } }, heading: 'prograde', dv: 6, accel: 0.8, cargo: [
         { id: 'r4', name: 'Relay L4', mass: 0.2 }, { id: 'r5', name: 'Relay L5', mass: 0.2 },
       ] }),
       goals: [
         { type: 'hold', craft: 'r4', lagrange: { body: 'vesta', lead: Math.PI / 3 }, r: 40, hold: 30, label: 'L4' },
         { type: 'hold', craft: 'r5', lagrange: { body: 'vesta', lead: -Math.PI / 3 }, r: 40, hold: 30, label: 'L5' },
+        { type: 'orbit', body: 'terra', rMin: 150, rMax: 300 },
       ],
-      par: 1.8, bounds: 2500, tMax: 1500, predict: 400, view: { x: 0, y: 0, span: 1000 },
+      par: 4.5, bounds: 2500, tMax: 1500, predict: 400, view: { x: 0, y: 0, span: 1000 },
     },
     {
       id: 'junkyard',
@@ -991,28 +996,29 @@
     {
       id: 'moonnet',
       name: 'Moon Network',
-      intro: 'A relay for each moon, so the far side of both can talk to Terra. Fly to Luna, brake into orbit and drop the first relay. Then break out of Luna\'s orbit in the direction Luna moves, cross to Selene, brake into orbit and drop the second.',
-      objective: 'Leave one relay orbiting Luna (25–70) and one orbiting Selene (25–100).',
+      intro: 'A relay for each moon, so the far side of both can talk to Terra. Fly to Luna, brake into orbit and drop the first relay. Then break out of Luna\'s orbit in the direction Luna moves, cross to Selene, brake into orbit and drop the second. Finally, crash the empty carrier into Selene so it can\'t drift into your relays.',
+      objective: 'Leave one relay orbiting Luna (25–70) and one orbiting Selene (25–100), then crash the carrier into Selene.',
       teaches: 'Multi-stop delivery',
       bodies: [
         { id: 'terra', name: 'Terra', gm: 20000, radius: 50, color: C.blue },
         { id: 'luna', name: 'Luna', gm: 1500, radius: 16, color: C.grey, orbit: { parent: 'terra', a: 300, phase: 2.0 } },
         { id: 'selene', name: 'Selene', gm: 1500, radius: 16, color: C.purple, orbit: { parent: 'terra', a: 520, phase: 4.0 } },
       ],
-      ship: ship({ start: { orbit: { body: 'terra', r: 110, angle: 0 } }, heading: 'prograde', dv: 12, accel: 1, cargo: [
+      ship: ship({ start: { orbit: { body: 'terra', r: 110, angle: 0 } }, heading: 'prograde', dv: 12.5, accel: 1, cargo: [
         { id: 'ra', name: 'Relay A', mass: 0.25 }, { id: 'rb', name: 'Relay B', mass: 0.25 },
       ] }),
       goals: [
         { type: 'orbit', body: 'luna', craft: 'ra', rMin: 25, rMax: 70 },
         { type: 'orbit', body: 'selene', craft: 'rb', rMin: 25, rMax: 100 },
+        { type: 'hit', body: 'selene', deorbit: true },
       ],
-      par: 8.3, bounds: 2500, tMax: 3000, predict: 260, view: { x: 0, y: 0, span: 1300 },
+      par: 10.8, bounds: 2500, tMax: 3000, predict: 260, view: { x: 0, y: 0, span: 1300 },
     },
     {
       id: 'beltsurvey',
       name: 'Belt Survey',
-      intro: 'Two asteroids worth a closer look: Ceres in the inner belt and Pallas in the outer. Probes have no engines and asteroids have almost no gravity, so each drop has to be dead on. Climb through the belt, drop one probe on a path that meets each target, and stay clear of the rocks yourself.',
-      objective: 'Crash probe A into Ceres and probe B into Pallas.',
+      intro: 'Two asteroids worth a closer look: Ceres in the inner belt and Pallas in the outer. Probes have no engines and asteroids have almost no gravity, so each drop has to be dead on. Climb through the belt, drop one probe on a path that meets each target, and stay clear of the rocks yourself: the carrier flies on beyond the belt to Halcyon\'s orbit.',
+      objective: 'Crash probe A into Ceres and probe B into Pallas, then fly the carrier out past 1000 from Sol.',
       teaches: 'Precision drops on small targets',
       bodies: [
         { id: 'sun', name: 'Sol', gm: 200000, radius: 60, color: C.sun },
@@ -1026,14 +1032,15 @@
       goals: [
         { type: 'hit', body: 'ceres', craft: 'pa' },
         { type: 'hit', body: 'pallas', craft: 'pb' },
+        { type: 'escape', body: 'sun', r: 1000, label: 'Beyond the belt' },
       ],
-      par: 4.2, bounds: 4000, tMax: 3000, predict: 400, view: { x: 0, y: 0, span: 2200 },
+      par: 4.6, bounds: 4000, tMax: 3000, predict: 400, view: { x: 0, y: 0, span: 2200 },
     },
     {
       id: 'granddeploy',
       name: 'Grand Deployment',
-      intro: 'The big one: launch a carrier with three satellites past a busy orbit and spread them into a constellation. Mind Orbital Lab at 110 when you drop the booster (remember the separation spring pushes it the opposite way from your nose). Then circularise in the band, drop a satellite, and use phasing laps (a third longer each) to space out the other two.',
-      objective: 'Spread three satellites at least 100° apart in orbits between 170 and 230 from Gaia, without your booster endangering Orbital Lab.',
+      intro: 'The big one: launch a carrier with three satellites past a busy orbit and spread them into a constellation. Mind Orbital Lab at 110 when you drop the booster (remember the separation spring pushes it the opposite way from your nose). Then circularise in the band, drop a satellite, and use phasing laps (a third longer each) to space out the other two. Then bring the empty carrier down into Gaia, without hitting the lab on the way.',
+      objective: 'Spread three satellites at least 100° apart in orbits between 170 and 230 from Gaia, then deorbit the carrier, without endangering Orbital Lab.',
       teaches: 'Everything at once',
       bodies: [
         { id: 'gaia', name: 'Gaia', gm: 2000, radius: 40, color: C.blue, spin: 0.085 },
@@ -1045,8 +1052,11 @@
       ], cargo: [
         { id: 'g1', name: 'Sat 1', mass: 0.15 }, { id: 'g2', name: 'Sat 2', mass: 0.15 }, { id: 'g3', name: 'Sat 3', mass: 0.15 },
       ] }),
-      goals: [{ type: 'spread', body: 'gaia', crafts: ['g1', 'g2', 'g3'], rMin: 170, rMax: 230, minSep: 100 * Math.PI / 180 }],
-      par: 9, bounds: 2500, tMax: 2600, predict: 200, view: { x: 0, y: 0, span: 560 }, startCam: 'overview',
+      goals: [
+        { type: 'spread', body: 'gaia', crafts: ['g1', 'g2', 'g3'], rMin: 170, rMax: 230, minSep: 100 * Math.PI / 180 },
+        { type: 'hit', body: 'gaia', deorbit: true },
+      ],
+      par: 10.8, bounds: 2500, tMax: 2600, predict: 200, view: { x: 0, y: 0, span: 560 }, startCam: 'overview',
     },
   ];
   for (const L of WORLD2) L.world = 2;

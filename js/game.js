@@ -1337,7 +1337,7 @@
     }
     const name = g.body ? m.sys.byId[g.body].name : (g.label || 'target');
     switch (g.type) {
-      case 'hit': return g.site ? `Land in the zone on ${name}` : 'Impact ' + name;
+      case 'hit': return g.site ? `Land in the zone on ${name}` : g.deorbit ? `Deorbit into ${name}` : 'Impact ' + name;
       case 'reach': return 'Reach ' + (g.label || name);
       case 'orbit': return `Orbit ${name} within ${g.rMin}–${g.rMax}${g.dir ? (g.dir > 0 ? ' counter-clockwise' : ' clockwise') : ''}`;
       case 'hold': return `Park at ${g.label || name} for ${g.hold}s`;
