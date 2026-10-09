@@ -201,7 +201,10 @@ js/physics.js       rails, gravity, integrator, coast prediction
 js/flight.js        Mission: ship, stages, cargo, debris, objectives
 js/levels.js        mission definitions
 js/game.js          rendering, input, HUD, menus, progress (localStorage)
+fonts/              bundled fonts (offline; OFL)
 tools/test-physics.js   physics sanity tests            (npm test)
+tools/browser-check.js  headless Chromium: every mission under random input,
+                        two-finger taps, corrupted saves (npm run test:browser)
 tools/brand/            icon + share card sources; render.js regenerates img/
 tools/check-levels.js   random burn search proving World 1 missions solvable
                         within their fuel budget         (npm run check-levels)
@@ -213,6 +216,15 @@ tools/check-scripted.js re-tunes a proof's parameters    (npm run check-scripted
 
 `physics.js`, `flight.js` and `levels.js` have no DOM dependencies and run
 under Node, which is how the tools use them.
+
+## Stability
+
+The game loop survives a failing frame, physics and path prediction run on
+per-frame time budgets (time warp steps down if a device can't keep up),
+numerical blow-ups end the mission cleanly, and saved progress is validated
+on load. Add `?debug` to the URL for an fps / script-time readout. Both test
+suites run on every push (`.github/workflows/test.yml`). For packaging as an
+iOS / Android app see [docs/APP_STORE.md](docs/APP_STORE.md).
 
 ## Roadmap
 

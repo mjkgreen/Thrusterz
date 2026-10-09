@@ -5,6 +5,9 @@
   const { Mission } = Flight;
 
   const WARPS = [1, 2, 5, 10, 25, 50, 100];
+  const SIM_BUDGET_MS = 8;      // physics time allowed per frame
+  const SIM_CHUNK = 0.5;        // sim seconds per advance() call within a frame
+  const PRED_MS_BURNING = 70;   // how often the predicted path refreshes during a burn
   const TAU = Math.PI * 2;
   const $ = (id) => document.getElementById(id);
 
@@ -29,6 +32,7 @@
     particles: [],
     rails: [],
     stars: [],
+    errorFrames: 0,     // consecutive frames that threw
     resultShown: false, endTime: 0,
     toastTimer: 0,
   };
@@ -38,9 +42,31 @@
 
   // ------------------------------------------------------------- progress
   const STORE = 'thrusterz.progress.v1';
+  // Saved progress is checked field by field, so a corrupted or old save can
+  // never break the menu: anything unrecognised is dropped.
+  const RENAMED = { 'test-satellite': 'satellite', 'test-drop': 'releasepoint', 'test-stack': 'threestages', 'test-debris': 'clearstation' };
   function loadProgress() {
-    try { return JSON.parse(localStorage.getItem(STORE)) || { unlocked: 0, stars: {}, best: {} }; }
-    catch (e) { return { unlocked: 0, stars: {}, best: {} }; }
+    let raw = null;
+    try { raw = JSON.parse(localStorage.getItem(STORE)); } catch (e) { raw = null; }
+    const p = { unlocked: 0, stars: {}, best: {}, score: {}, learned: {}, tab: null };
+    if (!raw || typeof raw !== 'object') return p;
+    const ids = new Set(LEVELS.map(l => l.id));
+    const num = (v, lo, hi) => (typeof v === 'number' && isFinite(v) ? Math.max(lo, Math.min(hi, v)) : null);
+    for (const key of ['stars', 'best', 'score']) {
+      const src = raw[key] && typeof raw[key] === 'object' ? raw[key] : {};
+      for (const [k0, v] of Object.entries(src)) {
+        const k = RENAMED[k0] || k0;
+        if (!ids.has(k)) continue;
+        const n = key === 'stars' ? num(v, 0, 3) : num(v, 0, 1e6);
+        if (n != null) p[key][k] = key === 'stars' ? Math.round(n) : n;
+      }
+    }
+    p.unlocked = num(raw.unlocked, 0, LEVELS.length - 1) || 0;
+    if (raw.learned && typeof raw.learned === 'object') {
+      for (const [k, v] of Object.entries(raw.learned)) { const n = num(v, 0, 1e4); if (n != null) p.learned[k] = n; }
+    }
+    if (raw.tab === 'test' || (typeof raw.tab === 'number' && WORLDS.some(w => w.n === raw.tab))) p.tab = raw.tab;
+    return p;
   }
   function saveProgress() { try { localStorage.setItem(STORE, JSON.stringify(progress)); } catch (e) { /* ignore */ } }
   const progress = loadProgress();
@@ -95,6 +121,7 @@
     state.resultShown = false;
     state.endHandled = false;
     state.paused = false;
+    state.overload = 0; state.predWall = 0;
     releaseTouch();
     buildRails();
     const m = state.mission;
@@ -377,19 +404,47 @@
 
   // ---------------------------------------------------------------- update
   let lastTime = performance.now();
+  let frameNo = 0;
+  // ?debug shows frame timing: fps, average and peak script time per frame.
+  const DEBUG = /[?&]debug/.test(location.search);
+  const perf = { js: 0, peak: 0, fps: 60 };
+  function drawDebug() {
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    ctx.font = '11px ' + getComputedStyle(document.body).getPropertyValue('--mono');
+    ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(W / 2 - 110, H - 22, 220, 18);
+    ctx.fillStyle = perf.peak > 12 ? '#ffb35a' : '#7cf7d4'; ctx.textAlign = 'center';
+    ctx.fillText(`${perf.fps.toFixed(0)} fps · js ${perf.js.toFixed(1)} ms · peak ${perf.peak.toFixed(1)}`, W / 2, H - 9);
+    ctx.textAlign = 'left';
+  }
+  window.ThrusterzPerf = perf;
   function frame(now) {
-    syncSize();
+    // Checking the canvas box forces a layout; a few times a second is plenty
+    // (resize and ResizeObserver catch most changes immediately anyway).
+    if (frameNo++ % 10 === 0) syncSize();
     const realDt = Math.min(0.05, (now - lastTime) / 1000);
     lastTime = now;
     // Schedule the next frame first and contain errors: a bug in one frame
     // must never stop the game loop (that reads as a frozen game).
     requestAnimationFrame(frame);
+    const t0 = performance.now();
     try {
       if (state.screen === 'flight' && !state.paused && $('gate').classList.contains('hidden')) update(realDt);
       render(realDt);
+      state.errorFrames = 0;
     } catch (e) {
       if (!state.loggedError) { state.loggedError = true; console.error(e); }
+      // A bug that keeps firing would leave the mission unplayable: stop and
+      // offer the pause menu (restart / quit) instead of a broken screen.
+      if (++state.errorFrames > 30 && state.screen === 'flight' && !state.paused) {
+        state.errorFrames = 0;
+        state.paused = true; releaseTouch(); show('pause');
+        toast('Something went wrong. Restart the mission to continue.', 4);
+      }
     }
+    perf.js = perf.js * 0.95 + (performance.now() - t0) * 0.05;
+    perf.peak = Math.max(perf.peak * 0.995, performance.now() - t0);
+    perf.fps = perf.fps * 0.95 + (realDt > 0 ? 1 / realDt : 60) * 0.05;
+    if (DEBUG) drawDebug();
   }
 
   function update(realDt) {
@@ -397,10 +452,28 @@
     const level = m.level;
     const c = controls();
     if ((c.thrust || c.rotate) && state.warp > 0) { state.warp = 0; }
-    const dvBefore = m.dvRemaining();
-    m.advance(realDt * WARPS[state.warp], c);
+    // Physics gets a fixed slice of each frame. At high warp near a body the
+    // simulation can need more steps than a phone can run in one frame; then
+    // it falls a little behind real time instead of stalling the screen, and
+    // if that keeps happening the warp steps down.
+    const budgetEnd = performance.now() + SIM_BUDGET_MS;
+    let simLeft = realDt * WARPS[state.warp];
+    while (simLeft > 1e-9 && m.status === 'flying') {
+      const chunk = Math.min(simLeft, SIM_CHUNK);
+      m.advance(chunk, c);
+      simLeft -= chunk;
+      if (performance.now() > budgetEnd) break;
+    }
+    // The moment a burn ends, show the exact coast path.
+    if (state.wasThrusting && !m.thrusting) state.predDirty = true;
+    state.wasThrusting = m.thrusting;
+    state.overload = simLeft > 1e-9 ? state.overload + 1 : 0;
+    if (state.overload > 20 && state.warp > 0) {
+      state.overload = 0;
+      state.warp--;
+      toast('Time warp lowered to ' + WARPS[state.warp] + '× to keep things smooth', 1.8);
+    }
 
-    if (m.dvRemaining() < dvBefore - 1e-9) state.predDirty = true;
     for (; state.eventsSeen < m.events.length; state.eventsSeen++) {
       const ev = m.events[state.eventsSeen];
       if (ev.type === 'pickup') {
@@ -422,7 +495,13 @@
 
     // Prediction: recompute when burning, or as the coast eats into it.
     const horizon = level.predict * state.predictScale;
-    if (state.predDirty || !state.pred || m.t - state.predT > horizon * 0.03 || m.thrusting) computePrediction();
+    // While burning, the path changes every frame but redrawing it a dozen
+    // times a second looks the same and costs far less.
+    const now = performance.now();
+    if (state.predDirty || !state.pred || m.t - state.predT > horizon * 0.03 || (m.thrusting && now - state.predWall > PRED_MS_BURNING)) {
+      state.predWall = now;
+      computePrediction();
+    }
 
     // The mission can also end outside advance() (e.g. a deploy that dooms the station).
     if (m.status !== 'flying' && !state.endHandled) { state.endHandled = true; onMissionEnd(); }
@@ -447,8 +526,11 @@
       // Escape goals care about the farthest point, everything else the nearest.
       const sign = g.type === 'escape' ? -1 : 1;
       let best = Infinity, bi = -1;
+      // A body goal only needs that one body's position at each sample.
+      const gi = g.body && !g.lagrange ? m.sys.byId[g.body].index : -1, q = { x: 0, y: 0 }, qp = [0, 0];
       for (let i = 0; i < p.ts.length; i++) {
-        const q = m.goalPoint(g, p.ts[i]);
+        if (gi >= 0) { m.sys.posAt(gi, p.ts[i], qp); q.x = qp[0]; q.y = qp[1]; }
+        else Object.assign(q, m.goalPoint(g, p.ts[i]));
         const d = Math.hypot(p.xs[i] - q.x, p.ys[i] - q.y);
         if (sign * d < best) { best = sign * d; bi = i; }
       }
@@ -459,9 +541,10 @@
     for (const b of m.sys.bodies) {
       if (!b.pickup || m.collected.has(b.index)) continue;
       const r2 = (b.radius + 6) ** 2;
+      const bp = [0, 0];
       for (let i = 0; i < p.ts.length; i += 1) {
-        m.sys.update(p.ts[i]);
-        if ((p.xs[i] - m.sys.px[b.index]) ** 2 + (p.ys[i] - m.sys.py[b.index]) ** 2 < r2) { p.pickups.add(b.index); break; }
+        m.sys.posAt(b.index, p.ts[i], bp);
+        if ((p.xs[i] - bp[0]) ** 2 + (p.ys[i] - bp[1]) ** 2 < r2) { p.pickups.add(b.index); break; }
       }
     }
     state.pred = p;
@@ -554,11 +637,11 @@
     const F = frameBody();
     const fx = F >= 0 ? sys.px[F] : 0, fy = F >= 0 ? sys.py[F] : 0;
     // Display transform for a world point recorded at time t.
+    const fp = [0, 0];
     const disp = (x, y, t) => {
       if (F < 0) return w2s(x, y);
-      sys.update(t);
-      const ox = sys.px[F], oy = sys.py[F];
-      return w2s(x - ox + fx, y - oy + fy);
+      sys.posAt(F, t, fp);
+      return w2s(x - fp[0] + fx, y - fp[1] + fy);
     };
 
     drawRails();
@@ -1688,7 +1771,10 @@
   // leaving fullscreen, switching apps) pauses the mission.
   const fsEl = () => document.fullscreenElement || document.webkitFullscreenElement;
   const fsSupported = () => !!(document.fullscreenEnabled || document.webkitFullscreenEnabled);
-  const standalone = () => window.matchMedia('(display-mode: fullscreen), (display-mode: standalone)').matches || navigator.standalone === true;
+  // Inside a native wrapper (Capacitor, for the app stores) the app is
+  // already fullscreen, so it counts the same as a home-screen web app.
+  const nativeApp = () => !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+  const standalone = () => nativeApp() || window.matchMedia('(display-mode: fullscreen), (display-mode: standalone)').matches || navigator.standalone === true;
   const isPhone = () => isTouch() && Math.min(screen.width, screen.height) < 600;
   const isIOS = () => /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
   let fsUnavailable = false; // set when the browser refuses fullscreen
@@ -1797,5 +1883,5 @@
   requestAnimationFrame(frame);
 
   // Expose for debugging / automated testing.
-  window.Thrusterz = { state, startLevel, showMenu };
+  window.Thrusterz = { state, startLevel, showMenu, levelCount: LEVELS.length };
 })();

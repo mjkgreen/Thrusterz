@@ -25,6 +25,8 @@
   // shared barycenter, so a planet is tugged by its moon just like the ship is
   // — the ship then only feels the moon's *tidal* effect while orbiting the
   // planet, as in reality. Binary stars fall out of the same rule.
+  const _tmp = [0, 0];
+
   class System {
     constructor(defs) {
       this.bodies = defs.map((d, i) => Object.assign({}, d, {
@@ -129,6 +131,50 @@
         }
         px[i] = x; py[i] = y; vx[i] = u; vy[i] = v; ax[i] = g; ay[i] = h;
       }
+    }
+
+    // Position of one body at time t without touching the cached state of the
+    // others (update() recomputes every body). Used for drawing many points
+    // relative to one moving body. out = [x, y].
+    posAt(i, t, out) {
+      const b = this.bodies[i];
+      let x, y;
+      if (!b.orbit) { x = b.x; y = b.y; } else {
+        // Nominal (barycentre) position: walk up the parent chain.
+        this._nominalAt(i, t, out);
+        x = out[0]; y = out[1];
+      }
+      // A massive child pulls its parent off the barycentre (reflex).
+      for (const c of b.children) {
+        const w = this.bodies[c].orbit.w;
+        if (!w) continue;
+        this._relAt(c, t, _tmp);
+        x -= _tmp[0] * w; y -= _tmp[1] * w;
+      }
+      out[0] = x; out[1] = y;
+      return out;
+    }
+
+    _nominalAt(i, t, out) {
+      const b = this.bodies[i];
+      if (!b.orbit) { out[0] = b.x; out[1] = b.y; return out; }
+      this._nominalAt(b.parent, t, out);
+      const px = out[0], py = out[1];
+      this._relAt(i, t, out);
+      const k = 1 - b.orbit.w;
+      out[0] = px + out[0] * k; out[1] = py + out[1] * k;
+      return out;
+    }
+
+    // Relative orbit offset of body i from its parent at t, into out (no side effects).
+    _relAt(i, t, out) {
+      const o = this.bodies[i].orbit;
+      const E = solveKepler(o.phase + o.n * t, o.e);
+      const x = o.a * (Math.cos(E) - o.e);
+      let y = o.b * Math.sin(E);
+      if (o.dir < 0) y = -y;
+      out[0] = x * o.cw - y * o.sw; out[1] = x * o.sw + y * o.cw;
+      return out;
     }
 
     // Innermost body whose sphere of influence contains (x, y), or -1.

@@ -266,7 +266,21 @@
         this.rotInput = rotating ? rotIn : 0;
         this._step(h, firing ? controls.throttle : 0, rotating ? rotIn : 0, gyroWork);
         remaining -= h;
+        if (!this._finite()) return;
       }
+    }
+
+    // Guard against a numerical blow-up (e.g. a step taken right at a body's
+    // centre): end the mission cleanly instead of carrying NaN around.
+    _finite() {
+      const s = this.ship;
+      for (const o of this.crafts.concat(this.debris)) {
+        if (o.alive && !(isFinite(o.x) && isFinite(o.y) && isFinite(o.vx) && isFinite(o.vy))) o.alive = false;
+      }
+      if (isFinite(s.x) && isFinite(s.y) && isFinite(s.vx) && isFinite(s.vy) && isFinite(s.angle) && isFinite(s.omega)) return true;
+      this.status = 'lost';
+      this.message = 'The simulation lost track of your ship. Please retry.';
+      return false;
     }
 
     _step(h, throttle, rot, gyroWork) {

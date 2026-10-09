@@ -35,6 +35,22 @@ const check = (name, ok, info) => { console.log((ok ? 'ok   ' : 'FAIL ') + name 
   check('rails velocity matches position derivative', worst < 1e-3, `max err ${worst.toExponential(2)}`);
 }
 
+// 2b. posAt (one body, no side effects) matches the full update for every body.
+{
+  let worst = 0;
+  for (const L of LEVELS) {
+    const sys = new Phys.System(L.bodies), out = [0, 0];
+    for (const t of [0, 77.7, 1234.5]) {
+      sys.update(t);
+      for (let i = 0; i < sys.bodies.length; i++) {
+        sys.posAt(i, t, out);
+        worst = Math.max(worst, Math.abs(out[0] - sys.px[i]), Math.abs(out[1] - sys.py[i]));
+      }
+    }
+  }
+  check('posAt matches update() for every body in every level', worst < 1e-9, `max err ${worst.toExponential(2)}`);
+}
+
 // 3. Every orbital level's parking orbit is stable while coasting.
 for (const L of LEVELS) {
   if (!L.ship.start.orbit || L.ship.start.orbit.speed) continue;
