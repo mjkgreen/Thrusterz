@@ -646,7 +646,7 @@
         { id: 'terra', name: 'Terra', gm: 20000, radius: 50, color: C.blue },
         { id: 'luna', name: 'Luna', gm: 1500, radius: 18, color: C.grey, orbit: { parent: 'terra', a: 420, phase: 2.2 } },
       ],
-      ship: ship({ start: { conic: { body: 'luna', pe: 8, e: 0.98, nu: -2.8, angle: 0 } }, heading: 'prograde', dv: 8, accel: 1, cargo: [{ id: 'impactor', name: 'Impactor', mass: 0.4 }] }),
+      ship: ship({ start: { conic: { body: 'luna', pe: 8, e: 1.01, nu: -2.75, angle: 1.8, dir: -1 } }, heading: 'prograde', dv: 8, accel: 1, cargo: [{ id: 'impactor', name: 'Impactor', mass: 0.4 }] }),
       goals: [
         { type: 'hit', body: 'luna', craft: 'impactor' },
         { type: 'orbit', body: 'luna', rMin: 30, rMax: 100 },

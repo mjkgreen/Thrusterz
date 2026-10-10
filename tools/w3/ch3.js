@@ -160,8 +160,8 @@ const levels = [
     intro: 'X',
     objective: 'Rendezvous with Tycho Station (within 25, relative speed under 0.5) with 1.1 s of side-thruster propellant.',
     teaches: 'Braking flip under time pressure',
-    bodies: [terra, { id: 'tycho', name: 'Tycho Station', gm: 0, radius: 4, color: C.station, kind: 'station', orbit: { parent: 'terra', a: 130, phase: -2.0 } }],
-    ship: ship({ start: { conic: { body: 'terra', pe: 128, e: 0.34, nu: -1.8 } }, heading: 'prograde', dv: 3.8, accel: 0.8, rcs: { fuel: 3 } }),
+    bodies: [terra, { id: 'tycho', name: 'Tycho Station', gm: 0, radius: 4, color: C.station, kind: 'station', orbit: { parent: 'terra', a: 130, phase: -3.4 } }],
+    ship: ship({ start: { conic: { body: 'terra', pe: 128, e: 0.34, nu: -2.4 } }, heading: 1.8, dv: 3.8, accel: 0.8, rcs: { fuel: 3 } }),
     goals: [{ type: 'rendezvous', body: 'tycho', dist: 25, relVel: 0.5 }],
     par: 2.5, bounds: 2000, tMax: 400, predict: 160, view: { x: 0, y: 0, span: 640 },
   },
@@ -236,7 +236,7 @@ const proofs = {
   stationstop: {
     // Flip straight away (fast enough to be round before you reach the
     // station, slow enough to afford), then brake as you close in.
-    p: [0.2, 0.5, 0.15], scale: [0, 0.2, 0.1], opts: T,
+    p: [0.2, 0.171, 0.126], scale: [0, 0.2, 0.1], opts: T,
     script: (p, AP, rate) => [
       slew(AP, (m) => retroAtPe(m, 'tycho', 120), rate || p[0]),
       hold((m) => { const o = AP.orb(m, 'tycho'); return o.r < p[1] * o.v * o.v / 1.6 + 10; }),

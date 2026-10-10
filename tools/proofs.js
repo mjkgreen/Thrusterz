@@ -64,15 +64,15 @@ module.exports = {
   },
 
   impactor: {
-    p: [4.73, 425.477, 83.882, 1.17, 27.923, 79.021], scale: [3, 8, 30, 0.6, 10, 10],
+    // Already falling straight at Luna: drop the impactor, sidestep, then
+    // brake into orbit at the low point.
+    p: [14.235, -1.473, 6.743, 90.85], scale: [5, 0.6, 10, 10],
     script: (p, AP) => [
-      { wait: p[0] },
-      { burn: 'pro', rel: 'terra', until: (m) => AP.orb(m, 'terra').ap >= p[1] },
-      { coast: (m) => AP.orb(m, 'luna').r < p[2] },
+      { wait: Math.max(0, p[0]) },
       { drop: true },
-      { burn: p[3], rel: 'luna', until: (m) => AP.orb(m, 'luna').pe >= p[4] },
+      { burn: p[1], rel: 'luna', until: (m) => AP.orb(m, 'luna').pe >= p[2] },
       { coast: (m) => AP.orb(m, 'luna').rising },
-      { burn: 'retro', rel: 'luna', until: (m) => { const o = AP.orb(m, 'luna'); return o.bound && o.ap <= p[5]; } },
+      { burn: 'retro', rel: 'luna', until: (m) => { const o = AP.orb(m, 'luna'); return o.bound && o.ap <= p[3]; } },
     ],
   },
 

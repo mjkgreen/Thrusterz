@@ -125,7 +125,7 @@ const levels = [
   {
     id: 'twinzones',
     name: 'Twin Zones',
-    intro: 'Two stations, one probe each, and both amber zones are closed to everything: each lets in only its own probe. Get on a path through Station Alpha, drop Probe A (E) short of its zone, and burn on toward Beta at once: that is also your dodge. Drop Probe B the same way and push a little higher so Beta passes beneath you. Then turn round once and brake down to your working orbit. Side-thruster propellant is short: hold still between burns and turn slowly.',
+    intro: 'You are already coasting up on a path that runs straight into Station Alpha\'s amber zone, so drop Probe A (E) soon, short of the zone, and burn on toward Beta at once: that burn is also your dodge. Both zones are closed to everything and each lets in only its own probe. Drop Probe B the same way and push a little higher so Beta passes beneath you, then turn round once and brake down to your working orbit. Side-thruster propellant is short: hold still between burns and turn slowly.',
     objective: 'Deliver Probe A to Alpha and Probe B to Beta (each within 12) without any craft entering the wrong zone, then orbit Terra between 100 and 180.',
     teaches: 'Two drops, two closed zones',
     bodies: [
@@ -133,13 +133,13 @@ const levels = [
       { id: 'alpha', name: 'Station Alpha', gm: 0, radius: 4, color: C.station, kind: 'station', keepOut: 30, zone: 'all', orbit: { parent: 'terra', a: 210, phase: 1.9106 } },
       { id: 'beta', name: 'Station Beta', gm: 0, radius: 4, color: C.station, kind: 'station', keepOut: 35, zone: 'all', orbit: { parent: 'terra', a: 330, phase: 2.7803 } },
     ],
-    ship: ship({ start: { conic: { body: 'terra', pe: 120.048, e: 0.3161, nu: 0.2256, angle: 1.3084 } }, heading: 'prograde', dv: 7.5, accel: 1, rcs: { fuel: 60 }, cargo: [{ id: 'a', name: 'Probe A', mass: 0.25 }, { id: 'b', name: 'Probe B', mass: 0.25 }] }),
+    ship: ship({ start: { conic: { body: 'terra', pe: 120.048, e: 0.3161, nu: 0.2256, angle: 1.3084 } }, heading: 'prograde', dv: 5.4, accel: 1, rcs: { fuel: 5 }, cargo: [{ id: 'a', name: 'Probe A', mass: 0.25 }, { id: 'b', name: 'Probe B', mass: 0.25 }] }),
     goals: [
       { type: 'reach', body: 'alpha', craft: 'a', r: 12, label: 'Alpha dock' },
       { type: 'reach', body: 'beta', craft: 'b', r: 12, label: 'Beta dock' },
       { type: 'orbit', body: 'terra', rMin: 100, rMax: 180 },
     ],
-    par: 6.2, bounds: 2500, tMax: 1000, predict: 200, view: { x: 0, y: 0, span: 860 },
+    par: 3.6, bounds: 2500, tMax: 600, predict: 200, view: { x: 0, y: 0, span: 860 },
   },
   {
     id: 'crossingtraffic',
@@ -214,7 +214,7 @@ const proofs = {
     ],
   },
   twinzones: {
-    p: [0, 5.459, 85.229, 6.892, 100.42, 0.639, 152.84, 173.858], scale: [0, 0, 12, 3, 12, 0.3, 10, 5], opts: { turn: true, turnRate: 0.15 },
+    p: [0, 5.459, 93.984, 4.922, 113.491, 0.51, 137.203, 180.217], scale: [0, 0, 12, 3, 12, 0.3, 10, 5], opts: { turn: true, turnRate: 0.15 },
     script: (p, AP) => { let d0 = null; return [
       // Already on a path through Alpha: drop short of the zone.
       still((m) => dist(m, 'alpha') < p[2]),
@@ -342,7 +342,7 @@ const fails = {
         { drop: true },
       ];
     } },
-    { name: 'the same flight with fast turns (wins with 9.2 s of RCS, runs dry on 6.5)', opts: { turn: true, turnRate: 0.6 }, steps: (AP) => proofs.twinzones.script(proofs.twinzones.p, AP) },
+    { name: 'the same plan with fast turns (holding the keys)', opts: { turn: true, turnRate: 0.6 }, steps: (AP) => proofs.twinzones.script(proofs.twinzones.p, AP) },
     { name: 'dawdle 30 s, then the same plan', opts: { turn: true, turnRate: 0.15 }, steps: (AP) => [
       { wait: 30 },
       ...proofs.twinzones.script(proofs.twinzones.p, AP),

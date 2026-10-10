@@ -79,12 +79,12 @@ const levels = [
       { id: 'pat2', name: 'Patrol 2', gm: 0, radius: 4, color: C.station, kind: 'station', keepOut: 35, zone: 'all', orbit: { parent: 'terra', a: 220, phase: 3.34 + 2.094 } },
       { id: 'pat3', name: 'Patrol 3', gm: 0, radius: 4, color: C.station, kind: 'station', keepOut: 35, zone: 'all', orbit: { parent: 'terra', a: 220, phase: 3.34 + 4.189 } },
     ],
-    ship: ship({ start: { conic: { body: 'terra', pe: 205, e: 0.299, nu: -2.4, angle: 0 } }, heading: 'prograde', rcs: { fuel: 5 }, stack: [
-      { name: 'Descent stage', dv: 4.5, accel: 0.8 },
-      { name: 'Shuttle', dv: 2.5, accel: 0.5, dry: 0.4, sprite: 'satellite' },
+    ship: ship({ start: { conic: { body: 'terra', pe: 205, e: 0.299, nu: -2.4, angle: 0 } }, heading: 'prograde', rcs: { fuel: 4.8 }, stack: [
+      { name: 'Descent stage', dv: 3.2, accel: 0.8 },
+      { name: 'Shuttle', dv: 1.8, accel: 0.5, dry: 0.4, sprite: 'satellite' },
     ] }),
     goals: [{ type: 'orbit', body: 'terra', rMin: 100, rMax: 150 }],
-    par: 4.7, bounds: 2000, tMax: 1500, predict: 200, view: { x: 0, y: 0, span: 860 },
+    par: 3.6, bounds: 2000, tMax: 800, predict: 200, view: { x: 0, y: 0, span: 860 },
   },
   {
     id: 'mooncourier',
@@ -193,7 +193,7 @@ const proofs = {
     ],
   },
   blockade: {
-    p: [0, 135, 172, 145], scale: [5, 8, 6, 4], opts: { turn: true, turnRate: 0.2 },
+    p: [-2.503, 145.175, 157.689, 150.027], scale: [5, 8, 6, 4], opts: { turn: true, turnRate: 0.2 },
     script: (p, AP) => [
       { wait: Math.max(0, p[0]) },
       { burn: 'retro', until: (m) => AP.orb(m, 'terra').pe <= p[1] },
