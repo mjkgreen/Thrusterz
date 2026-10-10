@@ -3399,7 +3399,7 @@
     {
       "id": "crossingtraffic",
       "name": "Crossing Traffic",
-      "intro": "Your stack is coasting up on a suborbital arc: at the top it starts falling back to Terra, so you have one pass at the top to make orbit. Two guard satellites patrol a long, stretched lane from 85 to 405, and their amber zones are closed to everything, so any spent stage left in orbit here crosses it sooner or later. Let the booster fall back: deploy it now, while its path still ends on Terra, and round off the orbit on the satellite alone. Turn round before the top, not at it. Side-thruster propellant is short, and your nose ends up facing backwards at the top if you leave it alone.",
+      "intro": "Your stack is coasting up on a low suborbital arc that falls back to Terra within a minute, so light the booster now. Burn it while you are still low and fast: that raises the top of the arc to the target height while its low point stays underground, so the empty booster falls back when you deploy it. Two guard satellites patrol a long, stretched lane from 85 to 405 and their amber zones are closed to everything: burn the booster later, higher up, and it is left in orbit across their lane. Then turn round once before the top and round off on the satellite. Side-thruster propellant is short.",
       "objective": "Put the satellite in an orbit between 300 and 360, with the booster brought down and no craft entering a guard's zone.",
       "teaches": "Planned flips · let the booster fall",
       "bodies": [
@@ -3449,10 +3449,10 @@
         "start": {
           "conic": {
             "body": "terra",
-            "pe": 40,
-            "e": 0.7838,
-            "nu": 1.838,
-            "angle": -1.838
+            "pe": 30,
+            "e": 0.76,
+            "nu": 2.034,
+            "angle": -2.034
           }
         },
         "heading": "prograde",
@@ -3462,22 +3462,22 @@
             "name": "Booster",
             "sprite": "booster",
             "dryMass": 1,
-            "fuel": 0.2459841496092074,
-            "thrust": 1.412768043975541,
+            "fuel": 0.27833326686240584,
+            "thrust": 1.5059672632828391,
             "ve": 10
           },
           {
             "name": "Satellite",
             "sprite": "satellite",
             "dryMass": 0.3,
-            "fuel": 0.21997590536021858,
-            "thrust": 0.3119855432161311,
+            "fuel": 0.304125812241143,
+            "thrust": 0.3624754873446858,
             "ve": 10
           }
         ],
         "cargo": [],
         "rcs": {
-          "fuel": 1.5,
+          "fuel": 2.4,
           "accel": 1.2,
           "maxRate": 1.6
         },
@@ -3491,7 +3491,7 @@
           "rMax": 360
         }
       ],
-      "par": 4.6,
+      "par": 6.5,
       "bounds": 2000,
       "tMax": 400,
       "predict": 200,
@@ -3716,9 +3716,9 @@
     {
       "id": "mooncourier",
       "name": "Moon Courier",
-      "intro": "You are already coasting to Luna, on a path that runs straight through Luna Gate's amber zone. The zone is closed to everything but the Gate's supply pod, so this is the pod's path, not yours: drop the empty transfer stage, release the pod (E) and nudge yourself clear before you get there. Then flip late and brake into a low orbit beneath the Gate.",
-      "objective": "Deliver the pod to Luna Gate before your path carries you into its zone, then orbit Luna between 30 and 70.",
-      "teaches": "Drop, swerve, capture",
+      "intro": "You are coasting to Luna on a collision course, about a minute and a half from impact. Use the last of the transfer stage to bend your path into a low pass under Luna, then drop the stage and release the pod (E): on that path it swings round Luna and climbs straight into Luna Gate, whose zone is closed to everything but the pod. Then flip late and brake at the low point, staying under the Gate.",
+      "objective": "Avoid hitting Luna, deliver the pod to Luna Gate, then orbit Luna between 30 and 70.",
+      "teaches": "Correct, drop, capture",
       "bodies": [
         {
           "id": "terra",
@@ -3751,7 +3751,7 @@
           "orbit": {
             "parent": "luna",
             "a": 110,
-            "phase": 2.8266
+            "phase": 3.5039
           }
         }
       ],
@@ -3771,8 +3771,8 @@
             "name": "Transfer stage",
             "sprite": "booster",
             "dryMass": 1,
-            "fuel": 0.057555244241806885,
-            "thrust": 1.9474296494667902,
+            "fuel": 0.11686330662357855,
+            "thrust": 2.0067377118485616,
             "ve": 10
           },
           {
@@ -3792,7 +3792,7 @@
           }
         ],
         "rcs": {
-          "fuel": 2.6,
+          "fuel": 2.8,
           "accel": 1.2,
           "maxRate": 1.6
         },
@@ -3813,9 +3813,9 @@
           "rMax": 70
         }
       ],
-      "par": 2,
+      "par": 2.1,
       "bounds": 2500,
-      "tMax": 1000,
+      "tMax": 1400,
       "predict": 220,
       "view": {
         "x": 0,
@@ -3826,7 +3826,7 @@
     {
       "id": "relaysling",
       "name": "Slingshot Relay",
-      "intro": "You have just burned out of low orbit on a path that swings past Goliath, and Goliath will fling you out of Terra's reach for good. That ride is for the deep-space relay, not for you: drop the spent stage, release the relay (E) on this path, then flip and brake at once so you fall back into a low orbit while it flies on. Goliath's radiation zone is closed to everything.",
+      "intro": "Your transfer burn cut out early, and this path will carry you into Goliath's radiation zone, which is closed to everything. Finish the job with the rest of the transfer stage: just enough to put the relay on a wide slingshot past Goliath that flings it out of Terra's reach. Then drop the stage, release the relay (E) and flip and brake at once, so you fall back into a low orbit while the relay flies on.",
       "objective": "Send the relay 1600 away from Terra, but stay behind yourself: orbit Terra between 70 and 140.",
       "teaches": "Send the cargo, stay home",
       "bodies": [
@@ -3856,10 +3856,10 @@
         "start": {
           "conic": {
             "body": "terra",
-            "pe": 91.03,
-            "e": 0.52528,
-            "nu": 0.36345,
-            "angle": 2.69664
+            "pe": 90.754,
+            "e": 0.4395,
+            "nu": 0.41127,
+            "angle": 2.64882
           }
         },
         "heading": "prograde",
@@ -3868,16 +3868,16 @@
             "name": "Transfer stage",
             "sprite": "booster",
             "dryMass": 1,
-            "fuel": 0.03792540495098322,
-            "thrust": 1.9152961586115178,
+            "fuel": 0.11944497785863491,
+            "thrust": 2.0510693089654364,
             "ve": 10
           },
           {
             "name": "Carrier",
             "sprite": "satellite",
             "dryMass": 0.4,
-            "fuel": 0.2773707536605347,
-            "thrust": 0.5264224521963208,
+            "fuel": 0.3316243311068016,
+            "thrust": 0.558974598664081,
             "ve": 10
           }
         ],
@@ -3889,7 +3889,7 @@
           }
         ],
         "rcs": {
-          "fuel": 7,
+          "fuel": 7.5,
           "accel": 1.2,
           "maxRate": 1.6
         },
@@ -3910,7 +3910,7 @@
           "rMax": 140
         }
       ],
-      "par": 2.8,
+      "par": 3.4,
       "bounds": 1700,
       "tMax": 1600,
       "predict": 300,
