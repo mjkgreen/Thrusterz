@@ -201,6 +201,22 @@
     drop() { tone('square', 900, 600, 0.06, 0.002, 0.05); tone('sine', 420, 300, 0.12, 0.004, 0.12, 0.03); },
     pickup() { [0, 4, 7, 12].forEach((s, i) => tone('triangle', hz(72 + s), 0, 0.12, 0.005, 0.18, i * 0.06)); },
     warn() { tone('square', 660, 0, 0.05, 0.004, 0.09); tone('square', 660, 0, 0.05, 0.004, 0.09, 0.16); },
+    // Controls: time warp up (rising) / down (falling), reference frame, camera.
+    warp(dir) { const a = dir > 0 ? [880, 1320] : [1320, 880]; a.forEach((f, i) => tone('triangle', f, 0, 0.06, 0.003, 0.06, i * 0.05)); },
+    frame() { tone('sine', 520, 0, 0.08, 0.003, 0.09); tone('sine', 780, 0, 0.06, 0.003, 0.12, 0.06); },
+    camera() { burst('bandpass', 600, 2400, 0.08, 0.22); },
+    // A probe or pod released: a sonar ping with a little echo.
+    ping() {
+      tone('sine', 1480, 1440, 0.14, 0.004, 0.9);
+      tone('sine', 1480, 1440, 0.05, 0.004, 0.7, 0.32);
+      tone('square', 900, 600, 0.03, 0.002, 0.04);
+    },
+    // Crash or keep-out zone ahead: a two-tone alert, sharper when closer.
+    alarm(urgent) {
+      const f = urgent ? 1180 : 940;
+      tone('square', f, 0, urgent ? 0.07 : 0.05, 0.003, 0.08);
+      tone('square', f * 0.75, 0, urgent ? 0.07 : 0.05, 0.003, 0.08, 0.11);
+    },
     // Win: a bouncy fanfare (da-da-da DA, da-DAAA) over a bass hop, with sparkle.
     win() {
       const lead = [[67, 0, 0.11], [72, 0.12, 0.11], [76, 0.24, 0.11], [79, 0.36, 0.3], [76, 0.7, 0.12], [84, 0.84, 0.7]];

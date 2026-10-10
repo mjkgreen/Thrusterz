@@ -164,6 +164,7 @@
     state.eventsSeen = 0;
     state.rcsWarned = 0;
     state.stageFate = null;
+    state.danger = null; state.alarmAt = 0;
     state.orbitWarnSeen = null;
     state.frameMode = 'auto';
     state.predictScale = 1;
@@ -236,7 +237,7 @@
       coachDone('drop');
       state.predDirty = true;
       c.path = Phys.predict(m.sys, c, m.t, 400, { bounds: m.level.bounds, maxSteps: 6000 });
-      Sound.drop();
+      Sound.drop(); Sound.ping();
       toast(c.name + ' released', 1.5);
       return;
     }
@@ -264,6 +265,7 @@
   }
 
   function cycleFrame() {
+    Sound.frame();
     const sys = state.mission.sys;
     const opts = ['auto', 'inertial', ...sys.grav.filter(i => !sys.bodies[i].hidden)];
     const k = opts.indexOf(state.frameMode);
@@ -317,13 +319,14 @@
   window.addEventListener('blur', () => keys.clear());
 
   function followShip() {
+    Sound.camera();
     state.cam.follow = true;
     state.cam.tzoom = Math.max(state.cam.zoom, Math.min(W, H) / 420);
     coachDone('camera');
   }
 
   function overview(auto) {
-    if (!auto) coachDone('camera');
+    if (!auto) { coachDone('camera'); Sound.camera(); }
     const v = state.mission.level.view;
     state.cam.follow = false;
     state.cam.tx = v.x; state.cam.ty = v.y;
@@ -461,6 +464,7 @@
     const c = controls();
     if (k > 0 && (c.thrust || c.rotate)) { toast('Can\'t warp while thrusters fire', 1.2); return; }
     if (k > 0 && m.status !== 'flying') return;
+    if (k !== state.warp) Sound.warp(k - state.warp);
     state.warp = k;
     if (k > 0) coachDone('warp');
   }
@@ -557,6 +561,15 @@
     if (m.thrusting) spawnExhaust(realDt);
     if (m.rotInput) spawnRcs(m.rotInput);
     Sound.engine(m.thrusting && !state.paused ? state.throttle : 0);
+    // Alarm while a crash or zone is close: within 20 s of game time or 4 s
+    // of real time, beeping faster in the last few seconds.
+    if (state.danger != null && m.status === 'flying' && !m.landed) {
+      const left = state.danger - m.t, real = left / WARPS[state.warp];
+      if (left > 0 && (left < 20 || real < 4)) {
+        const urgent = left < 6 || real < 1.5, nowMs = performance.now();
+        if (nowMs - (state.alarmAt || 0) > (urgent ? 420 : 800)) { state.alarmAt = nowMs; Sound.alarm(urgent); }
+      }
+    }
     Sound.rcs(!!m.rotInput && !state.paused);
 
     // Trail (inertial positions, drawn in the current frame).
@@ -638,6 +651,11 @@
       }
     }
     state.pred = p;
+    // Danger ahead (for the alarm): the path ends in a crash that isn't the
+    // goal, or enters a keep-out zone.
+    const goodHit = p.hit >= 0 && g && g.type === 'hit' && !g.craft && m.sys.byId[g.body].index === p.hit && m.siteOk(g, p.end.x, p.end.y, p.tEnd);
+    const tHit = p.hit >= 0 && !goodHit ? p.tEnd : Infinity, tZone = p.zone ? p.ts[p.zone.i] : Infinity;
+    state.danger = Math.min(tHit, tZone) < Infinity ? Math.min(tHit, tZone) : null;
     stageFatePreview(m);
   }
 
