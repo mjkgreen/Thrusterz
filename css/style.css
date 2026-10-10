@@ -307,18 +307,29 @@ body.touch #hud-goals li > span:not(.chk) { display: block; white-space: nowrap;
 body.touch #hud-goals .sub { display: flex; align-items: center; gap: 6px; padding: 1px 0 0; font-size: 10px; white-space: nowrap; overflow: hidden; }
 body.touch #hud-goals .sub .minibar { width: 54px; flex: none; margin: 0; }
 
+/* Phones: the gauges fill the top between the mission panel and the
+   buttons (time, warp and frame live in the orbit panel instead). */
 body.touch #gauges {
-  top: 10px; bottom: auto; left: 50%; transform: translateX(-50%); width: min(300px, calc(36 * var(--vw)));
+  top: 10px; bottom: auto; left: calc(32 * var(--vw) + 4px); right: 172px; width: auto; max-width: 520px; margin: 0 auto;
   display: grid; grid-template-columns: 1fr 1fr; gap: 2px 14px;
 }
 body.touch #gauges .gauge { margin: 0; }
 body.touch #gauges .glabel { font-size: 11px; margin-bottom: 2px; }
 body.touch #gauges .bar { height: 5px; background: rgba(255,255,255,0.15); }
 body.touch #gauges .gauge.throttle { display: none; }
-body.touch #gauges .row { grid-column: 1 / -1; text-align: center; font-size: 11px; }
+body.touch #gauges .row { grid-column: 1 / -1; text-align: center; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* STAGE and SPIN side by side; the G button shows gyro, so no gyro text. */
+body.touch #gauges #stage-row:not([style*="none"]) { grid-column: 1; text-align: left; }
+body.touch #gauges #stage-row:not([style*="none"]) + #gyro-row { grid-column: 2; text-align: right; }
+body.touch .gyro-txt { display: none; }
+#btn-gyro { position: relative; }
+#btn-gyro.capped::after { content: '★★'; position: absolute; bottom: -9px; left: 50%; transform: translateX(-50%); font-size: 8px; color: var(--warn); letter-spacing: 0; }
 body.touch #gauges:has(#gauge-rcs[style*="none"]) { grid-template-columns: 1fr; }
 
-body.touch #clock { top: 10px; right: 112px; font-size: 11px; line-height: 1.4; }
+/* Time, warp and frame: two lines at the bottom of the orbit panel. */
+body.touch #orbit #clock { position: static; padding: 3px 0 0; margin-top: 3px; border: 0; border-top: 1px solid rgba(255,255,255,0.08); border-radius: 0; background: none; box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none;
+  display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0 8px; text-align: left; font-size: 10px; line-height: 1.4; }
+body.touch #orbit #clock > div:last-child { flex-basis: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 body.touch #topbtns { top: 8px; right: 8px; }
 body.touch #btn-gyro { display: block; }
 body.touch #topbtns .icon-btn { width: 44px; height: 38px; font-size: 14px; font-weight: 700; background: rgba(12,16,32,0.55); }

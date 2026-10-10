@@ -415,9 +415,11 @@
   }, { passive: true });
   canvas.addEventListener('touchend', () => { pinch = null; }, { passive: true });
   const isTouch = () => document.body.classList.contains('touch');
-  if (window.matchMedia('(pointer: coarse)').matches) document.body.classList.add('touch');
+  // On phones the clock (time, warp, frame) sits inside the orbit panel.
+  function placeClock() { if (isTouch()) $('orbit').appendChild($('clock')); }
+  if (window.matchMedia('(pointer: coarse)').matches) { document.body.classList.add('touch'); placeClock(); }
   window.addEventListener('touchstart', () => {
-    if (!isTouch()) { document.body.classList.add('touch'); state.coach.id = null; updateGate(); }
+    if (!isTouch()) { document.body.classList.add('touch'); placeClock(); state.coach.id = null; updateGate(); }
   }, { once: true, passive: true });
 
   // Phones don't fire a click for a tap made while another finger is down
@@ -2042,6 +2044,7 @@
     $('hud-gyro').textContent = m.gyro ? 'ON · max ★★' : (m.assisted ? 'OFF · max ★★' : 'OFF');
     $('hud-gyro').className = m.gyro || m.assisted ? 'warn' : '';
     $('btn-gyro').classList.toggle('on', m.gyro);
+    $('btn-gyro').classList.toggle('capped', m.gyro || m.assisted);
     const tether = m.status === 'flying' && m.canTether();
     document.body.classList.toggle('can-deploy', m.canDeploy() || m.canDrop() || tether);
     const dropBtn = document.querySelector('#touch button.deploy');
