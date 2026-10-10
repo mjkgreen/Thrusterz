@@ -70,16 +70,16 @@ const levels = [
   {
     id: 'blockade',
     name: 'Blockade Run',
-    intro: 'Three patrol ships guard the orbit at 220, each inside an amber zone closed to everything. Ride the big descent stage down through their band to a low orbit, timing your fall to pass between them. Don\'t drop the stage after the first burn: an empty stage whose orbit still reaches the band drifts into a zone sooner or later, so only let it go once its whole orbit is below the patrols.',
-    objective: 'Orbit Terra between 100 and 150 without your ship or its stage entering a patrol zone.',
+    intro: 'Your orbit is sagging into the patrol band at 220, and at its low point, a minute from now, Patrol 1 will be right there. Each patrol sits in an amber zone closed to everything, so get down through the band now, riding the big descent stage, to a low orbit beneath it. Don\'t drop the stage after the first burn: an empty stage whose orbit still reaches the band drifts into a zone sooner or later.',
+    objective: 'Get below the patrols before you meet one: orbit Terra between 100 and 150 without your ship or its stage entering a patrol zone.',
     teaches: 'Carry the stage across the band',
     bodies: [
       { id: 'terra', name: 'Terra', gm: 20000, radius: 50, color: C.blue },
-      { id: 'pat1', name: 'Patrol 1', gm: 0, radius: 4, color: C.station, kind: 'station', keepOut: 35, zone: 'all', orbit: { parent: 'terra', a: 220, phase: 0.4 } },
-      { id: 'pat2', name: 'Patrol 2', gm: 0, radius: 4, color: C.station, kind: 'station', keepOut: 35, zone: 'all', orbit: { parent: 'terra', a: 220, phase: 0.4 + 2.094 } },
-      { id: 'pat3', name: 'Patrol 3', gm: 0, radius: 4, color: C.station, kind: 'station', keepOut: 35, zone: 'all', orbit: { parent: 'terra', a: 220, phase: 0.4 + 4.189 } },
+      { id: 'pat1', name: 'Patrol 1', gm: 0, radius: 4, color: C.station, kind: 'station', keepOut: 35, zone: 'all', orbit: { parent: 'terra', a: 220, phase: 3.34 } },
+      { id: 'pat2', name: 'Patrol 2', gm: 0, radius: 4, color: C.station, kind: 'station', keepOut: 35, zone: 'all', orbit: { parent: 'terra', a: 220, phase: 3.34 + 2.094 } },
+      { id: 'pat3', name: 'Patrol 3', gm: 0, radius: 4, color: C.station, kind: 'station', keepOut: 35, zone: 'all', orbit: { parent: 'terra', a: 220, phase: 3.34 + 4.189 } },
     ],
-    ship: ship({ start: { orbit: { body: 'terra', r: 360, angle: 0 } }, heading: 'prograde', rcs: { fuel: 5 }, stack: [
+    ship: ship({ start: { conic: { body: 'terra', pe: 205, e: 0.299, nu: -2.4, angle: 0 } }, heading: 'prograde', rcs: { fuel: 5 }, stack: [
       { name: 'Descent stage', dv: 4.5, accel: 0.8 },
       { name: 'Shuttle', dv: 2.5, accel: 0.5, dry: 0.4, sprite: 'satellite' },
     ] }),
@@ -89,43 +89,43 @@ const levels = [
   {
     id: 'mooncourier',
     name: 'Moon Courier',
-    intro: 'Luna Gate circles Luna inside an amber zone closed to everything but its supply pod. Ride the transfer stage out, drop it, and release the pod (E) early, on a path that meets the Gate. Then nudge yourself clear of the zone and flip late to brake into a low orbit beneath it: turning round early and chasing retrograde all the way in empties the side thrusters.',
-    objective: 'Deliver the pod to Luna Gate, then orbit Luna between 30 and 70 without entering the Gate\'s zone.',
-    teaches: 'Stage, drop, swerve, capture',
+    intro: 'You are already coasting to Luna, on a path that runs straight through Luna Gate\'s amber zone. The zone is closed to everything but the Gate\'s supply pod, so this is the pod\'s path, not yours: drop the empty transfer stage, release the pod (E) and nudge yourself clear before you get there. Then flip late and brake into a low orbit beneath the Gate.',
+    objective: 'Deliver the pod to Luna Gate before your path carries you into its zone, then orbit Luna between 30 and 70.',
+    teaches: 'Drop, swerve, capture',
     bodies: [
       { id: 'terra', name: 'Terra', gm: 20000, radius: 50, color: C.blue },
-      { id: 'luna', name: 'Luna', gm: 1500, radius: 18, color: C.grey, orbit: { parent: 'terra', a: 420, phase: 2.2 } },
-      { id: 'gate', name: 'Luna Gate', gm: 0, radius: 4, color: C.station, kind: 'station', keepOut: 25, zone: 'all', orbit: { parent: 'luna', a: 110, phase: 2.55 } },
+      { id: 'luna', name: 'Luna', gm: 1500, radius: 18, color: C.grey, orbit: { parent: 'terra', a: 420, phase: 2.3404 } },
+      { id: 'gate', name: 'Luna Gate', gm: 0, radius: 4, color: C.station, kind: 'station', keepOut: 25, zone: 'all', orbit: { parent: 'luna', a: 110, phase: 2.8266 } },
     ],
-    ship: ship({ start: { orbit: { body: 'terra', r: 90, angle: 0 } }, heading: 'prograde', rcs: { fuel: 5 }, stack: [
-      { name: 'Transfer stage', dv: 4.6, accel: 1 },
-      { name: 'Carrier', dv: 4.8, accel: 0.6, dry: 0.4, sprite: 'satellite' },
+    ship: ship({ start: { conic: { body: 'terra', pe: 90.601, e: 0.65878, nu: 0.34791, angle: 1.0853 } }, heading: 'prograde', rcs: { fuel: 2.6 }, stack: [
+      { name: 'Transfer stage', dv: 0.3, accel: 1 },
+      { name: 'Carrier', dv: 2.4, accel: 0.6, dry: 0.4, sprite: 'satellite' },
     ], cargo: [{ id: 'pod', name: 'Supply pod', mass: 0.3 }] }),
     goals: [
       { type: 'reach', body: 'gate', craft: 'pod', r: 12, label: 'Docking arm' },
       { type: 'orbit', body: 'luna', rMin: 30, rMax: 70 },
     ],
-    par: 7.3, bounds: 2500, tMax: 1500, predict: 220, view: { x: 0, y: 0, span: 1000 },
+    par: 2, bounds: 2500, tMax: 1000, predict: 220, view: { x: 0, y: 0, span: 1000 },
   },
   {
     id: 'relaysling',
     name: 'Slingshot Relay',
-    intro: 'The relay needs Goliath\'s slingshot to leave Terra for good; your carrier stays home to talk to it. Put the stack on a path that swings wide of Goliath\'s zone, which is closed to everything, then drop the stage and release the relay (E) on it. Flip and brake so you fall back into a low orbit while the relay flies on.',
-    objective: 'Send the relay 1600 away from Terra, then orbit Terra between 120 and 250 yourself.',
+    intro: 'You have just burned out of low orbit on a path that swings past Goliath, and Goliath will fling you out of Terra\'s reach for good. That ride is for the deep-space relay, not for you: drop the spent stage, release the relay (E) on this path, then flip and brake at once so you fall back into a low orbit while it flies on. Goliath\'s radiation zone is closed to everything.',
+    objective: 'Send the relay 1600 away from Terra, but stay behind yourself: orbit Terra between 120 and 250.',
     teaches: 'Send the cargo, stay home',
     bodies: [
       { id: 'terra', name: 'Terra', gm: 20000, radius: 50, color: C.blue },
-      { id: 'goliath', name: 'Goliath', gm: 5000, radius: 26, color: C.tan, keepOut: 70, zone: 'all', orbit: { parent: 'terra', a: 350, phase: 2.0 } },
+      { id: 'goliath', name: 'Goliath', gm: 5000, radius: 26, color: C.tan, keepOut: 70, zone: 'all', orbit: { parent: 'terra', a: 350, phase: 2.4375 } },
     ],
-    ship: ship({ start: { orbit: { body: 'terra', r: 90, angle: 0 } }, heading: 'prograde', rcs: { fuel: 5.5 }, stack: [
-      { name: 'Transfer stage', dv: 4, accel: 1 },
-      { name: 'Carrier', dv: 2.5, accel: 0.6, dry: 0.4, sprite: 'satellite' },
+    ship: ship({ start: { conic: { body: 'terra', pe: 91.03, e: 0.52528, nu: 0.36345, angle: 2.69664 } }, heading: 'prograde', rcs: { fuel: 3.5 }, stack: [
+      { name: 'Transfer stage', dv: 0.2, accel: 1 },
+      { name: 'Carrier', dv: 0.6, accel: 0.6, dry: 0.4, sprite: 'satellite' },
     ], cargo: [{ id: 'relay', name: 'Relay', mass: 0.2 }] }),
     goals: [
       { type: 'escape', body: 'terra', craft: 'relay', r: 1600, label: 'Deep space' },
       { type: 'orbit', body: 'terra', rMin: 120, rMax: 250 },
     ],
-    par: 4.6, bounds: 3500, tMax: 1500, predict: 300, view: { x: 0, y: 0, span: 2400 },
+    par: 0.55, bounds: 1700, tMax: 1600, predict: 300, view: { x: 0, y: 0, span: 2400 },
   },
   {
     id: 'surveydrop',
@@ -193,7 +193,7 @@ const proofs = {
     ],
   },
   blockade: {
-    p: [31.246, 145.693, 151.059, 150.023], scale: [20, 8, 6, 4], opts: { turn: true, turnRate: 0.2 },
+    p: [0, 135, 172, 145], scale: [5, 8, 6, 4], opts: { turn: true, turnRate: 0.2 },
     script: (p, AP) => [
       { wait: Math.max(0, p[0]) },
       { burn: 'retro', until: (m) => AP.orb(m, 'terra').pe <= p[1] },
@@ -204,30 +204,27 @@ const proofs = {
     ],
   },
   mooncourier: {
-    p: [4.724, 438.858, 452.966, 0.333, 0.622, 71.81, 37.324, 83.569], scale: [2, 6, 60, 1, 0.4, 8, 10, 10], opts: { turn: true, turnRate: 0.2 },
+    p: [-2.442, 0.608, 0.328, 78.027, 48.83, 45.136], scale: [3, 1, 0.15, 8, 10, 10], opts: { turn: true, turnRate: 0.2 },
     script: (p, AP) => [
       { wait: Math.max(0, p[0]) },
-      { burn: 'pro', until: (m) => AP.orb(m, 'terra').ap >= p[1] },
       { deploy: true },
-      { coast: (m) => dist(m, 'luna') < p[2] },
       { drop: true },
-      { burn: p[3], rel: 'luna', max: Math.max(0, p[4]) },
-      hold((m) => dist(m, 'luna') < p[7]),
-      { coast: (m) => { const o = AP.orb(m, 'luna'); return o.r < p[6] || o.rising; } },
-      { burn: peRetro('luna'), until: (m) => { const o = AP.orb(m, 'luna'); return o.bound && o.ap <= p[5]; } },
+      ...dvBurn(p[1], 'luna', Math.max(0, p[2])),
+      hold((m) => dist(m, 'luna') < p[5]),
+      { coast: (m) => { const o = AP.orb(m, 'luna'); return o.r < p[4] || o.rising; } },
+      { burn: peRetro('luna'), until: (m) => { const o = AP.orb(m, 'luna'); return o.bound && o.ap <= p[3]; } },
     ],
   },
   relaysling: {
-    p: [15.153, 291.922, 259.792, 117.19], scale: [6, 20, 8, 6], opts: { turn: true, turnRate: 0.2 },
+    p: [-6.327, 262.853, 121.808], scale: [3, 8, 6], opts: { turn: true, turnRate: 0.2 },
     script: (p, AP) => [
       { wait: Math.max(0, p[0]) },
-      { burn: 'pro', until: (m) => AP.orb(m, 'terra').ap >= p[1] },
       { deploy: true },
       { drop: true },
-      { burn: 'retro', rel: 'terra', until: (m) => AP.orb(m, 'terra').ap <= p[2] },
-      hold((m) => AP.orb(m, 'terra').r > p[2] - 40),
+      { burn: 'retro', rel: 'terra', until: (m) => AP.orb(m, 'terra').ap <= p[1] },
+      hold((m) => AP.orb(m, 'terra').r > p[1] - 40),
       { coast: (m) => !AP.orb(m, 'terra').rising },
-      { burn: 'pro', rel: 'terra', until: (m) => AP.orb(m, 'terra').pe >= p[3] },
+      { burn: 'pro', rel: 'terra', until: (m) => AP.orb(m, 'terra').pe >= p[2] },
     ],
   },
   surveydrop: {
@@ -281,44 +278,40 @@ const proofs = {
 
 const fails = {
   blockade: [
-    { name: 'drop the stage after the first burn', opts: { turn: true, turnRate: 0.2 }, steps: (AP) => [
-      { wait: 31 },
-      { burn: 'retro', until: (m) => AP.orb(m, 'terra').pe <= 146 },
-      { deploy: true },
-      { coast: (m) => AP.orb(m, 'terra').rising },
-      { burn: 'retro', until: (m) => AP.orb(m, 'terra').ap <= 150 },
-    ] },
-    { name: 'ditch the stage up high, fly the shuttle down', opts: { turn: true, turnRate: 0.2 }, steps: (AP) => [
-      { deploy: true },
-      { wait: 31 },
-      { burn: 'retro', until: (m) => AP.orb(m, 'terra').pe <= 146 },
-      { coast: (m) => AP.orb(m, 'terra').rising },
-      { burn: 'retro', until: (m) => AP.orb(m, 'terra').ap <= 150 },
-    ] },
-    { name: 'go down at once', opts: { turn: true, turnRate: 0.2 }, steps: (AP) => proofs.blockade.script([0].concat(proofs.blockade.p.slice(1)), AP) },
+    { name: 'wait and see', steps: () => [] },
+    { name: 'drop the stage after the first burn', opts: { turn: true, turnRate: 0.2 }, steps: (AP) => {
+      const s = proofs.blockade.script(proofs.blockade.p, AP);
+      return [s[0], s[1], { deploy: true }, s[2], s[5]];
+    } },
+    { name: 'ditch the stage, fly the shuttle down', opts: { turn: true, turnRate: 0.2 }, steps: (AP) => {
+      const s = proofs.blockade.script(proofs.blockade.p, AP);
+      return [{ deploy: true }, s[0], s[1], s[2], s[5]];
+    } },
+    { name: 'wait for the next lap to go down', opts: { turn: true, turnRate: 0.2 }, steps: (AP) => proofs.blockade.script([60].concat(proofs.blockade.p.slice(1)), AP) },
     { name: 'flip fast (holding the keys)', opts: { turn: true, turnRate: 1.2 }, steps: (AP) => proofs.blockade.script(proofs.blockade.p, AP) },
   ],
   mooncourier: [
-    { name: 'drop the pod as you near the Gate', opts: { turn: true, turnRate: 0.2 }, steps: (AP) => {
-      const p = proofs.mooncourier.p;
-      return [
-        { wait: p[0] }, { burn: 'pro', until: (m) => AP.orb(m, 'terra').ap >= p[1] }, { deploy: true },
-        { coast: (m) => dist(m, 'gate') < 60 }, { drop: true },
-        { burn: 1.57, rel: 'luna', max: 2 },
-        { coast: (m) => { const o = AP.orb(m, 'luna'); return o.r < 100 && o.rising; } },
-        { burn: 'retro', rel: 'luna', until: (m) => { const o = AP.orb(m, 'luna'); return o.bound && o.ap <= p[5]; } },
-      ];
-    } },
-    { name: 'no swerve after the drop', opts: { turn: true, turnRate: 0.2 }, steps: (AP) => proofs.mooncourier.script(proofs.mooncourier.p, AP).filter((st, k) => k !== 5) },
-    { name: 'turn retrograde early and chase it all the way in', opts: { turn: true, turnRate: 0.2 }, steps: (AP) => proofs.mooncourier.script(proofs.mooncourier.p.slice(0, 7).concat([1e4]), AP) },
+    { name: 'wait and see', steps: () => [] },
+    { name: 'coast on and drop the pod near the Gate', opts: { turn: true, turnRate: 0.2 }, steps: (AP) => [
+      { deploy: true }, { coast: (m) => dist(m, 'gate') < 60 }, { drop: true },
+      { burn: 1.57, rel: 'luna', max: 4 },
+      { coast: (m) => { const o = AP.orb(m, 'luna'); return o.r < 100 && o.rising; } },
+      { burn: 'retro', rel: 'luna', until: (m) => { const o = AP.orb(m, 'luna'); return o.bound && o.ap <= 70; } },
+    ] },
+    { name: 'no swerve after the drop', opts: { turn: true, turnRate: 0.2 }, steps: (AP) => proofs.mooncourier.script(proofs.mooncourier.p, AP).filter((st, k) => k !== 3 && k !== 4) },
+    { name: 'turn retrograde early and chase it all the way in', opts: { turn: true, turnRate: 0.2 }, steps: (AP) => proofs.mooncourier.script(proofs.mooncourier.p.slice(0, 5).concat([1e4]), AP) },
     { name: 'flip fast (holding the keys)', opts: { turn: true, turnRate: 1.2 }, steps: (AP) => proofs.mooncourier.script(proofs.mooncourier.p, AP) },
   ],
   relaysling: [
-    { name: 'ride the slingshot, release the relay later', opts: { turn: true, turnRate: 0.2 }, steps: (AP) => {
+    { name: 'wait and see', steps: () => [] },
+    { name: 'ride the slingshot, release the relay later', opts: { turn: true, turnRate: 0.2 }, steps: (AP) => [
+      { deploy: true }, { coast: (m) => dist(m, 'goliath') < 160 }, { drop: true },
+      { burn: 'retro', rel: 'terra', until: (m) => AP.orb(m, 'terra').ap <= 250 },
+    ] },
+    { name: 'brake later, as Goliath comes close', opts: { turn: true, turnRate: 0.2 }, steps: (AP) => {
       const s = proofs.relaysling.script(proofs.relaysling.p, AP);
-      return [s[0], s[1], s[2], { coast: (m) => m.t > 300 }, { drop: true }, { burn: 'retro', rel: 'terra', until: (m) => AP.orb(m, 'terra').ap <= 250 }];
+      return [s[0], s[1], s[2], hold((m) => dist(m, 'goliath') < 150), ...s.slice(3)];
     } },
-    { name: 'aim close to Goliath for a bigger kick', opts: { turn: true, turnRate: 0.2 }, steps: (AP) => proofs.relaysling.script([15.153, 340, 300, 117], AP) },
     { name: 'flip fast (holding the keys)', opts: { turn: true, turnRate: 1.2 }, steps: (AP) => proofs.relaysling.script(proofs.relaysling.p, AP) },
   ],
   surveydrop: [

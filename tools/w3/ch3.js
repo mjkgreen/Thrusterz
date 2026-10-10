@@ -135,13 +135,13 @@ const levels = [
   {
     id: 'oneflip',
     name: 'One Flip',
-    intro: 'You need to come down to a low orbit, and both burns point backwards. Turn round once, slowly, with a few taps, and make the first burn. Then one gentle tap sets the nose turning with your fall, so it still points backwards at the bottom: no second flip needed. Holding the turn keys empties the side thrusters in a single turn.',
-    objective: 'Orbit Terra between 150 and 200 with 1 s of side-thruster propellant.',
-    teaches: 'Slow flips · turning with the orbit',
+    intro: 'Your orbit dips into Terra: you crash in less than a minute unless you burn prograde now to lift your low point. Then you fall to the bottom of a long ellipse much too fast, so round it off with a retrograde burn there. That needs one flip, and the side thrusters only hold one slow one: tap to start it on the way down, not in a rush at the bottom.',
+    objective: 'Orbit Terra between 150 and 200 with 0.6 s of side-thruster propellant.',
+    teaches: 'Burn now · one slow flip',
     bodies: [terra],
-    ship: ship({ start: { orbit: { body: 'terra', r: 300, angle: 0 } }, heading: 'prograde', dv: 3.2, accel: 1, rcs: { fuel: 1 } }),
+    ship: ship({ start: { conic: { body: 'terra', pe: 30, e: 0.818, nu: -3.1, angle: Math.PI } }, heading: 'retrograde', dv: 7.8, accel: 1, rcs: { fuel: 1.25 } }),
     goals: [{ type: 'orbit', body: 'terra', rMin: 150, rMax: 200 }],
-    par: 2.1, bounds: 2000, tMax: 600, predict: 200, view: { x: 0, y: 0, span: 800 },
+    par: 5.5, bounds: 2000, tMax: 400, predict: 200, view: { x: 0, y: 0, span: 800 },
   },
   {
     id: 'brake',
@@ -157,13 +157,13 @@ const levels = [
   {
     id: 'stationstop',
     name: 'Station Stop',
-    intro: 'Tycho Station orbits below you. Burn retrograde to fall toward it: you meet it at the bottom of your fall moving faster than it is, so you have to brake there, and braking points backwards too. Your nose stays put while you fall and the markers swing round, so start the turn early and make it slow.',
+    intro: 'X',
     objective: 'Rendezvous with Tycho Station (within 25, relative speed under 0.5) with 1.1 s of side-thruster propellant.',
-    teaches: 'Planning the braking flip',
-    bodies: [terra, { id: 'tycho', name: 'Tycho Station', gm: 0, radius: 4, color: C.station, kind: 'station', orbit: { parent: 'terra', a: 130, phase: -0.5 } }],
-    ship: ship({ start: { orbit: { body: 'terra', r: 260, angle: 0 } }, heading: 'prograde', dv: 3.8, accel: 0.8, rcs: { fuel: 1.1 } }),
+    teaches: 'Braking flip under time pressure',
+    bodies: [terra, { id: 'tycho', name: 'Tycho Station', gm: 0, radius: 4, color: C.station, kind: 'station', orbit: { parent: 'terra', a: 130, phase: -2.0 } }],
+    ship: ship({ start: { conic: { body: 'terra', pe: 128, e: 0.34, nu: -1.8 } }, heading: 'prograde', dv: 3.8, accel: 0.8, rcs: { fuel: 3 } }),
     goals: [{ type: 'rendezvous', body: 'tycho', dist: 25, relVel: 0.5 }],
-    par: 2.5, bounds: 2000, tMax: 900, predict: 160, view: { x: 0, y: 0, span: 640 },
+    par: 2.5, bounds: 2000, tMax: 400, predict: 160, view: { x: 0, y: 0, span: 640 },
   },
   {
     id: 'downgap',
@@ -210,14 +210,16 @@ const proofs = {
     },
   },
   oneflip: {
-    p: [198.954, 200.249, 299, -0.089, 0.05], scale: [8, 8, 0, 0.1, 0.01], opts: T,
-    script: (p, AP, rate = R) => [
-      slew(AP, (m) => AP.aim(m, 'retro') + p[3], rate),
-      burnHere((m) => AP.orb(m, 'terra').pe <= p[0]),
-      hold((m) => AP.orb(m, 'terra').r < p[2]),
-      slew(AP, (m) => retroAtPe(m, 'terra'), Math.min(rate, p[4])),
+    // Flip to prograde fast enough to burn before the crash, burn, then just
+    // hold still: at the bottom the retrograde marker swings round onto the
+    // nose. A slower flip burns too late; holding the keys runs dry.
+    p: [150.176, 0.2, 200.345, -1.115], scale: [8, 0, 4, 0.2], opts: T,
+    script: (p, AP, rate) => [
+      slew(AP, (m) => AP.aim(m, 'pro') + p[3], rate || p[1]),
+      burnHere((m) => AP.orb(m, 'terra').pe >= p[0]),
+      slew(AP, (m) => retroAtPe(m, 'terra'), Math.min(rate || R, 0.05)),
       hold((m) => AP.orb(m, 'terra').rising),
-      burnHere((m) => AP.orb(m, 'terra').ap <= p[1]),
+      burnHere((m) => AP.orb(m, 'terra').ap <= p[2]),
     ],
   },
   brake: {
@@ -232,16 +234,13 @@ const proofs = {
     ],
   },
   stationstop: {
-    p: [63.412, 140.24, 255, 0.284, 0.451, 0.072], scale: [8, 6, 0, 0.1, 0.3, 0.01], opts: T,
-    script: (p, AP, rate = R) => [
-      hold((m) => m.t >= p[0] - flipLead(rate)),
-      slew(AP, (m) => retroAt(AP, m, p[0]), rate),
-      hold((m) => m.t >= p[0]),
-      burnHere((m) => AP.orb(m, 'terra').pe <= p[1]),
-      hold((m) => AP.orb(m, 'terra').r < p[2]),
-      slew(AP, (m) => retroAtPe(m, 'tycho'), Math.min(rate, p[5])),
-      hold((m) => { const o = AP.orb(m, 'tycho'); return o.r < p[4] * o.v * o.v / 1.6 + 10; }),
-      burnHere((m, c) => { const v = AP.orb(m, 'tycho').v; c.vMin = Math.min(c.vMin || 99, v); return v < p[3] || v > c.vMin + 0.02; }),
+    // Flip straight away (fast enough to be round before you reach the
+    // station, slow enough to afford), then brake as you close in.
+    p: [0.2, 0.5, 0.15], scale: [0, 0.2, 0.1], opts: T,
+    script: (p, AP, rate) => [
+      slew(AP, (m) => retroAtPe(m, 'tycho', 120), rate || p[0]),
+      hold((m) => { const o = AP.orb(m, 'tycho'); return o.r < p[1] * o.v * o.v / 1.6 + 10; }),
+      burnHere((m, c) => { const v = AP.orb(m, 'tycho').v; c.vMin = Math.min(c.vMin || 99, v); return v < p[2] || v > c.vMin + 0.02; }),
       hold((m) => m.status !== 'flying'),
     ],
   },
@@ -303,6 +302,7 @@ const fails = {
   oneflip: [
     rushed('oneflip'),
     rushed('oneflip', 0.5),
+    { name: 'look around for 15 s first', steps: (AP) => [hold((m) => m.t >= 15), ...proofs.oneflip.script(proofs.oneflip.p, AP)], opts: T },
   ],
   brake: [rushed('brake'), rushed('brake', 0.5)],
   stationstop: [rushed('stationstop'), rushed('stationstop', 0.5)],

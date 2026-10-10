@@ -16,11 +16,13 @@ module.exports = {
   },
 
   burndry: {
-    p: [208.4, 200], scale: [10, 5],
+    // Climbing to the top of an ellipse whose low point is inside Terra:
+    // burn prograde at the top, booster first, before the fall begins.
+    p: [-0.584, 199.846, 0.032], scale: [2, 4, 0.1],
     script: (p, AP) => [
-      { burn: 'pro', rel: 'terra', until: (m) => AP.orb(m, 'terra').ap >= p[0] },
-      { coast: (m) => !AP.orb(m, 'terra').rising },
-      { burn: 'pro', rel: 'terra', stage: true, until: (m) => AP.orb(m, 'terra').pe >= p[1] },
+      { coast: (m) => AP.orb(m, 'terra').r >= AP.orb(m, 'terra').ap - Math.max(0, -p[0]) || !AP.orb(m, 'terra').rising },
+      { wait: Math.max(0, p[0]) },
+      { burn: p[2], rel: 'terra', stage: true, until: (m) => AP.orb(m, 'terra').pe >= p[1] },
     ],
   },
 

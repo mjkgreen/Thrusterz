@@ -539,18 +539,18 @@
     {
       id: 'burndry',
       name: 'Burn It Dry',
-      intro: 'A booster is heavy, and every drop of fuel in it is Δv you only get while it is attached. Raise your orbit with the booster: burn prograde until the high point reaches the band, coast up to it, and keep using the booster there. Drop it only when it is empty. The satellite\'s own tank is small and cannot finish the job alone.',
+      intro: 'Your low point is inside Terra: in under a minute you will fall back and hit the ground. The top of this ellipse is already in the band, so coast up to it and burn prograde right there to lift the low point, before the fall begins. Burn too early or too late and the far side of your orbit swings out of the band. A booster is heavy, and every drop of fuel in it is Δv you only get while it is attached: drop it only when it is empty. Neither stage can do the job alone.',
       objective: 'Put the satellite in an orbit between 200 and 260 from Terra.',
       teaches: 'Use every stage fully',
       bodies: [
         { id: 'terra', name: 'Terra', gm: 20000, radius: 50, color: C.blue },
       ],
-      ship: ship({ start: { orbit: { body: 'terra', r: 90, angle: 0 } }, heading: 'prograde', stack: [
+      ship: ship({ start: { conic: { body: 'terra', pe: 40, e: 0.714, nu: 2.6, angle: Math.PI } }, heading: 'prograde', stack: [
         { name: 'Booster', dv: 3.5, accel: 1.0 },
-        { name: 'Satellite', dv: 2.0, accel: 0.5, dry: 0.3 },
+        { name: 'Satellite', dv: 3.5, accel: 0.5, dry: 0.3 },
       ] }),
       goals: [{ type: 'orbit', body: 'terra', rMin: 200, rMax: 260 }],
-      par: 5.2, bounds: 2000, tMax: 900, predict: 160, view: { x: 0, y: 0, span: 640 },
+      par: 4.5, bounds: 2000, tMax: 900, predict: 160, view: { x: 0, y: 0, span: 640 },
     },
     {
       id: 'againstspin',
@@ -646,7 +646,7 @@
         { id: 'terra', name: 'Terra', gm: 20000, radius: 50, color: C.blue },
         { id: 'luna', name: 'Luna', gm: 1500, radius: 18, color: C.grey, orbit: { parent: 'terra', a: 420, phase: 2.2 } },
       ],
-      ship: ship({ start: { orbit: { body: 'terra', r: 90, angle: 0 } }, heading: 'prograde', dv: 8, accel: 1, cargo: [{ id: 'impactor', name: 'Impactor', mass: 0.4 }] }),
+      ship: ship({ start: { conic: { body: 'luna', pe: 8, e: 0.98, nu: -2.8, angle: 0 } }, heading: 'prograde', dv: 8, accel: 1, cargo: [{ id: 'impactor', name: 'Impactor', mass: 0.4 }] }),
       goals: [
         { type: 'hit', body: 'luna', craft: 'impactor' },
         { type: 'orbit', body: 'luna', rMin: 30, rMax: 100 },
