@@ -359,5 +359,94 @@ module.exports = {
   },
 };
 
+// Experimental levels (test: true): one per prototype mechanic.
+Object.assign(module.exports, {
+  'test-aero': {
+    // Lower the low point into the air, let drag capture you, then lift the
+    // low point back out at the top of the new orbit.
+    p: [7.92, 72.47, 101, 1.762], scale: [5, 1.5, 4, 0.3],
+    script: (p, AP) => [
+      { wait: Math.max(0, p[0]) },
+      // Far out you are falling almost straight in: push against the small
+      // sideways part of your motion, not against all of it.
+      { burn: p[3], rel: 'thule', until: (m) => AP.orb(m, 'thule').pe <= p[1] },
+      { coast: (m) => { const o = AP.orb(m, 'thule'); return o.bound && o.r > 120 && o.rising; } },
+      { coast: (m) => !AP.orb(m, 'thule').rising },
+      { burn: 'pro', rel: 'thule', until: (m) => AP.orb(m, 'thule').pe >= p[2] },
+    ],
+  },
+
+  'test-wormhole': {
+    // A transfer that crosses Mouth A on the way up, not at its high point,
+    // comes out of Mouth B angled toward Elysium.
+    p: [48.28, 295], scale: [2, 30],
+    script: (p, AP) => [
+      { wait: Math.max(0, p[0]) },
+      { burn: 'pro', rel: 'terra', until: (m) => AP.orb(m, 'terra').ap >= p[1] },
+    ],
+  },
+
+  'test-tether': {
+    // Latch just past the closest point (the rope is nearly taut, so little
+    // speed is lost), swing round, and let go when the path points at the gate.
+    p: [0, 0], scale: [0.4, 0.08],
+    script: (p, AP) => {
+      const rel = (m) => { m.sys.update(m.t); const i = m.sys.byId.post.index; return { x: m.ship.x - m.sys.px[i], y: m.ship.y - m.sys.py[i] }; };
+      const toGate = (m) => Math.atan2(330 - m.ship.y, -420 - m.ship.x);
+      return [
+        { coast: (m) => { const r = rel(m); return m.tetherInRange() >= 0 && r.x * m.ship.vx + r.y * m.ship.vy >= p[0]; } },
+        { fn: (m) => m.toggleTether() },
+        { wait: 5 },
+        { coast: (m) => Math.abs(AP.wrap(Math.atan2(m.ship.vy, m.ship.vx) - toGate(m) - p[1])) < 0.02 },
+        { fn: (m) => m.toggleTether() },
+      ];
+    },
+  },
+
+  'test-sail': {
+    // Hold the sail p[0] rad off straight-out, on the prograde side. If the
+    // orbit gets lopsided (high minus low over p[3]), only sail on the high
+    // half. Once it fits, turn the sail edge-on to the light.
+    p: [0.6, 462, 508, 20], scale: [0.1, 6, 6, 8],
+    script: (p, AP) => [
+      { control: (m) => {
+        const o = AP.orb(m, 'sol');
+        if (o.pe >= p[1] && o.ap <= p[2]) return { done: true };
+        const push = o.ap - o.pe < p[3] || o.r > o.a;
+        return { thrust: false, angle: o.theta + o.dir * (push ? p[0] : Math.PI / 2), dt: 0.25 };
+      } },
+      { control: (m) => ({ thrust: false, angle: AP.orb(m, 'sol').theta + Math.PI / 2, dt: 0.25 }) },
+    ],
+    // Turns with the real side thrusters: the sail is steered by rotation alone.
+    opts: { turn: true, turnRate: 0.3 },
+  },
+
+  'test-horizon': {
+    // Push sideways toward Maw's line for p[0] seconds: the pass drops from
+    // about 200 to about 110, inside the unstable ring, and the whirl swings
+    // the path round to the gate.
+    p: [0.9], scale: [0.01],
+    script: (p) => [{ burn: () => Math.PI / 2, max: Math.max(0, p[0]) }],
+  },
+
+  'test-belt': {
+    // A transfer aimed well past the target orbit (high point p[0]) crosses
+    // the belt fast; at radius p[1], brake straight onto a circular orbit.
+    p: [450, 352], scale: [20, 4],
+    script: (p, AP) => [
+      { burn: 'pro', rel: 'terra', until: (m) => AP.orb(m, 'terra').ap >= p[0] },
+      { coast: (m) => AP.orb(m, 'terra').r >= p[1] },
+      { control: (m) => {
+        const o = AP.orb(m, 'terra');
+        const vc = Math.sqrt(20000 / o.r), ux = -Math.sin(o.theta) * vc, uy = Math.cos(o.theta) * vc;
+        m.sys.update(m.t);
+        const dx = ux - m.ship.vx, dy = uy - m.ship.vy;
+        if (Math.hypot(dx, dy) < 0.05) return { done: true };
+        return { thrust: true, angle: Math.atan2(dy, dx) };
+      } },
+    ],
+  },
+});
+
 // World 3: each chapter file keeps its levels, proofs and naive "fails" together.
 for (const ch of ['ch1', 'ch2', 'ch3', 'ch4', 'ch5']) Object.assign(module.exports, require('./w3/' + ch).proofs);

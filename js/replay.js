@@ -1,6 +1,6 @@
 // Run recording and replay. The game advances the simulation in fixed ticks
 // (TICK seconds of real time, times the warp factor) and records each tick's
-// controls plus discrete actions (deploy, drop, gyro). Replaying the log
+// controls plus discrete actions (deploy, drop, gyro, tether). Replaying the log
 // through a fresh Mission reproduces the flight exactly, which is how the
 // leaderboard server checks a submitted run. Pure logic, runs in Node too.
 (function (root) {
@@ -32,6 +32,7 @@
     deploy: (m) => m.deploy(),
     drop: (m) => m.release(),
     gyro: (m) => { if (m.level.ship.canRotate) m.gyro = !m.gyro; },
+    tether: (m) => m.toggleTether(),
   };
 
   // Validate the log's shape before trusting it (it may come from anyone).

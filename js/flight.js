@@ -13,6 +13,7 @@
   const BUMP = 3;                // how close a spent stage may come to your ship or cargo
   const FIXED_DT = 1 / 120;      // step size while engines fire
   const MAX_COAST_DT = 0.25;     // largest coast step
+  const TETHER_DT = 1 / 60;      // largest step while on a tether
 
   // Ship spec (level.ship):
   //   start: { landed: { body, angle } }
@@ -29,6 +30,17 @@
   //   rotation input. It starts off; switching it on marks the run as
   //   assisted, which caps the rating at two stars.
   //   canRotate: false → side thrusters unavailable
+  //   sail: { accel, at, sun }   solar sail (experimental): sunlight pushes along
+  //       the heading, accel at distance `at` from body `sun`, × cos² of the angle
+  //       between heading and the sun-to-ship line (only when facing away), × (at/r)²
+  //   ion: true                  engine thrust is tiny: time warp allowed while it fires
+  // Experimental body options (see physics.js for atmosphere, wormholes, pw):
+  //   tether: { length }         an anchor: latch within `length` (E), the rope
+  //                              keeps you within it, release (E) to fly off
+  //   belt: { rMin, rMax, dose } radiation belt: at most `dose` seconds inside in total
+  //   depot: { dv, dist, relVel } refuels the current stage by dv once you rendezvous
+  //   horizon: r                 black hole event horizon (crossing it is final)
+  // Goal option for 'hit': maxSpeed (touch down slower than this, relative to the surface).
   class Mission {
     constructor(level) {
       this.level = level;
@@ -59,6 +71,18 @@
       this.dvSpent = 0;           // Δv actually burned (thrust / mass, integrated)
       this.ship = { x: 0, y: 0, vx: 0, vy: 0, angle: 0, omega: 0 };
       this.landed = null;
+      // Experimental mechanics.
+      this.tether = null;          // { body, L, taut } while latched to an anchor
+      this.heat = 0;               // current heating (ρ·v³) in an atmosphere
+      this.dose = 0;               // seconds spent inside radiation belts
+      this.inBelt = -1;
+      this.refuelled = new Set();  // depots already used
+      this.jumps = 0;              // wormhole trips
+      this._belts = this.sys.bodies.filter(b => b.belt);
+      this._depots = this.sys.bodies.filter(b => b.depot);
+      const sail = spec.sail;
+      // Extra force on the ship (drag, sail); null keeps the plain integrator.
+      this._shipFx = sail || this.sys.drag ? (x, y, vx, vy, t, out) => this.shipExtra(x, y, vx, vy, t, out, this.ship.angle) : null;
       this._initShip(spec);
       this.dv0 = this.dvRemaining();
       this.stageDv0 = this.stages.map((_, k) => this.stageDv(k));
@@ -243,8 +267,9 @@
       const fate = (kind, extra) => Object.assign({ kind, t, ts, xs, ys, orbit: orb, host: H }, extra);
       for (let step = 0; step < 20000 && t < this.t + horizon; step++) {
         const dt = Phys.coastDt(sys, s, t, 0.002, 2);
-        Phys.rk4(sys, s, t, dt, 0, 0);
+        Phys.rk4(sys, s, t, dt, 0, 0, sys.drag);
         t += dt;
+        if (sys.worm.length) Phys.wormhole(sys, s, t);
         ts.push(t); xs.push(s.x); ys.push(s.y);
         if (Phys.collision(sys, s.x, s.y, t) >= 0) return fate('ground');
         for (const b of prot) {
@@ -280,6 +305,98 @@
 
     thrustAccel() { const st = this.stageSpec; return st ? st.thrust / this.mass() : 0; }
 
+    // Drag plus sunlight on the sail at heading `angle`.
+    shipExtra(x, y, vx, vy, t, out, angle) {
+      if (this.sys.drag) this.sys.drag(x, y, vx, vy, t, out); else { out[0] = 0; out[1] = 0; }
+      const sp = this.level.ship.sail;
+      if (!sp) return;
+      const sys = this.sys, i = sys.byId[sp.sun].index;
+      sys.update(t);
+      const dx = x - sys.px[i], dy = y - sys.py[i], r2 = dx * dx + dy * dy, r = Math.sqrt(r2);
+      const cx = DM.cos(angle), cy = DM.sin(angle), c = (cx * dx + cy * dy) / r;
+      if (c <= 0) return; // sail edge-on or facing the sun: no push
+      const a = sp.accel * sp.at * sp.at / r2 * c * c;
+      out[0] += a * cx; out[1] += a * cy;
+    }
+
+    // Sail push right now (for the HUD), as a fraction of its best at this distance.
+    sailPush() {
+      const sp = this.level.ship.sail, s = this.ship;
+      if (!sp) return 0;
+      const sys = this.sys, i = sys.byId[sp.sun].index;
+      sys.update(this.t);
+      const dx = s.x - sys.px[i], dy = s.y - sys.py[i], r = Math.sqrt(dx * dx + dy * dy);
+      const c = (DM.cos(s.angle) * dx + DM.sin(s.angle) * dy) / r;
+      return c > 0 ? c * c : 0;
+    }
+
+    // The coast force for path prediction, with the heading turning at the
+    // current spin rate (a sail held at a steady spin keeps its angle to the sun).
+    coastFx() {
+      if (!this.level.ship.sail) return this.sys.drag;
+      const a0 = this.ship.angle, w = this.ship.omega, t0 = this.t;
+      return (x, y, vx, vy, t, out) => this.shipExtra(x, y, vx, vy, t, out, a0 + w * (t - t0));
+    }
+
+    // ------------------------------------------------------------ tether
+    // Anchor within reach (and not latched yet), or -1.
+    tetherInRange() {
+      if (this.tether || this.landed || this.status !== 'flying') return -1;
+      const sys = this.sys, s = this.ship;
+      sys.update(this.t);
+      for (const b of sys.bodies) {
+        if (!b.tether) continue;
+        if ((s.x - sys.px[b.index]) ** 2 + (s.y - sys.py[b.index]) ** 2 < b.tether.length * b.tether.length) return b.index;
+      }
+      return -1;
+    }
+
+    canTether() { return !!this.tether || this.tetherInRange() >= 0; }
+
+    // Latch onto the anchor in reach, or let go.
+    toggleTether() {
+      if (this.status !== 'flying') return false;
+      if (this.tether) {
+        this.events.push({ t: this.t, type: 'unlatch', body: this.tether.body });
+        this.tether = null;
+        return true;
+      }
+      const i = this.tetherInRange();
+      if (i < 0) return false;
+      this.tether = { body: i, L: this.sys.bodies[i].tether.length, taut: false };
+      this.events.push({ t: this.t, type: 'latch', body: i });
+      return true;
+    }
+
+    // The rope only pulls: past its length, the ship is put back on the
+    // circle. The moment it snaps taut the outward speed is lost (inelastic);
+    // while it stays taut it swings, keeping its speed (a rope does no work).
+    _tetherStep(t) {
+      const T = this.tether, sys = this.sys, s = this.ship;
+      sys.update(t);
+      const ax = sys.px[T.body], ay = sys.py[T.body], avx = sys.vx[T.body], avy = sys.vy[T.body];
+      const dx = s.x - ax, dy = s.y - ay, d = Math.sqrt(dx * dx + dy * dy);
+      if (d <= T.L) { T.taut = false; return; }
+      const nx = dx / d, ny = dy / d;
+      s.x = ax + nx * T.L; s.y = ay + ny * T.L;
+      let ux = s.vx - avx, uy = s.vy - avy;
+      const vr = ux * nx + uy * ny;
+      if (vr > 0) {
+        const u = Math.sqrt(ux * ux + uy * uy), tx = ux - vr * nx, ty = uy - vr * ny, tl = Math.sqrt(tx * tx + ty * ty);
+        if (T.taut && tl > 1e-9) { ux = tx / tl * u; uy = ty / tl * u; } else { ux = tx; uy = ty; }
+        s.vx = avx + ux; s.vy = avy + uy;
+      }
+      T.taut = true;
+    }
+
+    // Speed of an object relative to the (spinning) surface of body i.
+    surfaceSpeed(i, o, t) {
+      const sys = this.sys, b = sys.bodies[i];
+      sys.update(t);
+      const dx = o.x - sys.px[i], dy = o.y - sys.py[i];
+      return DM.hypot(o.vx - sys.vx[i] + b.spin * dy, o.vy - sys.vy[i] - b.spin * dx);
+    }
+
     // Advance the mission by `dt` seconds of game time.
     // controls: { thrust: bool, throttle: 0..1, rotate: -1|0|1 }
     advance(dt, controls) {
@@ -300,7 +417,7 @@
         const gyroWork = canRot && this.gyro && !rotating && Math.abs(this.ship.omega) > 1e-4;
         let h;
         if (firing || rotating || gyroWork || this.landed) h = Math.min(remaining, FIXED_DT);
-        else h = Math.min(remaining, Phys.coastDt(this.sys, this.ship, this.t, 0.002, MAX_COAST_DT));
+        else h = Math.min(remaining, Phys.coastDt(this.sys, this.ship, this.t, 0.002, this.tether ? TETHER_DT : MAX_COAST_DT));
         this.thrusting = firing;
         this.rotInput = rotating ? rotIn : 0;
         this._step(h, firing ? controls.throttle : 0, rotating ? rotIn : 0, gyroWork);
@@ -379,10 +496,17 @@
         }
       }
 
-      Phys.rk4(sys, s, this.t, h, tax, tay);
+      Phys.rk4(sys, s, this.t, h, tax, tay, this._shipFx);
+      if (this.tether) this._tetherStep(this.t + h);
+      if (sys.worm.length && Phys.wormhole(sys, s, this.t + h) >= 0) {
+        this.jumps++;
+        this.events.push({ t: this.t + h, type: 'jump' });
+        if (this.tether) { this.tether = null; this.events.push({ t: this.t + h, type: 'unlatch' }); }
+      }
       for (const d of this.debris) {
         if (!d.alive) continue;
-        Phys.rk4(sys, d, this.t, h, 0, 0);
+        Phys.rk4(sys, d, this.t, h, 0, 0, sys.drag);
+        if (sys.worm.length) Phys.wormhole(sys, d, this.t + h);
         d.angle += d.omega * h;
         const hit = Phys.collision(sys, d.x, d.y, this.t + h);
         if (hit >= 0) { d.alive = false; d.crashT = this.t + h; this.t += h; this._craftHit(d, hit); this.t -= h; }
@@ -414,7 +538,8 @@
       }
       for (const c of this.crafts) {
         if (!c.alive) continue;
-        Phys.rk4(sys, c, this.t, h, 0, 0);
+        Phys.rk4(sys, c, this.t, h, 0, 0, sys.drag);
+        if (sys.worm.length) Phys.wormhole(sys, c, this.t + h);
         const hit = Phys.collision(sys, c.x, c.y, this.t + h);
         if (hit >= 0) { c.alive = false; c.hitT = this.t + h; c.hit = hit; this.t += h; this._craftHit(c, hit); this.t -= h; }
         // Cargo may not enter a zone closed to everything, unless that zone
@@ -447,6 +572,7 @@
           this.events.push({ t: this.t, type: 'pickup', dv: b.dv, body: b.index });
         }
       }
+      if (this._experimental(h)) return;
       // Keep-out zones (e.g. around a crewed station): the ship may not enter.
       for (const b of sys.bodies) {
         if (!b.keepOut) continue;
@@ -461,15 +587,28 @@
         if (pad && DM.hypot(s.x - sys.px[hit], s.y - sys.py[hit]) > pad.radius * 0.99) {
           // Still clearing the launch pad.
         } else {
-          const g = this.currentGoal();
-          if (g && g.type === 'hit' && !g.craft && sys.byId[g.body].index === hit) {
-            if (this.siteOk(g, s.x, s.y, this.t)) { this._completeGoal(); return; }
+          const g = this.currentGoal(), hb = sys.bodies[hit];
+          this.impactSpeed = this.surfaceSpeed(hit, s, this.t);
+          if (hb.horizon) {
             this.status = 'crashed';
-            this.message = 'Missed the landing zone on ' + sys.bodies[hit].name + '.';
+            this.message = 'You crossed ' + hb.name + '\'s event horizon. Nothing comes back out.';
             return;
           }
+          if (g && g.type === 'hit' && !g.craft && sys.byId[g.body].index === hit) {
+            if (!this.siteOk(g, s.x, s.y, this.t)) {
+              this.status = 'crashed';
+              this.message = 'Missed the landing zone on ' + hb.name + '.';
+              return;
+            }
+            if (g.maxSpeed && this.impactSpeed > g.maxSpeed) {
+              this.status = 'crashed';
+              this.message = 'You hit too hard: ' + this.impactSpeed.toFixed(1) + ' (gentle is under ' + g.maxSpeed + ').';
+              return;
+            }
+            this._completeGoal(); return;
+          }
           this.status = 'crashed';
-          this.message = 'Crashed into ' + sys.bodies[hit].name + '.';
+          this.message = 'Crashed into ' + hb.name + '.';
           return;
         }
       } else if (this.ignoreBody != null) {
@@ -527,6 +666,42 @@
       else if (this.t > L.tMax) { this.status = 'timeout'; this.message = 'Mission clock ran out.'; }
     }
 
+    // Heating, radiation dose and depots. Returns true if the mission ended.
+    _experimental(h) {
+      const sys = this.sys, s = this.ship;
+      if (sys.atmo.length) {
+        const q = sys.heat(s.x, s.y, s.vx, s.vy, this.t);
+        this.heat = q.q; this.heatBody = q.body;
+        if (q.body >= 0 && q.q > sys.bodies[q.body].atmosphere.heatLimit) {
+          this.status = 'crashed';
+          this.message = 'You burned up in ' + sys.bodies[q.body].name + '\'s atmosphere. Skim higher, or slower.';
+          return true;
+        }
+      }
+      this.inBelt = -1;
+      for (const b of this._belts) {
+        const r = DM.hypot(s.x - sys.px[b.index], s.y - sys.py[b.index]);
+        if (r < b.belt.rMin || r > b.belt.rMax) continue;
+        this.inBelt = b.index;
+        this.dose += h;
+        if (this.dose > b.belt.dose) {
+          this.status = 'crashed';
+          this.message = 'Radiation dose too high: you spent over ' + b.belt.dose + 's in ' + b.name + '\'s belt.';
+          return true;
+        }
+      }
+      for (const b of this._depots) {
+        if (this.refuelled.has(b.index)) continue;
+        const d = DM.hypot(s.x - sys.px[b.index], s.y - sys.py[b.index]), rv = DM.hypot(s.vx - sys.vx[b.index], s.vy - sys.vy[b.index]);
+        if (d >= b.depot.dist || rv >= b.depot.relVel) continue;
+        this.refuelled.add(b.index);
+        const st = this.stageSpec;
+        if (st) { st.fuel += this.mass() * (DM.exp(b.depot.dv / st.ve) - 1); this.dvGained += b.depot.dv; }
+        this.events.push({ t: this.t, type: 'refuel', dv: b.depot.dv, body: b.index });
+      }
+      return false;
+    }
+
     // Fly an orbit-goal candidate ahead for one lap (engine off). Returns why
     // it fails (hits something, enters a keep-out zone, or other bodies pull
     // it right away) or null if it holds. Small wobbles from a moon's or
@@ -541,8 +716,9 @@
       let t = this.t, why = null;
       for (let step = 0; step < 20000 && t < tEnd && !why; step++) {
         const dt = Math.min(Phys.coastDt(sys, c, t, 0.002, 2), tEnd - t);
-        Phys.rk4(sys, c, t, dt, 0, 0);
+        Phys.rk4(sys, c, t, dt, 0, 0, sys.drag);
         t += dt;
+        if (sys.worm.length) Phys.wormhole(sys, c, t);
         const hit = Phys.collision(sys, c.x, c.y, t);
         if (hit >= 0) { why = 'it would hit ' + sys.bodies[hit].name; break; }
         for (const b of sys.bodies) {

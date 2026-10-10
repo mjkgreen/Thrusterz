@@ -29,6 +29,10 @@
   // planet, as in reality. Binary stars fall out of the same rule.
   const _tmp = [0, 0];
 
+  // Contact radius: a black hole's event horizon can be much larger than the
+  // body drawn at its centre. Plain bodies just use their radius.
+  const hitR = (b) => b.horizon || b.radius;
+
   class System {
     constructor(defs) {
       this.bodies = defs.map((d, i) => Object.assign({}, d, {
@@ -91,6 +95,19 @@
       this.ax = new Float64Array(n); this.ay = new Float64Array(n);
       this.hostable = this.bodies.filter(b => b.soi < Infinity).sort((a, b) => b.depth - a.depth).map(b => b.index);
       this.grav = this.bodies.filter(b => b.gm > 0).map(b => b.index);
+      // Experimental mechanics (all empty on the regular worlds, so their
+      // code paths are exactly as before).
+      //   atmosphere: { height, density, heatLimit, scale? }  drag layer above the surface
+      //   kind 'wormhole' + link: entering one mouth puts you out of the other
+      //   pw: strong-gravity radius (Paczyński–Wiita pull, gm / (r − pw)²)
+      this.atmo = this.bodies.filter(b => b.atmosphere).map(b => b.index);
+      for (const i of this.atmo) {
+        const A = this.bodies[i].atmosphere = Object.assign({}, this.bodies[i].atmosphere);
+        A.scale = A.scale || A.height / 4;
+        A.top = DM.exp(-A.height / A.scale); // density reaches zero at the top of the layer
+      }
+      this.worm = this.bodies.filter(b => b.kind === 'wormhole' && b.link).map(b => b.index);
+      this.drag = this.atmo.length ? (x, y, vx, vy, t, out) => this.dragAccel(x, y, vx, vy, t, out) : null;
       this._t = NaN;
     }
 
@@ -200,8 +217,10 @@
       let ax = 0, ay = 0;
       for (const i of this.grav) {
         const dx = this.px[i] - x, dy = this.py[i] - y;
-        const r2 = dx * dx + dy * dy, r = Math.sqrt(r2);
-        const f = this.bodies[i].gm / (r2 * r);
+        const r2 = dx * dx + dy * dy, r = Math.sqrt(r2), pw = this.bodies[i].pw;
+        // Strong gravity near a black hole: pulls harder than Newton close in,
+        // so orbits inside 3·pw are unstable and a close pass can whirl round.
+        const f = pw ? this.bodies[i].gm / (Math.max(r - pw, 0.1 * pw) ** 2 * r) : this.bodies[i].gm / (r2 * r);
         ax += f * dx; ay += f * dy;
         if (H >= 0 && i !== H) {
           const hx = this.px[i] - this.px[H], hy = this.py[i] - this.py[H];
@@ -227,12 +246,65 @@
     }
 
     period(i) { const o = this.bodies[i].orbit; return o ? 2 * Math.PI / o.n : Infinity; }
+
+    // Air density of body i's atmosphere at (x, y), time t (0 outside it).
+    density(i, x, y, t) {
+      this.update(t);
+      const b = this.bodies[i], A = b.atmosphere;
+      const dx = x - this.px[i], dy = y - this.py[i], h = Math.sqrt(dx * dx + dy * dy) - b.radius;
+      if (h >= A.height) return 0;
+      return A.density * (DM.exp(-Math.max(h, 0) / A.scale) - A.top);
+    }
+
+    // Drag from every atmosphere: −ρ·|u|·u, u = velocity relative to the body.
+    dragAccel(x, y, vx, vy, t, out) {
+      out[0] = 0; out[1] = 0;
+      for (const i of this.atmo) {
+        const rho = this.density(i, x, y, t);
+        if (rho <= 0) continue;
+        const ux = vx - this.vx[i], uy = vy - this.vy[i], u = Math.sqrt(ux * ux + uy * uy);
+        out[0] -= rho * u * ux; out[1] -= rho * u * uy;
+      }
+    }
+
+    // Heating ρ·u³ (drag power per unit mass) and the atmosphere causing it.
+    heat(x, y, vx, vy, t) {
+      let q = 0, body = -1;
+      for (const i of this.atmo) {
+        const rho = this.density(i, x, y, t);
+        if (rho <= 0) continue;
+        const ux = vx - this.vx[i], uy = vy - this.vy[i], u = Math.sqrt(ux * ux + uy * uy);
+        if (rho * u * u * u > q) { q = rho * u * u * u; body = i; }
+      }
+      return { q, body };
+    }
+  }
+
+  // Wormholes: an object inside a mouth comes out of the linked mouth with
+  // the same velocity relative to the mouth, just outside it along that
+  // velocity (so it flies straight on out). Returns the exit body index, or -1.
+  function wormhole(sys, s, t) {
+    if (!sys.worm.length) return -1;
+    sys.update(t);
+    for (const i of sys.worm) {
+      const b = sys.bodies[i], dx = s.x - sys.px[i], dy = s.y - sys.py[i];
+      if (dx * dx + dy * dy >= b.radius * b.radius) continue;
+      const j = sys.byId[b.link].index, e = sys.bodies[j];
+      const ux = s.vx - sys.vx[i], uy = s.vy - sys.vy[i], u = Math.sqrt(ux * ux + uy * uy);
+      const d = Math.sqrt(dx * dx + dy * dy) || 1;
+      const nx = u > 1e-9 ? ux / u : dx / d, ny = u > 1e-9 ? uy / u : dy / d;
+      s.x = sys.px[j] + nx * e.radius * 1.2; s.y = sys.py[j] + ny * e.radius * 1.2;
+      s.vx = sys.vx[j] + ux; s.vy = sys.vy[j] + uy;
+      return j;
+    }
+    return -1;
   }
 
   // One RK4 step of a particle under gravity plus a constant extra
   // acceleration (thrust) over the step.
-  const _a = [0, 0];
-  function rk4(sys, s, t, dt, tax, tay) {
+  const _a = [0, 0], _f = [0, 0];
+  function rk4(sys, s, t, dt, tax, tay, fx) {
+    if (fx) { rk4x(sys, s, t, dt, tax, tay, fx); return; }
     const { x, y, vx, vy } = s;
     sys.accel(x, y, t, _a);
     const k1vx = _a[0] + tax, k1vy = _a[1] + tay;
@@ -252,6 +324,28 @@
     s.vy = vy + dt / 6 * (k1vy + 2 * k2vy + 2 * k3vy + k4vy);
   }
 
+  // RK4 with an extra, velocity-dependent acceleration fx(x, y, vx, vy, t, out)
+  // (atmospheric drag, sunlight on a sail) on top of gravity and thrust.
+  function rk4x(sys, s, t, dt, tax, tay, fx) {
+    const { x, y, vx, vy } = s;
+    sys.accel(x, y, t, _a); fx(x, y, vx, vy, t, _f);
+    const k1vx = _a[0] + _f[0] + tax, k1vy = _a[1] + _f[1] + tay;
+    const h = dt / 2;
+    const v2x = vx + k1vx * h, v2y = vy + k1vy * h;
+    sys.accel(x + vx * h, y + vy * h, t + h, _a); fx(x + vx * h, y + vy * h, v2x, v2y, t + h, _f);
+    const k2vx = _a[0] + _f[0] + tax, k2vy = _a[1] + _f[1] + tay;
+    const v3x = vx + k2vx * h, v3y = vy + k2vy * h;
+    sys.accel(x + v2x * h, y + v2y * h, t + h, _a); fx(x + v2x * h, y + v2y * h, v3x, v3y, t + h, _f);
+    const k3vx = _a[0] + _f[0] + tax, k3vy = _a[1] + _f[1] + tay;
+    const v4x = vx + k3vx * dt, v4y = vy + k3vy * dt;
+    sys.accel(x + v3x * dt, y + v3y * dt, t + dt, _a); fx(x + v3x * dt, y + v3y * dt, v4x, v4y, t + dt, _f);
+    const k4vx = _a[0] + _f[0] + tax, k4vy = _a[1] + _f[1] + tay;
+    s.x = x + dt / 6 * (vx + 2 * v2x + 2 * v3x + v4x);
+    s.y = y + dt / 6 * (vy + 2 * v2y + 2 * v3y + v4y);
+    s.vx = vx + dt / 6 * (k1vx + 2 * k2vx + 2 * k3vx + k4vx);
+    s.vy = vy + dt / 6 * (k1vy + 2 * k2vy + 2 * k3vy + k4vy);
+  }
+
   // Adaptive coast step size: small near massive bodies and when about to
   // touch any body, large in empty space.
   function coastDt(sys, s, t, dtMin, dtMax) {
@@ -264,7 +358,7 @@
       if (b.gm > 0) dt = Math.min(dt, 0.015 * Math.sqrt(r * r * r / b.gm));
       const rvx = s.vx - sys.vx[i], rvy = s.vy - sys.vy[i];
       const v = Math.sqrt(rvx * rvx + rvy * rvy) + 1e-9;
-      dt = Math.min(dt, Math.max(0.25 * (r - b.radius), 0.5) / v);
+      dt = Math.min(dt, Math.max(0.25 * (r - hitR(b)), 0.5) / v);
     }
     return Math.max(dt, dtMin);
   }
@@ -274,37 +368,47 @@
     sys.update(t);
     for (const b of sys.bodies) {
       const dx = x - sys.px[b.index], dy = y - sys.py[b.index];
-      if (b.pickup) continue; // collected by flying through, never collided with
-      if (dx * dx + dy * dy < b.radius * b.radius) return b.index;
+      if (b.pickup || b.kind === 'wormhole') continue; // flown through, never collided with
+      const R = hitR(b);
+      if (dx * dx + dy * dy < R * R) return b.index;
     }
     return -1;
   }
 
   // Coast prediction from state s at time t for `duration` seconds.
   // Returns flat sample arrays and the first impact (if any).
+  // opts.fx: extra acceleration (default: the system's drag, if any).
+  // opts.heat: stop where heating passes an atmosphere's limit (burn: sample index).
+  // Wormhole jumps are followed; jumps lists the sample index after each one.
   function predict(sys, s0, t0, duration, opts) {
     opts = opts || {};
     const maxSteps = opts.maxSteps || 6000;
     const bounds = opts.bounds || Infinity;
     const s = { x: s0.x, y: s0.y, vx: s0.vx, vy: s0.vy };
     const ts = [t0], xs = [s.x], ys = [s.y];
-    let t = t0, hit = -1;
-    const tEnd = t0 + duration;
+    let t = t0, hit = -1, burn = null;
+    const tEnd = t0 + duration, jumps = [];
+    const fx = opts.fx !== undefined ? opts.fx : sys.drag;
     for (let step = 0; step < maxSteps && t < tEnd; step++) {
       let dt = coastDt(sys, s, t, 0.002, opts.dtMax || 2);
       if (t + dt > tEnd) dt = tEnd - t;
-      rk4(sys, s, t, dt, 0, 0);
+      rk4(sys, s, t, dt, 0, 0, fx);
       t += dt;
+      if (sys.worm.length && wormhole(sys, s, t) >= 0) jumps.push(ts.length);
       ts.push(t); xs.push(s.x); ys.push(s.y);
+      if (opts.heat && sys.atmo.length) {
+        const q = sys.heat(s.x, s.y, s.vx, s.vy, t);
+        if (q.body >= 0 && q.q > sys.bodies[q.body].atmosphere.heatLimit) { burn = { i: ts.length - 1, body: q.body }; break; }
+      }
       hit = collision(sys, s.x, s.y, t);
       if (hit >= 0 && hit !== opts.ignore) break;
       hit = -1;
       if (s.x * s.x + s.y * s.y > bounds * bounds) break;
     }
-    return { ts, xs, ys, hit, tEnd: t, end: s };
+    return { ts, xs, ys, hit, tEnd: t, end: s, jumps, burn };
   }
 
-  const Phys = { System, rk4, coastDt, collision, predict, solveKepler };
+  const Phys = { System, rk4, coastDt, collision, predict, solveKepler, wormhole, hitR };
   if (typeof module !== 'undefined' && module.exports) module.exports = Phys;
   else root.Phys = Phys;
 })(typeof window !== 'undefined' ? window : globalThis);
