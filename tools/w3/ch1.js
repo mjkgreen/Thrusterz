@@ -71,19 +71,19 @@ module.exports = {
     {
       id: 'supplyrun',
       name: 'Supply Run',
-      intro: 'Haven Station needs supplies, but no ship may come inside its red keep-out zone. Get on a path that meets the station, drop the pod (E) before you reach the zone so it drifts in on its own, then turn away and settle back into a lower orbit.',
+      intro: 'You are already coasting up to Haven Station, on a path that carries you into its red keep-out zone in about half a minute. The pod is on the right path, you are not: drop it (E) soon so it drifts in on its own, then brake away before the zone and settle into a lower orbit. The later you drop, the harder you have to brake.',
       objective: 'Deliver the pod to Haven Station without entering the keep-out zone, then orbit Terra between 100 and 250.',
       teaches: 'Dropping cargo into a keep-out zone',
       bodies: [
         { id: 'terra', name: 'Terra', gm: 20000, radius: 50, color: C.blue },
-        { id: 'haven', name: 'Haven Station', gm: 0, radius: 4, color: C.station, kind: 'station', keepOut: 45, orbit: { parent: 'terra', a: 300, phase: 1.2 } },
+        { id: 'haven', name: 'Haven Station', gm: 0, radius: 4, color: C.station, kind: 'station', keepOut: 45, orbit: { parent: 'terra', a: 300, phase: 1.47 } },
       ],
-      ship: ship({ start: { orbit: { body: 'terra', r: 150, angle: 0 } }, heading: 'prograde', dv: 4, accel: 1, cargo: [{ id: 'pod', name: 'Pod', mass: 0.3 }] }),
+      ship: ship({ start: { conic: { body: 'terra', pe: 150, e: 0.33, nu: 1.0, angle: 0 } }, heading: 'prograde', dv: 1, accel: 1, cargo: [{ id: 'pod', name: 'Pod', mass: 0.3 }] }),
       goals: [
         { type: 'reach', body: 'haven', craft: 'pod', r: 12, label: 'Docking arm' },
         { type: 'orbit', body: 'terra', rMin: 100, rMax: 250 },
       ],
-      par: 2.5, bounds: 2000, tMax: 1200, predict: 200, view: { x: 0, y: 0, span: 760 },
+      par: 0.6, bounds: 2000, tMax: 600, predict: 200, view: { x: 0, y: 0, span: 760 },
     },
     {
       id: 'wideberth',
@@ -102,16 +102,16 @@ module.exports = {
     {
       id: 'hotmoon',
       name: 'Hot Moon',
-      intro: 'Luna is wrapped in a radiation belt: no ship may come inside its red keep-out zone. Aim your transfer so you pass Luna just outside the zone, not straight at it, then burn retrograde at closest approach to get captured. Press V to view your path relative to Luna.',
+      intro: 'You are falling toward Luna and will plunge into its radiation belt in about 15 seconds: no ship may come inside the red keep-out zone. Act now. Burn early to swing your closest pass out past the zone (braking and pushing sideways at once works well), then burn retrograde at closest approach to get captured. Press V to view your path relative to Luna.',
       objective: 'Get captured into an orbit around Luna that stays between 60 and 110, without entering its keep-out zone.',
       teaches: 'Capture outside a keep-out zone',
       bodies: [
         { id: 'terra', name: 'Terra', gm: 20000, radius: 50, color: C.blue },
-        { id: 'luna', name: 'Luna', gm: 1500, radius: 18, color: C.grey, keepOut: 50, orbit: { parent: 'terra', a: 400, phase: 2.6 } },
+        { id: 'luna', name: 'Luna', gm: 1500, radius: 18, color: C.grey, keepOut: 50, orbit: { parent: 'terra', a: 400, phase: 0 } },
       ],
-      ship: ship({ start: { orbit: { body: 'terra', r: 90, angle: 0 } }, heading: 'prograde', dv: 10, accel: 1 }),
+      ship: ship({ start: { conic: { body: 'luna', pe: 20, e: 1.105, nu: -2.28, angle: 4.0 } }, heading: 'prograde', dv: 7.2, accel: 1 }),
       goals: [{ type: 'orbit', body: 'luna', rMin: 60, rMax: 110 }],
-      par: 6.6, bounds: 2500, tMax: 1200, predict: 160, view: { x: 0, y: 0, span: 1000 },
+      par: 5, bounds: 2500, tMax: 400, predict: 160, view: { x: 400, y: 0, span: 600 },
     },
     {
       id: 'crowdedtrojans',
@@ -152,15 +152,14 @@ module.exports = {
       ],
     },
     supplyrun: {
-      p: [-10.529, 288.663, 182.553, 164.224, 250.928], scale: [15, 10, 15, 20, 10],
+      // Already on the way in: drop the pod early, then brake away and down.
+      p: [192.97, 160.627, 250.321], scale: [30, 20, 5],
       script: (p, AP) => [
-        { wait: p[0] },
-        { burn: 'pro', until: (m) => AP.orb(m, 'terra').ap >= p[1] },
-        { coast: (m) => dist(m, 'haven') < p[2] },
+        { coast: (m) => dist(m, 'haven') < p[0] },
         { drop: true },
-        { burn: 'retro', rel: 'terra', until: (m) => AP.orb(m, 'terra').pe <= p[3] },
+        { burn: 'retro', rel: 'terra', until: (m) => AP.orb(m, 'terra').pe <= p[1] },
         { coast: (m) => AP.orb(m, 'terra').rising },
-        { burn: 'retro', rel: 'terra', until: (m) => AP.orb(m, 'terra').ap <= p[4] },
+        { burn: 'retro', rel: 'terra', until: (m) => AP.orb(m, 'terra').ap <= p[2] },
       ],
     },
     wideberth: {
@@ -169,12 +168,10 @@ module.exports = {
       script: (p) => [{ wait: p[0] }, { burn: 'pro', max: p[1] }],
     },
     hotmoon: {
-      // Transfer that passes Luna just outside the belt, capture at closest approach.
-      p: [6.845, 363.59, 2.223], scale: [2, 15, 5],
+      // Push the closest pass out past the belt early, then capture at closest approach.
+      p: [-2.034, 2.012, 5.823], scale: [0.3, 0.4, 5],
       script: (p, AP) => [
-        { wait: p[0] },
-        { burn: 'pro', until: (m) => AP.orb(m, 'terra').ap >= p[1] },
-        { coast: (m) => { const o = AP.orb(m, 'luna'); return o.r < 140 && !o.rising; } },
+        { burn: p[0], rel: 'luna', max: p[1] },
         { coast: (m) => AP.orb(m, 'luna').rising },
         { burn: 'retro', rel: 'luna', until: (m) => { const o = AP.orb(m, 'luna'); return o.bound && o.ap <= 100 + p[2]; } },
       ],
@@ -210,12 +207,19 @@ module.exports = {
       ],
     }],
     supplyrun: [{
+      name: 'do nothing',
+      steps: () => [],
+    }, {
       name: 'carry the pod in',
+      steps: () => [{ coast: (m) => dist(m, 'haven') < 30 }, { drop: true }],
+    }, {
+      name: 'dawdle: drop late, then brake',
       steps: (AP) => [
-        { wait: -6 },
-        { burn: 'pro', until: (m) => AP.orb(m, 'terra').ap >= 288 },
-        { coast: (m) => dist(m, 'haven') < 12 },
+        { coast: (m) => dist(m, 'haven') < 60 },
         { drop: true },
+        { burn: 'retro', rel: 'terra', until: (m) => AP.orb(m, 'terra').pe <= 160 },
+        { coast: (m) => AP.orb(m, 'terra').rising },
+        { burn: 'retro', rel: 'terra', until: (m) => AP.orb(m, 'terra').ap <= 250 },
       ],
     }],
     wideberth: [{
@@ -223,11 +227,19 @@ module.exports = {
       steps: () => [{ wait: 54 }, { burn: 'pro', max: 2.5 }],
     }],
     hotmoon: [{
-      name: 'aim straight at Luna',
+      name: 'do nothing',
+      steps: () => [],
+    }, {
+      name: 'capture at closest approach only',
       steps: (AP) => [
-        { wait: 5 },
-        { burn: 'pro', until: (m) => AP.orb(m, 'terra').ap >= 420 },
-        { coast: (m) => { const o = AP.orb(m, 'luna'); return o.r < 140 && !o.rising; } },
+        { coast: (m) => AP.orb(m, 'luna').rising },
+        { burn: 'retro', rel: 'luna', until: (m) => { const o = AP.orb(m, 'luna'); return o.bound && o.ap <= 100; } },
+      ],
+    }, {
+      name: 'dawdle 15 s, then fix it',
+      steps: (AP) => [
+        { wait: 15 },
+        { burn: -2.0, rel: 'luna', max: 5 },
         { coast: (m) => AP.orb(m, 'luna').rising },
         { burn: 'retro', rel: 'luna', until: (m) => { const o = AP.orb(m, 'luna'); return o.bound && o.ap <= 100; } },
       ],
