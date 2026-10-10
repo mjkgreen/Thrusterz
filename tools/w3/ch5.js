@@ -89,36 +89,36 @@ const levels = [
   {
     id: 'mooncourier',
     name: 'Moon Courier',
-    intro: 'You are already coasting to Luna, on a path that runs straight through Luna Gate\'s amber zone. The zone is closed to everything but the Gate\'s supply pod, so this is the pod\'s path, not yours: drop the empty transfer stage, release the pod (E) and nudge yourself clear before you get there. Then flip late and brake into a low orbit beneath the Gate.',
-    objective: 'Deliver the pod to Luna Gate before your path carries you into its zone, then orbit Luna between 30 and 70.',
-    teaches: 'Drop, swerve, capture',
+    intro: 'You are coasting to Luna on a collision course, about a minute and a half from impact. Use the last of the transfer stage to bend your path into a low pass under Luna, then drop the stage and release the pod (E): on that path it swings round Luna and climbs straight into Luna Gate, whose zone is closed to everything but the pod. Then flip late and brake at the low point, staying under the Gate.',
+    objective: 'Avoid hitting Luna, deliver the pod to Luna Gate, then orbit Luna between 30 and 70.',
+    teaches: 'Correct, drop, capture',
     bodies: [
       { id: 'terra', name: 'Terra', gm: 20000, radius: 50, color: C.blue },
       { id: 'luna', name: 'Luna', gm: 1500, radius: 18, color: C.grey, orbit: { parent: 'terra', a: 420, phase: 2.3404 } },
-      { id: 'gate', name: 'Luna Gate', gm: 0, radius: 4, color: C.station, kind: 'station', keepOut: 25, zone: 'all', orbit: { parent: 'luna', a: 110, phase: 2.3739 } },
+      { id: 'gate', name: 'Luna Gate', gm: 0, radius: 4, color: C.station, kind: 'station', keepOut: 25, zone: 'all', orbit: { parent: 'luna', a: 110, phase: 3.5039 } },
     ],
-    ship: ship({ start: { conic: { body: 'terra', pe: 90.601, e: 0.65878, nu: 0.34791, angle: 1.0853 } }, heading: 'prograde', rcs: { fuel: 4 }, stack: [
+    ship: ship({ start: { conic: { body: 'terra', pe: 90.601, e: 0.65878, nu: 0.34791, angle: 1.0853 } }, heading: 'prograde', rcs: { fuel: 2.8 }, stack: [
       { name: 'Transfer stage', dv: 0.6, accel: 1 },
-      { name: 'Carrier', dv: 3.4, accel: 0.6, dry: 0.4, sprite: 'satellite' },
+      { name: 'Carrier', dv: 2.4, accel: 0.6, dry: 0.4, sprite: 'satellite' },
     ], cargo: [{ id: 'pod', name: 'Supply pod', mass: 0.3 }] }),
     goals: [
       { type: 'reach', body: 'gate', craft: 'pod', r: 12, label: 'Docking arm' },
       { type: 'orbit', body: 'luna', rMin: 30, rMax: 70 },
     ],
-    par: 2, bounds: 2500, tMax: 1400, predict: 220, view: { x: 0, y: 0, span: 1000 },
+    par: 2.1, bounds: 2500, tMax: 1400, predict: 220, view: { x: 0, y: 0, span: 1000 },
   },
   {
     id: 'relaysling',
     name: 'Slingshot Relay',
-    intro: 'You have just burned out of low orbit on a path that swings past Goliath, and Goliath will fling you out of Terra\'s reach for good. That ride is for the deep-space relay, not for you: drop the spent stage, release the relay (E) on this path, then flip and brake at once so you fall back into a low orbit while it flies on. Goliath\'s radiation zone is closed to everything.',
+    intro: 'Your transfer burn cut out early, and this path will carry you into Goliath\'s radiation zone, which is closed to everything. Finish the job with the rest of the transfer stage: just enough to put the relay on a wide slingshot past Goliath that flings it out of Terra\'s reach. Then drop the stage, release the relay (E) and flip and brake at once, so you fall back into a low orbit while the relay flies on.',
     objective: 'Send the relay 1600 away from Terra, but stay behind yourself: orbit Terra between 70 and 140.',
     teaches: 'Send the cargo, stay home',
     bodies: [
       { id: 'terra', name: 'Terra', gm: 20000, radius: 50, color: C.blue },
       { id: 'goliath', name: 'Goliath', gm: 5000, radius: 26, color: C.tan, keepOut: 70, zone: 'all', orbit: { parent: 'terra', a: 350, phase: 2.4375 } },
     ],
-    ship: ship({ start: { conic: { body: 'terra', pe: 91.03, e: 0.52528, nu: 0.36345, angle: 2.69664 } }, heading: 'prograde', rcs: { fuel: 7 }, stack: [
-      { name: 'Transfer stage', dv: 0.2, accel: 1 },
+    ship: ship({ start: { conic: { body: 'terra', pe: 90.754, e: 0.4395, nu: 0.41127, angle: 2.64882 } }, heading: 'prograde', rcs: { fuel: 7 }, stack: [
+      { name: 'Transfer stage', dv: 0.6, accel: 1 },
       { name: 'Carrier', dv: 3.8, accel: 0.6, dry: 0.4, sprite: 'satellite' },
     ], cargo: [{ id: 'relay', name: 'Relay', mass: 0.2 }] }),
     goals: [
@@ -204,7 +204,7 @@ const proofs = {
     ],
   },
   mooncourier: {
-    p: [0.214, 0.405, 0.875, 0.313, 73.795, 35.912, 55.83], scale: [0.4, 0.08, 1, 0.15, 8, 10, 10], opts: { turn: true, turnRate: 0.2 },
+    p: [0.252, 0.333, 1.108, -0.337, 75.264, 27.825, 102.174], scale: [0.4, 0.08, 1, 0.1, 6, 10, 10], opts: { turn: true, turnRate: 0.2 },
     script: (p, AP) => [
       // The transfer stage turns the collision course into a pass by the Gate.
       ...dvBurn(p[0], 'luna', Math.max(0.3, p[1])),
@@ -212,21 +212,23 @@ const proofs = {
       { drop: true },
       // Nudge the carrier off the pod's path, then flip late and brake.
       ...dvBurn(p[2], 'luna', Math.max(0, p[3])),
-      hold((m) => dist(m, 'luna') < p[6]),
+      hold((m) => dist(m, 'luna') < Math.max(p[6], 90)),
       { coast: (m) => { const o = AP.orb(m, 'luna'); return o.r < p[5] || o.rising; } },
       { burn: peRetro('luna'), until: (m) => { const o = AP.orb(m, 'luna'); return o.bound && o.ap <= p[4]; } },
     ],
   },
   relaysling: {
-    p: [-3.659, 191.541, 137.391], scale: [3, 8, 6], opts: { turn: true, turnRate: 0.5 },
+    p: [0, 0.55, -3.659, 191.541, 137.391], scale: [0.3, 0.03, 3, 8, 6], opts: { turn: true, turnRate: 0.5 },
     script: (p, AP) => [
-      { wait: Math.max(0, p[0]) },
+      // Finish the transfer burn on the stage: the relay's slingshot path.
+      ...dvBurn(p[0], 'terra', Math.max(0.3, p[1])),
+      { wait: Math.max(0, p[2]) },
       { deploy: true },
       { drop: true },
       // Flip and brake at once, then again at the low point to round off.
-      { burn: 'retro', rel: 'terra', until: (m) => AP.orb(m, 'terra').ap <= p[1] },
+      { burn: 'retro', rel: 'terra', until: (m) => AP.orb(m, 'terra').ap <= p[3] },
       { coast: (m) => AP.orb(m, 'terra').rising && AP.orb(m, 'terra').r < 100 },
-      { burn: 'retro', rel: 'terra', until: (m) => AP.orb(m, 'terra').ap <= p[2] },
+      { burn: 'retro', rel: 'terra', until: (m) => AP.orb(m, 'terra').ap <= p[4] },
     ],
   },
   surveydrop: {
@@ -293,14 +295,11 @@ const fails = {
   ],
   mooncourier: [
     { name: 'wait and see', steps: () => [] },
-    { name: 'coast on and drop the pod near the Gate', opts: { turn: true, turnRate: 0.2 }, steps: (AP) => [
-      { deploy: true }, { coast: (m) => dist(m, 'gate') < 60 }, { drop: true },
-      { burn: 1.57, rel: 'luna', max: 4 },
-      { coast: (m) => { const o = AP.orb(m, 'luna'); return o.r < 100 && o.rising; } },
-      { burn: 'retro', rel: 'luna', until: (m) => { const o = AP.orb(m, 'luna'); return o.bound && o.ap <= 70; } },
-    ] },
-    { name: 'no swerve after the drop', opts: { turn: true, turnRate: 0.2 }, steps: (AP) => proofs.mooncourier.script(proofs.mooncourier.p, AP).filter((st, k) => k !== 3 && k !== 4) },
-    { name: 'turn retrograde early and chase it all the way in', opts: { turn: true, turnRate: 0.2 }, steps: (AP) => proofs.mooncourier.script(proofs.mooncourier.p.slice(0, 5).concat([1e4]), AP) },
+    { name: 'release the pod first, correct afterwards', opts: { turn: true, turnRate: 0.2 }, steps: (AP) => {
+      const p = proofs.mooncourier.p, s = proofs.mooncourier.script(p, AP);
+      return [s[2], s[3], ...dvBurn(p[0], 'luna', p[1]), ...s.slice(6)];
+    } },
+    { name: 'turn retrograde early and chase it all the way in', opts: { turn: true, turnRate: 0.2 }, steps: (AP) => proofs.mooncourier.script(proofs.mooncourier.p.slice(0, 6).concat([1e4]), AP) },
     { name: 'flip fast (holding the keys)', opts: { turn: true, turnRate: 1.2 }, steps: (AP) => proofs.mooncourier.script(proofs.mooncourier.p, AP) },
   ],
   relaysling: [

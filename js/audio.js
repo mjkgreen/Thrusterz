@@ -5,14 +5,20 @@
   'use strict';
   const AC = root.AudioContext || root.webkitAudioContext;
   let ctx = null, master = null, sfxBus = null, musicBus = null, noise = null;
-  let sfxOn = true, musicOn = false, music = null;
-  let engine = null, rcs = null;
+  let sfxVol = 0.8, musicVol = 0.5, music = null;
+  const musicOn = () => musicVol > 0.001;
+  let engine = null, rcs = null, crunch = null;
 
   function setup() {
     if (ctx || !AC) return !!ctx;
     try { ctx = new AC(); } catch (e) { return false; }
     master = ctx.createGain(); master.gain.value = 0.9; master.connect(ctx.destination);
-    sfxBus = ctx.createGain(); sfxBus.gain.value = sfxOn ? 1 : 0; sfxBus.connect(master);
+    sfxBus = ctx.createGain(); sfxBus.gain.value = sfxVol; sfxBus.connect(master);
+    // A little saturation for the crash, so it crunches rather than thuds.
+    crunch = ctx.createWaveShaper();
+    const curve = new Float32Array(1024);
+    for (let i = 0; i < 1024; i++) { const x = i / 511.5 - 1; curve[i] = Math.tanh(4 * x); }
+    crunch.curve = curve; crunch.connect(sfxBus);
     musicBus = ctx.createGain(); musicBus.gain.value = 0; musicBus.connect(master);
     // Two seconds of white noise, looped by the engine, side thrusters and bangs.
     noise = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
@@ -39,13 +45,38 @@
     g.gain.exponentialRampToValueAtTime(peak, t + attack);
     g.gain.exponentialRampToValueAtTime(0.0001, t + attack + decay);
   }
-  function tone(type, f0, f1, peak, attack, decay, when, bus) {
+  function tone(type, f0, f1, peak, attack, decay, when, bus, vibrato) {
     if (!ctx) return;
     const t = now() + (when || 0), o = ctx.createOscillator(), g = ctx.createGain();
     o.type = type; o.frequency.setValueAtTime(f0, t);
     if (f1 && f1 !== f0) o.frequency.exponentialRampToValueAtTime(f1, t + attack + decay);
     env(g, t, peak, attack, decay);
+    if (vibrato) {
+      const lfo = ctx.createOscillator(), lg = ctx.createGain();
+      lfo.frequency.value = vibrato; lg.gain.value = f0 * 0.012;
+      lfo.connect(lg); lg.connect(o.frequency); lfo.start(t); lfo.stop(t + attack + decay + 0.05);
+    }
     o.connect(g); g.connect(bus || sfxBus); o.start(t); o.stop(t + attack + decay + 0.05);
+  }
+  // A held note with its own envelope (attack, hold, release) and an optional
+  // pitch bend at the end: the building block of the jingles.
+  function note(type, n, at, len, peak, opts) {
+    if (!ctx) return;
+    opts = opts || {};
+    const t = now() + at, o = ctx.createOscillator(), g = ctx.createGain(), f = hz(n);
+    o.type = type; o.frequency.setValueAtTime(f, t);
+    if (opts.bend) o.frequency.linearRampToValueAtTime(f * Math.pow(2, opts.bend / 12), t + len);
+    if (opts.detune) o.detune.value = opts.detune;
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(peak, t + 0.012);
+    g.gain.setValueAtTime(peak, t + len * 0.7);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + len + (opts.tail || 0.08));
+    if (opts.vibrato) {
+      const lfo = ctx.createOscillator(), lg = ctx.createGain();
+      lfo.frequency.value = opts.vibrato; lg.gain.value = f * 0.02;
+      lfo.connect(lg); lg.connect(o.frequency); lfo.start(t); lfo.stop(t + len + 0.2);
+    }
+    o.connect(g); g.connect(opts.bus || sfxBus); o.start(t); o.stop(t + len + (opts.tail || 0.08) + 0.05);
   }
   function burst(type, f0, f1, peak, decay, when) {
     if (!ctx) return;
@@ -54,6 +85,30 @@
     if (f1) f.frequency.exponentialRampToValueAtTime(f1, t + decay);
     env(g, t, peak, 0.005, decay);
     src.connect(f); f.connect(g); g.connect(sfxBus); src.start(t, Math.random() * 1.5); src.stop(t + decay + 0.1);
+  }
+  // A noise explosion through the saturator: the crash.
+  function boom(when) {
+    if (!ctx) return;
+    const t = now() + (when || 0), src = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+    src.buffer = noise; f.type = 'lowpass'; f.frequency.setValueAtTime(3000, t); f.frequency.exponentialRampToValueAtTime(80, t + 1.3);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(1.4, t + 0.008); g.gain.exponentialRampToValueAtTime(0.0001, t + 1.4);
+    src.connect(f); f.connect(g); g.connect(crunch); src.start(t, 0.3); src.stop(t + 1.5);
+    const o = ctx.createOscillator(), og = ctx.createGain();
+    o.type = 'sine'; o.frequency.setValueAtTime(110, t); o.frequency.exponentialRampToValueAtTime(28, t + 0.8);
+    og.gain.setValueAtTime(0.0001, t); og.gain.exponentialRampToValueAtTime(1.2, t + 0.01); og.gain.exponentialRampToValueAtTime(0.0001, t + 0.9);
+    o.connect(og); og.connect(crunch); o.start(t); o.stop(t + 1);
+  }
+  // "Wah wah wah waaah": four falling notes on a buzzy horn, the last one
+  // sagging. Cheeky enough to sting a little.
+  function fanfail(at) {
+    const steps = [[67, 0.26], [66, 0.26], [65, 0.26], [64, 0.9]];
+    let t = at;
+    steps.forEach(([n, len], i) => {
+      const last = i === steps.length - 1;
+      for (const det of [-8, 8]) note('sawtooth', n - 12, t, len, 0.09, { detune: det, bend: last ? -2 : 0, vibrato: last ? 6 : 0, tail: last ? 0.25 : 0.05 });
+      note('square', n - 24, t, len, 0.05, { bend: last ? -2 : 0 });
+      t += len + 0.04;
+    });
   }
 
   // ------------------------------------------------------------- music
@@ -104,8 +159,8 @@
   }
   function applyMusic() {
     if (!ctx) return;
-    musicBus.gain.setTargetAtTime(musicOn ? 0.55 : 0, now(), 0.4);
-    if (musicOn) startMusic(); else setTimeout(() => { if (!musicOn) stopMusic(); }, 1500);
+    musicBus.gain.setTargetAtTime(musicVol * 1.1, now(), 0.4);
+    if (musicOn()) startMusic(); else setTimeout(() => { if (!musicOn()) stopMusic(); }, 1500);
   }
 
   const Sound = {
@@ -115,10 +170,11 @@
       if (ctx.state === 'suspended') ctx.resume().catch(() => {});
       applyMusic();
     },
+    // Volumes 0..1 (0 = off).
     configure(o) {
-      if (o.sfx != null) sfxOn = !!o.sfx;
-      if (o.music != null) musicOn = !!o.music;
-      if (ctx) { sfxBus.gain.setTargetAtTime(sfxOn ? 1 : 0, now(), 0.05); applyMusic(); }
+      if (o.sfxVol != null) sfxVol = Math.max(0, Math.min(1, +o.sfxVol));
+      if (o.musicVol != null) musicVol = Math.max(0, Math.min(1, +o.musicVol));
+      if (ctx) { sfxBus.gain.setTargetAtTime(sfxVol, now(), 0.05); applyMusic(); }
     },
     // Leaving the app or tab: go quiet; coming back resumes.
     suspend() { if (ctx && ctx.state === 'running') ctx.suspend().catch(() => {}); },
@@ -129,7 +185,7 @@
       const v = Math.max(0, Math.min(1, level));
       if (Math.abs(v - engine.on) < 0.01) return;
       engine.on = v;
-      engine.g.gain.setTargetAtTime(v * 0.55, now(), v > 0 ? 0.04 : 0.09);
+      engine.g.gain.setTargetAtTime(v * 0.26, now(), v > 0 ? 0.04 : 0.09);
       engine.f.frequency.setTargetAtTime(220 + v * 520, now(), 0.08);
     },
     rcs(on) {
@@ -137,7 +193,7 @@
       const v = on ? 1 : 0;
       if (v === rcs.on) return;
       rcs.on = v;
-      rcs.g.gain.setTargetAtTime(v * 0.16, now(), 0.02);
+      rcs.g.gain.setTargetAtTime(v * 0.07, now(), 0.02);
     },
     // One-shots.
     click() { tone('triangle', 1100, 900, 0.05, 0.002, 0.05); },
@@ -145,9 +201,21 @@
     drop() { tone('square', 900, 600, 0.06, 0.002, 0.05); tone('sine', 420, 300, 0.12, 0.004, 0.12, 0.03); },
     pickup() { [0, 4, 7, 12].forEach((s, i) => tone('triangle', hz(72 + s), 0, 0.12, 0.005, 0.18, i * 0.06)); },
     warn() { tone('square', 660, 0, 0.05, 0.004, 0.09); tone('square', 660, 0, 0.05, 0.004, 0.09, 0.16); },
-    win() { [0, 4, 7, 12, 16].forEach((s, i) => tone('triangle', hz(67 + s), 0, 0.16, 0.01, 0.6, i * 0.11)); },
-    crash() { burst('lowpass', 1200, 60, 0.9, 1.1); tone('sine', 90, 30, 0.7, 0.005, 0.6); },
-    fail() { tone('triangle', hz(64), hz(57), 0.14, 0.01, 0.7); },
+    // Win: a bouncy fanfare (da-da-da DA, da-DAAA) over a bass hop, with sparkle.
+    win() {
+      const lead = [[67, 0, 0.11], [72, 0.12, 0.11], [76, 0.24, 0.11], [79, 0.36, 0.3], [76, 0.7, 0.12], [84, 0.84, 0.7]];
+      for (const [n, at, len] of lead) {
+        note('square', n, at, len, 0.07, { tail: 0.12, vibrato: len > 0.5 ? 5.5 : 0 });
+        note('triangle', n, at, len, 0.11, { tail: 0.15 });
+      }
+      for (const [n, at, len] of [[48, 0, 0.3], [55, 0.36, 0.3], [48, 0.84, 0.75]]) note('triangle', n, at, len, 0.16, { tail: 0.2 });
+      for (const n of [76, 79]) note('triangle', n, 0.84, 0.7, 0.06, { tail: 0.3 });
+      [96, 100, 103, 108].forEach((n, i) => note('sine', n, 1.0 + i * 0.07, 0.08, 0.035, { tail: 0.25 }));
+    },
+    // Crash: a crunchy explosion, then the wah-wah.
+    crash() { boom(0); fanfail(0.55); },
+    // Out of time / lost in space: just the wah-wah, after a sigh of static.
+    fail() { burst('bandpass', 900, 300, 0.12, 0.4); fanfail(0.25); },
   };
 
   root.Sound = Sound;

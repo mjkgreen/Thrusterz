@@ -511,3 +511,9 @@ html.short .set-row { padding: 7px 0; }
 html.short #board .report-bar { grid-row: 6; align-self: start; font-size: 12px; padding: 8px; }
 html.short #board .board-hint { grid-row: 6; align-self: end; margin: 0; font-size: 11px; }
 html.short #board .report-bar:not(.hidden) ~ .board-hint { display: none; }
+.set-row label { flex: 1; cursor: pointer; }
+.set-row output { width: 3.2em; text-align: right; font-family: var(--mono); font-size: 13px; color: var(--muted); }
+input.vol { -webkit-appearance: none; appearance: none; width: 150px; height: 6px; border-radius: 3px; background: rgba(255,255,255,0.12); outline: none; }
+input.vol::-webkit-slider-thumb { -webkit-appearance: none; width: 22px; height: 22px; border-radius: 50%; background: var(--accent); border: 0; }
+input.vol::-moz-range-thumb { width: 22px; height: 22px; border-radius: 50%; background: var(--accent); border: 0; }
+html.short input.vol { width: 130px; }

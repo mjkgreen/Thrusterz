@@ -2270,7 +2270,11 @@
   // ------------------------------------------------------------ settings
   // Sound effects, music and (in the app) vibration. Kept on this device.
   const SETTINGS = 'thrusterz.settings';
-  const settings = Object.assign({ sfx: true, music: false, haptics: true }, Online.Store.get(SETTINGS) || {});
+  const settings = Object.assign({ sfxVol: 0.8, musicVol: 0.5, haptics: true }, Online.Store.get(SETTINGS) || {});
+  // Settings saved before the volume sliders had on/off switches. Music was
+  // off by default then, so only a switched-off sound effects carries over.
+  if (settings.sfx === false) settings.sfxVol = 0;
+  delete settings.sfx; delete settings.music;
   Sound.configure(settings);
   if (Bridge.inApp) document.body.classList.add('in-app');
   // Browsers only allow sound after a tap or key press.
@@ -2280,6 +2284,10 @@
   let settingsReturn = null;
   function renderSettings() {
     for (const b of document.querySelectorAll('#settings .toggle')) b.setAttribute('aria-pressed', String(!!settings[b.dataset.set]));
+    for (const [id, key] of [['set-sfx', 'sfxVol'], ['set-music', 'musicVol']]) {
+      $(id).value = Math.round(settings[key] * 100);
+      $(id + '-v').textContent = settings[key] > 0 ? Math.round(settings[key] * 100) + '%' : 'Off';
+    }
     $('set-version').textContent = 'Version ' + ((window.THRUSTERZ_CONFIG || {}).version || '1.0');
   }
   function showSettings(from) { settingsReturn = from; hide(from); renderSettings(); show('settings'); }
@@ -2291,6 +2299,14 @@
       if (b.dataset.set === 'haptics' && settings.haptics) Bridge.haptic('success');
       renderSettings();
     };
+  }
+  for (const [id, key] of [['set-sfx', 'sfxVol'], ['set-music', 'musicVol']]) {
+    $(id).addEventListener('input', () => {
+      settings[key] = +$(id).value / 100;
+      Sound.unlock(); Sound.configure(settings); renderSettings();
+    });
+    // Save, and let you hear the new effects level.
+    $(id).addEventListener('change', () => { Online.Store.set(SETTINGS, settings); if (key === 'sfxVol') Sound.drop(); });
   }
   $('btn-settings-menu').onclick = () => showSettings('menu');
   $('btn-settings-pause').onclick = () => showSettings('pause');
