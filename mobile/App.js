@@ -89,6 +89,9 @@ export default function App() {
           style={styles.fill}
           source={{ html: page.html, baseUrl: BASE }}
           originWhitelist={['*']}
+          // Game sound needs no extra tap, and plays inline.
+          mediaPlaybackRequiresUserAction={false}
+          allowsInlineMediaPlayback
           injectedJavaScriptBeforeContentLoaded={page.boot}
           onMessage={onMessage}
           onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}

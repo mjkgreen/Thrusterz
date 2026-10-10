@@ -2295,7 +2295,8 @@
   // ------------------------------------------------------------ settings
   // Sound effects, music and (in the app) vibration. Kept on this device.
   const SETTINGS = 'thrusterz.settings';
-  const settings = Object.assign({ sfxVol: 0.8, musicVol: 0.5, haptics: true }, Online.Store.get(SETTINGS) || {});
+  const settings = Object.assign({ sfxVol: 0.8, musicVol: 0.5, haptics: true, ignoreSilent: true }, Online.Store.get(SETTINGS) || {});
+  if (/iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)) document.body.classList.add('ios');
   // Settings saved before the volume sliders had on/off switches. Music was
   // off by default then, so only a switched-off sound effects carries over.
   if (settings.sfx === false) settings.sfxVol = 0;

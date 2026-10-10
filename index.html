@@ -189,6 +189,7 @@
     <h1>Settings</h1>
     <div class="set-row"><label for="set-sfx">Sound effects<span class="small">Engine, thrusters, staging, wins and crashes</span></label><input type="range" id="set-sfx" class="vol" min="0" max="100" step="5"><output id="set-sfx-v"></output></div>
     <div class="set-row"><label for="set-music">Music<span class="small">Ambient background music</span></label><input type="range" id="set-music" class="vol" min="0" max="100" step="5"><output id="set-music-v"></output></div>
+    <div class="set-row ios-only"><span>Play in silent mode<span class="small">Sound through the speaker even with the silent switch on (pauses other music)</span></span><button class="toggle" data-set="ignoreSilent" aria-pressed="true"></button></div>
     <div class="set-row app-only"><span>Vibration<span class="small">A buzz when a mission ends</span></span><button class="toggle" data-set="haptics" aria-pressed="true"></button></div>
     <p class="small set-links"><a href="support.html" target="_blank" rel="noopener" class="plain" id="set-support">Help &amp; support</a> · <a href="privacy.html" target="_blank" rel="noopener" class="plain" id="set-privacy">Privacy policy</a> · <span id="set-version"></span></p>
     <div class="buttons"><button id="btn-settings-close" class="primary">Done</button></div>

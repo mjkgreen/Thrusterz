@@ -163,9 +163,32 @@
     if (musicOn()) startMusic(); else setTimeout(() => { if (!musicOn()) stopMusic(); }, 1500);
   }
 
+  // iPhones mute web audio on the speaker when the ring/silent switch is on
+  // (headphones still play). Asking for "playback" audio, like a music or
+  // game app, plays through anyway: navigator.audioSession on iOS 17+, or a
+  // looping silent <audio> element on older versions.
+  let ignoreSilent = true, silentEl = null;
+  function applySession() {
+    try { if (navigator.audioSession) { navigator.audioSession.type = ignoreSilent ? 'playback' : 'ambient'; return; } } catch (e) { /* not allowed */ }
+    if (!ignoreSilent) { if (silentEl) silentEl.pause(); return; }
+    if (!silentEl) {
+      // 0.5 s of silence as a WAV data URI.
+      const n = 4000, b = new Uint8Array(44 + n), v = new DataView(b.buffer), w = (o, str) => { for (let i = 0; i < str.length; i++) b[o + i] = str.charCodeAt(i); };
+      w(0, 'RIFF'); v.setUint32(4, 36 + n, true); w(8, 'WAVEfmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+      v.setUint32(24, 8000, true); v.setUint32(28, 8000, true); v.setUint16(32, 1, true); v.setUint16(34, 8, true); w(36, 'data'); v.setUint32(40, n, true);
+      b.fill(128, 44);
+      let bin = ''; for (let i = 0; i < b.length; i++) bin += String.fromCharCode(b[i]);
+      silentEl = document.createElement('audio');
+      silentEl.src = 'data:audio/wav;base64,' + btoa(bin);
+      silentEl.loop = true; silentEl.setAttribute('playsinline', ''); silentEl.preload = 'auto';
+    }
+    const pr = silentEl.play(); if (pr && pr.catch) pr.catch(() => {});
+  }
+
   const Sound = {
     // Call from a tap or key press (browsers' autoplay rule).
     unlock() {
+      applySession();
       if (!setup()) return;
       if (ctx.state === 'suspended') ctx.resume().catch(() => {});
       applyMusic();
@@ -174,6 +197,7 @@
     configure(o) {
       if (o.sfxVol != null) sfxVol = Math.max(0, Math.min(1, +o.sfxVol));
       if (o.musicVol != null) musicVol = Math.max(0, Math.min(1, +o.musicVol));
+      if (o.ignoreSilent != null && !!o.ignoreSilent !== ignoreSilent) { ignoreSilent = !!o.ignoreSilent; if (ctx) applySession(); }
       if (ctx) { sfxBus.gain.setTargetAtTime(sfxVol, now(), 0.05); applyMusic(); }
     },
     // Leaving the app or tab: go quiet; coming back resumes.
