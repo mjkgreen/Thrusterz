@@ -72,6 +72,14 @@ in the simplest possible setting. Every mission should have one clear "aha"
   `rcs: false` would remove side thrusters entirely; don't use it (the
   Fixed Heading idea was cut).
 - **Stages / cargo:** `ship({ stack: [...] })`, `payload`, `cargo` as in World 2.
+- **Unstable starts:** `start: { conic: { body, pe, e, nu, angle?, dir? } }`
+  puts the ship on any orbit about `body`, caught partway round: periapsis
+  distance `pe`, eccentricity `e` (0 circle, <1 ellipse, ≥1 hyperbola: arriving
+  or escaping), true anomaly `nu` (radians from periapsis; negative = still
+  falling toward periapsis, positive = past it, heading out), periapsis
+  direction `angle`, `dir` 1 counter-clockwise / -1 clockwise. Plus `heading`.
+  Also `start: { orbit: { ..., speed } }` (an apsis at r, speed as a fraction
+  of circular) and `start: { free: { x, y, vx, vy } }`.
 - Goal types: `hit` (optionally `craft`, `site`), `reach` (point or body,
   optionally `craft`), `orbit` (band, optional `dir`, `craft`), `rendezvous`,
   `hold` (incl. `lagrange`), `escape`, `spread`.

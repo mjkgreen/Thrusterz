@@ -17,6 +17,10 @@
   //   start: { landed: { body, angle } }
   //        | { orbit: { body, r, angle, dir?, speed? } }   speed = fraction of circular
   //        | { free: { x, y, vx?, vy? } }
+  //        | { conic: { body, pe, e, nu, angle?, dir? } }   any orbit, caught partway:
+  //            periapsis distance pe, eccentricity e (≥ 1: escaping / arriving
+  //            on a hyperbola), true anomaly nu (negative: before periapsis,
+  //            still falling in), periapsis pointing at `angle`, dir 1 = counter-clockwise
   //   heading: initial heading in radians, or 'prograde' / 'retrograde' / 'up'
   //   stages: [{ dryMass, fuel, thrust, ve }]   (stage 0 fires first)
   //   rcs: { fuel, accel, maxRate }             (side thrusters)
@@ -72,6 +76,19 @@
         const f = spec.start.free;
         s.x = f.x; s.y = f.y; s.vx = f.vx || 0; s.vy = f.vy || 0;
         s.angle = typeof spec.heading === 'number' ? spec.heading : 0;
+        return;
+      }
+      if (spec.start.conic) {
+        const c = spec.start.conic, b = sys.byId[c.body], i = b.index;
+        const dir = c.dir || 1, p = c.pe * (1 + c.e), k = Math.sqrt(b.gm / p);
+        const r = p / (1 + c.e * DM.cos(c.nu)), th = (c.angle || 0) + dir * c.nu;
+        const ux = DM.cos(th), uy = DM.sin(th);
+        const vr = k * c.e * DM.sin(c.nu), vt = k * (1 + c.e * DM.cos(c.nu));
+        s.x = sys.px[i] + r * ux; s.y = sys.py[i] + r * uy;
+        s.vx = sys.vx[i] + vr * ux - dir * vt * uy;
+        s.vy = sys.vy[i] + vr * uy + dir * vt * ux;
+        const pro = DM.atan2(s.vy - sys.vy[i], s.vx - sys.vx[i]), h = spec.heading;
+        s.angle = h === 'retrograde' ? pro + Math.PI : typeof h === 'number' ? h : pro;
         return;
       }
       const o = spec.start.orbit;
