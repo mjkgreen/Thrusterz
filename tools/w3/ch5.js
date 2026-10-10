@@ -117,15 +117,15 @@ const levels = [
       { id: 'terra', name: 'Terra', gm: 20000, radius: 50, color: C.blue },
       { id: 'goliath', name: 'Goliath', gm: 5000, radius: 26, color: C.tan, keepOut: 70, zone: 'all', orbit: { parent: 'terra', a: 350, phase: 2.4375 } },
     ],
-    ship: ship({ start: { conic: { body: 'terra', pe: 90.754, e: 0.4395, nu: 0.41127, angle: 2.64882 } }, heading: 'prograde', rcs: { fuel: 7 }, stack: [
+    ship: ship({ start: { conic: { body: 'terra', pe: 90.754, e: 0.4395, nu: 0.41127, angle: 2.64882 } }, heading: 'prograde', rcs: { fuel: 7.5 }, stack: [
       { name: 'Transfer stage', dv: 0.6, accel: 1 },
-      { name: 'Carrier', dv: 3.8, accel: 0.6, dry: 0.4, sprite: 'satellite' },
+      { name: 'Carrier', dv: 4.4, accel: 0.6, dry: 0.4, sprite: 'satellite' },
     ], cargo: [{ id: 'relay', name: 'Relay', mass: 0.2 }] }),
     goals: [
       { type: 'escape', body: 'terra', craft: 'relay', r: 1600, label: 'Deep space' },
       { type: 'orbit', body: 'terra', rMin: 70, rMax: 140 },
     ],
-    par: 2.8, bounds: 1700, tMax: 1600, predict: 300, view: { x: 0, y: 0, span: 2400 },
+    par: 3.4, bounds: 1700, tMax: 1600, predict: 300, view: { x: 0, y: 0, span: 2400 },
   },
   {
     id: 'surveydrop',
@@ -218,7 +218,7 @@ const proofs = {
     ],
   },
   relaysling: {
-    p: [0, 0.55, -3.659, 191.541, 137.391], scale: [0.3, 0.03, 3, 8, 6], opts: { turn: true, turnRate: 0.5 },
+    p: [0.024, 0.538, -4.832, 192.526, 137.627], scale: [0.3, 0.03, 3, 8, 6], opts: { turn: true, turnRate: 0.5 },
     script: (p, AP) => [
       // Finish the transfer burn on the stage: the relay's slingshot path.
       ...dvBurn(p[0], 'terra', Math.max(0.3, p[1])),
@@ -304,13 +304,14 @@ const fails = {
   ],
   relaysling: [
     { name: 'wait and see', steps: () => [] },
-    { name: 'ride the slingshot, release the relay later', opts: { turn: true, turnRate: 0.2 }, steps: (AP) => [
-      { deploy: true }, { coast: (m) => dist(m, 'goliath') < 160 }, { drop: true },
-      { burn: 'retro', rel: 'terra', until: (m) => AP.orb(m, 'terra').ap <= 185 },
-    ] },
-    { name: 'brake later, as Goliath comes close', opts: { turn: true, turnRate: 0.2 }, steps: (AP) => {
+    { name: 'drop the stage unused and release the relay', opts: { turn: true, turnRate: 0.5 }, steps: (AP) => proofs.relaysling.script(proofs.relaysling.p, AP).slice(3) },
+    { name: 'ride the slingshot, release the relay later', opts: { turn: true, turnRate: 0.5 }, steps: (AP) => {
       const s = proofs.relaysling.script(proofs.relaysling.p, AP);
-      return [s[0], s[1], s[2], hold((m) => dist(m, 'goliath') < 150), ...s.slice(3)];
+      return [s[0], s[1], s[3], { coast: (m) => dist(m, 'goliath') < 160 }, s[4], s[5]];
+    } },
+    { name: 'brake later, as Goliath comes close', opts: { turn: true, turnRate: 0.5 }, steps: (AP) => {
+      const s = proofs.relaysling.script(proofs.relaysling.p, AP);
+      return [...s.slice(0, 5), hold((m) => dist(m, 'goliath') < 150), ...s.slice(5)];
     } },
     { name: 'flip fast (holding the keys)', opts: { turn: true, turnRate: 1.2 }, steps: (AP) => proofs.relaysling.script(proofs.relaysling.p, AP) },
   ],

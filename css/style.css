@@ -27,6 +27,10 @@ html.rotated { --sa-top: 0px; --sa-right: 0px; --sa-bottom: 0px; --sa-left: 0px;
 /* A phone held upright: the whole game is drawn sideways (js/game.js sets
    --lw / --lh to the landscape size), so it plays the same either way. */
 html.rotated body { position: fixed; top: var(--sat, 0px); left: 0; width: var(--lw); height: var(--lh); transform-origin: 0 0; transform: rotate(90deg) translateY(-100%); }
+/* iOS Safari enlarges text it thinks is too small for the screen width,
+   which on the sideways page (wider than the upright screen) blew up the
+   Controls paragraphs. Sizes here are deliberate: switch it off. */
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 html, body {
   margin: 0; height: 100%; overflow: hidden;
   background: var(--bg); color: var(--text);
