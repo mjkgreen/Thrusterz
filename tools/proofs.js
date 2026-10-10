@@ -175,7 +175,7 @@ module.exports = {
   outerplanet: {
     // Arriving at Rust faster than escape speed: brake around the low point,
     // transfer stage first, before Rust flings you back out.
-    p: [5, 140], scale: [5, 20],
+    p: [2, 128], scale: [3, 6],
     script: (p, AP) => [
       { coast: (m) => { const o = AP.orb(m, 'rust'); return o.r < o.pe + Math.max(0, p[0]) || o.rising; } },
       { burn: 'retro', rel: 'rust', stage: true, until: (m) => { const o = AP.orb(m, 'rust'); return o.bound && o.ap <= p[1]; } },
@@ -204,16 +204,20 @@ module.exports = {
   },
 
   leavenojunk: {
-    p: [272.2, 60.8, 220], scale: [10, 4, 4],
+    // Swinging past Terra faster than escape speed: brake at the low point
+    // to be captured, then deorbit the upper stage from the top as before.
+    p: [9.869, 274.084, 60.845, 220.036], scale: [5, 10, 4, 4],
     script: (p, AP) => [
-      { burn: 'pro', until: (m) => AP.orb(m, 'terra').ap >= p[0] },
+      { coast: (m) => { const o = AP.orb(m, 'terra'); return o.r < o.pe + Math.max(0, p[0]) || o.rising; } },
+      { burn: 'retro', until: (m) => { const o = AP.orb(m, 'terra'); return o.bound && o.ap <= p[1]; } },
+      { wait: 5 },
       { coast: (m) => !AP.orb(m, 'terra').rising },
-      { burn: 'retro', until: (m) => AP.orb(m, 'terra').pe <= p[1] },
+      { burn: 'retro', until: (m) => AP.orb(m, 'terra').pe <= p[2] },
       // Turn prograde first: the separation spring pushes the stage the
       // opposite way from your nose, here further down.
       { fn: (m) => { m.ship.angle = AP.aim(m, 'pro'); } },
       { deploy: true },
-      { burn: 'pro', until: (m) => AP.orb(m, 'terra').pe >= p[2] },
+      { burn: 'pro', until: (m) => AP.orb(m, 'terra').pe >= p[3] },
     ],
   },
 

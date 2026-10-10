@@ -45,7 +45,7 @@ const dvBurn = (dir, rel, amount) => {
 };
 
 // Finale phases, fitted so the proof's Luna pass sits under Luna Gate.
-const HAVEN = 3.256, LUNA = 3.5741, GATE = 0.0982, PATROL = 1.032;
+const HAVEN = 3.256, LUNA = 3.5741, GATE = 0.0982, PATROL = 1.175;
 const levels = [
   {
     id: 'resupplyrun',
@@ -247,7 +247,7 @@ const proofs = {
     ],
   },
   longhaul: {
-    p: [0, 0.3, 302.578, 285.316, 3.692, 481.982, 163.839, 0.801, 60.651, -3.165, 82.515, 50.681], scale: [0.6, 0.2, 6, 4, 15, 4, 30, 15, 6, 30, 4, 4], opts: { turn: true, turnRate: 0.5 },
+    p: [0, 0.6, 302.578, 285.316, 3.692, 481.982, 163.839, 0.801, 60.651, -3.165, 82.515, 50.681], scale: [0.6, 0.2, 6, 4, 15, 4, 30, 15, 6, 30, 4, 4], opts: { turn: true, turnRate: 0.5 },
     script: (p, AP) => [
       // Dodge the patrol: change the climb at once (p[0]: direction from prograde).
       ...dvBurn(p[0], 'terra', Math.max(0, p[1])),

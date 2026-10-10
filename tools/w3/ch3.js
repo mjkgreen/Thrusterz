@@ -135,9 +135,9 @@ const levels = [
   {
     id: 'oneflip',
     name: 'One Flip',
-    intro: 'Your orbit dips into Terra: you crash in less than a minute unless you burn prograde now to lift your low point. Then you fall to the bottom of a long ellipse much too fast, so round it off with a retrograde burn there. That needs one flip, and the side thrusters only hold one slow one: tap to start it on the way down, not in a rush at the bottom.',
-    objective: 'Orbit Terra between 150 and 200 with 0.6 s of side-thruster propellant.',
-    teaches: 'Burn now · one slow flip',
+    intro: 'Your orbit dips into Terra and you crash in well under a minute, nose pointing the wrong way. Turn now, at a steady few taps, to point between prograde and straight up, and burn to lift your low point out of Terra. Then just hold still: at the bottom of the fall the retrograde marker swings round to your nose, ready for the burn that rounds off your orbit. Holding the turn keys empties the side thrusters; looking around first is too late.',
+    objective: 'Orbit Terra between 150 and 200 with 1.25 s of side-thruster propellant.',
+    teaches: 'Turn in time · the marker comes to you',
     bodies: [terra],
     ship: ship({ start: { conic: { body: 'terra', pe: 30, e: 0.818, nu: -3.1, angle: Math.PI } }, heading: 'retrograde', dv: 7.8, accel: 1, rcs: { fuel: 1.25 } }),
     goals: [{ type: 'orbit', body: 'terra', rMin: 150, rMax: 200 }],
@@ -157,8 +157,8 @@ const levels = [
   {
     id: 'stationstop',
     name: 'Station Stop',
-    intro: 'X',
-    objective: 'Rendezvous with Tycho Station (within 25, relative speed under 0.5) with 1.1 s of side-thruster propellant.',
+    intro: 'You are diving at Tycho Station nose first and will hit it in under half a minute. Turn round now and brake to match its speed as you close in. Turn too slowly, or wait, and you arrive nose first; hold the turn keys and the side thrusters run dry before you can stop.',
+    objective: 'Rendezvous with Tycho Station (within 25, relative speed under 0.5) with 0.9 s of side-thruster propellant.',
     teaches: 'Braking flip under time pressure',
     bodies: [terra, { id: 'tycho', name: 'Tycho Station', gm: 0, radius: 4, color: C.station, kind: 'station', orbit: { parent: 'terra', a: 130, phase: -3.4 } }],
     ship: ship({ start: { conic: { body: 'terra', pe: 128, e: 0.34, nu: -2.4 } }, heading: 1.8, dv: 3.8, accel: 0.8, rcs: { fuel: 0.9 } }),
@@ -183,11 +183,11 @@ const levels = [
   {
     id: 'roundtrip',
     name: 'Round Trip',
-    intro: 'Fly out to Luna, get captured, then come home to an orbit round Terra. Every burn points somewhere new: prograde to leave, backwards at Luna, against Luna\'s motion to fall home, backwards again at Terra. Work out where the nose needs to be next and turn there slowly during the coast before it.',
-    objective: 'Orbit Luna between 30 and 90, then orbit Terra between 120 and 220, with 2.7 s of side-thruster propellant.',
-    teaches: 'Planning every flip',
+    intro: 'You are falling past Luna far too fast to stay, nose pointing at it: turn round at once and burn retrograde at closest approach to be captured. Then come home: leave Luna against its motion round Terra so you fall back, and round off your orbit at the bottom. Turn steadily but not hard, and plan each turn during the coast before it.',
+    objective: 'Get captured into an orbit round Luna between 30 and 90, then orbit Terra between 120 and 220, with 2 s of side-thruster propellant.',
+    teaches: 'Capture in time · planning every flip',
     bodies: [terra, { id: 'luna', name: 'Luna', gm: 1500, radius: 18, color: C.grey, orbit: { parent: 'terra', a: 400, phase: 1.75 } }],
-    ship: ship({ start: { conic: { body: 'luna', pe: 50, e: 1.3, nu: -1.4, angle: 0 } }, heading: 1.74, dv: 12, accel: 1, rcs: { fuel: 4 } }),
+    ship: ship({ start: { conic: { body: 'luna', pe: 50, e: 1.3, nu: -1.4, angle: 0 } }, heading: 1.74, dv: 4, accel: 1, rcs: { fuel: 2 } }),
     goals: [
       { type: 'orbit', body: 'luna', rMin: 30, rMax: 90 },
       { type: 'orbit', body: 'terra', rMin: 120, rMax: 220 },
@@ -315,8 +315,11 @@ const fails = {
     // the first flip takes about 45 s, so this burns the moment it ends
     { name: 'drop as soon as you have turned', steps: (AP) => proofs.downgap.script([50].concat(proofs.downgap.p.slice(1)), AP), opts: T },
   ],
-  // (holding the keys here also wrecks the timing, so the slower rush is the cleaner test)
-  roundtrip: [rushed('roundtrip', 0.5)],
+  roundtrip: [
+    rushed('roundtrip'),
+    rushed('roundtrip', 0.5),
+    { name: 'flip slowly at Luna, at 0.1 rad/s', steps: (AP) => proofs.roundtrip.script(proofs.roundtrip.p.map((v, i) => i === 0 ? 0.1 : v), AP), opts: T },
+  ],
 };
 
 module.exports = { levels, proofs, fails };

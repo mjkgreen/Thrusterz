@@ -796,7 +796,7 @@
     {
       id: 'outerplanet',
       name: 'Outer Planet',
-      intro: 'An orbiter for Rust. The transfer stage escapes Terra in the direction Terra moves, sending you out along a Hohmann transfer; leave when Rust is about 55° ahead of Terra. When you arrive, drop the empty transfer stage and brake the orbiter into orbit around Rust.',
+      intro: 'You are falling toward Rust faster than its escape speed, and in about 35 seconds you will whip past its low point and be flung back out into space. Brake there: burn retrograde as you swing through the low point, where each bit of Δv does the most. Finish the transfer stage\'s fuel first, drop it, then let the orbiter finish the capture. Neither has enough on its own, and once you are climbing away again it is too late.',
       objective: 'Put the orbiter in an orbit between 40 and 140 from Rust.',
       teaches: 'Interplanetary orbiter',
       bodies: [
@@ -809,7 +809,7 @@
         { name: 'Orbiter', dv: 1.7, accel: 0.5, dry: 0.3 },
       ] }),
       goals: [{ type: 'orbit', body: 'rust', rMin: 40, rMax: 140 }],
-      par: 7, bounds: 5000, tMax: 3000, predict: 500, view: { x: 0, y: 0, span: 3200 },
+      par: 2.2, bounds: 5000, tMax: 1500, predict: 300, view: { x: 0, y: 0, span: 3200 },
     },
     {
       id: 'splashdown',
@@ -875,9 +875,9 @@
       bodies: [
         { id: 'terra', name: 'Terra', gm: 20000, radius: 50, color: C.blue },
       ],
-      ship: ship({ start: { orbit: { body: 'terra', r: 100, angle: 0 } }, heading: 'prograde', stack: [
-        { id: 'upper', name: 'Upper stage', dv: 4.8, accel: 0.8 },
-        { name: 'Satellite', dv: 5.4, accel: 0.9, dry: 0.3 },
+      ship: ship({ start: { conic: { body: 'terra', pe: 100, e: 1.02, nu: -2.14, angle: 0 } }, heading: 'retrograde', stack: [
+        { id: 'upper', name: 'Upper stage', dv: 6.5, accel: 0.8 },
+        { name: 'Satellite', dv: 6.0, accel: 0.9, dry: 0.3 },
       ] }),
       goals: [
         { type: 'hit', body: 'terra', craft: 'upper', deorbit: true },
