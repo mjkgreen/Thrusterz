@@ -164,7 +164,7 @@
     state.eventsSeen = 0;
     state.rcsWarned = 0;
     state.stageFate = null;
-    state.danger = null; state.alarmAt = 0;
+    state.danger = null; state.alarmAt = 0; state.holdStep = -1;
     state.orbitWarnSeen = null;
     state.frameMode = 'auto';
     state.predictScale = 1;
@@ -548,8 +548,15 @@
       toast('Time warp lowered to ' + WARPS[state.warp] + '× to keep things smooth', 1.8);
     }
 
+    // A hold or orbit confirmation filling up: a rising tick each quarter.
+    const hg = m.currentGoal(), need = hg && (hg.type === 'hold' ? hg.hold : (hg.type === 'orbit' || hg.type === 'spread') ? (hg.confirm || 3) : 0);
+    const step = need && m.holdTime > 0 ? Math.min(3, Math.floor(4 * m.holdTime / need)) : -1;
+    if (step > (state.holdStep == null ? -1 : state.holdStep)) Sound.progress(step);
+    state.holdStep = step;
     for (; state.eventsSeen < m.events.length; state.eventsSeen++) {
       const ev = m.events[state.eventsSeen];
+      // Each objective but the last (the win has its own fanfare).
+      if (ev.type === 'goal' && ev.index < m.level.goals.length - 1) Sound.objective();
       if (ev.type === 'pickup') {
         toast('+' + ev.dv.toFixed(1) + ' Δv collected', 1.8);
         Sound.pickup();

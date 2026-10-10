@@ -217,6 +217,10 @@
       tone('square', f, 0, urgent ? 0.07 : 0.05, 0.003, 0.08);
       tone('square', f * 0.75, 0, urgent ? 0.07 : 0.05, 0.003, 0.08, 0.11);
     },
+    // A hold / orbit confirmation filling up: one tick per quarter, each higher.
+    progress(step) { const n = [72, 76, 79, 84][Math.max(0, Math.min(3, step))]; tone('sine', hz(n), 0, 0.09, 0.004, 0.16); tone('triangle', hz(n + 12), 0, 0.03, 0.004, 0.1); },
+    // One objective of several done: a short two-note "got it".
+    objective() { note('triangle', 79, 0, 0.09, 0.12, { tail: 0.1 }); note('triangle', 84, 0.1, 0.22, 0.13, { tail: 0.25 }); note('sine', 91, 0.1, 0.22, 0.04, { tail: 0.3 }); },
     // Win: a bouncy fanfare (da-da-da DA, da-DAAA) over a bass hop, with sparkle.
     win() {
       const lead = [[67, 0, 0.11], [72, 0.12, 0.11], [76, 0.24, 0.11], [79, 0.36, 0.3], [76, 0.7, 0.12], [84, 0.84, 0.7]];
