@@ -45,7 +45,7 @@ const dvBurn = (dir, rel, amount) => {
 };
 
 // Finale phases, fitted so the proof's Luna pass sits under Luna Gate.
-const HAVEN = 3.256, LUNA = 3.5741, GATE = 0.0982, PATROL = 1.15;
+const HAVEN = 3.256, LUNA = 3.67, GATE = 0.0982, PATROL = 1.15;
 const levels = [
   {
     id: 'resupplyrun',
@@ -111,21 +111,21 @@ const levels = [
     id: 'relaysling',
     name: 'Slingshot Relay',
     intro: 'You have just burned out of low orbit on a path that swings past Goliath, and Goliath will fling you out of Terra\'s reach for good. That ride is for the deep-space relay, not for you: drop the spent stage, release the relay (E) on this path, then flip and brake at once so you fall back into a low orbit while it flies on. Goliath\'s radiation zone is closed to everything.',
-    objective: 'Send the relay 1600 away from Terra, but stay behind yourself: orbit Terra between 120 and 250.',
+    objective: 'Send the relay 1600 away from Terra, but stay behind yourself: orbit Terra between 70 and 140.',
     teaches: 'Send the cargo, stay home',
     bodies: [
       { id: 'terra', name: 'Terra', gm: 20000, radius: 50, color: C.blue },
       { id: 'goliath', name: 'Goliath', gm: 5000, radius: 26, color: C.tan, keepOut: 70, zone: 'all', orbit: { parent: 'terra', a: 350, phase: 2.4375 } },
     ],
-    ship: ship({ start: { conic: { body: 'terra', pe: 91.03, e: 0.52528, nu: 0.36345, angle: 2.69664 } }, heading: 'prograde', rcs: { fuel: 3.5 }, stack: [
+    ship: ship({ start: { conic: { body: 'terra', pe: 91.03, e: 0.52528, nu: 0.36345, angle: 2.69664 } }, heading: 'prograde', rcs: { fuel: 7 }, stack: [
       { name: 'Transfer stage', dv: 0.2, accel: 1 },
-      { name: 'Carrier', dv: 0.6, accel: 0.6, dry: 0.4, sprite: 'satellite' },
+      { name: 'Carrier', dv: 3.8, accel: 0.6, dry: 0.4, sprite: 'satellite' },
     ], cargo: [{ id: 'relay', name: 'Relay', mass: 0.2 }] }),
     goals: [
       { type: 'escape', body: 'terra', craft: 'relay', r: 1600, label: 'Deep space' },
-      { type: 'orbit', body: 'terra', rMin: 120, rMax: 250 },
+      { type: 'orbit', body: 'terra', rMin: 70, rMax: 140 },
     ],
-    par: 0.55, bounds: 1700, tMax: 1600, predict: 300, view: { x: 0, y: 0, span: 2400 },
+    par: 2.8, bounds: 1700, tMax: 1600, predict: 300, view: { x: 0, y: 0, span: 2400 },
   },
   {
     id: 'surveydrop',
@@ -153,7 +153,7 @@ const levels = [
   {
     id: 'longhaul',
     name: 'The Long Haul',
-    intro: 'Your booster has you climbing straight into Patrol 1\'s zone, twenty seconds out: change your climb now. Every zone here is closed to everything, so drop the booster in the gap between the patrol band and Haven Station, where its whole orbit touches neither. Then fly the carrier to Luna, brake into a low orbit beneath Luna Gate, and from your low point raise the high point to the Gate, release the pod (E) and flip at once to come back down before you reach its zone.',
+    intro: 'Your booster has you climbing straight into Patrol 1\'s zone, barely fifteen seconds out: change your climb now. Every zone here is closed to everything, so drop the booster in the gap between the patrol band and Haven Station, where its whole orbit touches neither. Then fly the carrier to Luna, brake into a low orbit beneath Luna Gate, and from your low point raise the high point to the Gate, release the pod (E) and flip at once to come back down before you reach its zone.',
     objective: 'Dodge the patrol, deliver the pod to Luna Gate, then orbit Luna between 25 and 55, with no stage left where it can drift into a zone.',
     teaches: 'Everything at once',
     bodies: [
@@ -173,7 +173,7 @@ const levels = [
       { type: 'reach', body: 'gate', craft: 'pod', r: 10, label: 'Gate dock' },
       { type: 'orbit', body: 'luna', rMin: 25, rMax: 55 },
     ],
-    par: 10, bounds: 2500, tMax: 1200, predict: 260, view: { x: 0, y: 0, span: 1200 },
+    par: 6.8, bounds: 2500, tMax: 1200, predict: 260, view: { x: 0, y: 0, span: 1200 },
   },
 ];
 
@@ -216,15 +216,15 @@ const proofs = {
     ],
   },
   relaysling: {
-    p: [-6.327, 262.853, 121.808], scale: [3, 8, 6], opts: { turn: true, turnRate: 0.2 },
+    p: [-3.659, 191.541, 137.391], scale: [3, 8, 6], opts: { turn: true, turnRate: 0.5 },
     script: (p, AP) => [
       { wait: Math.max(0, p[0]) },
       { deploy: true },
       { drop: true },
+      // Flip and brake at once, then again at the low point to round off.
       { burn: 'retro', rel: 'terra', until: (m) => AP.orb(m, 'terra').ap <= p[1] },
-      hold((m) => AP.orb(m, 'terra').r > p[1] - 40),
-      { coast: (m) => !AP.orb(m, 'terra').rising },
-      { burn: 'pro', rel: 'terra', until: (m) => AP.orb(m, 'terra').pe >= p[2] },
+      { coast: (m) => AP.orb(m, 'terra').rising && AP.orb(m, 'terra').r < 100 },
+      { burn: 'retro', rel: 'terra', until: (m) => AP.orb(m, 'terra').ap <= p[2] },
     ],
   },
   surveydrop: {
@@ -247,13 +247,12 @@ const proofs = {
     ],
   },
   longhaul: {
-    p: [-1.57, 0.6, 305, 300, 3.692, 481.982, 163.839, 0.801, 60.651, -3.165, 82.515, 50.681], scale: [0.6, 0.2, 6, 4, 15, 4, 30, 15, 6, 30, 4, 4], opts: { turn: true, turnRate: 0.5 },
+    p: [-1.091, 0.274, 315.781, 306.324, -1.002, 488.004, 154.351, 1.441, 66.376, -21.025, 84.473, 53.399], scale: [0.6, 0.2, 6, 4, 15, 4, 30, 15, 6, 30, 4, 4], opts: { turn: true, turnRate: 0.5 },
     script: (p, AP) => [
       // Dodge the patrol: change the climb at once (p[0]: direction from prograde).
       ...dvBurn(p[0], 'terra', Math.max(0, p[1])),
       { burn: 'pro', until: (m) => AP.orb(m, 'terra').ap >= p[2] },
-      hold((m) => AP.orb(m, 'terra').r > p[2] - 30),
-      { coast: (m) => !AP.orb(m, 'terra').rising },
+      hold((m) => !AP.orb(m, 'terra').rising),
       { burn: 'pro', until: (m) => AP.orb(m, 'terra').pe >= p[3] },
       { deploy: true },
       // Past Haven's band to Luna on the carrier.
@@ -306,7 +305,7 @@ const fails = {
     { name: 'wait and see', steps: () => [] },
     { name: 'ride the slingshot, release the relay later', opts: { turn: true, turnRate: 0.2 }, steps: (AP) => [
       { deploy: true }, { coast: (m) => dist(m, 'goliath') < 160 }, { drop: true },
-      { burn: 'retro', rel: 'terra', until: (m) => AP.orb(m, 'terra').ap <= 250 },
+      { burn: 'retro', rel: 'terra', until: (m) => AP.orb(m, 'terra').ap <= 185 },
     ] },
     { name: 'brake later, as Goliath comes close', opts: { turn: true, turnRate: 0.2 }, steps: (AP) => {
       const s = proofs.relaysling.script(proofs.relaysling.p, AP);
@@ -334,15 +333,11 @@ const fails = {
     } },
     { name: 'drop the booster once it is through the band', opts: { turn: true, turnRate: 0.5 }, steps: (AP) => {
       const s = proofs.longhaul.script(proofs.longhaul.p, AP);
-      return [s[0], s[1], s[2], { deploy: true }, s[3], s[4], s[5], ...s.slice(7)];
+      return [s[0], s[1], s[2], { deploy: true }, s[3], s[4], ...s.slice(6)];
     } },
     { name: 'burn the booster dry on the way up', opts: { turn: true, turnRate: 0.5 }, steps: (AP) => {
       const s = proofs.longhaul.script(proofs.longhaul.p, AP);
-      return [s[0], s[1], { burn: 'pro', until: () => false }, { deploy: true }, ...s.slice(7)];
-    } },
-    { name: 'park the booster up at Haven\'s height', opts: { turn: true, turnRate: 0.5 }, steps: (AP) => {
-      const p = proofs.longhaul.p.slice(); p[2] = 345; p[3] = 330;
-      return proofs.longhaul.script(p, AP);
+      return [s[0], s[1], { burn: 'pro', until: () => false }, { deploy: true }, ...s.slice(6)];
     } },
     { name: 'no flip after the pod drop', opts: { turn: true, turnRate: 0.5 }, steps: (AP) => proofs.longhaul.script(proofs.longhaul.p, AP).slice(0, -1) },
     { name: 'flip fast (holding the keys)', opts: { turn: true, turnRate: 1.6 }, steps: (AP) => proofs.longhaul.script(proofs.longhaul.p, AP) },

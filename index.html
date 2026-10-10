@@ -175,6 +175,29 @@
   </div>
 </div>
 
+<div id="welcome" class="screen hidden">
+  <div class="card profile-card">
+    <div class="eyebrow">Welcome, pilot</div>
+    <h1 id="wl-title">What should we call you?</h1>
+    <div id="wl-ask">
+      <div class="pf-row">
+        <label for="wl-name" class="k">Your name on the leaderboards</label>
+        <div class="pf-inline"><input id="wl-name" maxlength="16" autocomplete="off" autocapitalize="words" spellcheck="false" placeholder="Pilot name"><button id="btn-wl-save" class="primary">Save</button></div>
+      </div>
+      <p class="small" id="wl-status"></p>
+      <div class="buttons"><button id="btn-wl-skip" class="ghost">Not now</button></div>
+    </div>
+    <div id="wl-done" class="hidden">
+      <div class="pf-row">
+        <span class="k">Your restore code</span>
+        <div class="pf-inline"><code id="wl-code">····-····-····</code><button id="btn-wl-copy" class="ghost">Copy</button></div>
+        <span class="small">Write it down or screenshot it. On a new device, enter it under Pilot and your stars come back. You can always find it there.</span>
+      </div>
+      <div class="buttons"><button id="btn-wl-go" class="primary">Start flying ▸</button></div>
+    </div>
+  </div>
+</div>
+
 <div id="profile" class="screen hidden">
   <div class="card profile-card">
     <div class="eyebrow">Pilot</div>

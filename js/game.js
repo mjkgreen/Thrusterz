@@ -133,6 +133,7 @@
     state.eventsSeen = 0;
     state.rcsWarned = 0;
     state.stageFate = null;
+    state.orbitWarnSeen = null;
     state.frameMode = 'auto';
     state.predictScale = 1;
     state.trail = [];
@@ -533,6 +534,11 @@
       computePrediction();
     }
 
+    // An orbit that fits the band but won't really go round: say why, once per try.
+    if (m.orbitWarnT != null && m.orbitWarnT !== state.orbitWarnSeen) {
+      state.orbitWarnSeen = m.orbitWarnT;
+      toast('Not a real orbit yet: ' + m.orbitWarn + '.', 3);
+    }
     // The mission can also end outside advance() (e.g. a deploy that dooms the station).
     if (m.status !== 'flying' && !state.endHandled) { state.endHandled = true; onMissionEnd(); }
     if (m.status !== 'flying' && !state.resultShown && performance.now() - state.endTime > state.endDelay) showResult();
@@ -2190,7 +2196,44 @@
 
   // In the app, the native copy of progress survives the OS clearing WebView
   // storage; fold it back in, then sync with the cloud.
-  Online.Store.getNative(STORE).then((p) => { if (p) mergeIn(p); }).finally(() => Online.start());
+  Online.Store.getNative(STORE).then((p) => { if (p) mergeIn(p); }).finally(() => { Online.start(); maybeWelcome(); });
+
+  // First launch (no stars yet): ask for a pilot name and hand out the
+  // restore code, so nobody loses their stars. Asked once; Pilot has it all later.
+  const WELCOMED = 'thrusterz.welcomed';
+  function maybeWelcome() {
+    const stars = Object.values(progress.stars).reduce((a, b) => a + b, 0);
+    const q = new URLSearchParams(location.search);
+    // Not mid-mission, and not for automated browsers unless asked (?welcome).
+    if (!Online.available() || q.has('level') || $('menu').classList.contains('hidden')) return;
+    if (!q.has('welcome') && (stars > 0 || Online.Store.get(WELCOMED) || navigator.webdriver)) return;
+    hide('menu'); show('welcome');
+    $('wl-ask').classList.remove('hidden'); $('wl-done').classList.add('hidden');
+    setTimeout(() => $('wl-name').focus(), 50);
+  }
+  function endWelcome() { Online.Store.set(WELCOMED, true); hide('welcome'); showMenu(); }
+  $('btn-wl-save').onclick = async () => {
+    const btn = $('btn-wl-save'), st = $('wl-status');
+    btn.disabled = true; st.className = 'small'; st.textContent = 'Saving…';
+    try {
+      const p = await Online.rename($('wl-name').value);
+      Online.Store.set(WELCOMED, true);
+      $('wl-code').textContent = p.code;
+      $('wl-title').textContent = 'Welcome aboard, ' + p.name + '.';
+      $('wl-ask').classList.add('hidden'); $('wl-done').classList.remove('hidden');
+    } catch (e) {
+      st.className = 'small warn';
+      st.textContent = e.offline ? 'You\'re offline. You can set your name later under Pilot.' : e.message;
+    }
+    btn.disabled = false;
+  };
+  $('wl-name').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('btn-wl-save').click(); e.stopPropagation(); });
+  $('btn-wl-skip').onclick = endWelcome;
+  $('btn-wl-go').onclick = endWelcome;
+  $('btn-wl-copy').onclick = async () => {
+    const code = $('wl-code').textContent;
+    try { await navigator.clipboard.writeText(code); toast('Restore code copied', 1.2); } catch (e) { toast(code, 3); }
+  };
 
   // ---------------------------------------------------------------- boot
   const qs = new URLSearchParams(location.search);

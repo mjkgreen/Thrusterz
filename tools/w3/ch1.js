@@ -102,16 +102,16 @@ module.exports = {
     {
       id: 'hotmoon',
       name: 'Hot Moon',
-      intro: 'You are falling toward Luna and will plunge into its radiation belt in about 15 seconds: no ship may come inside the red keep-out zone. Act now. Burn early to swing your closest pass out past the zone (braking and pushing sideways at once works well), then burn retrograde at closest approach to get captured. Press V to view your path relative to Luna.',
-      objective: 'Get captured into an orbit around Luna that stays between 60 and 110, without entering its keep-out zone.',
+      intro: 'You are falling toward Luna and will plunge into its radiation belt in under 20 seconds: no ship may come inside the red keep-out zone. Act now. Burn early to swing your closest pass out past the zone (braking and pushing sideways at once works well), then burn retrograde at closest approach to get captured. Press V to view your path relative to Luna.',
+      objective: 'Get captured into an orbit around Luna that stays between 50 and 80, without entering its keep-out zone.',
       teaches: 'Capture outside a keep-out zone',
       bodies: [
         { id: 'terra', name: 'Terra', gm: 20000, radius: 50, color: C.blue },
-        { id: 'luna', name: 'Luna', gm: 1500, radius: 18, color: C.grey, keepOut: 50, orbit: { parent: 'terra', a: 400, phase: 0 } },
+        { id: 'luna', name: 'Luna', gm: 1500, radius: 18, color: C.grey, keepOut: 40, orbit: { parent: 'terra', a: 400, phase: 0 } },
       ],
-      ship: ship({ start: { conic: { body: 'luna', pe: 20, e: 1.105, nu: -2.28, angle: 4.0 } }, heading: 'prograde', dv: 7.2, accel: 1 }),
-      goals: [{ type: 'orbit', body: 'luna', rMin: 60, rMax: 110 }],
-      par: 5, bounds: 2500, tMax: 400, predict: 160, view: { x: 400, y: 0, span: 600 },
+      ship: ship({ start: { conic: { body: 'luna', pe: 20, e: 1.105, nu: -2.28, angle: 4.0 } }, heading: 'prograde', dv: 5.6, accel: 1 }),
+      goals: [{ type: 'orbit', body: 'luna', rMin: 50, rMax: 80 }],
+      par: 3.8, bounds: 2500, tMax: 400, predict: 160, view: { x: 400, y: 0, span: 600 },
     },
     {
       id: 'crowdedtrojans',
@@ -169,11 +169,14 @@ module.exports = {
     },
     hotmoon: {
       // Push the closest pass out past the belt early, then capture at closest approach.
-      p: [-2.034, 2.012, 5.823], scale: [0.3, 0.4, 5],
+      // then round the orbit off at its high point so Terra's pull can't drag it into the zone.
+      p: [-1.923, 0.971, 91.498, 51.661], scale: [0.3, 0.4, 5, 5],
       script: (p, AP) => [
         { burn: p[0], rel: 'luna', max: p[1] },
         { coast: (m) => AP.orb(m, 'luna').rising },
-        { burn: 'retro', rel: 'luna', until: (m) => { const o = AP.orb(m, 'luna'); return o.bound && o.ap <= 100 + p[2]; } },
+        { burn: 'retro', rel: 'luna', until: (m) => { const o = AP.orb(m, 'luna'); return o.bound && o.ap <= p[2]; } },
+        { coast: (m) => !AP.orb(m, 'luna').rising },
+        { burn: 'pro', rel: 'luna', until: (m) => AP.orb(m, 'luna').pe >= p[3] },
       ],
     },
     crowdedtrojans: {
@@ -233,15 +236,15 @@ module.exports = {
       name: 'capture at closest approach only',
       steps: (AP) => [
         { coast: (m) => AP.orb(m, 'luna').rising },
-        { burn: 'retro', rel: 'luna', until: (m) => { const o = AP.orb(m, 'luna'); return o.bound && o.ap <= 100; } },
+        { burn: 'retro', rel: 'luna', until: (m) => { const o = AP.orb(m, 'luna'); return o.bound && o.ap <= 75; } },
       ],
     }, {
-      name: 'dawdle 15 s, then fix it',
+      name: 'dawdle 16 s, then fix it',
       steps: (AP) => [
-        { wait: 15 },
-        { burn: -2.0, rel: 'luna', max: 5 },
+        { wait: 16 },
+        { burn: -2.1, rel: 'luna', max: 4 },
         { coast: (m) => AP.orb(m, 'luna').rising },
-        { burn: 'retro', rel: 'luna', until: (m) => { const o = AP.orb(m, 'luna'); return o.bound && o.ap <= 100; } },
+        { burn: 'retro', rel: 'luna', until: (m) => { const o = AP.orb(m, 'luna'); return o.bound && o.ap <= 75; } },
       ],
     }],
     crowdedtrojans: [{

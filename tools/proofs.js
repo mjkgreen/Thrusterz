@@ -101,7 +101,7 @@ module.exports = {
   },
 
   twinprobes: {
-    p: [13.029, 257.144, 0.333, 458.463, -43.355, -0.089, -0.805], scale: [10, 8, 20, 10, 30, 2, 1.5],
+    p: [11.682, 258.762, -1.86, 455.075, -24.074, -1.262, -0.152, 100, 170], scale: [10, 8, 20, 10, 30, 2, 1.5, 10, 15],
     script: (p, AP) => [
       { wait: p[0] },
       { burn: 'pro', until: (m) => AP.orb(m, 'terra').ap >= p[1] },
@@ -111,13 +111,14 @@ module.exports = {
       { wait: p[4] },
       { drop: true },
       { burn: p[6], max: Math.max(0, p[5]) },
-      // Then settle the carrier into a safe orbit of its own.
+      // Then settle the carrier into a safe orbit of its own, below Io's, so
+      // neither moon can pull it off.
       { wait: 30 },
       { coast: (m) => !AP.orb(m, 'terra').rising },
-      { burn: 'pro', until: (m) => AP.orb(m, 'terra').pe >= 120 },
+      { burn: 'retro', until: (m) => AP.orb(m, 'terra').pe <= p[7] },
       { wait: 10 },
       { coast: (m) => AP.orb(m, 'terra').rising },
-      { burn: 'retro', until: (m) => AP.orb(m, 'terra').ap <= 550 },
+      { burn: 'retro', until: (m) => AP.orb(m, 'terra').ap <= p[8] },
     ],
   },
 
@@ -290,19 +291,15 @@ module.exports = {
   },
 
   voyager: {
-    // Climbing straight into Goliath: a short burn early moves the meeting
-    // so you pass close behind it instead, then spend the rest low and fast.
-    p: [2, 2, 1, 60, 2000], scale: [2, 0.3, 0.3, 30, 600],
+    p: [7.026, 215.647], scale: [6, 15],
     script: (p, AP) => [
-      { wait: Math.max(0, p[0]) },
-      { burn: p[1], rel: 'terra', max: Math.max(0, p[2]) },
-      { wait: Math.max(0, p[3]) },
-      { burn: 'pro', rel: 'terra', stage: true, until: (m) => AP.orb(m, 'terra').ap >= p[4] },
+      { wait: p[0] },
+      { burn: 'pro', rel: 'terra', stage: true, until: (m) => AP.orb(m, 'terra').ap >= p[1] },
     ],
   },
 
   moonnet: {
-    p: [2.659, 291.35, 60.49, 20.42, 522.83, 86.08], scale: [3, 8, 8, 30, 15, 10],
+    p: [2.883, 294.169, 58.19, 48.786, 524.806, 94.761], scale: [3, 8, 4, 30, 15, 10],
     script: (p, AP) => [
       { wait: p[0] },
       { burn: 'pro', rel: 'terra', until: (m) => AP.orb(m, 'terra').ap >= p[1] },
@@ -320,17 +317,20 @@ module.exports = {
   },
 
   beltsurvey: {
-    p: [28.617, 688.006, 1.744, 852.925, 6.74, 1060.627], scale: [20, 15, 30, 15, 40, 40],
+    // Already on the way out through the belt: nudge onto Ceres, drop,
+    // nudge off it onto Pallas, drop, nudge off that, and coast on out.
+    p: [-2.415, 1.67, 0.231, -1.509, -1.098, 0.294, -3.73, 2.022, 0.003], scale: [1, 0.3, 0.1, 2, 0.3, 0.1, 2, 0.5, 0.2],
     script: (p, AP) => [
-      { wait: p[0] },
-      { burn: 'pro', until: (m) => AP.orb(m, 'sun').ap >= p[1] },
-      { wait: p[2] },
+      { wait: Math.max(0, p[0]) },
+      { burn: p[1], rel: 'sun', max: Math.max(0, p[2]) },
+      { wait: Math.max(0, p[3]) },
       { drop: true },
-      { burn: 'pro', until: (m) => AP.orb(m, 'sun').ap >= p[3] },
-      { wait: p[4] },
+      { wait: 1 },
+      { burn: p[4], rel: 'sun', max: Math.max(0, p[5]) },
+      { wait: Math.max(0, p[6]) },
       { drop: true },
-      { wait: 2 },
-      { burn: 'pro', until: (m) => AP.orb(m, 'sun').ap >= p[5] },
+      { wait: 1 },
+      { burn: p[7], rel: 'sun', max: Math.max(0, p[8]) },
     ],
   },
 

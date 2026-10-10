@@ -10,6 +10,7 @@
   // everything (keepOut with zone: 'all'; plain keep-out zones bar only the ship).
   const guardRadius = (b) => (b.protect ? b.protectRadius || b.radius : b.keepOut);
 
+  const BUMP = 3;                // how close a spent stage may come to your ship or cargo
   const FIXED_DT = 1 / 120;      // step size while engines fire
   const MAX_COAST_DT = 0.25;     // largest coast step
 
@@ -388,6 +389,22 @@
         // Protected objects (e.g. a crewed station) must never be hit by
         // debris, and zones closed to everything must never be entered.
         if (!d.alive) continue;
+        // Nor may a spent stage run into your own ship or the cargo you
+        // dropped. Each pair is armed once the two have first drawn apart, so
+        // the moment of separation doesn't count.
+        for (const o of [s].concat(this.crafts)) {
+          if (o !== s && !o.alive) continue;
+          const key = o === s ? '@ship' : o.id, dd = (d.x - o.x) ** 2 + (d.y - o.y) ** 2;
+          d.armed = d.armed || {};
+          if (!d.armed[key]) { if (dd > (2 * BUMP) ** 2) d.armed[key] = true; continue; }
+          if (dd < BUMP * BUMP) {
+            d.alive = false; d.crashT = this.t + h;
+            this.status = 'crashed';
+            this.message = 'Your spent stage ran into ' + (o === s ? 'your ship' : o.name) + '.';
+            break;
+          }
+        }
+        if (!d.alive) continue;
         const b = this._guardHit(d, this.t + h);
         if (b) {
           d.alive = false; d.crashT = this.t + h;
@@ -491,7 +508,13 @@
           this.goalErr = orb.bound ? Math.max(0, g.rMin - orb.pe) + Math.max(0, orb.ap - g.rMax) + (dirOk ? 0 : 200) : 300;
           if (orb.bound && orb.pe >= g.rMin && orb.ap <= g.rMax && dirOk && (o !== s || !this.thrusting)) {
             this.holdTime += h;
-            if (this.holdTime >= (g.confirm || 3)) this._completeGoal();
+            if (this.holdTime >= (g.confirm || 3)) {
+              // Low and high point fit, but would it really go round? Moons,
+              // rocks and zones can still end the orbit: fly it once ahead.
+              const why = this.orbitBreaks(g, o);
+              if (!why) this._completeGoal();
+              else { this.holdTime = 0; this.orbitWarn = why; this.orbitWarnT = this.t; this.goalErr = Math.max(this.goalErr, 25); }
+            }
           } else this.holdTime = 0;
         } else if (g.type === 'rendezvous') {
           const dv = DM.hypot(o.vx - ref.vx, o.vy - ref.vy);
@@ -502,6 +525,35 @@
       if (this.status !== 'flying') return;
       if (DM.hypot(s.x, s.y) > L.bounds) { this.status = 'lost'; this.message = 'Lost in deep space.'; }
       else if (this.t > L.tMax) { this.status = 'timeout'; this.message = 'Mission clock ran out.'; }
+    }
+
+    // Fly an orbit-goal candidate ahead for one lap (engine off). Returns why
+    // it fails (hits something, enters a keep-out zone, or other bodies pull
+    // it right away) or null if it holds. Small wobbles from a moon's or
+    // planet's pull are fine; only real failures count.
+    orbitBreaks(g, o) {
+      const sys = this.sys, ref = this.goalPoint(g), gm = sys.byId[g.body].gm;
+      const ship = o === this.ship, bi = sys.byId[g.body].index;
+      const orb = this.orbitAbout(ref, g.body, o);
+      const a = (orb.pe + orb.ap) / 2, period = 2 * Math.PI * Math.sqrt(a * a * a / gm);
+      const c = { x: o.x, y: o.y, vx: o.vx, vy: o.vy };
+      const hi = g.rMax * 2, tEnd = this.t + Math.min(period, 4000);
+      let t = this.t, why = null;
+      for (let step = 0; step < 20000 && t < tEnd && !why; step++) {
+        const dt = Math.min(Phys.coastDt(sys, c, t, 0.002, 2), tEnd - t);
+        Phys.rk4(sys, c, t, dt, 0, 0);
+        t += dt;
+        const hit = Phys.collision(sys, c.x, c.y, t);
+        if (hit >= 0) { why = 'it would hit ' + sys.bodies[hit].name; break; }
+        for (const b of sys.bodies) {
+          if (!b.keepOut || (!ship && b.zone !== 'all') || (!ship && g.craft && this.level.goals.some(q => q.craft === o.id && q.body === b.id))) continue;
+          if ((c.x - sys.px[b.index]) ** 2 + (c.y - sys.py[b.index]) ** 2 < b.keepOut * b.keepOut) { why = 'it would enter ' + b.name + '\'s keep-out zone'; break; }
+        }
+        const r = DM.hypot(c.x - sys.px[bi], c.y - sys.py[bi]);
+        if (!why && r > hi) why = 'other bodies would pull it away';
+      }
+      sys.update(this.t);
+      return why;
     }
 
     // Constellation: every listed craft in an orbit inside the band, spaced

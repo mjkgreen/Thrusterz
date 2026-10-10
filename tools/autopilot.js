@@ -217,7 +217,10 @@ function fly(level, steps, opts) {
     ctx.best = Math.min(ctx.best, goalCost(m));
   }
   const won = m.status === 'won';
-  const cost = won ? m.dvUsed() : 1000 * (level.goals.length - m.goalIndex - m.done.size) + Math.min(ctx.best, 900) + m.dvUsed() * 0.1;
+  // A run that finished every goal but still lost (e.g. a doomed spent stage)
+  // must never look as good as a win.
+  const left = level.goals.length - m.goalIndex - m.done.size;
+  const cost = won ? m.dvUsed() : 1000 * Math.max(0.5, left) + Math.min(ctx.best, 900) + m.dvUsed() * 0.1;
   return { m, won, cost, dv: m.dvUsed(), rcs: m.rcsFuel0 - m.rcsFuel, status: m.status, message: m.message };
 }
 

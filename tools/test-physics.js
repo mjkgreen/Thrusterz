@@ -360,6 +360,40 @@ for (const L of LEVELS) {
   check('a tap right after stopping a spin still turns the ship', tap.ship.omega < 0, String(tap.ship.omega));
 }
 
+// 17. An orbit only counts if it really goes round: low and high point in
+//     the band isn't enough when something sits on the path.
+{
+  const { ship: mkShip } = require('../js/levels.js');
+  const L = {
+    id: 'x-orbit', bodies: [{ id: 'terra', name: 'Terra', gm: 20000, radius: 50 }, { id: 'rock', name: 'Rock', kind: 'rock', gm: 0, radius: 8, x: -150, y: 0 }],
+    ship: mkShip({ start: { orbit: { body: 'terra', r: 150, angle: 0 } }, dv: 1, accel: 1 }),
+    goals: [{ type: 'orbit', body: 'terra', rMin: 100, rMax: 250 }], par: 1, bounds: 3000, tMax: 200,
+  };
+  const m = new Mission(L);
+  while (m.status === 'flying' && m.t < 200) m.advance(0.25, { thrust: false, throttle: 1, rotate: 0 });
+  check('an orbit that would hit a rock does not count', m.status === 'crashed' && /hit Rock/.test(m.orbitWarn || ''), m.status + ' ' + m.orbitWarn);
+  L.bodies.pop();
+  const ok = new Mission(L);
+  while (ok.status === 'flying' && ok.t < 200) ok.advance(0.25, { thrust: false, throttle: 1, rotate: 0 });
+  check('a clear orbit still counts', ok.status === 'won', ok.status);
+}
+
+// 18. A spent stage may not run into your own ship (or cargo) once they've separated.
+{
+  const { ship: mkShip } = require('../js/levels.js');
+  const L = {
+    id: 'x-bump', zeroG: true, bodies: [{ id: 'depot', name: 'Depot', gm: 1e-6, radius: 1, x: 5000, y: 0 }],
+    ship: mkShip({ start: { free: { x: 0, y: 0 } }, heading: 0, dv: 3, accel: 1, payload: { dv: 2, accel: 1 } }),
+    goals: [{ type: 'reach', x: 1e5, y: 0, r: 1 }], par: 1, bounds: 1e5, tMax: 500,
+  };
+  const m = new Mission(L);
+  m.deploy();
+  for (let i = 0; i < 40 * 120; i++) m.advance(1 / 120, { thrust: false, throttle: 1, rotate: 0 }); // drift 16 apart
+  m.ship.angle = Math.PI; // turn round and fly back into the stage
+  for (let i = 0; i < 60 * 120 && m.status === 'flying'; i++) m.advance(1 / 120, { thrust: i < 120, throttle: 1, rotate: 0 });
+  check('a spent stage running into your ship ends the mission', /ran into your ship/.test(m.message), m.status + ' ' + m.message);
+}
+
 // 16. Zones closed to everything: cargo and spent stages may not enter.
 {
   const L = JSON.parse(JSON.stringify(LEVELS.find(l => l.id === 'supplyrun')));

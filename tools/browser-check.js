@@ -125,6 +125,22 @@ const check = (name, ok, info) => { console.log((ok ? 'ok   ' : 'FAIL ') + name 
     await ctx.close();
   }
 
+  // 3a. First launch: a new pilot is asked for a name and gets a restore code.
+  {
+    const p = await browser.newPage({ viewport: { width: 1000, height: 600 } });
+    watch(p);
+    await p.goto(URL + '?welcome');
+    await p.waitForTimeout(600);
+    const shown = await p.isVisible('#welcome');
+    await p.fill('#wl-name', 'Test Pilot'); await p.click('#btn-wl-save');
+    await p.waitForSelector('#wl-done:not(.hidden)', { timeout: 5000 }).catch(() => {});
+    const code = await p.textContent('#wl-code');
+    await p.click('#btn-wl-go'); await p.waitForTimeout(200);
+    check('first launch asks for a name and hands out a restore code', shown && /^[A-Z2-9]{4}-[A-Z2-9]{4}-[A-Z2-9]{4}$/.test(code) && await p.isVisible('#menu'), code);
+    await p.close();
+    errors.length = 0;
+  }
+
   // 3b. The bundled app page (mobile/assets/game/game.html) talking to a fake
   //     native shell: saved data handed in at launch, saves sent back, Sign in
   //     with Apple answered, haptics, no fullscreen prompt on a phone.

@@ -689,7 +689,7 @@
     {
       id: 'twinprobes',
       name: 'Twin Probes',
-      intro: 'Two probes, two moons. Each probe only follows the path you are on when you drop it, so line up a path to one moon, drop a probe, then change course for the other and drop the second. They can land in either order. Don\'t follow them in: the carrier has to end up in a safe orbit of its own.',
+      intro: 'Two probes, two moons. Each probe only follows the path you are on when you drop it, so line up a path to one moon, drop a probe, then change course for the other and drop the second. They can land in either order. Don\'t follow them in: the carrier has to end up in a safe orbit of its own, and an orbit that crosses a moon\'s path will not stay safe. Inside Io\'s orbit is clear.',
       objective: 'Land probe A on Io and probe B on Rhea, then put the carrier in an orbit between 80 and 600.',
       teaches: 'Two drops, two targets',
       bodies: [
@@ -697,13 +697,13 @@
         { id: 'io', name: 'Io', gm: 600, radius: 15, color: '#e8d16a', orbit: { parent: 'terra', a: 260, phase: 1.4 } },
         { id: 'rhea', name: 'Rhea', gm: 800, radius: 16, color: C.purple, orbit: { parent: 'terra', a: 460, phase: 2.6 } },
       ],
-      ship: ship({ start: { orbit: { body: 'terra', r: 110, angle: 0 } }, heading: 'prograde', dv: 7, accel: 1, cargo: [{ id: 'a', name: 'Probe A', mass: 0.25 }, { id: 'b', name: 'Probe B', mass: 0.25 }] }),
+      ship: ship({ start: { orbit: { body: 'terra', r: 110, angle: 0 } }, heading: 'prograde', dv: 9.5, accel: 1, cargo: [{ id: 'a', name: 'Probe A', mass: 0.25 }, { id: 'b', name: 'Probe B', mass: 0.25 }] }),
       goals: [
         { type: 'hit', body: 'io', craft: 'a' },
         { type: 'hit', body: 'rhea', craft: 'b' },
         { type: 'orbit', body: 'terra', rMin: 80, rMax: 600 },
       ],
-      par: 4.8, bounds: 2500, tMax: 1500, predict: 200, view: { x: 0, y: 0, span: 1100 },
+      par: 6.4, bounds: 2500, tMax: 1500, predict: 200, view: { x: 0, y: 0, span: 1100 },
     },
     {
       id: 'satnet',
@@ -985,9 +985,9 @@
       teaches: 'Gravity assist with a stack',
       bodies: [
         { id: 'terra', name: 'Terra', gm: 20000, radius: 50, color: C.blue },
-        { id: 'goliath', name: 'Goliath', gm: 5000, radius: 26, color: C.tan, orbit: { parent: 'terra', a: 350, phase: 1.25 } },
+        { id: 'goliath', name: 'Goliath', gm: 5000, radius: 26, color: C.tan, orbit: { parent: 'terra', a: 350, phase: 2.0 } },
       ],
-      ship: ship({ start: { conic: { body: 'terra', pe: 90, e: 0.6, nu: 0.8, angle: 0 } }, heading: 'prograde', stack: [
+      ship: ship({ start: { orbit: { body: 'terra', r: 90, angle: 0 } }, heading: 'prograde', stack: [
         { name: 'Transfer stage', dv: 3, accel: 1 },
         { name: 'Probe', dv: 1.5, accel: 0.4, dry: 0.3 },
       ] }),
@@ -1013,21 +1013,21 @@
         { type: 'orbit', body: 'selene', craft: 'rb', rMin: 25, rMax: 100 },
         { type: 'hit', body: 'selene', deorbit: true },
       ],
-      par: 10.8, bounds: 2500, tMax: 3000, predict: 260, view: { x: 0, y: 0, span: 1300 },
+      par: 8.9, bounds: 2500, tMax: 3000, predict: 260, view: { x: 0, y: 0, span: 1300 },
     },
     {
       id: 'beltsurvey',
       name: 'Belt Survey',
-      intro: 'Two asteroids worth a closer look: Ceres in the inner belt and Pallas in the outer. Probes have no engines and asteroids have almost no gravity, so each drop has to be dead on. Climb through the belt, drop one probe on a path that meets each target, and stay clear of the rocks yourself: the carrier flies on beyond the belt to Halcyon\'s orbit.',
+      intro: 'You are swinging past Sol fast enough to leave it for good, and your path crosses the belt only once: Ceres in about 30 seconds, Pallas some 15 seconds after. Two asteroids worth a closer look, and you get one pass at each. Probes have no engines and asteroids have almost no gravity, so each drop has to be dead on. Your path already runs close to both: nudge it sideways until it ends on Ceres, drop probe A, then nudge it onto Pallas and drop probe B. Nudge yourself clear each time, and the carrier sails on out of the system.',
       objective: 'Crash probe A into Ceres and probe B into Pallas, then fly the carrier out past 1000 from Sol.',
       teaches: 'Precision drops on small targets',
       bodies: [
         { id: 'sun', name: 'Sol', gm: 200000, radius: 60, color: C.sun },
-        { id: 'ceres', name: 'Ceres', kind: 'rock', noRail: false, gm: 0, radius: 20, color: '#b9ad98', orbit: { parent: 'sun', a: 650, phase: 1.0 } },
-        { id: 'pallas', name: 'Pallas', kind: 'rock', noRail: false, gm: 0, radius: 20, color: '#a7b4c4', orbit: { parent: 'sun', a: 860, phase: 2.0 } },
+        { id: 'ceres', name: 'Ceres', kind: 'rock', noRail: false, gm: 0, radius: 20, color: '#b9ad98', orbit: { parent: 'sun', a: 650, phase: 0.344 } },
+        { id: 'pallas', name: 'Pallas', kind: 'rock', noRail: false, gm: 0, radius: 20, color: '#a7b4c4', orbit: { parent: 'sun', a: 860, phase: 0.653 } },
         ...belt('sun', 30, 690, 820, 977),
       ],
-      ship: ship({ start: { orbit: { body: 'sun', r: 450, angle: 0 } }, heading: 'prograde', dv: 7, accel: 1.2, cargo: [
+      ship: ship({ start: { conic: { body: 'sun', pe: 450, e: 1.0, nu: -0.6, angle: 0 } }, heading: 'prograde', dv: 1.5, accel: 1.2, cargo: [
         { id: 'pa', name: 'Probe A', mass: 0.2 }, { id: 'pb', name: 'Probe B', mass: 0.2 },
       ] }),
       goals: [
@@ -1035,7 +1035,7 @@
         { type: 'hit', body: 'pallas', craft: 'pb' },
         { type: 'escape', body: 'sun', r: 1000, label: 'Beyond the belt' },
       ],
-      par: 4.6, bounds: 4000, tMax: 3000, predict: 400, view: { x: 0, y: 0, span: 2200 },
+      par: 0.9, bounds: 4000, tMax: 900, predict: 400, view: { x: 0, y: 0, span: 2200 },
     },
     {
       id: 'granddeploy',
@@ -1244,7 +1244,7 @@
     {
       "id": "supplyrun",
       "name": "Supply Run",
-      "intro": "Haven Station needs supplies, but no ship may come inside its red keep-out zone. Get on a path that meets the station, drop the pod (E) before you reach the zone so it drifts in on its own, then turn away and settle back into a lower orbit.",
+      "intro": "You are already coasting up to Haven Station, on a path that carries you into its red keep-out zone in about half a minute. The pod is on the right path, you are not: drop it (E) soon so it drifts in on its own, then brake away before the zone and settle into a lower orbit. The later you drop, the harder you have to brake.",
       "objective": "Deliver the pod to Haven Station without entering the keep-out zone, then orbit Terra between 100 and 250.",
       "teaches": "Dropping cargo into a keep-out zone",
       "bodies": [
@@ -1266,15 +1266,17 @@
           "orbit": {
             "parent": "terra",
             "a": 300,
-            "phase": 1.2
+            "phase": 1.47
           }
         }
       ],
       "ship": {
         "start": {
-          "orbit": {
+          "conic": {
             "body": "terra",
-            "r": 150,
+            "pe": 150,
+            "e": 0.33,
+            "nu": 1,
             "angle": 0
           }
         },
@@ -1282,8 +1284,8 @@
         "stages": [
           {
             "dryMass": 1,
-            "fuel": 0.6393721069336514,
-            "thrust": 1.9393721069336516,
+            "fuel": 0.13672219349834203,
+            "thrust": 1.436722193498342,
             "ve": 10
           }
         ],
@@ -1316,9 +1318,9 @@
           "rMax": 250
         }
       ],
-      "par": 2.5,
+      "par": 0.6,
       "bounds": 2000,
-      "tMax": 1200,
+      "tMax": 600,
       "predict": 200,
       "view": {
         "x": 0,
@@ -1401,8 +1403,8 @@
     {
       "id": "hotmoon",
       "name": "Hot Moon",
-      "intro": "Luna is wrapped in a radiation belt: no ship may come inside its red keep-out zone. Aim your transfer so you pass Luna just outside the zone, not straight at it, then burn retrograde at closest approach to get captured. Press V to view your path relative to Luna.",
-      "objective": "Get captured into an orbit around Luna that stays between 60 and 110, without entering its keep-out zone.",
+      "intro": "You are falling toward Luna and will plunge into its radiation belt in under 20 seconds: no ship may come inside the red keep-out zone. Act now. Burn early to swing your closest pass out past the zone (braking and pushing sideways at once works well), then burn retrograde at closest approach to get captured. Press V to view your path relative to Luna.",
+      "objective": "Get captured into an orbit around Luna that stays between 50 and 80, without entering its keep-out zone.",
       "teaches": "Capture outside a keep-out zone",
       "bodies": [
         {
@@ -1418,28 +1420,30 @@
           "gm": 1500,
           "radius": 18,
           "color": "#b8bcc6",
-          "keepOut": 50,
+          "keepOut": 40,
           "orbit": {
             "parent": "terra",
             "a": 400,
-            "phase": 2.6
+            "phase": 0
           }
         }
       ],
       "ship": {
         "start": {
-          "orbit": {
-            "body": "terra",
-            "r": 90,
-            "angle": 0
+          "conic": {
+            "body": "luna",
+            "pe": 20,
+            "e": 1.105,
+            "nu": -2.28,
+            "angle": 4
           }
         },
         "heading": "prograde",
         "stages": [
           {
             "dryMass": 1,
-            "fuel": 1.7182818284590455,
-            "thrust": 2.7182818284590455,
+            "fuel": 0.750672500296101,
+            "thrust": 1.750672500296101,
             "ve": 10
           }
         ],
@@ -1455,18 +1459,18 @@
         {
           "type": "orbit",
           "body": "luna",
-          "rMin": 60,
-          "rMax": 110
+          "rMin": 50,
+          "rMax": 80
         }
       ],
-      "par": 6.6,
+      "par": 3.8,
       "bounds": 2500,
-      "tMax": 1200,
+      "tMax": 400,
       "predict": 160,
       "view": {
-        "x": 0,
+        "x": 400,
         "y": 0,
-        "span": 1000
+        "span": 600
       }
     },
     {
@@ -1859,8 +1863,8 @@
     {
       "id": "debriscloud",
       "name": "Debris Cloud",
-      "intro": "A ring of debris clouds drifts around Terra, between you and Luna, and no ship may enter one. Your usual Moon Shot window sends you straight through a cloud. Watch where the dashed path turns red: wait for a later window, or burn a little harder or later so you cross the ring in a gap.",
-      "objective": "Impact Luna without entering any debris cloud.",
+      "intro": "Your stretched orbit is about to carry you up into a ring of drifting debris clouds, and no ship may enter one: coast to your high point and you are in one. Use the low point coming up to go for Luna, and pick the moment and the push so your climb crosses the ring in a gap. Watch where the dashed path turns red: a full Moon Shot burn right away runs straight into a cloud.",
+      "objective": "Impact Luna before your orbit carries you into a debris cloud.",
       "teaches": "Timing a transfer through a gap",
       "bodies": [
         {
@@ -1873,13 +1877,13 @@
         {
           "id": "luna",
           "name": "Luna",
-          "gm": 1500,
+          "gm": 500,
           "radius": 18,
           "color": "#b8bcc6",
           "orbit": {
             "parent": "terra",
             "a": 400,
-            "phase": 2.4
+            "phase": 2
           }
         },
         {
@@ -2005,9 +2009,11 @@
       ],
       "ship": {
         "start": {
-          "orbit": {
+          "conic": {
             "body": "terra",
-            "r": 120,
+            "pe": 120,
+            "e": 0.31,
+            "nu": -1,
             "angle": 0
           }
         },
@@ -2015,8 +2021,8 @@
         "stages": [
           {
             "dryMass": 1,
-            "fuel": 0.6487212707001282,
-            "thrust": 1.6487212707001282,
+            "fuel": 0.22140275816016985,
+            "thrust": 1.2214027581601699,
             "ve": 10
           }
         ],
@@ -2034,9 +2040,9 @@
           "body": "luna"
         }
       ],
-      "par": 3.1,
+      "par": 1.6,
       "bounds": 2500,
-      "tMax": 1000,
+      "tMax": 400,
       "predict": 220,
       "view": {
         "x": 0,
@@ -2258,8 +2264,8 @@
     {
       "id": "moonmaze",
       "name": "Moon Maze",
-      "intro": "Goliath's inner moons each carry a keep-out zone: three on one ring, two on the next, all moving at different speeds. Titan, far out, is open. Most Titan windows run into a zone somewhere on the way out. Keep checking the dashed path window after window until it threads both rings.",
-      "objective": "Impact Titan without entering any keep-out zone.",
+      "intro": "Your low, stretched orbit around Goliath swings up into the moons, and a keep-out zone will catch you within two laps. Three zoned moons share the inner ring and two more the next, all moving at different speeds, and Titan far out is open. Leave for Titan as you swing past this low point: watch the dashed path and time the burn so the climb threads both rings. Burn too early or too late and a moon is in the way.",
+      "objective": "Get out through the moons and impact Titan without entering any keep-out zone.",
       "teaches": "Threading several moving zones",
       "bodies": [
         {
@@ -2349,18 +2355,20 @@
       ],
       "ship": {
         "start": {
-          "orbit": {
+          "conic": {
             "body": "goliath",
-            "r": 90,
-            "angle": 0
+            "pe": 90,
+            "e": 0.32,
+            "nu": -1,
+            "angle": 0.6
           }
         },
         "heading": "prograde",
         "stages": [
           {
             "dryMass": 1,
-            "fuel": 1.4596031111569499,
-            "thrust": 2.45960311115695,
+            "fuel": 0.9155408290138962,
+            "thrust": 1.9155408290138962,
             "ve": 10
           }
         ],
@@ -2378,9 +2386,9 @@
           "body": "titan"
         }
       ],
-      "par": 6,
+      "par": 4.2,
       "bounds": 3000,
-      "tMax": 800,
+      "tMax": 450,
       "predict": 250,
       "view": {
         "x": 0,
@@ -2391,9 +2399,9 @@
     {
       "id": "closequarters",
       "name": "Close Quarters",
-      "intro": "The depot shares its orbit with two guard satellites just ahead of it and just behind it, and their keep-out zones close the usual approach along the orbit. Come straight up from below instead: time your climb so you arrive just under the depot as it passes, then burn to match its speed.",
-      "objective": "Rendezvous with the depot (within 12, relative speed under 0.3) without entering either guard's keep-out zone.",
-      "teaches": "Rendezvous from below",
+      "intro": "Your orbit tops out in under a minute right behind the depot, inside the keep-out zone of the guard that trails it. A second guard flies just ahead, so the depot is boxed in along its orbit. Retime your orbit now, with a short burn at the low point, so a later high point comes up right under the depot, then burn to match its speed there.",
+      "objective": "Get out of the trailing guard's way, then rendezvous with the depot (within 12, relative speed under 0.3) without entering either keep-out zone.",
+      "teaches": "Retiming an orbit · rendezvous from below",
       "bodies": [
         {
           "id": "terra",
@@ -2446,10 +2454,12 @@
       ],
       "ship": {
         "start": {
-          "orbit": {
+          "conic": {
             "body": "terra",
-            "r": 150,
-            "angle": 0
+            "pe": 150,
+            "e": 0.24,
+            "nu": -1.2,
+            "angle": 0.85
           }
         },
         "heading": "prograde",
@@ -2549,9 +2559,9 @@
     {
       "id": "oneflip",
       "name": "One Flip",
-      "intro": "You need to come down to a low orbit, and both burns point backwards. Turn round once, slowly, with a few taps, and make the first burn. Then one gentle tap sets the nose turning with your fall, so it still points backwards at the bottom: no second flip needed. Holding the turn keys empties the side thrusters in a single turn.",
-      "objective": "Orbit Terra between 150 and 200 with 1 s of side-thruster propellant.",
-      "teaches": "Slow flips · turning with the orbit",
+      "intro": "Your orbit dips into Terra and you crash in well under a minute, nose pointing the wrong way. Turn now, at a steady few taps, to point between prograde and straight up, and burn to lift your low point out of Terra. Then just hold still: at the bottom of the fall the retrograde marker swings round to your nose, ready for the burn that rounds off your orbit. Holding the turn keys empties the side thrusters; looking around first is too late.",
+      "objective": "Orbit Terra between 150 and 200 with 1.25 s of side-thruster propellant.",
+      "teaches": "Turn in time · the marker comes to you",
       "bodies": [
         {
           "id": "terra",
@@ -2563,24 +2573,26 @@
       ],
       "ship": {
         "start": {
-          "orbit": {
+          "conic": {
             "body": "terra",
-            "r": 300,
-            "angle": 0
+            "pe": 30,
+            "e": 0.818,
+            "nu": -3.1,
+            "angle": 3.141592653589793
           }
         },
-        "heading": "prograde",
+        "heading": "retrograde",
         "stages": [
           {
             "dryMass": 1,
-            "fuel": 0.37712776433595696,
-            "thrust": 1.377127764335957,
+            "fuel": 1.181472265498201,
+            "thrust": 2.181472265498201,
             "ve": 10
           }
         ],
         "cargo": [],
         "rcs": {
-          "fuel": 1,
+          "fuel": 1.25,
           "accel": 1.2,
           "maxRate": 1.6
         },
@@ -2594,9 +2606,9 @@
           "rMax": 200
         }
       ],
-      "par": 2.1,
+      "par": 5.5,
       "bounds": 2000,
-      "tMax": 600,
+      "tMax": 400,
       "predict": 200,
       "view": {
         "x": 0,
@@ -2677,9 +2689,9 @@
     {
       "id": "stationstop",
       "name": "Station Stop",
-      "intro": "Tycho Station orbits below you. Burn retrograde to fall toward it: you meet it at the bottom of your fall moving faster than it is, so you have to brake there, and braking points backwards too. Your nose stays put while you fall and the markers swing round, so start the turn early and make it slow.",
-      "objective": "Rendezvous with Tycho Station (within 25, relative speed under 0.5) with 1.1 s of side-thruster propellant.",
-      "teaches": "Planning the braking flip",
+      "intro": "You are diving at Tycho Station nose first and will hit it in under half a minute. Turn round now and brake to match its speed as you close in. Turn too slowly, or wait, and you arrive nose first; hold the turn keys and the side thrusters run dry before you can stop.",
+      "objective": "Rendezvous with Tycho Station (within 25, relative speed under 0.5) with 0.9 s of side-thruster propellant.",
+      "teaches": "Braking flip under time pressure",
       "bodies": [
         {
           "id": "terra",
@@ -2698,30 +2710,31 @@
           "orbit": {
             "parent": "terra",
             "a": 130,
-            "phase": -0.5
+            "phase": -3.4
           }
         }
       ],
       "ship": {
         "start": {
-          "orbit": {
+          "conic": {
             "body": "terra",
-            "r": 260,
-            "angle": 0
+            "pe": 128,
+            "e": 0.34,
+            "nu": -2.4
           }
         },
-        "heading": "prograde",
+        "heading": 1.8,
         "stages": [
           {
             "dryMass": 1,
-            "fuel": 0.46228458943422446,
-            "thrust": 1.1698276715473797,
+            "fuel": 0.3498588075760032,
+            "thrust": 1.0798870460608025,
             "ve": 10
           }
         ],
         "cargo": [],
         "rcs": {
-          "fuel": 1.1,
+          "fuel": 0.9,
           "accel": 1.2,
           "maxRate": 1.6
         },
@@ -2735,9 +2748,9 @@
           "relVel": 0.5
         }
       ],
-      "par": 2.5,
+      "par": 2,
       "bounds": 2000,
-      "tMax": 900,
+      "tMax": 400,
       "predict": 160,
       "view": {
         "x": 0,
@@ -2848,9 +2861,9 @@
     {
       "id": "roundtrip",
       "name": "Round Trip",
-      "intro": "Fly out to Luna, get captured, then come home to an orbit round Terra. Every burn points somewhere new: prograde to leave, backwards at Luna, against Luna's motion to fall home, backwards again at Terra. Work out where the nose needs to be next and turn there slowly during the coast before it.",
-      "objective": "Orbit Luna between 30 and 90, then orbit Terra between 120 and 220, with 2.7 s of side-thruster propellant.",
-      "teaches": "Planning every flip",
+      "intro": "You are falling past Luna far too fast to stay, nose pointing at it: turn round at once and burn retrograde at closest approach to be captured. Then come home: leave Luna against its motion round Terra so you fall back, and round off your orbit at the bottom. Turn steadily but not hard, and plan each turn during the coast before it.",
+      "objective": "Get captured into an orbit round Luna between 30 and 90, then orbit Terra between 120 and 220, with 2 s of side-thruster propellant.",
+      "teaches": "Capture in time · planning every flip",
       "bodies": [
         {
           "id": "terra",
@@ -2874,24 +2887,26 @@
       ],
       "ship": {
         "start": {
-          "orbit": {
-            "body": "terra",
-            "r": 90,
+          "conic": {
+            "body": "luna",
+            "pe": 50,
+            "e": 1.3,
+            "nu": -1.4,
             "angle": 0
           }
         },
-        "heading": "prograde",
+        "heading": 1.74,
         "stages": [
           {
             "dryMass": 1,
-            "fuel": 2.3201169227365472,
-            "thrust": 3.3201169227365472,
+            "fuel": 0.49182469764127035,
+            "thrust": 1.4918246976412703,
             "ve": 10
           }
         ],
         "cargo": [],
         "rcs": {
-          "fuel": 2.7,
+          "fuel": 2,
           "accel": 1.2,
           "maxRate": 1.6
         },
@@ -2911,9 +2926,9 @@
           "rMax": 220
         }
       ],
-      "par": 8.3,
+      "par": 2.6,
       "bounds": 2500,
-      "tMax": 1500,
+      "tMax": 1000,
       "predict": 200,
       "view": {
         "x": 0,
@@ -3009,8 +3024,8 @@
     {
       "id": "shieldedmoon",
       "name": "Shielded Moon",
-      "intro": "Science wants a crater on Luna and close-up photos of it, but Luna now has a red keep-out zone for ships. Probes may pass. Aim your whole ship at Luna and drop the probe (E) while the path still ends on Luna, then nudge yourself off the collision course so you sweep past just outside the zone. The earlier you dodge, the smaller the nudge. After the flyby, any orbit around Terra will do.",
-      "objective": "Crash the probe into Luna, then pass within 75 of Luna without entering its zone, and stay in an orbit between 80 and 600 from Terra.",
+      "intro": "You are already on a collision course with Luna, and its red keep-out zone for ships is only minutes away. Probes may pass, so drop the probe (E) now, while your path still ends on Luna, then burn sideways until your own path clears the zone. The longer you wait, the bigger the dodge. Brake into an orbit outside the zone to watch the impact.",
+      "objective": "Crash the probe into Luna, then orbit Luna between 55 and 110 without entering its keep-out zone.",
       "teaches": "Drop, then dodge a zone",
       "bodies": [
         {
@@ -3030,24 +3045,26 @@
           "orbit": {
             "parent": "terra",
             "a": 420,
-            "phase": 2.2
+            "phase": 2.4963
           }
         }
       ],
       "ship": {
         "start": {
-          "orbit": {
+          "conic": {
             "body": "terra",
-            "r": 90,
-            "angle": 0
+            "pe": 90.245,
+            "e": 0.6844,
+            "nu": 1.4634,
+            "angle": 1.226
           }
         },
         "heading": "prograde",
         "stages": [
           {
             "dryMass": 1,
-            "fuel": 1.5638000232577447,
-            "thrust": 2.9638000232577446,
+            "fuel": 0.6066611803844765,
+            "thrust": 2.0066611803844765,
             "ve": 10
           }
         ],
@@ -3072,22 +3089,16 @@
           "craft": "probe"
         },
         {
-          "type": "reach",
-          "body": "luna",
-          "r": 75,
-          "label": "Photo pass"
-        },
-        {
           "type": "orbit",
-          "body": "terra",
-          "rMin": 80,
-          "rMax": 600
+          "body": "luna",
+          "rMin": 55,
+          "rMax": 110
         }
       ],
-      "par": 5.3,
-      "bounds": 3000,
-      "tMax": 1000,
-      "predict": 260,
+      "par": 2.4,
+      "bounds": 2500,
+      "tMax": 600,
+      "predict": 200,
       "view": {
         "x": 0,
         "y": 0,
@@ -3273,7 +3284,7 @@
     {
       "id": "twinzones",
       "name": "Twin Zones",
-      "intro": "Two stations, one probe each, and both amber zones are closed to everything: each lets in only its own probe. Get on a path through Station Alpha, drop Probe A (E) short of its zone, and burn on toward Beta at once: that is also your dodge. Drop Probe B the same way and push a little higher so Beta passes beneath you. Then turn round once and brake down to your working orbit. Side-thruster propellant is short: hold still between burns and turn slowly.",
+      "intro": "You are already coasting up on a path that runs straight into Station Alpha's amber zone, so drop Probe A (E) soon, short of the zone, and burn on toward Beta at once: that burn is also your dodge. Both zones are closed to everything and each lets in only its own probe. Drop Probe B the same way and push a little higher so Beta passes beneath you, then turn round once and brake down to your working orbit. Side-thruster propellant is short: hold still between burns and turn slowly.",
       "objective": "Deliver Probe A to Alpha and Probe B to Beta (each within 12) without any craft entering the wrong zone, then orbit Terra between 100 and 180.",
       "teaches": "Two drops, two closed zones",
       "bodies": [
@@ -3296,7 +3307,7 @@
           "orbit": {
             "parent": "terra",
             "a": 210,
-            "phase": 1.26
+            "phase": 1.9106
           }
         },
         {
@@ -3311,24 +3322,26 @@
           "orbit": {
             "parent": "terra",
             "a": 330,
-            "phase": 2.45
+            "phase": 2.7803
           }
         }
       ],
       "ship": {
         "start": {
-          "orbit": {
+          "conic": {
             "body": "terra",
-            "r": 120,
-            "angle": 0
+            "pe": 120.048,
+            "e": 0.3161,
+            "nu": 0.2256,
+            "angle": 1.3084
           }
         },
         "heading": "prograde",
         "stages": [
           {
             "dryMass": 1,
-            "fuel": 2.378564488973769,
-            "thrust": 3.878564488973769,
+            "fuel": 1.0740102932772877,
+            "thrust": 2.5740102932772877,
             "ve": 10
           }
         ],
@@ -3345,7 +3358,7 @@
           }
         ],
         "rcs": {
-          "fuel": 6.5,
+          "fuel": 5,
           "accel": 1.2,
           "maxRate": 1.6
         },
@@ -3373,9 +3386,9 @@
           "rMax": 180
         }
       ],
-      "par": 6.2,
+      "par": 3.6,
       "bounds": 2500,
-      "tMax": 1000,
+      "tMax": 600,
       "predict": 200,
       "view": {
         "x": 0,
@@ -3386,9 +3399,9 @@
     {
       "id": "crossingtraffic",
       "name": "Crossing Traffic",
-      "intro": "Two guard satellites patrol a long, stretched orbit, and their amber zones are closed to everything. Their lane sweeps from 85 to 405, so any spent stage left in orbit here crosses it sooner or later. The booster has to come down. At the top of your climb, burn it retrograde until its path falls into Terra, then flip once, deploy, and let the satellite round off the orbit. Side-thruster propellant is short: your nose already points the right way at the top, if you leave it alone.",
+      "intro": "Your stack is coasting up on a suborbital arc: at the top it starts falling back to Terra, so you have one pass at the top to make orbit. Two guard satellites patrol a long, stretched lane from 85 to 405, and their amber zones are closed to everything, so any spent stage left in orbit here crosses it sooner or later. Let the booster fall back: deploy it now, while its path still ends on Terra, and round off the orbit on the satellite alone. Turn round before the top, not at it. Side-thruster propellant is short, and your nose ends up facing backwards at the top if you leave it alone.",
       "objective": "Put the satellite in an orbit between 300 and 360, with the booster brought down and no craft entering a guard's zone.",
-      "teaches": "Planned flips · deorbiting a booster",
+      "teaches": "Planned flips · let the booster fall",
       "bodies": [
         {
           "id": "terra",
@@ -3434,11 +3447,12 @@
       ],
       "ship": {
         "start": {
-          "orbit": {
+          "conic": {
             "body": "terra",
-            "r": 62,
-            "angle": 0,
-            "speed": 1.2976
+            "pe": 40,
+            "e": 0.7838,
+            "nu": 1.838,
+            "angle": -1.838
           }
         },
         "heading": "prograde",
@@ -3448,22 +3462,22 @@
             "name": "Booster",
             "sprite": "booster",
             "dryMass": 1,
-            "fuel": 0.32049098898494144,
-            "thrust": 1.414430718621858,
+            "fuel": 0.2459841496092074,
+            "thrust": 1.412768043975541,
             "ve": 10
           },
           {
             "name": "Satellite",
             "sprite": "satellite",
             "dryMass": 0.3,
-            "fuel": 0.1475474092923811,
-            "thrust": 0.26852844557542865,
+            "fuel": 0.21997590536021858,
+            "thrust": 0.3119855432161311,
             "ve": 10
           }
         ],
         "cargo": [],
         "rcs": {
-          "fuel": 1.6,
+          "fuel": 1.5,
           "accel": 1.2,
           "maxRate": 1.6
         },
@@ -3477,9 +3491,9 @@
           "rMax": 360
         }
       ],
-      "par": 3.8,
+      "par": 4.6,
       "bounds": 2000,
-      "tMax": 600,
+      "tMax": 400,
       "predict": 200,
       "view": {
         "x": 0,
@@ -3587,8 +3601,8 @@
     {
       "id": "blockade",
       "name": "Blockade Run",
-      "intro": "Three patrol ships guard the orbit at 220, each inside an amber zone closed to everything. Ride the big descent stage down through their band to a low orbit, timing your fall to pass between them. Don't drop the stage after the first burn: an empty stage whose orbit still reaches the band drifts into a zone sooner or later, so only let it go once its whole orbit is below the patrols.",
-      "objective": "Orbit Terra between 100 and 150 without your ship or its stage entering a patrol zone.",
+      "intro": "Your orbit is sagging into the patrol band at 220, and at its low point, a minute from now, Patrol 1 will be right there. Each patrol sits in an amber zone closed to everything, so get down through the band now, riding the big descent stage, to a low orbit beneath it. Don't drop the stage after the first burn: an empty stage whose orbit still reaches the band drifts into a zone sooner or later.",
+      "objective": "Get below the patrols before you meet one: orbit Terra between 100 and 150 without your ship or its stage entering a patrol zone.",
       "teaches": "Carry the stage across the band",
       "bodies": [
         {
@@ -3610,7 +3624,7 @@
           "orbit": {
             "parent": "terra",
             "a": 220,
-            "phase": 0.4
+            "phase": 3.34
           }
         },
         {
@@ -3625,7 +3639,7 @@
           "orbit": {
             "parent": "terra",
             "a": 220,
-            "phase": 2.4939999999999998
+            "phase": 5.433999999999999
           }
         },
         {
@@ -3640,15 +3654,17 @@
           "orbit": {
             "parent": "terra",
             "a": 220,
-            "phase": 4.589
+            "phase": 7.529
           }
         }
       ],
       "ship": {
         "start": {
-          "orbit": {
+          "conic": {
             "body": "terra",
-            "r": 360,
+            "pe": 205,
+            "e": 0.299,
+            "nu": -2.4,
             "angle": 0
           }
         },
@@ -3658,22 +3674,22 @@
             "name": "Descent stage",
             "sprite": "booster",
             "dryMass": 1,
-            "fuel": 0.8602031018032628,
-            "thrust": 1.8990506147826876,
+            "fuel": 0.5577293273672841,
+            "thrust": 1.629293018092807,
             "ve": 10
           },
           {
             "name": "Shuttle",
             "sprite": "satellite",
             "dryMass": 0.4,
-            "fuel": 0.11361016667509656,
-            "thrust": 0.2568050833375483,
+            "fuel": 0.07888694524872407,
+            "thrust": 0.23944347262436205,
             "ve": 10
           }
         ],
         "cargo": [],
         "rcs": {
-          "fuel": 5,
+          "fuel": 4.8,
           "accel": 1.2,
           "maxRate": 1.6
         },
@@ -3687,9 +3703,9 @@
           "rMax": 150
         }
       ],
-      "par": 4.7,
+      "par": 3.6,
       "bounds": 2000,
-      "tMax": 1500,
+      "tMax": 800,
       "predict": 200,
       "view": {
         "x": 0,
@@ -3700,9 +3716,9 @@
     {
       "id": "mooncourier",
       "name": "Moon Courier",
-      "intro": "Luna Gate circles Luna inside an amber zone closed to everything but its supply pod. Ride the transfer stage out, drop it, and release the pod (E) early, on a path that meets the Gate. Then nudge yourself clear of the zone and flip late to brake into a low orbit beneath it: turning round early and chasing retrograde all the way in empties the side thrusters.",
-      "objective": "Deliver the pod to Luna Gate, then orbit Luna between 30 and 70 without entering the Gate's zone.",
-      "teaches": "Stage, drop, swerve, capture",
+      "intro": "You are already coasting to Luna, on a path that runs straight through Luna Gate's amber zone. The zone is closed to everything but the Gate's supply pod, so this is the pod's path, not yours: drop the empty transfer stage, release the pod (E) and nudge yourself clear before you get there. Then flip late and brake into a low orbit beneath the Gate.",
+      "objective": "Deliver the pod to Luna Gate before your path carries you into its zone, then orbit Luna between 30 and 70.",
+      "teaches": "Drop, swerve, capture",
       "bodies": [
         {
           "id": "terra",
@@ -3720,7 +3736,7 @@
           "orbit": {
             "parent": "terra",
             "a": 420,
-            "phase": 2.2
+            "phase": 2.3404
           }
         },
         {
@@ -3735,16 +3751,18 @@
           "orbit": {
             "parent": "luna",
             "a": 110,
-            "phase": 2.55
+            "phase": 2.8266
           }
         }
       ],
       "ship": {
         "start": {
-          "orbit": {
+          "conic": {
             "body": "terra",
-            "r": 90,
-            "angle": 0
+            "pe": 90.601,
+            "e": 0.65878,
+            "nu": 0.34791,
+            "angle": 1.0853
           }
         },
         "heading": "prograde",
@@ -3753,16 +3771,16 @@
             "name": "Transfer stage",
             "sprite": "booster",
             "dryMass": 1,
-            "fuel": 1.244808896289946,
-            "thrust": 3.3760609778249715,
+            "fuel": 0.057555244241806885,
+            "thrust": 1.9474296494667902,
             "ve": 10
           },
           {
             "name": "Carrier",
             "sprite": "satellite",
             "dryMass": 0.4,
-            "fuel": 0.43125208153502537,
-            "thrust": 0.6787512489210151,
+            "fuel": 0.1898744052249833,
+            "thrust": 0.53392464313499,
             "ve": 10
           }
         ],
@@ -3774,7 +3792,7 @@
           }
         ],
         "rcs": {
-          "fuel": 5,
+          "fuel": 2.6,
           "accel": 1.2,
           "maxRate": 1.6
         },
@@ -3795,9 +3813,9 @@
           "rMax": 70
         }
       ],
-      "par": 7.3,
+      "par": 2,
       "bounds": 2500,
-      "tMax": 1500,
+      "tMax": 1000,
       "predict": 220,
       "view": {
         "x": 0,
@@ -3808,8 +3826,8 @@
     {
       "id": "relaysling",
       "name": "Slingshot Relay",
-      "intro": "The relay needs Goliath's slingshot to leave Terra for good; your carrier stays home to talk to it. Put the stack on a path that swings wide of Goliath's zone, which is closed to everything, then drop the stage and release the relay (E) on it. Flip and brake so you fall back into a low orbit while the relay flies on.",
-      "objective": "Send the relay 1600 away from Terra, then orbit Terra between 120 and 250 yourself.",
+      "intro": "You have just burned out of low orbit on a path that swings past Goliath, and Goliath will fling you out of Terra's reach for good. That ride is for the deep-space relay, not for you: drop the spent stage, release the relay (E) on this path, then flip and brake at once so you fall back into a low orbit while it flies on. Goliath's radiation zone is closed to everything.",
+      "objective": "Send the relay 1600 away from Terra, but stay behind yourself: orbit Terra between 70 and 140.",
       "teaches": "Send the cargo, stay home",
       "bodies": [
         {
@@ -3830,16 +3848,18 @@
           "orbit": {
             "parent": "terra",
             "a": 350,
-            "phase": 2
+            "phase": 2.4375
           }
         }
       ],
       "ship": {
         "start": {
-          "orbit": {
+          "conic": {
             "body": "terra",
-            "r": 90,
-            "angle": 0
+            "pe": 91.03,
+            "e": 0.52528,
+            "nu": 0.36345,
+            "angle": 2.69664
           }
         },
         "heading": "prograde",
@@ -3848,16 +3868,16 @@
             "name": "Transfer stage",
             "sprite": "booster",
             "dryMass": 1,
-            "fuel": 0.8707339450369631,
-            "thrust": 2.641149195049608,
+            "fuel": 0.03792540495098322,
+            "thrust": 1.9152961586115178,
             "ve": 10
           },
           {
             "name": "Carrier",
             "sprite": "satellite",
             "dryMass": 0.4,
-            "fuel": 0.17041525001264488,
-            "thrust": 0.46224915000758693,
+            "fuel": 0.2773707536605347,
+            "thrust": 0.5264224521963208,
             "ve": 10
           }
         ],
@@ -3869,7 +3889,7 @@
           }
         ],
         "rcs": {
-          "fuel": 5.5,
+          "fuel": 7,
           "accel": 1.2,
           "maxRate": 1.6
         },
@@ -3886,13 +3906,13 @@
         {
           "type": "orbit",
           "body": "terra",
-          "rMin": 120,
-          "rMax": 250
+          "rMin": 70,
+          "rMax": 140
         }
       ],
-      "par": 4.6,
-      "bounds": 3500,
-      "tMax": 1500,
+      "par": 2.8,
+      "bounds": 1700,
+      "tMax": 1600,
       "predict": 300,
       "view": {
         "x": 0,
@@ -4390,8 +4410,8 @@
     {
       "id": "longhaul",
       "name": "The Long Haul",
-      "intro": "Everything at once, and every zone is closed to everything. Ride the booster up through the patrol band and drop it in the gap below Haven Station, where its whole orbit touches neither zone. Fly the carrier to Luna and brake into a low orbit beneath Luna Gate. Then, at your low point, raise your high point to the Gate, release the pod (E) and flip at once to come back down before you reach the zone.",
-      "objective": "Deliver pod A to Haven Station and pod B to Luna Gate, then orbit Luna between 25 and 55.",
+      "intro": "Your booster has you climbing straight into Patrol 1's zone, barely fifteen seconds out: change your climb now. Every zone here is closed to everything, so drop the booster in the gap between the patrol band and Haven Station, where its whole orbit touches neither. Then fly the carrier to Luna, brake into a low orbit beneath Luna Gate, and from your low point raise the high point to the Gate, release the pod (E) and flip at once to come back down before you reach its zone.",
+      "objective": "Dodge the patrol, deliver the pod to Luna Gate, then orbit Luna between 25 and 55, with no stage left where it can drift into a zone.",
       "teaches": "Everything at once",
       "bodies": [
         {
@@ -4408,12 +4428,12 @@
           "radius": 4,
           "color": "#e6e6f0",
           "kind": "station",
-          "keepOut": 30,
+          "keepOut": 25,
           "zone": "all",
           "orbit": {
             "parent": "terra",
             "a": 200,
-            "phase": 0.3
+            "phase": 1.15
           }
         },
         {
@@ -4423,12 +4443,12 @@
           "radius": 4,
           "color": "#e6e6f0",
           "kind": "station",
-          "keepOut": 30,
+          "keepOut": 25,
           "zone": "all",
           "orbit": {
             "parent": "terra",
             "a": 200,
-            "phase": 2.3939999999999997
+            "phase": 3.2439999999999998
           }
         },
         {
@@ -4438,12 +4458,12 @@
           "radius": 4,
           "color": "#e6e6f0",
           "kind": "station",
-          "keepOut": 30,
+          "keepOut": 25,
           "zone": "all",
           "orbit": {
             "parent": "terra",
             "a": 200,
-            "phase": 4.489
+            "phase": 5.339
           }
         },
         {
@@ -4457,8 +4477,8 @@
           "zone": "all",
           "orbit": {
             "parent": "terra",
-            "a": 340,
-            "phase": 3.2
+            "a": 360,
+            "phase": 3.256
           }
         },
         {
@@ -4470,7 +4490,7 @@
           "orbit": {
             "parent": "terra",
             "a": 480,
-            "phase": 3.54
+            "phase": 3.67
           }
         },
         {
@@ -4485,16 +4505,18 @@
           "orbit": {
             "parent": "luna",
             "a": 80,
-            "phase": 0
+            "phase": 0.0982
           }
         }
       ],
       "ship": {
         "start": {
-          "orbit": {
+          "conic": {
             "body": "terra",
-            "r": 110,
-            "angle": 0
+            "pe": 110.167,
+            "e": 0.46667,
+            "nu": 0.1806,
+            "angle": 0.15336
           }
         },
         "heading": "prograde",
@@ -4503,8 +4525,8 @@
             "name": "Booster",
             "sprite": "booster",
             "dryMass": 1,
-            "fuel": 1.7572331767706904,
-            "thrust": 4.098111757080417,
+            "fuel": 0.8828103055741364,
+            "thrust": 3.2236888858838637,
             "ve": 10
           },
           {
@@ -4545,7 +4567,7 @@
           "rMax": 55
         }
       ],
-      "par": 10,
+      "par": 6.8,
       "bounds": 2500,
       "tMax": 1200,
       "predict": 260,
