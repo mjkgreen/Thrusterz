@@ -105,6 +105,31 @@ you do it, and stops appearing after you've mastered it.
   the rest of the ship lighter) doesn't count as saving fuel.
 - **Fuel pickups** — fly through a canister to add its Δv to the current
   stage.
+- **Experimental mechanics** (test levels only; see `js/flight.js` and
+  `js/physics.js` for the options):
+  - *Atmosphere* (`atmosphere: { height, density, heatLimit }` on a body):
+    drag −ρ·|v|·v with density falling off with height; heating ρ·v³ over
+    the limit burns you up. The predicted path includes drag and marks
+    where you would burn up; the HUD shows heat.
+  - *Wormholes* (`kind: 'wormhole', link`): enter one mouth, come out of the
+    other with the same velocity. The predicted path follows through.
+  - *Tether* (`tether: { length }` on an anchor): `E` / LATCH inside its
+    reach, the rope keeps you within its length (a slack rope snapping taut
+    costs speed; a taut swing keeps it), `E` / RELEASE to fly off. While
+    latched, the dashed path is where you would go if you let go now.
+  - *Solar sail* (`ship.sail`): sunlight pushes along the nose, ×cos² of the
+    angle away from the sun, ×1/r²; steered by rotation only.
+  - *Event horizon* (`horizon`, `pw` on a black hole): a horizon bigger than
+    the hole, and strong gravity (gm/(r − pw)²) with no stable orbits inside
+    3·pw, so a close pass can whirl you round more than half a turn.
+  - *Radiation belt* (`belt: { rMin, rMax, dose }`): a limited number of
+    seconds inside, shown as a dose meter and on the predicted path.
+  - *Refuelling depot* (`depot: { dv, dist, relVel }` on a station): a
+    rendezvous refills the current stage once.
+  - *Soft landing* (`maxSpeed` on a hit goal): touching down faster fails;
+    the impact label shows the touchdown speed.
+  - *Ion engine* (`ship.ion`): tiny thrust, high exhaust velocity; time warp
+    stays on (up to 10×) while it fires.
 
 ## Missions
 
@@ -183,7 +208,7 @@ influence you're in, or the star you're orbiting when you're in none.
 
 World 2 flies through a green nebula with distant planets in the background,
 World 3 through an ember-red one, so you can always tell the worlds apart.
-**Experimental levels** (the menu's last tab) try out new mechanics that may or may not grow into a world (now just *Fuel Run*). World 3's
+**Experimental levels** (the menu's last tab) try out new mechanics that may or may not grow into a world, one level each: fuel pickups (*Fuel Run*), atmospheres and aerobraking (*Aerobrake*), wormholes (*Shortcut*), tethers (*Swing*), solar sails (*Sunward Sail*), event horizons and strong gravity (*Whirl*), radiation belts (*Radiation Belt*), refuelling depots (*Top Up*), soft landings (*Touchdown*) and ion engines (*Long Burn*). World 3's
 missions are built in `tools/w3/` (levels, proofs and naive plans that must
 lose, one file per chapter) and written into `js/levels.js` with
 `npm run build:w3`. See [docs/ROADMAP.md](docs/ROADMAP.md) for
@@ -275,8 +300,6 @@ release steps see [docs/APP_STORE.md](docs/APP_STORE.md).
 
 Next up (details in [docs/ROADMAP.md](docs/ROADMAP.md)):
 
-- Orbital refuelling at a depot
 - Control switching between craft (booster landing, lander and orbiter)
 - Secondary (translation) thrusters for fine docking
-- Soft landings (impact-speed limits)
 - Autopilot holds (prograde / retrograde) as an unlockable upgrade

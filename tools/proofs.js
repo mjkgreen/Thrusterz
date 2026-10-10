@@ -432,7 +432,7 @@ Object.assign(module.exports, {
   'test-belt': {
     // A transfer aimed well past the target orbit (high point p[0]) crosses
     // the belt fast; at radius p[1], brake straight onto a circular orbit.
-    p: [450, 352], scale: [20, 4],
+    p: [420, 362], scale: [20, 4],
     script: (p, AP) => [
       { burn: 'pro', rel: 'terra', until: (m) => AP.orb(m, 'terra').ap >= p[0] },
       { coast: (m) => AP.orb(m, 'terra').r >= p[1] },
@@ -444,6 +444,59 @@ Object.assign(module.exports, {
         if (Math.hypot(dx, dy) < 0.05) return { done: true };
         return { thrust: true, angle: Math.atan2(dy, dx) };
       } },
+    ],
+  },
+
+  'test-depot': {
+    // Hohmann up to the depot, close in and match its speed, then (tank
+    // refilled) Hohmann on up to the high orbit.
+    p: [5.35, 198.8, 640, 615], scale: [0.3, 2, 10, 10],
+    script: (p, AP) => [
+      { wait: Math.max(0, p[0]) },
+      { burn: 'pro', rel: 'terra', until: (m) => AP.orb(m, 'terra').ap >= p[1] },
+      { coast: (m) => { m.sys.update(m.t); const i = m.sys.byId.halley.index; return Math.hypot(m.ship.x - m.sys.px[i], m.ship.y - m.sys.py[i]) < 12 || m.t > 70; } },
+      { control: (m) => {
+        if (m.goalIndex > 0) return { done: true };
+        m.sys.update(m.t);
+        // Aim for a spot 3.5 behind the depot, not the depot itself.
+        const i = m.sys.byId.halley.index, u = Math.hypot(m.sys.vx[i], m.sys.vy[i]);
+        const dx = m.sys.px[i] - 3.5 * m.sys.vx[i] / u - m.ship.x, dy = m.sys.py[i] - 3.5 * m.sys.vy[i] / u - m.ship.y;
+        const d = Math.hypot(dx, dy), k = Math.min(0.3, 0.06 * d) / Math.max(d, 1e-9);
+        const ex = m.sys.vx[i] + dx * k - m.ship.vx, ey = m.sys.vy[i] + dy * k - m.ship.vy;
+        if (Math.hypot(ex, ey) < 0.05) return { thrust: false, dt: 0.05 };
+        return { thrust: true, angle: Math.atan2(ey, ex) };
+      } },
+      { burn: 'pro', rel: 'terra', until: (m) => AP.orb(m, 'terra').ap >= p[2] },
+      { coast: (m) => !AP.orb(m, 'terra').rising },
+      { burn: 'pro', rel: 'terra', until: (m) => AP.orb(m, 'terra').pe >= p[3] },
+    ],
+  },
+
+  'test-softland': {
+    // Kill most of the orbital speed, fall, and fire against the motion
+    // (relative to the turning ground) whenever it's faster than you could
+    // still stop in the height left: √(p[1]² + 2·p[2]·(a − g)·height).
+    p: [5.5, 1.1, 0.9], scale: [0.5, 0.1, 0.05],
+    script: (p, AP) => [
+      { burn: 'retro', rel: 'dust', until: (m) => AP.orb(m, 'dust').v <= Math.max(0, p[0]) },
+      { control: (m) => {
+        const sys = m.sys, i = sys.byId.dust.index, b = sys.bodies[i];
+        sys.update(m.t);
+        const dx = m.ship.x - sys.px[i], dy = m.ship.y - sys.py[i], r = Math.hypot(dx, dy), h = r - b.radius;
+        const ux = m.ship.vx - sys.vx[i] + b.spin * dy, uy = m.ship.vy - sys.vy[i] - b.spin * dx, v = Math.hypot(ux, uy);
+        const brake = Math.max(0.1, m.thrustAccel() - b.gm / (r * r));
+        const thrust = v > Math.sqrt(p[1] * p[1] + 2 * p[2] * brake * Math.max(0, h));
+        return thrust ? { thrust: true, angle: Math.atan2(-uy, -ux) } : { thrust: false, dt: 1 / 120 };
+      } },
+    ],
+  },
+
+  'test-ion': {
+    // Burn prograde the whole way, turning with it: a slow spiral that
+    // stays nearly round. Stop once the orbit sits inside the band.
+    p: [118, 132], scale: [2, 2],
+    script: (p, AP) => [
+      { burn: 'pro', rel: 'terra', until: (m) => { const o = AP.orb(m, 'terra'); return o.pe >= p[0] && o.ap <= p[1]; } },
     ],
   },
 });

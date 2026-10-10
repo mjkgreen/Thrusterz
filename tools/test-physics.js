@@ -53,7 +53,7 @@ const check = (name, ok, info) => { console.log((ok ? 'ok   ' : 'FAIL ') + name 
 
 // 3. Every orbital level's parking orbit is stable while coasting.
 for (const L of LEVELS) {
-  if (!L.ship.start.orbit || L.ship.start.orbit.speed) continue;
+  if (!L.ship.start.orbit || L.ship.start.orbit.speed || L.ship.sail) continue; // a sail always pushes
   const m = new Mission(L);
   const host = m.sys.byId[L.ship.start.orbit.body].index, r0 = L.ship.start.orbit.r;
   let worst = 0;
@@ -428,6 +428,188 @@ for (const L of LEVELS) {
   L.goals = [{ type: 'reach', x: 1e5, y: 0, r: 1 }]; // nothing to finish: just watch the pod
   const bad = AP.fly(L, PROOFS.supplyrun.script(PROOFS.supplyrun.p, AP), PROOFS.supplyrun.opts);
   check('cargo may not drift into a zone closed to everything', /Pod drifted into/.test(bad.message), bad.message);
+}
+
+// 20. Experimental levels: every test level with a proof wins within par,
+//     and every naive plan below loses because of the level's mechanic.
+{
+  const AP = require('./autopilot.js');
+  const PROOFS = require('./proofs.js');
+  const tests = LEVELS.filter(l => l.test && PROOFS[l.id]);
+  const lost = [];
+  for (const L of tests) {
+    const P = PROOFS[L.id], r = AP.fly(L, P.script(P.p, AP), P.opts);
+    if (!r.won) lost.push(`${L.id} (${r.status}: ${r.message})`);
+    else if (r.dv > L.par) lost.push(`${L.id} (proof Δv ${r.dv.toFixed(2)} over par ${L.par})`);
+  }
+  check(`Experimental: all ${tests.length} test-level proofs win within par`, tests.length >= 9 && lost.length === 0, lost.join('; '));
+  const lv = (id) => LEVELS.find(l => l.id === id);
+  const toward = (x, y) => (m) => Math.atan2(y - m.ship.y, x - m.ship.x);
+  const NAIVE = {
+    'test-aero': {
+      'capture with the engine at the low point': [
+        { coast: (m) => AP.orb(m, 'thule').r < 100 || AP.orb(m, 'thule').rising },
+        { burn: 'retro', rel: 'thule', until: (m) => { const o = AP.orb(m, 'thule'); return o.bound && o.ap <= 590; } },
+        { coast: (m) => !AP.orb(m, 'thule').rising }, { burn: 'pro', rel: 'thule', until: (m) => AP.orb(m, 'thule').pe >= 101 }],
+      'dive deep into the air (low point 64)': [{ wait: 8 }, { burn: 1.76, rel: 'thule', until: (m) => AP.orb(m, 'thule').pe <= 64 }],
+      'skim too high (low point 79)': [{ wait: 8 }, { burn: 1.76, rel: 'thule', until: (m) => AP.orb(m, 'thule').pe <= 79 }],
+    },
+    'test-wormhole': {
+      'Hohmann to the mouth (high point on it)': [{ wait: 48.3 }, { burn: 'pro', rel: 'terra', until: (m) => AP.orb(m, 'terra').ap >= 262 }],
+      'burn the whole tank prograde': [{ burn: 'pro', rel: 'terra' }],
+    },
+    'test-tether': {
+      'burn straight for the gate': [{ burn: toward(-420, 330) }],
+      'latch and never let go': [{ coast: (m) => m.tetherInRange() >= 0 }, { fn: (m) => m.toggleTether() }],
+    },
+    'test-sail': {
+      'sail pointing straight away from Sol': [{ control: (m) => { m.ship.angle = AP.orb(m, 'sol').theta; return { thrust: false, dt: 0.5 }; } }],
+      'nose left fixed': [],
+    },
+    'test-horizon': {
+      'a modest close pass (Newtonian thinking)': [{ burn: () => Math.PI / 2, max: 0.6 }],
+      'dive in close (crosses the horizon)': [{ burn: () => Math.PI / 2, max: 1.1 }],
+      'burn straight for the gate': [{ burn: toward(400, -860) }],
+    },
+    'test-belt': {
+      'Hohmann transfer (slow through the belt)': [{ burn: 'pro', until: (m) => AP.orb(m, 'terra').ap >= 355 }, { coast: (m) => !AP.orb(m, 'terra').rising }, { burn: 'pro', until: (m) => AP.orb(m, 'terra').pe >= 345 }],
+    },
+    'test-depot': {
+      'skip the depot, Hohmann straight up': [{ burn: 'pro', until: (m) => AP.orb(m, 'terra').ap >= 640 }, { coast: (m) => !AP.orb(m, 'terra').rising }, { burn: 'pro', until: (m) => AP.orb(m, 'terra').pe >= 615 }],
+    },
+    'test-softland': {
+      'deorbit and fall': [{ burn: 'retro', until: (m) => AP.orb(m, 'dust').pe <= 25 }],
+      'stop dead in orbit, then drop': [{ burn: 'retro', until: (m) => AP.orb(m, 'dust').v <= 0.2 }],
+    },
+    'test-ion': {
+      'hold the burn with the nose fixed': [{ control: () => ({ thrust: true, angle: Math.PI / 2 }) }],
+    },
+  };
+  const wins = [];
+  for (const [id, plans] of Object.entries(NAIVE)) for (const [name, steps] of Object.entries(plans)) if (AP.fly(lv(id), steps).won) wins.push(id + ': ' + name);
+  check('Experimental: every naive plan loses', wins.length === 0, wins.join('; '));
+  // Plain gravity can't do Whirl at all: the strong-gravity pull is what whips you round.
+  const newton = JSON.parse(JSON.stringify(lv('test-horizon'))); delete newton.bodies[0].pw;
+  let newtonWin = false;
+  for (let b = 0; b <= 1.5 && !newtonWin; b += 0.02) newtonWin = AP.fly(newton, [{ burn: () => Math.PI / 2, max: b }]).won;
+  check('Whirl: with Newtonian gravity no sideways burn reaches the gate', !newtonWin);
+}
+
+// 21. Focused checks, one per experimental mechanic.
+{
+  const { ship: mkShip } = require('../js/levels.js');
+  const coast = (m, T, dt) => { while (m.status === 'flying' && m.t < T) m.advance(dt || 0.25, { thrust: false, throttle: 1, rotate: 0 }); return m; };
+  const speed = (o) => Math.hypot(o.vx, o.vy);
+  // Atmosphere: drag slows you (and is part of the predicted path); too much heating burns you up.
+  {
+    const mk = (atmo, vy) => ({ id: 'x-air', bodies: [{ id: 'p', name: 'P', gm: 20000, radius: 50, atmosphere: atmo }],
+      ship: mkShip({ start: { free: { x: 65, y: 0, vx: 0, vy } }, heading: 0, dv: 1, accel: 1 }), goals: [{ type: 'reach', x: 1e5, y: 0, r: 1 }], par: 1, bounds: 1e5, tMax: 100 });
+    const A = { height: 30, density: 0.02, scale: 10, heatLimit: 1e9 };
+    const air = coast(new Mission(mk(A, 20)), 2, 0.05), vac = coast(new Mission(mk(undefined, 20)), 2, 0.05);
+    check('atmosphere: drag slows the ship', speed(air.ship) < speed(vac.ship) - 0.5, `${speed(air.ship).toFixed(2)} vs ${speed(vac.ship).toFixed(2)} in vacuum`);
+    const pm = new Mission(mk(A, 20)), pred = Phys.predict(pm.sys, pm.ship, 0, 2, { fx: pm.coastFx() });
+    check('atmosphere: the predicted path includes drag', Math.abs(pred.end.x - air.ship.x) < 0.05 && Math.abs(pred.end.y - air.ship.y) < 0.05, `${(pred.end.x - air.ship.x).toExponential(1)}`);
+    const hot = coast(new Mission(mk(Object.assign({}, A, { heatLimit: 20 }), 20)), 2, 0.05);
+    check('atmosphere: heating past the limit burns you up', hot.status === 'crashed' && /burned up/.test(hot.message), hot.message);
+    const cool = coast(new Mission(mk(Object.assign({}, A, { heatLimit: 20 }), 2)), 0.5, 0.05);
+    check('atmosphere: slow through the air is fine', cool.status === 'flying' && cool.heat > 0, cool.status);
+  }
+  // Wormhole: entering one mouth puts you outside the other with the same velocity.
+  {
+    const L = { id: 'x-worm', zeroG: true, bodies: [{ id: 'a', name: 'A', kind: 'wormhole', link: 'b', gm: 0, radius: 10, x: 0, y: 0 }, { id: 'b', name: 'B', kind: 'wormhole', link: 'a', gm: 0, radius: 10, x: 1000, y: 500 }],
+      ship: mkShip({ start: { free: { x: -30, y: 2, vx: 3, vy: 0.5 } }, heading: 0, dv: 1, accel: 1 }), goals: [{ type: 'reach', x: 1e5, y: 0, r: 1 }], par: 1, bounds: 1e5, tMax: 100 };
+    const m = new Mission(L), pred = Phys.predict(m.sys, m.ship, 0, 20, {});
+    coast(m, 20);
+    const d = Math.hypot(m.ship.x - 1000, m.ship.y - 500);
+    check('wormhole: entering mouth A brings you out of mouth B', m.jumps === 1 && d > 10 && d < 80, `jumps ${m.jumps}, ${d.toFixed(1)} from B`);
+    check('wormhole: velocity is kept through the jump', Math.abs(m.ship.vx - 3) < 1e-9 && Math.abs(m.ship.vy - 0.5) < 1e-9);
+    check('wormhole: the predicted path follows through', pred.jumps.length === 1 && Math.hypot(pred.end.x - m.ship.x, pred.end.y - m.ship.y) < 2, `${Math.hypot(pred.end.x - m.ship.x, pred.end.y - m.ship.y).toFixed(2)} apart`);
+  }
+  // Tether: once latched the ship never gets further than the rope, and letting go keeps the swing speed.
+  {
+    const m = new Mission(LEVELS.find(l => l.id === 'test-tether'));
+    while (m.tetherInRange() < 0) m.advance(0.25, { thrust: false, throttle: 1, rotate: 0 });
+    const latched = m.toggleTether();
+    let worst = 0;
+    for (let i = 0; i < 400; i++) { m.advance(0.25, { thrust: i % 40 < 8, throttle: 1, rotate: 0 }); worst = Math.max(worst, Math.hypot(m.ship.x, m.ship.y) - m.tether.L); }
+    check('tether: the rope never lets you past its length', latched && worst < 1e-9, `overshoot ${worst.toExponential(1)}`);
+    const v = speed(m.ship); m.toggleTether(); coast(m, m.t + 5);
+    check('tether: letting go keeps the swing speed', !m.tether && Math.abs(speed(m.ship) - v) < 1e-9, `${v.toFixed(3)} → ${speed(m.ship).toFixed(3)}`);
+  }
+  // Solar sail: tilted toward prograde it raises the orbit; edge-on or facing the sun it does nothing.
+  {
+    const L = LEVELS.find(l => l.id === 'test-sail');
+    const AP = require('./autopilot.js');
+    const AP_orb = (m) => AP.orb(m, 'sol');
+    const fly = (off) => { const m = new Mission(L); while (m.t < 100) { m.ship.angle = AP_orb(m).theta + off; m.ship.omega = 0; m.advance(0.25, { thrust: false, throttle: 1, rotate: 0 }); } return AP_orb(m).a; };
+    const tilted = fly(0.6), edge = fly(Math.PI / 2), sunward = fly(Math.PI);
+    check('solar sail: a tilted sail spirals you outward', tilted > 330, `a ${tilted.toFixed(1)}`);
+    check('solar sail: edge-on or facing the sun gives no push', Math.abs(edge - 300) < 0.5 && Math.abs(sunward - 300) < 0.5, `${edge.toFixed(2)} / ${sunward.toFixed(2)}`);
+  }
+  // Event horizon: crossing it ends the mission, and it's bigger than the body drawn.
+  {
+    const L = { id: 'x-bh', bodies: [{ id: 'h', name: 'Hole', kind: 'blackhole', gm: 100000, radius: 5, horizon: 40, pw: 40 }],
+      ship: mkShip({ start: { free: { x: 300, y: 0, vx: 0, vy: 0 } }, heading: 0, dv: 1, accel: 1 }), goals: [{ type: 'reach', x: 1e5, y: 0, r: 1 }], par: 1, bounds: 1e5, tMax: 100 };
+    let rmin = Infinity;
+    const m = new Mission(L);
+    while (m.status === 'flying' && m.t < 100) { m.advance(0.05, { thrust: false, throttle: 1, rotate: 0 }); rmin = Math.min(rmin, Math.hypot(m.ship.x, m.ship.y)); }
+    check('event horizon: crossing it is final', m.status === 'crashed' && /event horizon/.test(m.message) && rmin > 30, `${m.message} at r=${rmin.toFixed(1)}`);
+    const sys = new Phys.System(L.bodies), a = [0, 0], n = new Phys.System([Object.assign({}, L.bodies[0], { pw: undefined })]), b = [0, 0];
+    sys.accel(120, 0, 0, a); n.accel(120, 0, 0, b);
+    check('event horizon: strong gravity pulls harder than Newton close in', a[0] < 2 * b[0] && a[0] < 0, `${a[0].toFixed(2)} vs ${b[0].toFixed(2)}`);
+  }
+  // Radiation belt: the dose counts only time spent inside it.
+  {
+    const m = coast(new Mission(LEVELS.find(l => l.id === 'test-belt')), 200);
+    check('radiation belt: no dose below the belt', m.dose === 0 && m.status === 'flying');
+    const L = JSON.parse(JSON.stringify(LEVELS.find(l => l.id === 'test-belt')));
+    L.ship.start.orbit.r = 280;
+    const q = coast(new Mission(L), 30);
+    check('radiation belt: parked inside it, the dose runs out', q.status === 'crashed' && /Radiation/.test(q.message) && Math.abs(q.t - 17) < 0.5, `${q.message} at ${q.t.toFixed(1)}s`);
+  }
+  // Depot: a rendezvous refuels once; flying past doesn't.
+  {
+    const m = new Mission(LEVELS.find(l => l.id === 'test-depot')), d = m.sys.byId.halley;
+    m.sys.update(m.t);
+    const dv0 = m.dvRemaining();
+    Object.assign(m.ship, { x: m.sys.px[d.index] + 3, y: m.sys.py[d.index], vx: m.sys.vx[d.index] + 2, vy: m.sys.vy[d.index] });
+    m._checks(0);
+    check('depot: passing close but fast does not refuel', m.refuelled.size === 0);
+    m.ship.vx -= 1.8; m._checks(0); m._checks(0);
+    check('depot: a rendezvous adds its Δv once', m.refuelled.size === 1 && Math.abs(m.dvRemaining() - dv0 - d.depot.dv) < 1e-6 && m.dvUsed() === 0, `+${(m.dvRemaining() - dv0).toFixed(3)}`);
+  }
+  // Soft landing: too fast fails, gently wins.
+  {
+    const L = LEVELS.find(l => l.id === 'test-softland');
+    const drop = (v) => { const m = new Mission(L); m.sys.update(0); Object.assign(m.ship, { x: 30.5, y: 0, vx: -v, vy: 0.02 * 30.5 }); m._checks(0); return coast(m, 5, 0.01); };
+    const hard = drop(3), soft = drop(0.5);
+    check('soft landing: hitting too hard fails', hard.status === 'crashed' && /too hard/.test(hard.message), hard.message);
+    check('soft landing: a gentle touchdown wins', soft.status === 'won', soft.status + ' ' + soft.message);
+  }
+}
+
+// 22. Experimental runs replay bit-for-bit: tether latch/release events and
+//     time warp during an ion burn are recorded and re-flown exactly.
+{
+  const Replay = require('../js/replay.js');
+  const flyRec = (L, plan) => {
+    const m = new Mission(L), rec = new Replay.Recorder(L.id, Replay.levelHash(L));
+    for (const step of plan) {
+      if (step.action) { rec.event(step.action); m.toggleTether(); }
+      rec.tick(step.w, step.c); m.advance(Replay.WARPS[step.w] * Replay.TICK, step.c);
+    }
+    return { m, log: JSON.parse(JSON.stringify(rec)) };
+  };
+  const bad = [];
+  const T = LEVELS.find(l => l.id === 'test-tether'), tp = [];
+  for (let n = 0; n < 9000; n++) tp.push({ c: { thrust: false, throttle: 1, rotate: 0 }, w: 3, action: n === 4600 || n === 5600 ? 'tether' : null });
+  const I = LEVELS.find(l => l.id === 'test-ion'), ip = [];
+  for (let n = 0; n < 3000; n++) ip.push({ c: { thrust: n % 700 < 500, throttle: 1, rotate: n % 700 === 600 ? 1 : 0 }, w: n % 700 < 500 ? 3 : 0 });
+  for (const [L, plan] of [[T, tp], [I, ip], [LEVELS.find(l => l.id === 'test-aero'), tp.map(s => Object.assign({}, s, { action: null }))]]) {
+    const { m, log } = flyRec(L, plan), r = Replay.replay(L, log, Mission);
+    if (!(Replay.validLog(log) && r.t === m.t && r.ship.x === m.ship.x && r.ship.vy === m.ship.vy && r.status === m.status)) bad.push(L.id);
+  }
+  check('experimental runs (tether events, ion warp) replay bit-for-bit', bad.length === 0, bad.join(', '));
 }
 
 process.exit(failed ? 1 : 0);

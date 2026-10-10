@@ -78,8 +78,8 @@
       this.inBelt = -1;
       this.refuelled = new Set();  // depots already used
       this.jumps = 0;              // wormhole trips
-      this._belts = this.sys.bodies.filter(b => b.belt);
-      this._depots = this.sys.bodies.filter(b => b.depot);
+      this.belts = this.sys.bodies.filter(b => b.belt);
+      this.depots = this.sys.bodies.filter(b => b.depot);
       const sail = spec.sail;
       // Extra force on the ship (drag, sail); null keeps the plain integrator.
       this._shipFx = sail || this.sys.drag ? (x, y, vx, vy, t, out) => this.shipExtra(x, y, vx, vy, t, out, this.ship.angle) : null;
@@ -679,7 +679,7 @@
         }
       }
       this.inBelt = -1;
-      for (const b of this._belts) {
+      for (const b of this.belts) {
         const r = DM.hypot(s.x - sys.px[b.index], s.y - sys.py[b.index]);
         if (r < b.belt.rMin || r > b.belt.rMax) continue;
         this.inBelt = b.index;
@@ -690,7 +690,7 @@
           return true;
         }
       }
-      for (const b of this._depots) {
+      for (const b of this.depots) {
         if (this.refuelled.has(b.index)) continue;
         const d = DM.hypot(s.x - sys.px[b.index], s.y - sys.py[b.index]), rv = DM.hypot(s.vx - sys.vx[b.index], s.vy - sys.vy[b.index]);
         if (d >= b.depot.dist || rv >= b.depot.relVel) continue;

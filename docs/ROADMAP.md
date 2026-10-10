@@ -17,6 +17,10 @@ A good mechanic here:
 
 Early worlds stay grounded in real spaceflight; stranger ideas come later.
 
+Every prototype has one test level with a scripted proof in `tools/proofs.js`
+and naive plans that must lose (`npm test` flies both), so a mechanic can be
+judged by playing it before it gets a world.
+
 ## Future worlds
 
 | Status | Mechanic | The decision it adds | Notes |
@@ -24,17 +28,18 @@ Early worlds stay grounded in real spaceflight; stranger ideas come later.
 | **Built (World 2)** | **Payloads** | When to drop a stage or release cargo, and where the pieces end up | Stages, engineless cargo, debris fates, constellations. |
 | **Built (World 3)** | **Area denial** | Where you may not go, and where things may end up | Keep-out zones (ship only, or closed to everything), weaving, side-thruster budgets and flip burns, combined with stages and probes. See World 3 below. |
 | **Prototype** | **Fuel pickups** | Route planning: is the detour worth the fuel? | Canisters on their own orbits. Test level: *Fuel Run*. Used as a mixer in World 2 (*Fuel Depot*). |
-| Idea | Refuelling depot | Rendezvous to refill, then fly a mission your tank alone can't | Builds on Docking. Natural pair with pickups. |
-| Idea | Atmospheres / aerobraking | How deep to skim: free braking vs. burning up | Drag layer + heating limit. No new button; a new surface to read on the predicted path. |
+| **Prototype** | **Refuelling depot** | Rendezvous to refill, then fly a mission your tank alone can't | Station with `depot: { dv, dist, relVel }`. Test level: *Top Up* (Hohmann to the depot, match its speed, +4 Δv, then a high orbit). |
+| **Prototype** | **Atmospheres / aerobraking** | How deep to skim: free braking vs. burning up | Drag layer (density falls off with height) and a heating limit (ρ·v³); the predicted path includes drag and marks where you'd burn up. Test level: *Aerobrake* (capture from a fast arrival on 0.7 Δv, then lift the low point out of the air). |
 | Idea | Asteroid tug / planetary defense | Push a heavy mass with your small engine | Dock with a rock and redirect it off a collision course. Strong finale for a world. |
-| Idea | Soft landings | Throttle control for a gentle touchdown | Impact-speed limit, landing legs, terrain. |
-| Idea | Solar sail | Steer with sunlight, no fuel at all | Slow spiral trajectories; uses only the rotate controls. |
-| Idea | Ion engine | Very low thrust for very long burns | Spirals instead of impulsive burns. |
+| **Prototype** | **Soft landings** | Throttle control for a gentle touchdown | `maxSpeed` on a hit goal; the impact label shows touchdown speed. Test level: *Touchdown*. Landing legs and terrain later. |
+| **Prototype** | **Solar sail** | Steer with sunlight, no fuel at all | Push along the nose ×cos²×1/r²; a spin matched to your orbit holds the sail angle. Test level: *Sunward Sail* (spiral out from 300 to 450–520). |
+| **Prototype** | **Ion engine** | Very low thrust for very long burns | Spirals instead of impulsive burns; time warp up to 10× while it fires. Test level: *Long Burn*. |
 | Idea | Precision docking | Fine translation thrusters for the last few meters | More buttons; needs a careful mobile design. |
-| Idea | Hazards | Radiation belts (time limits), solar flares, debris | Mixers rather than a whole world. |
-| Idea | Tether / grapple | Swing around an anchor and release at the right moment | Parked for now: less grounded than the early worlds. |
-| Idea | Wormholes | Enter one, exit another with the same velocity | Sci-fi; breaks the real-physics identity, so late or never. |
+| **Prototype** (radiation belts) | Hazards | Radiation belts (time limits), solar flares, debris | Belts: a dose meter, shown on the predicted path too. Test level: *Radiation Belt* (a Hohmann is too slow through it; race through). Flares and debris still ideas. |
+| **Prototype** | **Tether / grapple** | Swing around an anchor and release at the right moment | Latch / release on the contextual E button (LATCH / RELEASE); inelastic rope, slack allowed. Test level: *Swing* (zero-G: turn round with no fuel). |
+| **Prototype** | **Wormholes** | Enter one, exit another with the same velocity | The predicted path follows through. Test level: *Shortcut* (the entry angle aims the exit at an out-of-reach planet). Sci-fi, so late or never as a world. |
 | Idea | Collectible stars | Fly a route that grabs three stars along the way | Cut the Rope-style replay layer that works in every world, including World 1. |
+| **Prototype** | **Event horizons / strong gravity** | How close to pass a black hole: whirl round or fall in | A horizon much larger than the hole and a strong-gravity pull (gm/(r − pw)²): no stable orbits inside 3·pw, so a close pass whirls you round more than half a turn. Test level: *Whirl* (World 1's *Event Horizon* is the Oberth version). |
 
 ## World 2: Payloads (built)
 

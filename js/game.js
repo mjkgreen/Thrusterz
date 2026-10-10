@@ -7,6 +7,7 @@
   const WARPS = Replay.WARPS;
   const SIM_BUDGET_MS = 8;      // physics time allowed per frame
   const PRED_MS_BURNING = 70;   // how often the predicted path refreshes during a burn
+  const ION_WARP = WARPS.indexOf(10); // highest warp while an ion engine fires
   const TAU = Math.PI * 2;
   const $ = (id) => document.getElementById(id);
 
@@ -231,6 +232,16 @@
 
   function deployPayload() {
     const m = state.mission;
+    // Tether (experimental): the same button latches onto an anchor in reach
+    // and lets go again.
+    if (m.status === 'flying' && m.canTether()) {
+      state.rec.event('tether');
+      m.toggleTether();
+      coachDone(m.tether ? 'latch' : 'release');
+      state.predDirty = true;
+      if (m.tether) { Sound.drop(); toast('Latched: the rope pulls once it goes taut', 1.8); } else { Sound.ping(); toast('Released', 1.2); }
+      return;
+    }
     if (m.canDrop()) {
       state.rec.event('drop');
       const c = m.release();
@@ -462,7 +473,10 @@
     const m = state.mission;
     k = Math.max(0, Math.min(WARPS.length - 1, k));
     const c = controls();
-    if (k > 0 && (c.thrust || c.rotate)) { toast('Can\'t warp while thrusters fire', 1.2); return; }
+    // An ion engine burns for minutes: warp is allowed while it fires (capped).
+    const ion = m.level.ship.ion && c.thrust && !c.rotate;
+    if (k > 0 && (c.thrust || c.rotate) && !ion) { toast('Can\'t warp while thrusters fire', 1.2); return; }
+    if (ion && k > ION_WARP) { k = ION_WARP; toast('Ion burn: warp up to ' + WARPS[ION_WARP] + '×', 1.2); }
     if (k > 0 && m.status !== 'flying') return;
     if (k !== state.warp) Sound.warp(k - state.warp);
     state.warp = k;
@@ -521,7 +535,7 @@
     const m = state.mission;
     const level = m.level;
     const c = controls();
-    if ((c.thrust || c.rotate) && state.warp > 0) { state.warp = 0; }
+    if ((c.thrust || c.rotate) && state.warp > 0) { state.warp = level.ship.ion && !c.rotate ? Math.min(state.warp, ION_WARP) : 0; }
     // Physics gets a fixed slice of each frame. At high warp near a body the
     // simulation can need more steps than a phone can run in one frame; then
     // it falls a little behind real time instead of stalling the screen, and
@@ -557,10 +571,16 @@
       const ev = m.events[state.eventsSeen];
       // Each objective but the last (the win has its own fanfare).
       if (ev.type === 'goal' && ev.index < m.level.goals.length - 1) Sound.objective();
-      if (ev.type === 'pickup') {
-        toast('+' + ev.dv.toFixed(1) + ' Δv collected', 1.8);
+      if (ev.type === 'pickup' || ev.type === 'refuel') {
+        toast('+' + ev.dv.toFixed(1) + ' Δv ' + (ev.type === 'refuel' ? 'refuelled at ' + m.sys.bodies[ev.body].name : 'collected'), 1.8);
         Sound.pickup();
         confetti(m.ship.x, m.ship.y);
+        state.predDirty = true;
+      }
+      if (ev.type === 'jump') {
+        toast('Through the wormhole!', 1.5);
+        Sound.warp(1);
+        state.trail.push({ t: ev.t, x: m.ship.x, y: m.ship.y, gap: true });
         state.predDirty = true;
       }
     }
@@ -616,7 +636,9 @@
     state.predT = m.t;
     if (m.landed || m.status !== 'flying') { state.pred = null; return; }
     const horizon = level.predict * state.predictScale;
-    const p = Phys.predict(m.sys, m.ship, m.t, horizon, { bounds: level.bounds, maxSteps: 8000, ignore: m.ignoreBody });
+    // Experimental forces (drag, a sail turning at the current spin) are part
+    // of the coast; heating past the limit ends the path (p.burn).
+    const p = Phys.predict(m.sys, m.ship, m.t, horizon, { bounds: level.bounds, maxSteps: 8000, ignore: m.ignoreBody, fx: m.coastFx(), heat: true });
     // Closest approach to the active goal.
     const g = m.currentGoal();
     let ca = null;
@@ -657,12 +679,30 @@
         if ((p.xs[i] - bp[0]) ** 2 + (p.ys[i] - bp[1]) ** 2 < r2) { p.zone = { i, body: b.index }; break; }
       }
     }
+    // Radiation belts: predicted dose along the path, and where it would run out.
+    p.dose = 0; p.doseOut = -1;
+    for (const b of m.belts) {
+      const bp = [0, 0];
+      for (let i = 1; i < p.ts.length && p.doseOut < 0; i++) {
+        m.sys.posAt(b.index, p.ts[i], bp);
+        const r = Math.hypot(p.xs[i] - bp[0], p.ys[i] - bp[1]);
+        if (r >= b.belt.rMin && r <= b.belt.rMax) {
+          p.dose += p.ts[i] - p.ts[i - 1];
+          if (m.dose + p.dose > b.belt.dose) p.doseOut = i;
+        }
+      }
+    }
+    // Touchdown speed against the surface (soft landing goals).
+    p.impact = p.hit >= 0 ? m.surfaceSpeed(p.hit, p.end, p.tEnd) : 0;
+    m.sys.update(m.t);
     state.pred = p;
     // Danger ahead (for the alarm): the path ends in a crash that isn't the
     // goal, or enters a keep-out zone.
-    const goodHit = p.hit >= 0 && g && g.type === 'hit' && !g.craft && m.sys.byId[g.body].index === p.hit && m.siteOk(g, p.end.x, p.end.y, p.tEnd);
+    const goodHit = p.hit >= 0 && g && g.type === 'hit' && !g.craft && m.sys.byId[g.body].index === p.hit && m.siteOk(g, p.end.x, p.end.y, p.tEnd) && !(g.maxSpeed && p.impact > g.maxSpeed);
     const tHit = p.hit >= 0 && !goodHit ? p.tEnd : Infinity, tZone = p.zone ? p.ts[p.zone.i] : Infinity;
-    state.danger = Math.min(tHit, tZone) < Infinity ? Math.min(tHit, tZone) : null;
+    const tBurn = p.burn ? p.ts[p.burn.i] : Infinity, tDose = p.doseOut > 0 ? p.ts[p.doseOut] : Infinity;
+    const tBad = Math.min(tHit, tZone, tBurn, tDose);
+    state.danger = tBad < Infinity ? tBad : null;
     stageFatePreview(m);
   }
 
@@ -721,6 +761,11 @@
   // ------------------------------------------------------------ particles
   function spawnExhaust(dt) {
     const s = state.mission.ship;
+    // An ion engine's exhaust is a faint blue trickle, not a flame.
+    if (state.mission.level.ship.ion) {
+      if (Math.random() < 0.5) state.particles.push({ x: s.x - Math.cos(s.angle) * 7 / state.cam.zoom, y: s.y - Math.sin(s.angle) * 7 / state.cam.zoom, vx: -Math.cos(s.angle) * 30 / state.cam.zoom, vy: -Math.sin(s.angle) * 30 / state.cam.zoom, life: 0.5, age: 0, size: 1.5, color: '#8fc0ff' });
+      return;
+    }
     const n = Math.ceil(60 * dt * state.throttle) + 1;
     const z = state.cam.zoom;
     for (let i = 0; i < n; i++) {
@@ -1041,7 +1086,7 @@
     ctx.beginPath();
     tr.forEach((p, i) => {
       const [sx, sy] = disp(p.x, p.y, p.t);
-      if (i) ctx.lineTo(sx, sy); else ctx.moveTo(sx, sy);
+      if (i && !p.gap) ctx.lineTo(sx, sy); else ctx.moveTo(sx, sy);
     });
     const s = state.mission.ship;
     const [sx, sy] = w2s(s.x, s.y);
@@ -1057,7 +1102,8 @@
     while (i0 < p.ts.length - 1 && p.ts[i0 + 1] <= m.t) i0++;
     ctx.lineWidth = 1.6;
     ctx.setLineDash([7, 6]);
-    const grad = m.thrusting ? 'rgba(255,220,120,0.9)' : 'rgba(125,200,255,0.85)';
+    // On a tether the path shown is where you'd go if you let go now.
+    const grad = m.thrusting ? 'rgba(255,220,120,0.9)' : m.tether ? 'rgba(124,247,212,0.85)' : 'rgba(125,200,255,0.85)';
     ctx.strokeStyle = grad;
     ctx.beginPath();
     const [s0x, s0y] = w2s(m.ship.x, m.ship.y);
@@ -1065,8 +1111,14 @@
     let lx = s0x, ly = s0y;
     // The path turns red where it would enter a keep-out zone.
     const zi = p.zone && p.zone.i > i0 ? p.zone.i : -1;
+    const jumps = p.jumps && p.jumps.length ? new Set(p.jumps) : null;
     for (let i = i0 + 1; i < p.ts.length; i++) {
       const [sx, sy] = disp(p.xs[i], p.ys[i], p.ts[i]);
+      if (jumps && jumps.has(i)) {
+        // Through a wormhole: the path picks up again at the other mouth.
+        ctx.stroke(); ctx.beginPath(); ctx.moveTo(sx, sy); lx = sx; ly = sy;
+        continue;
+      }
       if (i === zi) {
         ctx.lineTo(sx, sy); ctx.stroke();
         ctx.strokeStyle = 'rgba(255,107,107,0.85)';
@@ -1093,6 +1145,19 @@
       ctx.beginPath(); ctx.arc(sx, sy, 3.5, 0, TAU); ctx.fill();
       label('KEEP OUT · ' + fmtT(t - m.t), sx, sy - 14, '#ff7a7a');
     }
+    // Burning up in an atmosphere, or running out of radiation dose.
+    for (const [i, text] of [[p.burn ? p.burn.i : -1, 'BURNS UP'], [p.doseOut, 'DOSE LIMIT']]) {
+      if (i <= i0) continue;
+      const [sx, sy] = disp(p.xs[i], p.ys[i], p.ts[i]);
+      ctx.strokeStyle = '#ff5a5a'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(sx - 6, sy - 6); ctx.lineTo(sx + 6, sy + 6); ctx.moveTo(sx + 6, sy - 6); ctx.lineTo(sx - 6, sy + 6); ctx.stroke();
+      ctx.lineWidth = 1;
+      label(text + ' · ' + fmtT(p.ts[i] - m.t), sx, sy - 14, '#ff7a7a');
+    }
+    if (m.tether) {
+      const [sx, sy] = w2s(m.ship.x, m.ship.y);
+      label('PATH IF RELEASED NOW', sx, sy + 30, '#7cf7d4');
+    }
     // Impact marker.
     if (p.hit >= 0) {
       const [sx, sy] = disp(p.end.x, p.end.y, p.tEnd);
@@ -1105,12 +1170,16 @@
       const tg = preview ? dropGoal : g && !g.craft ? g : null;
       // A stage that would come down inside a zone closed to everything isn't a good drop.
       const zoned = preview && !m.canDrop() && state.stageFate && state.stageFate.bad;
-      const good = !zoned && tg && tg.type === 'hit' && sys.byId[tg.body].index === p.hit && m.siteOk(tg, p.end.x, p.end.y, p.tEnd);
+      const fast = tg && tg.maxSpeed && p.impact > tg.maxSpeed;
+      const good = !zoned && !fast && tg && tg.type === 'hit' && sys.byId[tg.body].index === p.hit && m.siteOk(tg, p.end.x, p.end.y, p.tEnd);
       ctx.strokeStyle = good ? '#7cf7d4' : '#ff5a5a';
       ctx.lineWidth = 2;
       ctx.beginPath(); ctx.moveTo(sx - 6, sy - 6); ctx.lineTo(sx + 6, sy + 6); ctx.moveTo(sx + 6, sy - 6); ctx.lineTo(sx - 6, sy + 6); ctx.stroke();
       const missedSite = !good && tg && tg.site && sys.byId[tg.body].index === p.hit;
-      label((preview ? (m.canDrop() ? 'DROP NOW → ' : 'DEPLOY NOW → ') : '') + (good ? 'IMPACT ' : missedSite ? 'OFF TARGET ' : 'CRASH ') + sys.bodies[p.hit].name + ' · ' + fmtT(p.tEnd - m.t), sx, sy - 14, good ? '#7cf7d4' : '#ff7a7a');
+      // Soft landings show the touchdown speed against the limit.
+      const spd = tg && tg.maxSpeed && sys.byId[tg.body].index === p.hit ? ' · ' + p.impact.toFixed(1) + (fast ? ' TOO FAST' : '') : '';
+      const what = sys.bodies[p.hit].horizon ? 'EVENT HORIZON ' : good ? (spd ? 'TOUCHDOWN ' : 'IMPACT ') : missedSite ? 'OFF TARGET ' : 'CRASH ';
+      label((preview ? (m.canDrop() ? 'DROP NOW → ' : 'DEPLOY NOW → ') : '') + what + sys.bodies[p.hit].name + spd + ' · ' + fmtT(p.tEnd - m.t), sx, sy - 14, good ? '#7cf7d4' : '#ff7a7a');
       ctx.lineWidth = 1;
     }
     // Where the spent stage would end up if deployed now.
@@ -1147,7 +1216,13 @@
       if (b.hidden || b.radius <= 0) continue;
       const [sx, sy] = w2s(sys.px[b.index], sys.py[b.index]);
       const r = Math.max(b.radius * z, b.kind === 'station' ? 0 : 2.5);
-      if (sx < -r - 200 || sx > W + r + 200 || sy < -r - 200 || sy > H + r + 200) continue;
+      // Rings around a body (belt, air, rope reach, horizon) can be on screen when the body isn't.
+      const reach = Math.max(b.radius, b.belt ? b.belt.rMax : 0, b.atmosphere ? b.radius + b.atmosphere.height : 0, b.tether ? b.tether.length : 0, b.pw ? 3 * b.pw : 0) * z;
+      if (sx < -reach - 200 || sx > W + reach + 200 || sy < -reach - 200 || sy > H + reach + 200) continue;
+      if (b.belt) drawBelt(sx, sy, b);
+      if (b.atmosphere) drawAtmosphere(sx, sy, b);
+      if (b.kind === 'wormhole') { drawWormhole(sx, sy, r, b); continue; }
+      if (b.tether) { drawAnchor(sx, sy, b); continue; }
       if (b.keepOut) {
         // Keep-out zone: a red dashed fence the ship must stay outside. A
         // zone closed to everything (cargo and spent stages too) is amber,
@@ -1161,7 +1236,7 @@
         if (all && kr > 8) { ctx.strokeStyle = 'rgba(' + rgb + ',0.25)'; ctx.beginPath(); ctx.arc(sx, sy, kr - 3, 0, TAU); ctx.stroke(); }
         if (kr > 30) label(all ? 'KEEP OUT · ALL CRAFT' : 'KEEP OUT', sx, sy - kr - 8, 'rgba(' + rgb + ',0.85)');
       }
-      if (b.kind === 'station') { drawStation(sx, sy, b); continue; }
+      if (b.kind === 'station') { drawStation(sx, sy, b); if (b.depot) drawDepot(sx, sy, b); continue; }
       if (b.kind === 'rock') { drawRock(sx, sy, r, b); continue; }
       if (b.pickup) { if (!state.mission.collected.has(b.index)) drawCanister(sx, sy, b); continue; }
       if (b.kind === 'blackhole') { drawBlackHole(sx, sy, r, b); continue; }
@@ -1207,8 +1282,108 @@
     label('+' + b.dv + ' Δv', sx, sy + 24, hit ? '#7cf7d4' : '#ffb35a');
   }
 
+  // Radiation belt: a shaded amber ring that brightens while you're in it.
+  function drawBelt(sx, sy, b) {
+    const z = state.cam.zoom, m = state.mission, inside = m.inBelt === b.index;
+    const r0 = b.belt.rMin * z, r1 = b.belt.rMax * z;
+    ctx.fillStyle = inside ? 'rgba(255,190,60,0.16)' : 'rgba(255,190,60,0.08)';
+    ctx.beginPath(); ctx.arc(sx, sy, r1, 0, TAU); ctx.arc(sx, sy, r0, 0, TAU, true); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,190,60,0.45)'; ctx.setLineDash([2, 6]);
+    ctx.beginPath(); ctx.arc(sx, sy, r0, 0, TAU); ctx.stroke();
+    ctx.beginPath(); ctx.arc(sx, sy, r1, 0, TAU); ctx.stroke();
+    ctx.setLineDash([]);
+    if (r1 - r0 > 18) label('☢ RADIATION BELT', sx, sy - (r0 + r1) / 2 + 4, 'rgba(255,200,90,0.9)');
+  }
+
+  // Atmosphere: a soft glow fading out to the top of the layer.
+  function drawAtmosphere(sx, sy, b) {
+    const z = state.cam.zoom, A = b.atmosphere, c = A.color || b.color;
+    const r0 = b.radius * z, r1 = (b.radius + A.height) * z;
+    const g = ctx.createRadialGradient(sx, sy, r0 * 0.98, sx, sy, r1);
+    g.addColorStop(0, hexA(c, 0.5)); g.addColorStop(0.35, hexA(c, 0.2)); g.addColorStop(1, hexA(c, 0));
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(sx, sy, r1, 0, TAU); ctx.fill();
+    ctx.strokeStyle = hexA(c, 0.3); ctx.setLineDash([3, 7]);
+    ctx.beginPath(); ctx.arc(sx, sy, r1, 0, TAU); ctx.stroke();
+    ctx.setLineDash([]);
+    if (r1 - r0 > 14) label('AIR', sx, sy - r1 + 12, hexA(c, 0.8));
+  }
+
+  // Wormhole mouth: counter-turning rings around a dark eye, with a dashed
+  // thread to the mouth it leads to.
+  function drawWormhole(sx, sy, r, b) {
+    const t = performance.now() / 1000, sys = state.mission.sys, R = Math.max(r, 7);
+    const o = sys.byId[b.link];
+    if (o && b.index < o.index) {
+      const [ox, oy] = w2s(sys.px[o.index], sys.py[o.index]);
+      ctx.strokeStyle = hexA(b.color, 0.22); ctx.setLineDash([2, 10]); ctx.lineDashOffset = -t * 12;
+      ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(ox, oy); ctx.stroke();
+      ctx.setLineDash([]); ctx.lineDashOffset = 0;
+    }
+    const glow = ctx.createRadialGradient(sx, sy, R * 0.3, sx, sy, R * 2.4);
+    glow.addColorStop(0, hexA(b.color, 0.5)); glow.addColorStop(1, hexA(b.color, 0));
+    ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(sx, sy, R * 2.4, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#0a0414'; ctx.beginPath(); ctx.arc(sx, sy, R * 0.75, 0, TAU); ctx.fill();
+    ctx.lineWidth = Math.max(1.2, R * 0.12);
+    for (let k = 0; k < 3; k++) {
+      const a = t * (k % 2 ? -1.4 : 1.1) * (1 + k * 0.3);
+      ctx.strokeStyle = hexA(b.color, 0.9 - k * 0.22);
+      ctx.beginPath(); ctx.arc(sx, sy, R * (0.8 + k * 0.22), a, a + 4.2); ctx.stroke();
+    }
+    ctx.lineWidth = 1;
+    label(b.name + (o ? ' → ' + o.name : ''), sx, sy + R * 1.4 + 14, hexA(b.color, 0.95));
+  }
+
+  // Tether anchor: a small post with the rope's reach drawn round it.
+  function drawAnchor(sx, sy, b) {
+    const z = state.cam.zoom, m = state.mission, mine = m.tether && m.tether.body === b.index;
+    const inReach = !m.tether && m.tetherInRange() === b.index;
+    ctx.strokeStyle = mine ? 'rgba(124,247,212,0.35)' : inReach ? 'rgba(124,247,212,0.8)' : 'rgba(230,230,240,0.35)';
+    ctx.setLineDash([5, 6]);
+    ctx.beginPath(); ctx.arc(sx, sy, b.tether.length * z, 0, TAU); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#cfd6e6'; ctx.strokeStyle = '#7f8aa8';
+    ctx.beginPath(); ctx.arc(sx, sy, 5, 0, TAU); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#3a4a72'; ctx.beginPath(); ctx.arc(sx, sy, 2, 0, TAU); ctx.fill();
+    label(b.name + (inReach ? ' · E LATCH' : ''), sx, sy + 18, inReach ? '#7cf7d4' : 'rgba(220,228,255,0.75)');
+  }
+
+  // Refuelling depot: a fuel ring until used, and the docking distance.
+  function drawDepot(sx, sy, b) {
+    const m = state.mission, z = state.cam.zoom, used = m.refuelled.has(b.index);
+    if (!used) {
+      const t = performance.now() / 1000;
+      ctx.strokeStyle = 'rgba(255,179,90,' + (0.5 + 0.3 * Math.sin(t * 3)) + ')'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(sx, sy, Math.max(b.depot.dist * z, 14), 0, TAU); ctx.stroke(); ctx.lineWidth = 1;
+    }
+    label(used ? 'refuelled' : '+' + b.depot.dv + ' Δv', sx, sy - 18, used ? 'rgba(220,228,255,0.6)' : '#ffb35a');
+  }
+
   // Black hole: a dark disc inside a glowing, slowly turning accretion disc.
+  // With an event horizon (b.horizon) much bigger than the hole, the horizon
+  // is the dark disc, ringed by a thin photon-ring glow, and a dashed ring
+  // marks where orbits stop being stable (3 × the strong-gravity radius).
   function drawBlackHole(sx, sy, r, b) {
+    if (b.horizon) {
+      const z = state.cam.zoom, t = performance.now() / 1000, Rh = Math.max(b.horizon * z, 6);
+      if (b.pw) {
+        const ru = 3 * b.pw * z;
+        ctx.strokeStyle = 'rgba(255,140,90,0.45)'; ctx.setLineDash([4, 6]); ctx.lineDashOffset = t * 8;
+        ctx.beginPath(); ctx.arc(sx, sy, ru, 0, TAU); ctx.stroke();
+        ctx.setLineDash([]); ctx.lineDashOffset = 0;
+        if (ru > 40) label('NO STABLE ORBITS INSIDE', sx, sy - ru - 8, 'rgba(255,160,110,0.85)');
+      }
+      const ring = ctx.createRadialGradient(sx, sy, Rh, sx, sy, Rh * 1.6);
+      ring.addColorStop(0, 'rgba(255,220,170,0.75)'); ring.addColorStop(0.25, 'rgba(255,150,80,0.35)'); ring.addColorStop(1, 'rgba(120,60,200,0)');
+      ctx.fillStyle = ring; ctx.beginPath(); ctx.arc(sx, sy, Rh * 1.6, 0, TAU); ctx.fill();
+      ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(sx, sy, Rh, 0, TAU); ctx.fill();
+      ctx.strokeStyle = 'rgba(150,40,40,0.9)'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(sx, sy, Rh, 0, TAU); ctx.stroke(); ctx.lineWidth = 1;
+      // The hole itself: a tiny bright point at the centre.
+      ctx.fillStyle = 'rgba(255,240,220,0.9)'; ctx.beginPath(); ctx.arc(sx, sy, Math.max(1.5, r * 0.3), 0, TAU); ctx.fill();
+      if (Rh > 25) label('EVENT HORIZON', sx, sy + Rh * 0.5, 'rgba(255,120,120,0.8)');
+      label(b.name, sx, sy + Rh * 1.6 + 12, 'rgba(220,228,255,0.75)');
+      return;
+    }
     const t = performance.now() / 1000, R = Math.max(r, 6);
     const halo = ctx.createRadialGradient(sx, sy, R, sx, sy, R * 9);
     halo.addColorStop(0, 'rgba(255,170,90,0.35)'); halo.addColorStop(0.4, 'rgba(180,90,255,0.12)'); halo.addColorStop(1, 'rgba(0,0,0,0)');
@@ -1371,12 +1546,21 @@
     }
     if (m.status === 'crashed' || (m.status === 'won' && shipImpactWin(m))) return;
     const [sx, sy] = w2s(s.x, s.y);
+    if (m.tether) drawRope(sx, sy);
     ctx.save();
     ctx.translate(sx, sy);
     ctx.rotate(-s.angle);
     const sat = m.stageSpec && m.stageSpec.sprite === 'satellite';
     const L = sat ? 4 : 9;
-    if (m.thrusting) {
+    if (m.level.ship.sail) drawSail(m.sailPush());
+    if (m.thrusting && m.level.ship.ion) {
+      // Ion engine: a thin, steady blue plume.
+      const x0 = -L - 0.5, len = 30 * state.throttle;
+      const g = ctx.createLinearGradient(x0, 0, x0 - len, 0);
+      g.addColorStop(0, 'rgba(170,220,255,0.95)'); g.addColorStop(0.4, 'rgba(90,150,255,0.6)'); g.addColorStop(1, 'rgba(60,100,255,0)');
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.moveTo(x0, -1.6); ctx.lineTo(x0 - len, -0.4); ctx.lineTo(x0 - len, 0.4); ctx.lineTo(x0, 1.6); ctx.fill();
+    } else if (m.thrusting) {
       // Two-tone flame like the icon: orange outside, pale yellow core.
       const f = (0.75 + Math.random() * 0.45) * state.throttle, x0 = -L - 0.5, len = 24 * f;
       const g = ctx.createLinearGradient(x0, 0, x0 - len, 0);
@@ -1390,6 +1574,32 @@
     }
     if (sat) drawSatelliteBody(); else drawRocketBody(L, m.canDeploy() || (m.landed && m.stages.length > 1));
     ctx.restore();
+  }
+
+  // The tether from its anchor to the ship: straight when taut, sagging when slack.
+  function drawRope(sx, sy) {
+    const m = state.mission, sys = m.sys, T = m.tether;
+    const [ax, ay] = w2s(sys.px[T.body], sys.py[T.body]);
+    const d = Math.hypot(m.ship.x - sys.px[T.body], m.ship.y - sys.py[T.body]);
+    const slack = Math.max(0, T.L - d) * state.cam.zoom;
+    const mx = (ax + sx) / 2, my = (ay + sy) / 2, len = Math.hypot(sx - ax, sy - ay) || 1;
+    ctx.strokeStyle = T.taut ? 'rgba(240,240,250,0.95)' : 'rgba(240,240,250,0.6)'; ctx.lineWidth = T.taut ? 1.6 : 1.2;
+    ctx.beginPath(); ctx.moveTo(ax, ay);
+    ctx.quadraticCurveTo(mx - (sy - ay) / len * slack * 0.5, my + (sx - ax) / len * slack * 0.5 + slack * 0.3, sx, sy);
+    ctx.stroke(); ctx.lineWidth = 1;
+  }
+
+  // Solar sail: a wide sheet across the ship (its face is the nose
+  // direction), glowing with how hard the light is pushing.
+  function drawSail(push) {
+    ctx.strokeStyle = 'rgba(200,210,230,0.7)'; ctx.lineWidth = 0.8;
+    ctx.beginPath(); ctx.moveTo(4, 0); ctx.lineTo(-3, -16); ctx.moveTo(4, 0); ctx.lineTo(-3, 16); ctx.stroke();
+    const g = ctx.createLinearGradient(0, -16, 0, 16);
+    const a = 0.35 + 0.6 * push;
+    g.addColorStop(0, `rgba(255,214,120,${a})`); g.addColorStop(0.5, `rgba(255,245,210,${a})`); g.addColorStop(1, `rgba(255,214,120,${a})`);
+    ctx.fillStyle = g; ctx.strokeStyle = 'rgba(255,230,160,0.9)';
+    ctx.beginPath(); ctx.moveTo(-3, -16); ctx.quadraticCurveTo(-6, 0, -3, 16); ctx.lineTo(-5, 16); ctx.quadraticCurveTo(-8, 0, -5, -16); ctx.closePath();
+    ctx.fill(); ctx.stroke(); ctx.lineWidth = 1;
   }
 
   // Satellite: a gold-foil box with two solar panels and a small nozzle.
@@ -1537,8 +1747,12 @@
     camera: { key: () => `Press ${KEY('O')} for an overview, ${KEY('F')} to follow your ship`, touch: () => `Tap ${KEY('◎')} to switch between overview and following your ship` },
     frame: { key: () => `Press ${KEY('V')} to view your path relative to another body`, touch: () => `Tap ${KEY('V')} to view your path relative to another body` },
     gyro: { key: () => `${KEY('G')} gyro assist stops spin for you (caps the run at ★★)`, touch: () => `${KEY('G')} gyro assist stops spin for you (caps the run at ★★)` },
+    // Experimental mechanics.
+    latch: { key: () => `In the tether's reach: press ${KEY('E')} to latch on`, touch: () => `In the tether's reach: tap ${KEY('LATCH')}` },
+    release: { key: () => `Swinging! Press ${KEY('E')} to let go when the path points at the target`, touch: () => `Swinging! Tap ${KEY('RELEASE')} when the path points at the target` },
+    ionwarp: { key: () => `Ion burns are long: press ${KEY('.')} to warp while it fires (up to 10×)`, touch: () => `Ion burns are long: tap ${KEY('»')} to warp while it fires (up to 10×)` },
   };
-  const LEARN_AFTER = { drop: 99, gravityturn: 2, deploy: 99, launch: 99, burn: 2, rotate: 3, counter: 4, warp: 3, camera: 2, frame: 2, gyro: 1 };
+  const LEARN_AFTER = { drop: 99, gravityturn: 2, deploy: 99, launch: 99, burn: 2, rotate: 3, counter: 4, warp: 3, camera: 2, frame: 2, gyro: 1, latch: 99, release: 99, ionwarp: 99 };
 
   // Which rotate control tilts the nose toward the way the launch body spins.
   function turnKey(m, touchUi) {
@@ -1590,6 +1804,7 @@
     if (m.thrusting) coachDone(m.landed ? 'launch' : 'burn');
     if (!m.landed && m.events.some(e => e.type === 'liftoff')) coachDone('launch');
     if (m.launchBody != null && !m.landed && tiltFromVertical(m) > 0.6) coachDone('gravityturn');
+    if (L.ship.ion && m.thrusting && state.warp > 0) coachDone('ionwarp');
     if (ctl.rotate) {
       coachDone('rotate');
       if (c.key === 'counter' && Math.sign(ctl.rotate) !== Math.sign(s.omega)) coachDone('counter');
@@ -1602,6 +1817,9 @@
     if (m.status !== 'flying') key = null;
     else if (m.landed) key = 'launch';
     else if (m.canDeploy() && m.stageSpec.fuel <= 1e-9) key = 'deploy';
+    else if (m.tether && wants('release')) key = 'release';
+    else if (!m.tether && m.tetherInRange() >= 0 && wants('latch')) key = 'latch';
+    else if (L.ship.ion && m.thrusting && state.warp === 0 && m.t > 3 && wants('ionwarp')) key = 'ionwarp';
     else if (m.canDrop() && state.pred && state.pred.hit >= 0 && dropHint(m, L.goals[m.goalIndex])) key = 'drop';
     else if (m.launchBody != null && L.ship.canRotate && wants('gravityturn') && m.t - m.liftoffT > 1.2
       && m.t - m.liftoffT < 40 && tiltFromVertical(m) < 0.35) key = 'gravityturn';
@@ -1630,6 +1848,7 @@
     chips.push([t ? '◎' : 'F O', 'follow / overview']);
     if (L.ship.stages.length > 1) chips.push([t ? 'DEPLOY' : 'E', 'drop a spent stage']);
     if (L.ship.cargo && L.ship.cargo.length) chips.push([t ? 'DROP' : 'E', 'release cargo']);
+    if (L.bodies.some(b => b.tether)) chips.push([t ? 'LATCH' : 'E', 'latch onto / let go of the tether']);
     if (grav >= 2) chips.push(['V', 'reference frame']);
     if (L.ship.canRotate) chips.push(['G', 'gyro assist (★★ max)']);
     return chips.map(([k, d]) => `<span class="chip"><kbd>${k}</kbd> ${d}</span>`).join('');
@@ -1652,7 +1871,97 @@
         <div class="bar ${k === L.ship.stages.length - 1 ? 'payload' : ''}"><div id="sg-b-${k}"></div></div></div>`).join('') : '';
     $('gauge-fuel').classList.remove('spent');
     document.body.classList.toggle('no-rotate', !L.ship.canRotate);
+    setupMechHud(m);
     renderGoals();
+  }
+
+  // Experimental mechanics get one extra gauge (heat, dose, sail push) and
+  // one status row, built on demand so the page markup stays the same.
+  function setupMechHud(m) {
+    const L = m.level, B = L.bodies;
+    if (!$('gauge-mech')) {
+      const g = document.createElement('div');
+      g.className = 'gauge'; g.id = 'gauge-mech';
+      g.innerHTML = '<div class="glabel"><span id="mech-label"></span><span id="mech-val"></span></div><div class="bar"><div id="mech-bar"></div></div>';
+      const r = document.createElement('div');
+      r.className = 'row'; r.id = 'mech-row';
+      r.innerHTML = '<span class="k" id="mech-key"></span> <span id="mech-text"></span>';
+      const before = $('stage-row');
+      before.parentNode.insertBefore(g, before);
+      before.parentNode.insertBefore(r, before);
+    }
+    const gauge = B.some(b => b.atmosphere) ? 'heat' : B.some(b => b.belt) ? 'dose' : L.ship.sail ? 'sail' : null;
+    const row = B.some(b => b.tether) ? 'tether' : B.some(b => b.depot) ? 'depot' : B.some(b => b.kind === 'wormhole') ? 'wormhole'
+      : B.some(b => b.horizon) ? 'horizon' : L.ship.ion ? 'ion' : L.goals.some(g => g.maxSpeed) ? 'touchdown'
+      : B.some(b => b.atmosphere) ? 'air' : L.ship.sail ? 'sail' : B.some(b => b.belt) ? 'belt' : null;
+    state.mech = { gauge, row };
+    $('gauge-mech').style.display = gauge ? '' : 'none';
+    $('mech-row').style.display = row ? '' : 'none';
+    $('mech-label').textContent = { heat: 'Heat', dose: 'Radiation dose', sail: 'Sail push' }[gauge] || '';
+  }
+
+  function updateMechHud(m) {
+    const M = state.mech, sys = m.sys, s = m.ship, p = state.pred;
+    if (!M) return;
+    if (M.gauge === 'heat') {
+      const A = m.heatBody >= 0 && m.heatBody != null ? sys.bodies[m.heatBody].atmosphere : sys.bodies[sys.atmo[0]].atmosphere;
+      const k = Math.min(1, m.heat / A.heatLimit);
+      $('mech-val').textContent = m.heat > 0 ? Math.round(100 * k) + '%' : 'out of the air';
+      $('mech-bar').style.width = (100 * k) + '%';
+      $('mech-bar').style.background = k > 0.7 ? 'linear-gradient(90deg, #ff6b6b, #ffb35a)' : '';
+    } else if (M.gauge === 'dose') {
+      const lim = m.belts[0].belt.dose;
+      $('mech-val').textContent = m.dose.toFixed(1) + ' / ' + lim + 's';
+      $('mech-bar').style.width = Math.min(100, 100 * m.dose / lim) + '%';
+      $('mech-bar').style.background = m.inBelt >= 0 || m.dose > lim * 0.7 ? 'linear-gradient(90deg, #ff6b6b, #ffb35a)' : '';
+    } else if (M.gauge === 'sail') {
+      const k = m.sailPush();
+      $('mech-val').textContent = Math.round(100 * k) + '%';
+      $('mech-bar').style.width = (100 * k) + '%';
+    }
+    const key = $('mech-key'), text = $('mech-text'), E = isTouch() ? '' : ' · E ';
+    let k = '', t = '';
+    switch (M.row) {
+      case 'tether': {
+        k = 'TETHER';
+        if (m.tether) t = (m.tether.taut ? '<span class="ok">taut, swinging</span>' : 'slack') + (E ? E + 'releases' : '');
+        else if (m.tetherInRange() >= 0) t = '<span class="ok">in reach</span>' + (E ? E + 'latches' : '');
+        else t = 'out of reach';
+        break;
+      }
+      case 'depot': {
+        k = 'DEPOT';
+        const b = m.depots[0];
+        if (m.refuelled.has(b.index)) t = '<span class="ok">refuelled +' + b.depot.dv + ' Δv</span>';
+        else {
+          sys.update(m.t);
+          const d = Math.hypot(s.x - sys.px[b.index], s.y - sys.py[b.index]), rv = Math.hypot(s.vx - sys.vx[b.index], s.vy - sys.vy[b.index]);
+          t = `+${b.depot.dv} Δv · <span class="${d < b.depot.dist ? 'ok' : ''}">dist ${d.toFixed(0)}</span> · <span class="${rv < b.depot.relVel ? 'ok' : ''}">rel v ${rv.toFixed(2)}</span>`;
+        }
+        break;
+      }
+      case 'wormhole':
+        k = 'WORMHOLE';
+        t = m.jumps ? '<span class="ok">through</span>' : p && p.jumps && p.jumps.length ? '<span class="ok">path goes through</span>' : 'path misses the mouth';
+        break;
+      case 'horizon': {
+        k = 'HORIZON';
+        const b = sys.bodies.find(q => q.horizon);
+        sys.update(m.t);
+        const r = Math.hypot(s.x - sys.px[b.index], s.y - sys.py[b.index]);
+        t = (r - b.horizon).toFixed(0) + ' above' + (b.pw && r < 3 * b.pw ? ' · <span class="warn">no stable orbit here</span>' : '');
+        break;
+      }
+      case 'ion': k = 'ION'; t = m.thrusting ? 'burning · warp up to 10×' : 'tiny thrust, very long burns'; break;
+      case 'touchdown': {
+        k = 'TOUCHDOWN';
+        const g = m.level.goals.find(q => q.maxSpeed);
+        t = 'gentle under ' + g.maxSpeed + (p && p.hit >= 0 ? ' · path hits at <span class="' + (p.impact <= g.maxSpeed ? 'ok' : 'warn') + '">' + p.impact.toFixed(1) + '</span>' : '');
+        break;
+      }
+      case 'sail': k = 'SAIL'; t = 'steer with rotation only'; break;
+    }
+    key.textContent = k; text.innerHTML = t;
   }
 
   function renderGoals() {
@@ -1679,7 +1988,7 @@
     }
     const name = g.body ? m.sys.byId[g.body].name : (g.label || 'target');
     switch (g.type) {
-      case 'hit': return g.site ? `Land in the zone on ${name}` : g.deorbit ? `Deorbit into ${name}` : 'Impact ' + name;
+      case 'hit': return g.site ? `Land in the zone on ${name}` : g.deorbit ? `Deorbit into ${name}` : g.maxSpeed ? `Land on ${name} slower than ${g.maxSpeed}` : 'Impact ' + name;
       case 'reach': return 'Reach ' + (g.label || name);
       case 'orbit': return `Orbit ${name} within ${g.rMin}–${g.rMax}${g.dir ? (g.dir > 0 ? ' counter-clockwise' : ' clockwise') : ''}`;
       case 'hold': return `Park at ${g.label || name} for ${g.hold}s`;
@@ -1733,9 +2042,11 @@
     $('hud-gyro').textContent = m.gyro ? 'ON · max ★★' : (m.assisted ? 'OFF · max ★★' : 'OFF');
     $('hud-gyro').className = m.gyro || m.assisted ? 'warn' : '';
     $('btn-gyro').classList.toggle('on', m.gyro);
-    document.body.classList.toggle('can-deploy', m.canDeploy() || m.canDrop());
+    const tether = m.status === 'flying' && m.canTether();
+    document.body.classList.toggle('can-deploy', m.canDeploy() || m.canDrop() || tether);
     const dropBtn = document.querySelector('#touch button.deploy');
-    if (dropBtn) dropBtn.textContent = m.canDrop() ? 'DROP' : 'DEPLOY';
+    if (dropBtn) dropBtn.textContent = tether ? (m.tether ? 'RELEASE' : 'LATCH') : m.canDrop() ? 'DROP' : 'DEPLOY';
+    updateMechHud(m);
     if (L.ship.cargo && L.ship.cargo.length) {
       $('hud-cargo').textContent = m.cargo.length ? m.cargo.map(c => c.name).join(', ') + (isTouch() ? '' : ' · E drops') : 'all dropped';
     }
@@ -1758,8 +2069,9 @@
     $('hud-ref-label').textContent = eps < 0 && !L.zeroG ? 'Orbiting' : 'Near';
     $('hud-alt').textContent = (r - b.radius).toFixed(0);
     $('hud-spd').textContent = v.toFixed(2);
-    // Zero-G: no orbit to speak of, so no high or low point.
-    if (L.zeroG) { $('hud-ap').textContent = '–'; $('hud-pe').textContent = '–'; $('hud-pe').className = ''; }
+    // Zero-G: no orbit to speak of, so no high or low point. Near a black
+    // hole's strong gravity a Newtonian orbit would mislead, so none either.
+    if (L.zeroG || b.pw) { $('hud-ap').textContent = '–'; $('hud-pe').textContent = '–'; $('hud-pe').className = ''; }
     else if (eps < 0) {
       const a = -b.gm / (2 * eps);
       $('hud-ap').textContent = (a * (1 + e) - b.radius).toFixed(0);
@@ -1923,7 +2235,7 @@
       const card = document.createElement('button');
       card.className = 'level-card' + (stars ? ' cleared' : '') + (next ? ' next' : '') + (L.test ? ' test' : '');
       card.disabled = !open;
-      card.innerHTML = `<div class="num">${L.test ? 'TEST' : String(missionNum(i)).padStart(2, '0')}</div>
+      card.innerHTML = `<div class="num">${L.test ? 'EXP' : String(missionNum(i)).padStart(2, '0')}</div>
         <div class="lname">${L.name}</div>
         <div class="lteach">${L.teaches}</div>
         <div class="lstars">${starStr(stars)}${next ? '<span class="nexttag">Next up</span>' : ''}</div>`;
