@@ -394,6 +394,28 @@ for (const L of LEVELS) {
   check('a spent stage running into your ship ends the mission', /ran into your ship/.test(m.message), m.status + ' ' + m.message);
 }
 
+// 19. No pointless stages: every stage a proof drops has done real work
+//     first (burned at least 40% of its Δv), never just "deploy at once".
+{
+  const AP = require('./autopilot.js');
+  const PROOFS = require('./proofs.js');
+  const idle = [];
+  const orig = Mission.prototype.deploy;
+  for (const L of LEVELS) {
+    if (L.ship.stages.length < 2 || !PROOFS[L.id]) continue;
+    Mission.prototype.deploy = function () {
+      if (this.canDeploy()) {
+        const k = this.stage, used = this.stageDv0[k] - this.stageDv(k);
+        if (used < 0.4 * this.stageDv0[k]) idle.push(`${L.id} stage ${k + 1} (${used.toFixed(2)} of ${this.stageDv0[k].toFixed(2)})`);
+      }
+      return orig.call(this);
+    };
+    AP.fly(L, PROOFS[L.id].script(PROOFS[L.id].p, AP), PROOFS[L.id].opts);
+  }
+  Mission.prototype.deploy = orig;
+  check('every dropped stage did real work first (≥40% of its Δv)', idle.length === 0, idle.join('; '));
+}
+
 // 16. Zones closed to everything: cargo and spent stages may not enter.
 {
   const L = JSON.parse(JSON.stringify(LEVELS.find(l => l.id === 'supplyrun')));

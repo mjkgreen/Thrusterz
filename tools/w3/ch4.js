@@ -152,8 +152,8 @@ const levels = [
       { id: 'guard1', name: 'Guard 1', gm: 0, radius: 4, color: C.station, kind: 'station', keepOut: 25, zone: 'all', orbit: { parent: 'terra', a: 245, e: 0.55, phase: 1.0, argp: 2.0 } },
       { id: 'guard2', name: 'Guard 2', gm: 0, radius: 4, color: C.station, kind: 'station', keepOut: 25, zone: 'all', orbit: { parent: 'terra', a: 245, e: 0.55, phase: 1.0 + Math.PI, argp: 2.0 } },
     ],
-    ship: ship({ start: { conic: { body: 'terra', pe: 40, e: 0.7838, nu: 1.838, angle: -1.838 } }, heading: 'prograde', rcs: { fuel: 1.5 }, stack: [
-      { id: 'booster', name: 'Booster', dv: 1.5, accel: 0.8 },
+    ship: ship({ start: { conic: { body: 'terra', pe: 40, e: 0.7838, nu: 1.838, angle: -1.838 } }, heading: 'prograde', rcs: { fuel: 60 }, stack: [
+      { id: 'booster', name: 'Booster', dv: 1.2, accel: 0.8 },
       { name: 'Satellite', dv: 5.5, accel: 0.6, dry: 0.3 },
     ] }),
     goals: [{ type: 'orbit', body: 'terra', rMin: 300, rMax: 360 }],
@@ -236,14 +236,15 @@ const proofs = {
     ]; },
   },
   crossingtraffic: {
-    p: [-6.89, 299.21, 8.394], scale: [10, 8, 4], opts: { turn: true, turnRate: 0.2 },
+    p: [60, 299.21, 8.394], scale: [4, 8, 4], opts: { turn: true, turnRate: 0.2 },
     script: (p, AP) => [
-      // Drop the booster early, nose still prograde: its path ends on Terra.
-      still((m) => m.t >= p[0]),
-      { deploy: true },
       // Coast up holding still, then the one flip, timed to finish at the top.
       still((m) => { const o = AP.orb(m, 'terra'); return o.ap - o.r < p[2]; }),
       turnTo('pro'),
+      // Start rounding off on the booster, but stop while its path still
+      // falls back (the separation spring takes a little more off its PE).
+      { burn: 'pro', until: (m) => AP.orb(m, 'terra').pe >= p[0] },
+      { deploy: true },
       { burn: 'pro', until: (m) => AP.orb(m, 'terra').pe >= p[1] },
     ],
   },
