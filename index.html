@@ -200,32 +200,36 @@
 
 <div id="profile" class="screen hidden">
   <div class="card profile-card">
-    <div class="eyebrow">Pilot</div>
-    <h1 id="pf-name">Pilot</h1>
-    <div class="stats" id="pf-stats"></div>
-    <div class="pf-row">
-      <label for="pf-name-input" class="k">Name on leaderboards</label>
-      <div class="pf-inline"><input id="pf-name-input" maxlength="16" autocomplete="off" autocapitalize="words" spellcheck="false"><button id="btn-pf-rename">Save</button></div>
+    <div class="pf-col">
+      <div class="eyebrow">Pilot</div>
+      <h1 id="pf-name">Pilot</h1>
+      <div class="stats" id="pf-stats"></div>
+      <div class="pf-row">
+        <label for="pf-name-input" class="k">Name on leaderboards</label>
+        <div class="pf-inline"><input id="pf-name-input" maxlength="16" autocomplete="off" autocapitalize="words" spellcheck="false"><button id="btn-pf-rename">Save</button></div>
+      </div>
+      <div class="pf-row" id="pf-apple-row">
+        <span class="k">Keep your stars on every device</span>
+        <button id="btn-pf-apple" class="apple">  Sign in with Apple</button>
+        <span class="small" id="pf-apple-state"></span>
+      </div>
     </div>
-    <div class="pf-row" id="pf-apple-row">
-      <span class="k">Keep your stars on every device</span>
-      <button id="btn-pf-apple" class="apple">  Sign in with Apple</button>
-      <span class="small" id="pf-apple-state"></span>
-    </div>
-    <div class="pf-row">
-      <span class="k">Restore code</span>
-      <div class="pf-inline"><code id="pf-code">····-····-····</code><button id="btn-pf-copy" class="ghost">Copy</button></div>
-      <span class="small">Write this down. On a new device, enter it below to get your stars back.</span>
-    </div>
-    <div class="pf-row">
-      <label for="pf-restore-input" class="k">Restore an account</label>
-      <div class="pf-inline"><input id="pf-restore-input" placeholder="XXXX-XXXX-XXXX" maxlength="16" autocomplete="off" autocapitalize="characters" spellcheck="false"><button id="btn-pf-restore">Restore</button></div>
-    </div>
-    <p class="small" id="pf-status"></p>
-    <p class="small"><a href="privacy.html" target="_blank" rel="noopener" class="plain">Privacy policy</a></p>
-    <div class="buttons">
-      <button id="btn-pf-delete" class="ghost danger">Delete account</button>
-      <button id="btn-pf-close" class="primary">Done</button>
+    <div class="pf-col">
+      <div class="pf-row">
+        <span class="k">Restore code</span>
+        <div class="pf-inline"><code id="pf-code">····-····-····</code><button id="btn-pf-copy" class="ghost">Copy</button></div>
+        <span class="small">Write this down. On a new device, enter it below to get your stars back.</span>
+      </div>
+      <div class="pf-row">
+        <label for="pf-restore-input" class="k">Restore an account</label>
+        <div class="pf-inline"><input id="pf-restore-input" placeholder="XXXX-XXXX-XXXX" maxlength="16" autocomplete="off" autocapitalize="characters" spellcheck="false"><button id="btn-pf-restore">Restore</button></div>
+      </div>
+      <p class="small" id="pf-status"></p>
+      <p class="small"><a href="privacy.html" target="_blank" rel="noopener" class="plain">Privacy policy</a></p>
+      <div class="buttons">
+        <button id="btn-pf-delete" class="ghost danger">Delete account</button>
+        <button id="btn-pf-close" class="primary">Done</button>
+      </div>
     </div>
   </div>
 </div>
@@ -268,7 +272,7 @@
       <tr><td><kbd class="tbtn">❚❚</kbd></td><td>Pause, restart or quit · top right</td></tr>
       <tr><td>Pinch</td><td>Zoom in and out</td></tr>
     </table>
-    <p class="small">Red dashed lines are where dropped stages will go; green ones are dropped cargo. A red dashed ring is a keep-out zone.</p>
+    <p class="small">Red dashed lines are where dropped stages will go; green ones are dropped cargo. A red ring is a keep-out zone for your ship; an amber one is closed to everything, cargo and spent stages too.</p>
     <p class="small">Markers around your ship: <span class="pro">◉ prograde</span> (direction of travel), <span class="retro">⊗ retrograde</span>, <span class="tgt">◆ target</span>. The dashed line is where you'll coast if you stop burning.</p>
     <div class="buttons"><button id="btn-help-close" class="primary">Got it</button></div>
   </div>

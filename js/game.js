@@ -97,18 +97,35 @@
   // the box it is actually shown in, or everything is drawn stretched. Phones
   // change that box after the resize event (rotation, browser bars, entering
   // fullscreen), so the frame loop re-checks it every frame.
+  // (The layout size, not the on-screen box: on a phone held upright the
+  // whole page is drawn sideways, see applyLayout.)
   function resize() {
+    applyLayout();
     DPR = Math.min(window.devicePixelRatio || 1, 2);
-    const r = canvas.getBoundingClientRect();
-    W = r.width || window.innerWidth; H = r.height || window.innerHeight;
+    W = canvas.clientWidth || window.innerWidth; H = canvas.clientHeight || window.innerHeight;
     canvas.width = Math.round(W * DPR); canvas.height = Math.round(H * DPR);
   }
   function syncSize() {
-    const r = canvas.getBoundingClientRect();
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    if (Math.abs(r.width - W) > 0.5 || Math.abs(r.height - H) > 0.5 || dpr !== DPR) resize();
+    if (Math.abs(canvas.clientWidth - W) > 0.5 || Math.abs(canvas.clientHeight - H) > 0.5 || dpr !== DPR) resize();
+  }
+  // Thrusterz plays sideways. A phone held upright (or with rotation lock on)
+  // gets the whole page rotated a quarter turn instead of a "rotate your
+  // phone" screen. Layout sizes (--vw, --vh and the short / narrow classes
+  // that stand in for size media queries) follow the landscape size.
+  function applyLayout() {
+    const iw = window.innerWidth, ih = window.innerHeight;
+    const phone = window.matchMedia('(pointer: coarse)').matches && Math.min(screen.width, screen.height) < 600;
+    const rot = phone && !Bridge.inApp && ih > iw;
+    const lw = rot ? ih : iw, lh = rot ? iw : ih, root = document.documentElement;
+    root.classList.toggle('rotated', rot);
+    root.classList.toggle('short', lh <= 500);
+    root.classList.toggle('narrow', lw <= 640);
+    root.style.setProperty('--lw', lw + 'px'); root.style.setProperty('--lh', lh + 'px');
+    root.style.setProperty('--vw', rot ? lw / 100 + 'px' : '1vw'); root.style.setProperty('--vh', rot ? lh / 100 + 'px' : '1vh');
   }
   window.addEventListener('resize', resize);
+  window.addEventListener('orientationchange', () => setTimeout(resize, 50));
   if (window.ResizeObserver) new ResizeObserver(resize).observe(canvas);
   resize();
 
@@ -1929,21 +1946,19 @@
   }
 
   // ------------------------------------------------------------ phone gate
-  // Phones play in landscape and fullscreen. Losing either (rotating back,
-  // leaving fullscreen, switching apps) pauses the mission.
+  // Phones play fullscreen (held upright, the game is drawn sideways; see
+  // applyLayout). Leaving fullscreen or switching apps pauses the mission.
   const fsEl = () => document.fullscreenElement || document.webkitFullscreenElement;
   const fsSupported = () => !!(document.fullscreenEnabled || document.webkitFullscreenEnabled);
   // Inside the native app (mobile/, for the app stores) the game is already
   // fullscreen, so it counts the same as a home-screen web app.
   const nativeApp = () => Bridge.inApp;
   const standalone = () => nativeApp() || window.matchMedia('(display-mode: fullscreen), (display-mode: standalone)').matches || navigator.standalone === true;
-  const isPhone = () => isTouch() && Math.min(screen.width, screen.height) < 600;
   const isIOS = () => /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
   let fsUnavailable = false; // set when the browser refuses fullscreen
 
   function gateReason() {
     if (!isTouch()) return null;
-    if (isPhone() && window.innerHeight > window.innerWidth) return 'rotate';
     if (!fsEl() && !standalone() && fsSupported() && !fsUnavailable) return 'fullscreen';
     return null;
   }
@@ -1959,19 +1974,11 @@
     if (!reason) { hide('gate'); return; }
     pauseMission();
     keys.clear(); for (const k in touch) touch[k] = false;
-    if (reason === 'rotate') {
-      $('gate-icon').textContent = '⟳';
-      $('gate-title').textContent = 'Rotate your phone';
-      $('gate-msg').textContent = 'Thrusterz plays sideways. Turn your phone to landscape.';
-      $('btn-gate').classList.add('hidden');
-      $('gate-tip').textContent = isIOS() && !standalone() ? 'For true full screen on iPhone: Share → Add to Home Screen, then launch Thrusterz from there.' : '';
-    } else {
-      $('gate-icon').textContent = '⛶';
-      $('gate-title').textContent = state.screen === 'flight' ? 'Paused' : 'Full screen';
-      $('gate-msg').textContent = 'Thrusterz needs the whole screen so your thumbs have room.';
-      $('btn-gate').classList.remove('hidden');
-      $('gate-tip').textContent = '';
-    }
+    $('gate-icon').textContent = '⛶';
+    $('gate-title').textContent = state.screen === 'flight' ? 'Paused' : 'Full screen';
+    $('gate-msg').textContent = 'Thrusterz needs the whole screen so your thumbs have room.';
+    $('btn-gate').classList.remove('hidden');
+    $('gate-tip').textContent = isIOS() && !standalone() ? 'For true full screen on iPhone: Share → Add to Home Screen, then launch Thrusterz from there.' : '';
     $('gate').dataset.reason = reason;
     show('gate');
   }
@@ -2246,5 +2253,5 @@
   requestAnimationFrame(frame);
 
   // Expose for debugging / automated testing.
-  window.Thrusterz = { state, startLevel, showMenu, levelCount: LEVELS.length };
+  window.Thrusterz = { state, startLevel, showMenu, showBriefing, levelCount: LEVELS.length };
 })();

@@ -125,6 +125,32 @@ const check = (name, ok, info) => { console.log((ok ? 'ok   ' : 'FAIL ') + name 
     await ctx.close();
   }
 
+  // 3c. Phones: held upright, the game is drawn sideways (no "rotate your
+  //     phone" screen), and every briefing fits with Launch on screen.
+  for (const [w, h] of [[390, 844], [740, 360]]) {
+    const ctx = await browser.newContext({ viewport: { width: w, height: h }, isMobile: true, hasTouch: true });
+    const p = await ctx.newPage();
+    watch(p);
+    await p.goto(URL + '?unlock');
+    await p.waitForTimeout(500);
+    const r = await p.evaluate(async () => {
+      const T = window.Thrusterz, lh = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--lh')) || innerHeight;
+      const over = [];
+      for (let i = 0; i < T.levelCount; i++) {
+        T.showBriefing(i);
+        await new Promise(r => requestAnimationFrame(r));
+        const b = document.getElementById('btn-brief-go').getBoundingClientRect();
+        if (b.bottom > innerHeight + 1 || b.right > innerWidth + 1 || b.top < -1 || b.left < -1) over.push(i + 1);
+      }
+      const c = document.querySelector('canvas');
+      return { rotated: document.documentElement.classList.contains('rotated'), cw: c.clientWidth, ch: c.clientHeight, over: over.join(','), lh, gate: document.getElementById('gate').dataset.reason || '' };
+    });
+    if (h > w) check('a phone held upright plays sideways (no rotate screen)', r.rotated && r.cw === h && r.ch === w && r.gate !== 'rotate', JSON.stringify(r));
+    check(`${w}x${h}: every briefing's Launch button is on screen`, r.over === '', r.over);
+    await ctx.close();
+    errors.length = 0;
+  }
+
   // 3a. First launch: a new pilot is asked for a name and gets a restore code.
   {
     const p = await browser.newPage({ viewport: { width: 1000, height: 600 } });
