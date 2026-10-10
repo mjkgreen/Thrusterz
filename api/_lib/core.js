@@ -315,10 +315,51 @@ const routes = {
     }
     return {
       level: L ? L.id : undefined, world: L ? undefined : +query.world, missions: L ? undefined : WORLD_LEVELS[query.world].length, kind, total: await store.zcard(key),
-      top: top.map(([id, value], i) => ({ rank: i + 1, name: players[i] ? players[i].name : 'Pilot', value, me: !!me && me.id === id })),
+      top: top.map(([id, value], i) => ({ rank: i + 1, id, name: players[i] ? players[i].name : 'Pilot', value, me: !!me && me.id === id })),
       me: mine, progress,
     };
   }),
 };
+
+// Pilot names other players find offensive: each account may report a name
+// once; after REPORTS_TO_RESET different reporters the name goes back to the
+// neutral default (the player can pick a new one, which starts clean).
+const REPORTS_TO_RESET = 3;
+routes.report = route(['POST'], async ({ req, body, store }) => {
+  const me = await authed(req, store);
+  await limit(store, 'report:' + me.id, 20, 3600);
+  const target = typeof body.player === 'string' && body.player.length < 40 ? body.player : '';
+  const p = target && await store.get('player:' + target);
+  if (!p) throw new HttpError(404, 'No such pilot');
+  if (p.id === me.id) throw new HttpError(400, 'That\'s you');
+  const nameKey = p.id + ':' + p.name;
+  if (!(await store.setnx('reported:' + nameKey + ':' + me.id, 1))) return { reported: true, reset: false };
+  const n = await store.incr('reports:' + nameKey);
+  let reset = false;
+  if (n >= REPORTS_TO_RESET && !/^Pilot-/.test(p.name)) {
+    p.name = 'Pilot-' + p.id.slice(0, 4).toUpperCase();
+    p.nameReset = Date.now();
+    await store.set('player:' + p.id, p);
+    reset = true;
+  }
+  return { reported: true, reset };
+});
+
+// Crash reports from the game: short, anonymous, newest kept. Reading them
+// needs the ADMIN_KEY environment variable (GET /api/crash with header
+// x-admin-key).
+const clip = (v, n) => String(v == null ? '' : v).slice(0, n);
+routes.crash = route(['GET', 'POST'], async ({ req, body, store }) => {
+  if (req.method === 'GET') {
+    const key = process.env.ADMIN_KEY;
+    if (!key || req.headers['x-admin-key'] !== key) throw new HttpError(403, 'Not allowed');
+    return { crashes: await store.lrange('crashes', 0, 199) };
+  }
+  await limit(store, 'crash:' + clientIp(req), 30, 3600);
+  const c = { at: Date.now(), msg: clip(body.msg, 300), stack: clip(body.stack, 1500), level: clip(body.level, 40), version: clip(body.version, 20), where: clip(body.where, 20), ua: clip(req.headers['user-agent'], 200) };
+  if (!c.msg) throw new HttpError(400, 'Empty report');
+  await store.lpush('crashes', c, 500);
+  return { ok: true };
+});
 
 module.exports = { routes, HttpError, mergeProgress, cleanName, normCode, HASHES, WORLD_LEVELS, boardKey };

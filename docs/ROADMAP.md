@@ -1,7 +1,7 @@
 # Thrusterz roadmap
 
 Living notes on where the game goes next. World 1 (Flight School), World 2
-(Payloads) and World 3 (No-Fly Zones) are complete. New mechanics are prototyped as **Test levels** in the
+(Payloads) and World 3 (No-Fly Zones) are complete. New mechanics are prototyped as **Experimental levels** in the
 menu before they get a world of their own.
 
 ## Principles for a world mechanic

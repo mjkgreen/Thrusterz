@@ -236,12 +236,14 @@
       coachDone('drop');
       state.predDirty = true;
       c.path = Phys.predict(m.sys, c, m.t, 400, { bounds: m.level.bounds, maxSteps: 6000 });
+      Sound.drop();
       toast(c.name + ' released', 1.5);
       return;
     }
     if (!m.canDeploy()) { if (m.status === 'flying') toast(m.landed ? 'Launch first' : 'Nothing to deploy', 1.2); return; }
     state.rec.event('deploy');
     m.deploy();
+    Sound.stage();
     coachDone('deploy');
     state.predDirty = true;
     // Show where the spent stage will drift (it can hit things).
@@ -425,10 +427,13 @@
     swallow = { el: b, until: performance.now() + 700 };
     b.click();
   }, true);
+  // The browser's own click for that tap arrives afterwards, and by then the
+  // button may have closed its screen: the click would land on whatever is
+  // underneath now (a level card behind a Done button). Swallow it, whatever
+  // it hits.
   document.addEventListener('click', (e) => {
     if (!e.isTrusted || !swallow || performance.now() > swallow.until) return;
-    const b = e.target.closest && e.target.closest('button');
-    if (b === swallow.el) { e.stopPropagation(); e.preventDefault(); swallow = null; }
+    e.stopPropagation(); e.preventDefault(); swallow = null;
   }, true);
 
   // Let go of every held touch control (when a menu or result card covers them).
@@ -486,11 +491,14 @@
     requestAnimationFrame(frame);
     const t0 = performance.now();
     try {
-      if (state.screen === 'flight' && !state.paused && $('gate').classList.contains('hidden')) update(realDt);
+      const flying = state.screen === 'flight' && !state.paused && $('gate').classList.contains('hidden');
+      if (flying) update(realDt);
+      // Engine and thrusters fall silent whenever we're not actually flying.
+      if (!flying || !state.mission || state.mission.status !== 'flying') { Sound.engine(0); Sound.rcs(false); }
       render(realDt);
       state.errorFrames = 0;
     } catch (e) {
-      if (!state.loggedError) { state.loggedError = true; console.error(e); }
+      if (!state.loggedError) { state.loggedError = true; console.error(e); if (window.__reportCrash) window.__reportCrash('frame', e); }
       // A bug that keeps firing would leave the mission unplayable: stop and
       // offer the pause menu (restart / quit) instead of a broken screen.
       if (++state.errorFrames > 30 && state.screen === 'flight' && !state.paused) {
@@ -540,6 +548,7 @@
       const ev = m.events[state.eventsSeen];
       if (ev.type === 'pickup') {
         toast('+' + ev.dv.toFixed(1) + ' Δv collected', 1.8);
+        Sound.pickup();
         confetti(m.ship.x, m.ship.y);
         state.predDirty = true;
       }
@@ -547,6 +556,8 @@
     updateCoach(realDt, c);
     if (m.thrusting) spawnExhaust(realDt);
     if (m.rotInput) spawnRcs(m.rotInput);
+    Sound.engine(m.thrusting && !state.paused ? state.throttle : 0);
+    Sound.rcs(!!m.rotInput && !state.paused);
 
     // Trail (inertial positions, drawn in the current frame).
     const last = state.trail[state.trail.length - 1];
@@ -654,11 +665,12 @@
   function shipImpactWin(m) { const g = m.level.goals[m.level.goals.length - 1]; return g.type === 'hit' && !g.craft; }
 
   // A small buzz on the phone (app only) when a mission ends.
-  function haptic(won) { Bridge.haptic(won ? 'success' : 'heavy'); }
+  function haptic(won) { if (settings.haptics) Bridge.haptic(won ? 'success' : 'heavy'); }
 
   function onMissionEnd() {
     const m = state.mission;
     haptic(m.status === 'won');
+    if (m.status === 'won') Sound.win(); else if (m.status === 'crashed') Sound.crash(); else Sound.fail();
     state.endTime = performance.now();
     state.endDelay = 1600;
     // A spent stage doomed to hit something: pull back and let the player see
@@ -1601,7 +1613,7 @@
   // ------------------------------------------------------------------ HUD
   function setupHud() {
     const m = state.mission, L = m.level;
-    $('hud-level').textContent = (L.test ? 'Test level' : (worldOf(L) > 1 ? worldOf(L) + '-' : 'Mission ') + missionNum(state.levelIndex)) + ' · ' + L.teaches;
+    $('hud-level').textContent = (L.test ? 'Experimental' : (worldOf(L) > 1 ? worldOf(L) + '-' : 'Mission ') + missionNum(state.levelIndex)) + ' · ' + L.teaches;
     $('hud-name').textContent = L.name;
     $('gauge-rcs').style.display = L.ship.rcs ? '' : 'none';
     $('gyro-row').style.display = L.ship.canRotate ? '' : 'none';
@@ -1684,6 +1696,7 @@
       const lvl = !low ? 0 : m.rcsFuel <= 0 ? 2 : 1;
       if (lvl > (state.rcsWarned || 0) && m.status === 'flying') {
         toast(lvl === 2 ? 'Side thrusters empty: you can no longer turn or stop a spin.' : 'Side thrusters low: tap, don\'t hold.', 3);
+        Sound.warn();
       }
       state.rcsWarned = Math.max(state.rcsWarned || 0, lvl);
     }
@@ -1789,7 +1802,17 @@
   }
 
   // -------------------------------------------------------------- screens
-  function show(id) { $(id).classList.remove('hidden'); }
+  function show(id) { if (id === 'pause') fillPause(); $(id).classList.remove('hidden'); }
+  // The pause card repeats the briefing: its hints matter most when you're
+  // about to restart.
+  function fillPause() {
+    const L = state.mission && state.mission.level;
+    if (!L) return;
+    $('pause-num').textContent = missionLabel(state.levelIndex);
+    $('pause-name').textContent = L.name;
+    $('pause-intro').textContent = L.intro;
+    $('pause-obj').textContent = L.objective;
+  }
   function hide(id) { $(id).classList.add('hidden'); }
 
   // The menu shows one world at a time as tabs (plus the test levels). A
@@ -1834,7 +1857,7 @@
       const b = document.createElement('button');
       b.className = 'wtab tests' + (state.menuTab === TEST_TAB ? ' active' : '');
       b.setAttribute('role', 'tab');
-      b.innerHTML = '<span class="wnum">Test</span><span class="wname">In development</span>';
+      b.innerHTML = '<span class="wnum">Experimental</span><span class="wname">New ideas</span>';
       b.onclick = () => selectTab(TEST_TAB);
       tabs.appendChild(b);
     }
@@ -1852,7 +1875,7 @@
     grid.className = 'level-grid' + (t === TEST_TAB ? ' tests' : ' w' + t);
     const list = LEVELS.map((L, i) => [L, i]).filter(([L]) => t === TEST_TAB ? L.test : !L.test && worldOf(L) === t);
     const open = t === TEST_TAB || worldOpen(t);
-    if (t === TEST_TAB) info.innerHTML = '<span class="k">Prototypes of upcoming mechanics</span>';
+    if (t === TEST_TAB) info.innerHTML = '<span class="k">Experimental levels: new mechanics to try out. They may change, or grow into a world of their own.</span>';
     else if (open) info.innerHTML = `<span class="k">${worldStars(t)} of ${list.length * 3} ★ earned</span>`;
     else {
       const w = WORLDS.find(x => x.n === t), have = worldStars(t - 1);
@@ -1890,7 +1913,7 @@
   function missionNum(i) { return worldLevels(worldOf(LEVELS[i])).indexOf(LEVELS[i]) + 1; }
   function missionLabel(i) {
     const L = LEVELS[i];
-    return L.test ? 'Test level' : `World ${worldOf(L)} · Mission ${missionNum(i)} of ${worldLevels(worldOf(L)).length}`;
+    return L.test ? 'Experimental level' : `World ${worldOf(L)} · Mission ${missionNum(i)} of ${worldLevels(worldOf(L)).length}`;
   }
   function nextIndex(i) {
     const j = i + 1;
@@ -2127,9 +2150,14 @@
       if (!r.top.length) { const li = document.createElement('li'); li.className = 'empty'; li.textContent = empty; list.appendChild(li); }
       for (const e of r.top) {
         const li = document.createElement('li');
+        const hiddenName = !e.me && hiddenNames[e.id] === e.name;
         if (e.me) li.className = 'me';
+        else li.classList.add('reportable');
         li.innerHTML = `<span class="rk">#${e.rank}</span><span class="nm"></span><span>${fmtVal(kind, e.value)}</span>`;
-        li.querySelector('.nm').textContent = e.name;
+        li.querySelector('.nm').textContent = hiddenName ? 'Hidden pilot' : e.name;
+        if (hiddenName) li.querySelector('.nm').classList.add('hidden-name');
+        // Tap someone else's name to report it.
+        if (!e.me && e.id && !hiddenName) li.onclick = () => askReport(e);
         list.appendChild(li);
       }
       if (r.me) me.textContent = `You: #${r.me.rank} of ${r.total} · ${fmtVal(kind, r.me.value)}`;
@@ -2144,6 +2172,26 @@
       const li = document.createElement('li'); li.className = 'empty'; li.textContent = e.offline ? 'You\'re offline.' : e.message; list.appendChild(li);
     }
   }
+  // Reporting a name hides it for you at once; the server resets names
+  // that several pilots report.
+  const HIDDEN = 'thrusterz.hiddenNames';
+  const hiddenNames = Online.Store.get(HIDDEN) || {};
+  let reporting = null;
+  function askReport(e) {
+    reporting = e;
+    $('board-report-name').textContent = e.name;
+    $('board-report').classList.remove('hidden');
+  }
+  $('btn-report-cancel').onclick = () => { reporting = null; $('board-report').classList.add('hidden'); };
+  $('btn-report-go').onclick = async () => {
+    const e = reporting; if (!e) return;
+    hiddenNames[e.id] = e.name; Online.Store.set(HIDDEN, hiddenNames);
+    $('board-report').classList.add('hidden'); reporting = null;
+    loadBoard();
+    try { await Online.report(e.id); toast('Thanks. That name is hidden for you and has been reported.', 2.5); }
+    catch (err) { toast(err.offline ? 'Hidden for you. You\'re offline, so it wasn\'t reported.' : 'Hidden for you. ' + err.message, 2.5); }
+  };
+
   $('board-pick').onchange = () => {
     const v = $('board-pick').value;
     pickBoard(v[0] === 'w' ? { world: +v.slice(1) } : { level: +v.slice(1) });
@@ -2219,6 +2267,42 @@
   // storage; fold it back in, then sync with the cloud.
   Online.Store.getNative(STORE).then((p) => { if (p) mergeIn(p); }).finally(() => { Online.start(); maybeWelcome(); });
 
+  // ------------------------------------------------------------ settings
+  // Sound effects, music and (in the app) vibration. Kept on this device.
+  const SETTINGS = 'thrusterz.settings';
+  const settings = Object.assign({ sfx: true, music: false, haptics: true }, Online.Store.get(SETTINGS) || {});
+  Sound.configure(settings);
+  if (Bridge.inApp) document.body.classList.add('in-app');
+  // Browsers only allow sound after a tap or key press.
+  ['pointerdown', 'keydown'].forEach(ev => window.addEventListener(ev, () => Sound.unlock(), true));
+  document.addEventListener('click', (e) => { if (e.target.closest && e.target.closest('button') && !e.target.closest('#touch')) Sound.click(); }, true);
+  document.addEventListener('visibilitychange', () => { if (document.hidden) Sound.suspend(); else Sound.resume(); });
+  let settingsReturn = null;
+  function renderSettings() {
+    for (const b of document.querySelectorAll('#settings .toggle')) b.setAttribute('aria-pressed', String(!!settings[b.dataset.set]));
+    $('set-version').textContent = 'Version ' + ((window.THRUSTERZ_CONFIG || {}).version || '1.0');
+  }
+  function showSettings(from) { settingsReturn = from; hide(from); renderSettings(); show('settings'); }
+  for (const b of document.querySelectorAll('#settings .toggle')) {
+    b.onclick = () => {
+      settings[b.dataset.set] = !settings[b.dataset.set];
+      Online.Store.set(SETTINGS, settings);
+      Sound.unlock(); Sound.configure(settings);
+      if (b.dataset.set === 'haptics' && settings.haptics) Bridge.haptic('success');
+      renderSettings();
+    };
+  }
+  $('btn-settings-menu').onclick = () => showSettings('menu');
+  $('btn-settings-pause').onclick = () => showSettings('pause');
+  $('btn-settings-close').onclick = () => { hide('settings'); if (settingsReturn === 'menu') showMenu(); else show(settingsReturn || 'menu'); };
+  // In the app, open the website's support and privacy pages in Safari.
+  if (Bridge.inApp) {
+    for (const id of ['set-support', 'set-privacy']) {
+      const a = $(id), url = ((window.THRUSTERZ_CONFIG || {}).apiBase || '') + '/' + a.getAttribute('href');
+      a.href = url; a.onclick = (e) => { e.preventDefault(); Bridge.open(url); };
+    }
+  }
+
   // First launch (no stars yet): ask for a pilot name and hand out the
   // restore code, so nobody loses their stars. Asked once; Pilot has it all later.
   const WELCOMED = 'thrusterz.welcomed';
@@ -2265,6 +2349,15 @@
   } else showMenu();
   updateGate();
   requestAnimationFrame(frame);
+
+  // Crash reports: uncaught errors anywhere, plus errors the frame loop caught.
+  function reportCrash(where, err) {
+    const L = state.mission && state.mission.level;
+    Online.crash({ where, msg: (err && (err.message || err.reason && err.reason.message)) || String(err), stack: (err && (err.stack || err.reason && err.reason.stack)) || '', level: L ? L.id : '' });
+  }
+  window.addEventListener('error', (e) => reportCrash('error', e.error || { message: e.message, stack: (e.filename || '') + ':' + e.lineno }));
+  window.addEventListener('unhandledrejection', (e) => reportCrash('promise', e.reason || e));
+  window.__reportCrash = reportCrash;
 
   // Expose for debugging / automated testing.
   window.Thrusterz = { state, startLevel, showMenu, showBriefing, levelCount: LEVELS.length };

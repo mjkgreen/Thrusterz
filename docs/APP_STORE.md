@@ -31,6 +31,8 @@ step 1.
    "not set up yet" and the game simply plays offline.
 2. Environment variables (Settings → Environment Variables):
    - `APPLE_CLIENT_ID` = `com.thrusterz.app` (the bundle ID, step 2)
+   - `ADMIN_KEY` = any long random string. Lets you read crash reports:
+     `curl -H "x-admin-key: <key>" https://thrusterz.com/api/crash`
    - `APPLE_TEAM_ID`, `APPLE_KEY_ID`, `APPLE_PRIVATE_KEY`: from the Sign in
      with Apple key (step 2.3); paste the whole `.p8` file as the value.
      Needed so deleting an account also revokes Sign in with Apple, which
@@ -98,12 +100,18 @@ just run the build and submit commands again.
   Screenshots taken on your own iPhone from the TestFlight build are fine
   for the iPhone size; for iPad, borrow one or ask (the app supports iPad).
 - **Privacy policy URL:** `https://thrusterz.com/privacy.html`.
+- **Support URL:** `https://thrusterz.com/support.html`.
 - **App Privacy:** data collected = *User ID*, *Gameplay Content*, *Other
-  User Content* (the pilot name); all linked to the user, for App
-  Functionality, not used for tracking. (Matches the privacy manifest.)
+  User Content* (the pilot name), all linked to the user; and *Crash Data*,
+  not linked. All for App Functionality, none used for tracking. (Matches
+  the privacy manifest.)
 - **Review notes:** "No login required; an anonymous account is created
   automatically. Sign in with Apple is optional (Pilot screen). Account
-  deletion: Pilot → Delete account."
+  deletion: Pilot → Delete account. Pilot names are filtered for offensive
+  words, any name on a leaderboard can be reported by tapping it (it's hidden
+  for the reporter at once, and reset after several reports), and players can
+  reach us at the support URL. The whole game is bundled and plays offline;
+  it uses Sign in with Apple, haptics and native storage."
 - Export compliance is already answered in the app (`ITSAppUsesNonExemptEncryption = NO`).
 
 Then **Add for Review → Submit**.

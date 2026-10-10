@@ -159,6 +159,24 @@ const check = (name, ok, info) => { console.log((ok ? 'ok   ' : 'FAIL ') + name 
     errors.length = 0;
   }
 
+  // 3d. A tap that closes a screen must not also hit what appears under it
+  //     (Settings' Done sits over a level card on the menu).
+  {
+    const ctx = await browser.newContext({ viewport: { width: 844, height: 390 }, isMobile: true, hasTouch: true });
+    const p = await ctx.newPage();
+    watch(p);
+    await p.goto(URL + '?unlock');
+    await p.waitForTimeout(400);
+    await p.evaluate(() => { document.getElementById('gate').classList.add('hidden'); document.getElementById('btn-settings-menu').click(); });
+    await p.waitForTimeout(200);
+    await p.tap('#btn-settings-close');
+    await p.waitForTimeout(500);
+    const brief = await p.isVisible('#briefing'), menu = await p.isVisible('#menu');
+    check('closing a screen with a tap does not tap what is underneath', menu && !brief, `menu ${menu} briefing ${brief}`);
+    await ctx.close();
+    errors.length = 0;
+  }
+
   // 3a. First launch: a new pilot is asked for a name and gets a restore code.
   {
     const p = await browser.newPage({ viewport: { width: 1000, height: 600 } });

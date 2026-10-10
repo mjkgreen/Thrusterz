@@ -474,3 +474,40 @@ html.short #board #board-list { grid-column: 2; grid-row: 1 / -1; max-height: ca
 html.short #board .board-tabs { margin: 8px 0; }
 html.short #board .buttons { grid-row: 7; margin-top: 8px; }
 html.short #board #board-me { grid-row: 5; }
+
+/* Pause: the briefing beside the buttons. */
+.pause-card { width: min(760px, 100%); display: grid; grid-template-columns: 1fr minmax(170px, 210px); column-gap: 24px; align-items: start; }
+.pause-card .buttons.vertical { margin-top: 6px; }
+.pause-brief #pause-intro { font-size: 14px; line-height: 1.5; color: var(--muted); }
+.pause-brief .objective { margin: 10px 0 0; font-size: 14px; }
+html.short .pause-card { width: min(880px, 100%); }
+html.short .pause-brief #pause-intro { font-size: 12.5px; line-height: 1.45; margin: 6px 0; }
+html.short .pause-brief .objective { font-size: 12.5px; padding: 7px 10px; }
+html.short .pause-card .buttons.vertical { gap: 6px; }
+html.short .pause-card .buttons.vertical button { padding: 8px 12px; }
+html.narrow .pause-card { grid-template-columns: 1fr; }
+
+/* Settings */
+.settings-card { width: min(480px, 100%); }
+.set-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.06); font-weight: 600; }
+.set-row .small { display: block; font-weight: 400; color: var(--muted); margin-top: 2px; }
+.app-only { display: none; }
+body.in-app .app-only { display: flex; }
+button.toggle { flex: 0 0 auto; width: 52px; height: 30px; border-radius: 15px; border: 1px solid var(--panel-border); background: rgba(255,255,255,0.08); position: relative; cursor: pointer; padding: 0; }
+button.toggle::after { content: ''; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: var(--muted); transition: transform 0.15s, background 0.15s; }
+button.toggle[aria-pressed="true"] { background: rgba(124, 247, 212, 0.25); border-color: rgba(124, 247, 212, 0.6); }
+button.toggle[aria-pressed="true"]::after { transform: translateX(22px); background: var(--accent); }
+.set-links { margin-top: 14px; }
+html.short .set-row { padding: 7px 0; }
+
+/* Reporting a name from the leaderboard */
+#board-list li.reportable { cursor: pointer; }
+#board-list li.reportable:hover .nm { text-decoration: underline dotted; }
+#board-list .hidden-name { color: var(--muted); font-style: italic; }
+.report-bar { margin-top: 10px; padding: 10px 12px; border-radius: 10px; border: 1px solid rgba(255, 107, 107, 0.35); background: rgba(255, 107, 107, 0.08); display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; font-size: 14px; }
+.report-bar .rb { display: flex; gap: 8px; }
+.report-bar button { padding: 7px 12px; border-radius: 9px; border: 1px solid var(--panel-border); background: rgba(255,255,255,0.06); color: var(--text); font: 600 13px var(--sans); cursor: pointer; }
+.board-hint { margin: 8px 0 0; color: var(--muted); }
+html.short #board .report-bar { grid-row: 6; align-self: start; font-size: 12px; padding: 8px; }
+html.short #board .board-hint { grid-row: 6; align-self: end; margin: 0; font-size: 11px; }
+html.short #board .report-bar:not(.hidden) ~ .board-hint { display: none; }

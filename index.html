@@ -111,6 +111,7 @@
     <button id="btn-boards-menu" class="ghost online-only">Leaderboards</button>
     <button id="btn-profile" class="ghost">Pilot</button>
     <button id="btn-help-menu" class="ghost">Controls</button>
+    <button id="btn-settings-menu" class="ghost">Settings</button>
   </div>
 </div>
 
@@ -149,12 +150,18 @@
 </div>
 
 <div id="pause" class="screen hidden">
-  <div class="card">
-    <h1>Paused</h1>
+  <div class="card pause-card">
+    <div class="pause-brief">
+      <div class="eyebrow">Paused · <span id="pause-num"></span></div>
+      <h1 id="pause-name">Paused</h1>
+      <p id="pause-intro"></p>
+      <div class="objective"><span class="k">OBJECTIVE</span> <span id="pause-obj"></span></div>
+    </div>
     <div class="buttons vertical">
       <button id="btn-resume" class="primary">Resume</button>
       <button id="btn-restart">Restart (R)</button>
       <button id="btn-help">Controls</button>
+      <button id="btn-settings-pause">Settings</button>
       <button id="btn-quit" class="ghost">Levels</button>
     </div>
   </div>
@@ -171,7 +178,20 @@
     </div>
     <ol id="board-list"></ol>
     <div id="board-me" class="small"></div>
+    <div id="board-report" class="report-bar hidden"><span>Report “<b id="board-report-name"></b>” as an offensive name?</span><span class="rb"><button id="btn-report-cancel" class="ghost">Cancel</button><button id="btn-report-go" class="danger">Report</button></span></div>
+    <p class="small board-hint">Tap a pilot's name to report it.</p>
     <div class="buttons"><button id="btn-board-close" class="primary">Done</button></div>
+  </div>
+</div>
+
+<div id="settings" class="screen hidden">
+  <div class="card settings-card">
+    <h1>Settings</h1>
+    <div class="set-row"><span>Sound effects<span class="small">Engine, thrusters, staging, wins and crashes</span></span><button class="toggle" data-set="sfx" aria-pressed="true"></button></div>
+    <div class="set-row"><span>Music<span class="small">Quiet ambient background music</span></span><button class="toggle" data-set="music" aria-pressed="false"></button></div>
+    <div class="set-row app-only"><span>Vibration<span class="small">A buzz when a mission ends</span></span><button class="toggle" data-set="haptics" aria-pressed="true"></button></div>
+    <p class="small set-links"><a href="support.html" target="_blank" rel="noopener" class="plain" id="set-support">Help &amp; support</a> · <a href="privacy.html" target="_blank" rel="noopener" class="plain" id="set-privacy">Privacy policy</a> · <span id="set-version"></span></p>
+    <div class="buttons"><button id="btn-settings-close" class="primary">Done</button></div>
   </div>
 </div>
 
@@ -279,6 +299,7 @@
 </div>
 
 <script src="js/config.js"></script>
+<script src="js/audio.js"></script>
 <script src="js/bridge.js"></script>
 <script src="js/dmath.js"></script>
 <script src="js/physics.js"></script>

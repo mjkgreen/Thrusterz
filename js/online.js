@@ -139,6 +139,19 @@
 
   // ------------------------------------------------------------ account
   // which: { level: id } for one mission, { world: n } for a whole world.
+  // Report another pilot's name (once per name; enough reports reset it).
+  const report = (player) => guard(async () => { await ensureAccount(); return api('POST', 'report', { player }); });
+
+  // Crash reports: anonymous, a handful per session, never the same twice.
+  const sentCrashes = new Set();
+  function crash(info) {
+    const key = String(info.msg).slice(0, 120);
+    if (!available() || sentCrashes.size >= 5 || sentCrashes.has(key)) return;
+    sentCrashes.add(key);
+    const version = (window.THRUSTERZ_CONFIG || {}).version;
+    api('POST', 'crash', Object.assign({ version }, info)).catch(() => { /* offline: drop it */ });
+  }
+
   const board = (which, kind) => api('GET', 'board', null, Object.assign({ kind }, typeof which === 'string' ? { level: which } : which));
 
   async function rename(name) {
@@ -209,7 +222,7 @@
   }
 
   const Online = {
-    state, Store, start, bindProgress, saveProgressSoon, syncNow, submitRun, board, rename, restore,
+    state, Store, start, bindProgress, saveProgressSoon, syncNow, submitRun, board, rename, restore, report, crash,
     signInWithApple, appleAvailable, ensureAccount, deleteAccount,
     available: () => apiBase() != null,
     onChange: (f) => listeners.push(f),

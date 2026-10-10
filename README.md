@@ -183,7 +183,7 @@ influence you're in, or the star you're orbiting when you're in none.
 
 World 2 flies through a green nebula with distant planets in the background,
 World 3 through an ember-red one, so you can always tell the worlds apart.
-**Test levels** prototype upcoming mechanics (now just *Fuel Run*). World 3's
+**Experimental levels** (the menu's last tab) try out new mechanics that may or may not grow into a world (now just *Fuel Run*). World 3's
 missions are built in `tools/w3/` (levels, proofs and naive plans that must
 lose, one file per chapter) and written into `js/levels.js` with
 `npm run build:w3`. See [docs/ROADMAP.md](docs/ROADMAP.md) for

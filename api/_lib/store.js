@@ -40,12 +40,15 @@ function redisStore(url, token) {
     // One member's score in each of several sorted sets.
     zscores: async (keys, member) => (await pipeline(keys.map(k => ['ZSCORE', k, member]))).map(v => (v == null ? null : +v)),
     zremAll: async (keys, member) => { await pipeline(keys.map(k => ['ZREM', k, member])); },
+    // Capped lists, newest first (crash reports).
+    lpush: async (k, v, max) => { await pipeline([['LPUSH', k, JSON.stringify(v)], ['LTRIM', k, 0, max - 1]]); },
+    lrange: async (k, start, stop) => (await cmd('LRANGE', k, start, stop)).map(v => JSON.parse(v)),
     mget: async (keys) => (keys.length ? (await cmd('MGET', ...keys)).map(v => (v == null ? null : JSON.parse(v))) : []),
   };
 }
 
 function memoryStore() {
-  const kv = new Map(), z = new Map();
+  const kv = new Map(), z = new Map(), lists = new Map();
   const zs = (k) => { if (!z.has(k)) z.set(k, new Map()); return z.get(k); };
   const sorted = (k, desc) => [...zs(k).entries()].sort((a, b) => (desc ? b[1] - a[1] : a[1] - b[1]) || (a[0] < b[0] ? -1 : 1));
   return {
@@ -66,8 +69,10 @@ function memoryStore() {
     zrem: async (k, member) => { zs(k).delete(member); },
     zscores: async (keys, member) => keys.map(k => (zs(k).has(member) ? zs(k).get(member) : null)),
     zremAll: async (keys, member) => { for (const k of keys) zs(k).delete(member); },
+    lpush: async (k, v, max) => { const l = lists.get(k) || []; l.unshift(JSON.stringify(v)); lists.set(k, l.slice(0, max)); },
+    lrange: async (k, start, stop) => (lists.get(k) || []).slice(start, stop + 1).map(v => JSON.parse(v)),
     mget: async (keys) => keys.map(k => (kv.has(k) ? JSON.parse(kv.get(k)) : null)),
-    _reset: () => { kv.clear(); z.clear(); },
+    _reset: () => { kv.clear(); z.clear(); lists.clear(); },
   };
 }
 

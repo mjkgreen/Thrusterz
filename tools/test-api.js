@@ -119,6 +119,26 @@ function winningLog(wait = 0) {
   check('unknown worlds are refused', (await call('GET', 'board', null, null, { world: 9 })).status === 404 && (await call('GET', 'board', null, null, { world: '__proto__' })).status === 404);
   check('world 2 board starts empty', (await call('GET', 'board', null, tokA, { world: 2, kind: 'score' })).body.total === 0);
 
+  // Reporting a pilot name: once per reporter; three different reporters
+  // reset it to the neutral default.
+  const rowB = (await call('GET', 'board', null, tokA, { level: 'deorbit', kind: 'score' })).body.top.find(e => e.name === 'Second');
+  check('leaderboard rows carry the pilot id for reporting', !!(rowB && rowB.id), JSON.stringify(rowB));
+  check('you cannot report yourself', (await call('POST', 'report', { player: a.body.player.id }, tokA)).status === 400);
+  const r1 = await call('POST', 'report', { player: rowB.id }, tokA);
+  await call('POST', 'report', { player: rowB.id }, tokA); // same reporter again: counted once
+  const nameAfterOne = (await call('GET', 'player', null, b.body.token)).body.player.name;
+  check('a report is taken, a repeat report is not counted twice', r1.status === 200 && nameAfterOne === 'Second', nameAfterOne);
+  for (let k = 0; k < 2; k++) { const x = await call('POST', 'player'); await call('POST', 'report', { player: rowB.id }, x.body.token); }
+  const reset = (await call('GET', 'player', null, b.body.token)).body.player.name;
+  check('three reports reset a name to the default', /^Pilot-/.test(reset), reset);
+  check('reports need an account and a real pilot', (await call('POST', 'report', { player: rowB.id })).status === 401 && (await call('POST', 'report', { player: 'nobody' }, tokA)).status === 404);
+
+  // Crash reports: anyone may send a short one; only the admin key reads them.
+  check('a crash report is accepted', (await call('POST', 'crash', { msg: 'TypeError: x is undefined', stack: 'at frame (game.js:1:1)', level: 'deorbit', version: '1.0.0' })).status === 200);
+  process.env.ADMIN_KEY = 'test-admin';
+  const list = await realFetch(base + '/api/crash', { headers: { 'x-admin-key': 'test-admin' } }).then(r => r.json());
+  check('crash reports are readable with the admin key only', list.crashes && list.crashes[0].msg.startsWith('TypeError') && (await call('GET', 'crash')).status === 403, JSON.stringify(list).slice(0, 120));
+
   // Account deletion (required by the App Store), including Apple revocation.
   const ec = crypto.generateKeyPairSync('ec', { namedCurve: 'P-256' });
   Object.assign(process.env, { APPLE_TEAM_ID: 'TEAM', APPLE_KEY_ID: 'KEY', APPLE_PRIVATE_KEY: ec.privateKey.export({ type: 'pkcs8', format: 'pem' }) });

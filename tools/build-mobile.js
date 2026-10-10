@@ -33,7 +33,7 @@ html = html.replace(/<script src="([^"]+)"><\/script>/g, (_, src) => `<script>\n
 // Images referenced from the page.
 html = html.replace(/src="(icon\.svg)"/g, (_, f) => `src="${dataUri(f, 'image/svg+xml')}"`);
 
-const leftovers = html.match(/(src|href)="(?!data:|https?:|#|privacy\.html)[^"]+"/g);
+const leftovers = html.match(/(src|href)="(?!data:|https?:|#|privacy\.html|support\.html)[^"]+"/g);
 if (leftovers) { console.error('Unbundled references:', leftovers); process.exit(1); }
 
 const out = path.join(root, 'mobile', 'assets', 'game', 'game.html');
