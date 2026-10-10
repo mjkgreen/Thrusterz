@@ -161,9 +161,9 @@ const levels = [
     objective: 'Rendezvous with Tycho Station (within 25, relative speed under 0.5) with 0.9 s of side-thruster propellant.',
     teaches: 'Braking flip under time pressure',
     bodies: [terra, { id: 'tycho', name: 'Tycho Station', gm: 0, radius: 4, color: C.station, kind: 'station', orbit: { parent: 'terra', a: 130, phase: -3.4 } }],
-    ship: ship({ start: { conic: { body: 'terra', pe: 128, e: 0.34, nu: -2.4 } }, heading: 1.8, dv: 3.8, accel: 0.8, rcs: { fuel: 0.9 } }),
+    ship: ship({ start: { conic: { body: 'terra', pe: 128, e: 0.34, nu: -2.4 } }, heading: 1.8, dv: 3, accel: 0.8, rcs: { fuel: 0.9 } }),
     goals: [{ type: 'rendezvous', body: 'tycho', dist: 25, relVel: 0.5 }],
-    par: 2.5, bounds: 2000, tMax: 400, predict: 160, view: { x: 0, y: 0, span: 640 },
+    par: 2, bounds: 2000, tMax: 400, predict: 160, view: { x: 0, y: 0, span: 640 },
   },
   {
     id: 'downgap',
@@ -192,7 +192,7 @@ const levels = [
       { type: 'orbit', body: 'luna', rMin: 30, rMax: 90 },
       { type: 'orbit', body: 'terra', rMin: 120, rMax: 220 },
     ],
-    par: 8.3, bounds: 2500, tMax: 1500, predict: 200, view: { x: 0, y: 0, span: 1000 },
+    par: 2.6, bounds: 2500, tMax: 1000, predict: 200, view: { x: 0, y: 0, span: 1000 },
   },
 ];
 
@@ -319,6 +319,7 @@ const fails = {
     rushed('roundtrip'),
     rushed('roundtrip', 0.5),
     { name: 'flip slowly at Luna, at 0.1 rad/s', steps: (AP) => proofs.roundtrip.script(proofs.roundtrip.p.map((v, i) => i === 0 ? 0.1 : v), AP), opts: T },
+    { name: 'wait 15 s, then the same flip', steps: (AP) => [hold((m) => m.t >= 15), ...proofs.roundtrip.script(proofs.roundtrip.p, AP)], opts: T },
   ],
 };
 

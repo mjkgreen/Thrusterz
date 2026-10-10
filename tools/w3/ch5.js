@@ -45,7 +45,7 @@ const dvBurn = (dir, rel, amount) => {
 };
 
 // Finale phases, fitted so the proof's Luna pass sits under Luna Gate.
-const HAVEN = 3.256, LUNA = 3.5741, GATE = 0.0982, PATROL = 1.175;
+const HAVEN = 3.256, LUNA = 3.5741, GATE = 0.0982, PATROL = 1.15;
 const levels = [
   {
     id: 'resupplyrun',
@@ -158,10 +158,10 @@ const levels = [
     teaches: 'Everything at once',
     bodies: [
       { id: 'terra', name: 'Terra', gm: 20000, radius: 50, color: C.blue },
-      { id: 'pat1', name: 'Patrol 1', gm: 0, radius: 4, color: C.station, kind: 'station', keepOut: 30, zone: 'all', orbit: { parent: 'terra', a: 200, phase: PATROL } },
-      { id: 'pat2', name: 'Patrol 2', gm: 0, radius: 4, color: C.station, kind: 'station', keepOut: 30, zone: 'all', orbit: { parent: 'terra', a: 200, phase: PATROL + 2.094 } },
-      { id: 'pat3', name: 'Patrol 3', gm: 0, radius: 4, color: C.station, kind: 'station', keepOut: 30, zone: 'all', orbit: { parent: 'terra', a: 200, phase: PATROL + 4.189 } },
-      { id: 'haven', name: 'Haven Station', gm: 0, radius: 4, color: C.station, kind: 'station', keepOut: 30, zone: 'all', orbit: { parent: 'terra', a: 340, phase: HAVEN } },
+      { id: 'pat1', name: 'Patrol 1', gm: 0, radius: 4, color: C.station, kind: 'station', keepOut: 25, zone: 'all', orbit: { parent: 'terra', a: 200, phase: PATROL } },
+      { id: 'pat2', name: 'Patrol 2', gm: 0, radius: 4, color: C.station, kind: 'station', keepOut: 25, zone: 'all', orbit: { parent: 'terra', a: 200, phase: PATROL + 2.094 } },
+      { id: 'pat3', name: 'Patrol 3', gm: 0, radius: 4, color: C.station, kind: 'station', keepOut: 25, zone: 'all', orbit: { parent: 'terra', a: 200, phase: PATROL + 4.189 } },
+      { id: 'haven', name: 'Haven Station', gm: 0, radius: 4, color: C.station, kind: 'station', keepOut: 30, zone: 'all', orbit: { parent: 'terra', a: 360, phase: HAVEN } },
       { id: 'luna', name: 'Luna', gm: 800, radius: 16, color: C.grey, orbit: { parent: 'terra', a: 480, phase: LUNA } },
       { id: 'gate', name: 'Luna Gate', gm: 0, radius: 4, color: C.station, kind: 'station', keepOut: 15, zone: 'all', orbit: { parent: 'luna', a: 80, phase: GATE } },
     ],
@@ -247,7 +247,7 @@ const proofs = {
     ],
   },
   longhaul: {
-    p: [0, 0.6, 302.578, 285.316, 3.692, 481.982, 163.839, 0.801, 60.651, -3.165, 82.515, 50.681], scale: [0.6, 0.2, 6, 4, 15, 4, 30, 15, 6, 30, 4, 4], opts: { turn: true, turnRate: 0.5 },
+    p: [-1.57, 0.6, 305, 300, 3.692, 481.982, 163.839, 0.801, 60.651, -3.165, 82.515, 50.681], scale: [0.6, 0.2, 6, 4, 15, 4, 30, 15, 6, 30, 4, 4], opts: { turn: true, turnRate: 0.5 },
     script: (p, AP) => [
       // Dodge the patrol: change the climb at once (p[0]: direction from prograde).
       ...dvBurn(p[0], 'terra', Math.max(0, p[1])),

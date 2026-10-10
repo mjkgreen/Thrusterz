@@ -290,10 +290,14 @@ module.exports = {
   },
 
   voyager: {
-    p: [7.026, 215.647], scale: [6, 15],
+    // Climbing straight into Goliath: a short burn early moves the meeting
+    // so you pass close behind it instead, then spend the rest low and fast.
+    p: [2, 2, 1, 60, 2000], scale: [2, 0.3, 0.3, 30, 600],
     script: (p, AP) => [
-      { wait: p[0] },
-      { burn: 'pro', rel: 'terra', stage: true, until: (m) => AP.orb(m, 'terra').ap >= p[1] },
+      { wait: Math.max(0, p[0]) },
+      { burn: p[1], rel: 'terra', max: Math.max(0, p[2]) },
+      { wait: Math.max(0, p[3]) },
+      { burn: 'pro', rel: 'terra', stage: true, until: (m) => AP.orb(m, 'terra').ap >= p[4] },
     ],
   },
 

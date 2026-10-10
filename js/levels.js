@@ -869,7 +869,7 @@
     {
       id: 'leavenojunk',
       name: 'Leave No Junk',
-      intro: 'Space agencies now have to bring their spent upper stages down instead of leaving them in orbit. Use the upper stage to climb, then at the top of the transfer burn it retrograde until your path dips into Terra. Turn back to prograde and drop it: the separation spring pushes it the opposite way from your nose, down toward Terra. It falls and burns up while the satellite rounds off the orbit on its own engine.',
+      intro: 'You are diving past Terra faster than escape speed: in about 40 seconds you reach your low point, and after that you are gone for good. Brake there with the upper stage, retrograde, until your high point is down at the band. Then deal with the junk: space agencies now have to bring spent upper stages down. At the top, burn retrograde until your path dips into Terra, turn back to prograde and drop the stage. The separation spring pushes it down toward Terra, where it burns up, while the satellite rounds off the orbit on its own engine.',
       objective: 'Make the upper stage reenter Terra, and put the satellite in an orbit between 220 and 280.',
       teaches: 'Deorbiting the upper stage',
       bodies: [
@@ -883,7 +883,7 @@
         { type: 'hit', body: 'terra', craft: 'upper', deorbit: true },
         { type: 'orbit', body: 'terra', rMin: 220, rMax: 280 },
       ],
-      par: 7.8, bounds: 2000, tMax: 1200, predict: 200, view: { x: 0, y: 0, span: 640 },
+      par: 8.2, bounds: 2000, tMax: 1200, predict: 200, view: { x: 0, y: 0, span: 640 },
     },
     {
       id: 'fueldepot',
@@ -985,9 +985,9 @@
       teaches: 'Gravity assist with a stack',
       bodies: [
         { id: 'terra', name: 'Terra', gm: 20000, radius: 50, color: C.blue },
-        { id: 'goliath', name: 'Goliath', gm: 5000, radius: 26, color: C.tan, orbit: { parent: 'terra', a: 350, phase: 2.0 } },
+        { id: 'goliath', name: 'Goliath', gm: 5000, radius: 26, color: C.tan, orbit: { parent: 'terra', a: 350, phase: 1.25 } },
       ],
-      ship: ship({ start: { orbit: { body: 'terra', r: 90, angle: 0 } }, heading: 'prograde', stack: [
+      ship: ship({ start: { conic: { body: 'terra', pe: 90, e: 0.6, nu: 0.8, angle: 0 } }, heading: 'prograde', stack: [
         { name: 'Transfer stage', dv: 3, accel: 1 },
         { name: 'Probe', dv: 1.5, accel: 0.4, dry: 0.3 },
       ] }),
