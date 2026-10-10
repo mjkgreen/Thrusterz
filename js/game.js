@@ -113,11 +113,25 @@
   // gets the whole page rotated a quarter turn instead of a "rotate your
   // phone" screen. Layout sizes (--vw, --vh and the short / narrow classes
   // that stand in for size media queries) follow the landscape size.
+  let insetProbe = null;
+  function safeInsets() {
+    if (!insetProbe) {
+      insetProbe = document.createElement('div');
+      insetProbe.style.cssText = 'position:fixed;visibility:hidden;pointer-events:none;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)';
+      document.documentElement.appendChild(insetProbe);
+    }
+    const cs = getComputedStyle(insetProbe);
+    return { top: parseFloat(cs.paddingTop) || 0, bottom: parseFloat(cs.paddingBottom) || 0 };
+  }
   function applyLayout() {
     const iw = window.innerWidth, ih = window.innerHeight;
     const phone = window.matchMedia('(pointer: coarse)').matches && Math.min(screen.width, screen.height) < 600;
     const rot = phone && !Bridge.inApp && ih > iw;
-    const lw = rot ? ih : iw, lh = rot ? iw : ih, root = document.documentElement;
+    // Keep clear of the status bar and home indicator (top and bottom of the
+    // upright screen, which are the game's left and right when sideways).
+    const ins = rot ? safeInsets() : { top: 0, bottom: 0 };
+    const lw = rot ? ih - ins.top - ins.bottom : iw, lh = rot ? iw : ih, root = document.documentElement;
+    root.style.setProperty('--sat', ins.top + 'px');
     root.classList.toggle('rotated', rot);
     root.classList.toggle('short', lh <= 500);
     root.classList.toggle('narrow', lw <= 640);

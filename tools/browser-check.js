@@ -142,11 +142,19 @@ const check = (name, ok, info) => { console.log((ok ? 'ok   ' : 'FAIL ') + name 
         const b = document.getElementById('btn-brief-go').getBoundingClientRect();
         if (b.bottom > innerHeight + 1 || b.right > innerWidth + 1 || b.top < -1 || b.left < -1) over.push(i + 1);
       }
+      // A full leaderboard (20 rows) still shows its Done button.
+      document.getElementById('briefing').classList.add('hidden');
+      document.getElementById('board').classList.remove('hidden');
+      document.getElementById('board-list').innerHTML = Array.from({ length: 20 }, (_, i) => `<li><span class="rk">#${i + 1}</span><span class="nm">Pilot</span><span>4,780</span></li>`).join('');
+      await new Promise(r => requestAnimationFrame(r));
+      const d = document.getElementById('btn-board-close').getBoundingClientRect();
+      if (d.bottom > innerHeight + 1 || d.right > innerWidth + 1 || d.top < -1 || d.left < -1) over.push('board');
+      document.getElementById('board').classList.add('hidden');
       const c = document.querySelector('canvas');
       return { rotated: document.documentElement.classList.contains('rotated'), cw: c.clientWidth, ch: c.clientHeight, over: over.join(','), lh, gate: document.getElementById('gate').dataset.reason || '' };
     });
     if (h > w) check('a phone held upright plays sideways (no rotate screen)', r.rotated && r.cw === h && r.ch === w && r.gate !== 'rotate', JSON.stringify(r));
-    check(`${w}x${h}: every briefing's Launch button is on screen`, r.over === '', r.over);
+    check(`${w}x${h}: every briefing's Launch button (and a full leaderboard's Done) is on screen`, r.over === '', r.over);
     await ctx.close();
     errors.length = 0;
   }
