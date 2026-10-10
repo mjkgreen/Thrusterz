@@ -144,7 +144,7 @@ const levels = [
   {
     id: 'crossingtraffic',
     name: 'Crossing Traffic',
-    intro: 'Your stack is coasting up on a suborbital arc: at the top it starts falling back to Terra, so you have one pass at the top to make orbit. Two guard satellites patrol a long, stretched lane from 85 to 405, and their amber zones are closed to everything, so any spent stage left in orbit here crosses it sooner or later. Let the booster fall back: deploy it now, while its path still ends on Terra, and round off the orbit on the satellite alone. Turn round before the top, not at it. Side-thruster propellant is short, and your nose ends up facing backwards at the top if you leave it alone.',
+    intro: 'Your stack is coasting up on a low suborbital arc that falls back to Terra within a minute, so light the booster now. Burn it while you are still low and fast: that raises the top of the arc to the target height while its low point stays underground, so the empty booster falls back when you deploy it. Two guard satellites patrol a long, stretched lane from 85 to 405 and their amber zones are closed to everything: burn the booster later, higher up, and it is left in orbit across their lane. Then turn round once before the top and round off on the satellite. Side-thruster propellant is short.',
     objective: 'Put the satellite in an orbit between 300 and 360, with the booster brought down and no craft entering a guard\'s zone.',
     teaches: 'Planned flips · let the booster fall',
     bodies: [
@@ -152,12 +152,12 @@ const levels = [
       { id: 'guard1', name: 'Guard 1', gm: 0, radius: 4, color: C.station, kind: 'station', keepOut: 25, zone: 'all', orbit: { parent: 'terra', a: 245, e: 0.55, phase: 1.0, argp: 2.0 } },
       { id: 'guard2', name: 'Guard 2', gm: 0, radius: 4, color: C.station, kind: 'station', keepOut: 25, zone: 'all', orbit: { parent: 'terra', a: 245, e: 0.55, phase: 1.0 + Math.PI, argp: 2.0 } },
     ],
-    ship: ship({ start: { conic: { body: 'terra', pe: 40, e: 0.7838, nu: 1.838, angle: -1.838 } }, heading: 'prograde', rcs: { fuel: 60 }, stack: [
-      { id: 'booster', name: 'Booster', dv: 1.2, accel: 0.8 },
-      { name: 'Satellite', dv: 5.5, accel: 0.6, dry: 0.3 },
+    ship: ship({ start: { conic: { body: 'terra', pe: 30, e: 0.76, nu: 2.034, angle: -2.034 } }, heading: 'prograde', rcs: { fuel: 2.4 }, stack: [
+      { id: 'booster', name: 'Booster', dv: 1.6, accel: 0.8 },
+      { name: 'Satellite', dv: 7, accel: 0.6, dry: 0.3 },
     ] }),
     goals: [{ type: 'orbit', body: 'terra', rMin: 300, rMax: 360 }],
-    par: 4.6, bounds: 2000, tMax: 400, predict: 200, view: { x: 0, y: 0, span: 900 },
+    par: 6.5, bounds: 2000, tMax: 400, predict: 200, view: { x: 0, y: 0, span: 900 },
   },
 ];
 
@@ -236,15 +236,16 @@ const proofs = {
     ]; },
   },
   crossingtraffic: {
-    p: [60, 299.21, 8.394], scale: [4, 8, 4], opts: { turn: true, turnRate: 0.2 },
+    p: [324.774, 299.603, 6.75, -6.037], scale: [8, 8, 4, 3], opts: { turn: true, turnRate: 0.2 },
     script: (p, AP) => [
+      // The booster does the climb, now, while you are low and fast: raise
+      // the top of the arc to the target while the low point stays underground.
+      { wait: p[3] },
+      { burn: 'pro', until: (m) => AP.orb(m, 'terra').ap >= p[0] },
+      { deploy: true },
       // Coast up holding still, then the one flip, timed to finish at the top.
       still((m) => { const o = AP.orb(m, 'terra'); return o.ap - o.r < p[2]; }),
       turnTo('pro'),
-      // Start rounding off on the booster, but stop while its path still
-      // falls back (the separation spring takes a little more off its PE).
-      { burn: 'pro', until: (m) => AP.orb(m, 'terra').pe >= p[0] },
-      { deploy: true },
       { burn: 'pro', until: (m) => AP.orb(m, 'terra').pe >= p[1] },
     ],
   },
@@ -309,22 +310,16 @@ const fails = {
     ] },
   ],
   crossingtraffic: [
-    { name: 'round off on the booster', opts: { turn: true, turnRate: 0.2 }, steps: (AP) => [
-      { coast: (m) => { const o = AP.orb(m, 'terra'); return o.r > o.ap - 40 && o.rising; } },
+    { name: 'save the booster for the top', opts: { turn: true, turnRate: 0.2 }, steps: (AP) => [
+      still((m) => { const o = AP.orb(m, 'terra'); return o.ap - o.r < 7; }),
+      turnTo('pro'),
       { burn: 'pro', stage: true, until: (m) => AP.orb(m, 'terra').pe >= 300 },
     ] },
-    { name: 'dawdle: flip and burn 20 s after the top', opts: { turn: true, turnRate: 0.2 }, steps: (AP) => [
-      { deploy: true },
-      still((m) => !AP.orb(m, 'terra').rising),
-      { wait: 20 },
-      turnTo('pro'),
-      { burn: 'pro', until: (m) => AP.orb(m, 'terra').pe >= 300 },
-    ] },
-    { name: 'track prograde all the way up, fast turns', opts: { turn: true, turnRate: 0.6 }, steps: (AP) => [
-      { deploy: true },
-      { coast: (m) => { const o = AP.orb(m, 'terra'); return o.r > o.ap - 40 && o.rising; } },
-      { burn: 'pro', until: (m) => AP.orb(m, 'terra').pe >= 300 },
-    ] },
+    { name: 'dawdle 25 s, then the same plan', opts: { turn: true, turnRate: 0.2 }, steps: (AP) => {
+      const p = proofs.crossingtraffic.p.slice(); p[3] = 25;
+      return proofs.crossingtraffic.script(p, AP);
+    } },
+    { name: 'the same plan with fast turns (holding the keys)', opts: { turn: true, turnRate: 0.6 }, steps: (AP) => proofs.crossingtraffic.script(proofs.crossingtraffic.p, AP) },
   ],
   twinzones: [
     { name: 'drop both probes for Alpha', opts: { turn: true, turnRate: 0.15 }, steps: (AP) => {

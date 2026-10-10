@@ -95,17 +95,17 @@ const levels = [
     bodies: [
       { id: 'terra', name: 'Terra', gm: 20000, radius: 50, color: C.blue },
       { id: 'luna', name: 'Luna', gm: 1500, radius: 18, color: C.grey, orbit: { parent: 'terra', a: 420, phase: 2.3404 } },
-      { id: 'gate', name: 'Luna Gate', gm: 0, radius: 4, color: C.station, kind: 'station', keepOut: 25, zone: 'all', orbit: { parent: 'luna', a: 110, phase: 2.8266 } },
+      { id: 'gate', name: 'Luna Gate', gm: 0, radius: 4, color: C.station, kind: 'station', keepOut: 25, zone: 'all', orbit: { parent: 'luna', a: 110, phase: 2.3739 } },
     ],
-    ship: ship({ start: { conic: { body: 'terra', pe: 90.601, e: 0.65878, nu: 0.34791, angle: 1.0853 } }, heading: 'prograde', rcs: { fuel: 2.6 }, stack: [
-      { name: 'Transfer stage', dv: 0.3, accel: 1 },
-      { name: 'Carrier', dv: 2.4, accel: 0.6, dry: 0.4, sprite: 'satellite' },
+    ship: ship({ start: { conic: { body: 'terra', pe: 90.601, e: 0.65878, nu: 0.34791, angle: 1.0853 } }, heading: 'prograde', rcs: { fuel: 4 }, stack: [
+      { name: 'Transfer stage', dv: 0.6, accel: 1 },
+      { name: 'Carrier', dv: 3.4, accel: 0.6, dry: 0.4, sprite: 'satellite' },
     ], cargo: [{ id: 'pod', name: 'Supply pod', mass: 0.3 }] }),
     goals: [
       { type: 'reach', body: 'gate', craft: 'pod', r: 12, label: 'Docking arm' },
       { type: 'orbit', body: 'luna', rMin: 30, rMax: 70 },
     ],
-    par: 2, bounds: 2500, tMax: 1000, predict: 220, view: { x: 0, y: 0, span: 1000 },
+    par: 2, bounds: 2500, tMax: 1400, predict: 220, view: { x: 0, y: 0, span: 1000 },
   },
   {
     id: 'relaysling',
@@ -204,15 +204,17 @@ const proofs = {
     ],
   },
   mooncourier: {
-    p: [-2.442, 0.608, 0.328, 78.027, 48.83, 45.136], scale: [3, 1, 0.15, 8, 10, 10], opts: { turn: true, turnRate: 0.2 },
+    p: [0.214, 0.405, 0.875, 0.313, 73.795, 35.912, 55.83], scale: [0.4, 0.08, 1, 0.15, 8, 10, 10], opts: { turn: true, turnRate: 0.2 },
     script: (p, AP) => [
-      { wait: Math.max(0, p[0]) },
+      // The transfer stage turns the collision course into a pass by the Gate.
+      ...dvBurn(p[0], 'luna', Math.max(0.3, p[1])),
       { deploy: true },
       { drop: true },
-      ...dvBurn(p[1], 'luna', Math.max(0, p[2])),
-      hold((m) => dist(m, 'luna') < p[5]),
-      { coast: (m) => { const o = AP.orb(m, 'luna'); return o.r < p[4] || o.rising; } },
-      { burn: peRetro('luna'), until: (m) => { const o = AP.orb(m, 'luna'); return o.bound && o.ap <= p[3]; } },
+      // Nudge the carrier off the pod's path, then flip late and brake.
+      ...dvBurn(p[2], 'luna', Math.max(0, p[3])),
+      hold((m) => dist(m, 'luna') < p[6]),
+      { coast: (m) => { const o = AP.orb(m, 'luna'); return o.r < p[5] || o.rising; } },
+      { burn: peRetro('luna'), until: (m) => { const o = AP.orb(m, 'luna'); return o.bound && o.ap <= p[4]; } },
     ],
   },
   relaysling: {
