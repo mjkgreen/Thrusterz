@@ -45,7 +45,7 @@ const dvBurn = (dir, rel, amount) => {
 };
 
 // Finale phases, fitted so the proof's Luna pass sits under Luna Gate.
-const HAVEN = 3.2, LUNA = 3.54, GATE = 0;
+const HAVEN = 3.256, LUNA = 3.5741, GATE = 0.0982, PATROL = 1.032;
 const levels = [
   {
     id: 'resupplyrun',
@@ -153,20 +153,20 @@ const levels = [
   {
     id: 'longhaul',
     name: 'The Long Haul',
-    intro: 'Everything at once, and every zone is closed to everything. Ride the booster up through the patrol band and drop it in the gap below Haven Station, where its whole orbit touches neither zone. Fly the carrier to Luna and brake into a low orbit beneath Luna Gate. Then, at your low point, raise your high point to the Gate, release the pod (E) and flip at once to come back down before you reach the zone.',
-    objective: 'Deliver pod A to Haven Station and pod B to Luna Gate, then orbit Luna between 25 and 55.',
+    intro: 'Your booster has you climbing straight into Patrol 1\'s zone, twenty seconds out: change your climb now. Every zone here is closed to everything, so drop the booster in the gap between the patrol band and Haven Station, where its whole orbit touches neither. Then fly the carrier to Luna, brake into a low orbit beneath Luna Gate, and from your low point raise the high point to the Gate, release the pod (E) and flip at once to come back down before you reach its zone.',
+    objective: 'Dodge the patrol, deliver the pod to Luna Gate, then orbit Luna between 25 and 55, with no stage left where it can drift into a zone.',
     teaches: 'Everything at once',
     bodies: [
       { id: 'terra', name: 'Terra', gm: 20000, radius: 50, color: C.blue },
-      { id: 'pat1', name: 'Patrol 1', gm: 0, radius: 4, color: C.station, kind: 'station', keepOut: 30, zone: 'all', orbit: { parent: 'terra', a: 200, phase: 0.3 } },
-      { id: 'pat2', name: 'Patrol 2', gm: 0, radius: 4, color: C.station, kind: 'station', keepOut: 30, zone: 'all', orbit: { parent: 'terra', a: 200, phase: 0.3 + 2.094 } },
-      { id: 'pat3', name: 'Patrol 3', gm: 0, radius: 4, color: C.station, kind: 'station', keepOut: 30, zone: 'all', orbit: { parent: 'terra', a: 200, phase: 0.3 + 4.189 } },
+      { id: 'pat1', name: 'Patrol 1', gm: 0, radius: 4, color: C.station, kind: 'station', keepOut: 30, zone: 'all', orbit: { parent: 'terra', a: 200, phase: PATROL } },
+      { id: 'pat2', name: 'Patrol 2', gm: 0, radius: 4, color: C.station, kind: 'station', keepOut: 30, zone: 'all', orbit: { parent: 'terra', a: 200, phase: PATROL + 2.094 } },
+      { id: 'pat3', name: 'Patrol 3', gm: 0, radius: 4, color: C.station, kind: 'station', keepOut: 30, zone: 'all', orbit: { parent: 'terra', a: 200, phase: PATROL + 4.189 } },
       { id: 'haven', name: 'Haven Station', gm: 0, radius: 4, color: C.station, kind: 'station', keepOut: 30, zone: 'all', orbit: { parent: 'terra', a: 340, phase: HAVEN } },
       { id: 'luna', name: 'Luna', gm: 800, radius: 16, color: C.grey, orbit: { parent: 'terra', a: 480, phase: LUNA } },
       { id: 'gate', name: 'Luna Gate', gm: 0, radius: 4, color: C.station, kind: 'station', keepOut: 15, zone: 'all', orbit: { parent: 'luna', a: 80, phase: GATE } },
     ],
-    ship: ship({ start: { orbit: { body: 'terra', r: 110, angle: 0 } }, heading: 'prograde', rcs: { fuel: 15 }, stack: [
-      { name: 'Booster', dv: 5.6, accel: 1 },
+    ship: ship({ start: { conic: { body: 'terra', pe: 110.167, e: 0.46667, nu: 0.1806, angle: 0.15336 } }, heading: 'prograde', rcs: { fuel: 15 }, stack: [
+      { name: 'Booster', dv: 3.2, accel: 1 },
       { name: 'Carrier', dv: 6.5, accel: 0.5, dry: 0.4, sprite: 'satellite' },
     ], cargo: [{ id: 'pod', name: 'Supply pod', mass: 0.3 }] }),
     goals: [
@@ -247,28 +247,28 @@ const proofs = {
     ],
   },
   longhaul: {
-    p: [-34.72, 302.578, 285.316, 3.692, 481.982, 163.839, 0.801, 60.651, -3.165, 82.515, 50.681], scale: [20, 6, 4, 15, 4, 30, 15, 6, 30, 4, 4], opts: { turn: true, turnRate: 0.5 },
+    p: [0, 0.3, 302.578, 285.316, 3.692, 481.982, 163.839, 0.801, 60.651, -3.165, 82.515, 50.681], scale: [0.6, 0.2, 6, 4, 15, 4, 30, 15, 6, 30, 4, 4], opts: { turn: true, turnRate: 0.5 },
     script: (p, AP) => [
-      // Through the patrol band on the booster; drop it in the gap above.
-      { wait: Math.max(0, p[0]) },
-      { burn: 'pro', until: (m) => AP.orb(m, 'terra').ap >= p[1] },
-      hold((m) => AP.orb(m, 'terra').r > p[1] - 30),
+      // Dodge the patrol: change the climb at once (p[0]: direction from prograde).
+      ...dvBurn(p[0], 'terra', Math.max(0, p[1])),
+      { burn: 'pro', until: (m) => AP.orb(m, 'terra').ap >= p[2] },
+      hold((m) => AP.orb(m, 'terra').r > p[2] - 30),
       { coast: (m) => !AP.orb(m, 'terra').rising },
-      { burn: 'pro', until: (m) => AP.orb(m, 'terra').pe >= p[2] },
+      { burn: 'pro', until: (m) => AP.orb(m, 'terra').pe >= p[3] },
       { deploy: true },
       // Past Haven's band to Luna on the carrier.
-      { wait: Math.max(0, p[3]) },
-      { burn: 'pro', until: (m) => AP.orb(m, 'terra').ap >= p[4] },
+      { wait: Math.max(0, p[4]) },
+      { burn: 'pro', until: (m) => AP.orb(m, 'terra').ap >= p[5] },
       // Flip late, brake at the low point.
-      hold((m) => dist(m, 'luna') < p[5]),
-      { coast: (m) => { const o = AP.orb(m, 'luna'); return o.r < p[6] + 60 || o.rising; } },
-      ...heldBurn(peRetro('luna'), (m) => { const o = AP.orb(m, 'luna'); return o.bound && o.ap <= p[7]; }),
+      hold((m) => dist(m, 'luna') < p[6]),
+      { coast: (m) => { const o = AP.orb(m, 'luna'); return o.r < p[7] + 60 || o.rising; } },
+      ...heldBurn(peRetro('luna'), (m) => { const o = AP.orb(m, 'luna'); return o.bound && o.ap <= p[8]; }),
       // The pod: at the low point, raise the high point to the Gate, drop, and come back down.
-      hold((m, c) => { const o = AP.orb(m, 'luna'); return m.t - c.t0 > Math.max(0, p[8]) && !o.rising && o.r < o.pe + 4; }),
-      ...heldBurn(peRetro('luna', Math.PI), (m) => AP.orb(m, 'luna').ap >= p[9]),
+      hold((m, c) => { const o = AP.orb(m, 'luna'); return m.t - c.t0 > Math.max(0, p[9]) && !o.rising && o.r < o.pe + 4; }),
+      ...heldBurn(peRetro('luna', Math.PI), (m) => AP.orb(m, 'luna').ap >= p[10]),
       { drop: true },
       // Flip at once and lower your own high point before you reach the Gate.
-      { burn: 'retro', rel: 'luna', until: (m) => AP.orb(m, 'luna').ap <= p[10] },
+      { burn: 'retro', rel: 'luna', until: (m) => AP.orb(m, 'luna').ap <= p[11] },
     ],
   },
 
@@ -327,16 +327,21 @@ const fails = {
     { name: 'flip fast (holding the keys)', opts: { turn: true, turnRate: 1.2 }, steps: (AP) => proofs.surveydrop.script(proofs.surveydrop.p, AP) },
   ],
   longhaul: [
+    { name: 'wait and see', steps: () => [] },
+    { name: 'climb as planned, no dodge', opts: { turn: true, turnRate: 0.5 }, steps: (AP) => {
+      const p = proofs.longhaul.p.slice(); p[1] = 0;
+      return proofs.longhaul.script(p, AP);
+    } },
     { name: 'drop the booster once it is through the band', opts: { turn: true, turnRate: 0.5 }, steps: (AP) => {
       const s = proofs.longhaul.script(proofs.longhaul.p, AP);
-      return [s[0], s[1], { deploy: true }, ...s.slice(2, 5), ...s.slice(6)];
+      return [s[0], s[1], s[2], { deploy: true }, s[3], s[4], s[5], ...s.slice(7)];
     } },
     { name: 'burn the booster dry on the way up', opts: { turn: true, turnRate: 0.5 }, steps: (AP) => {
       const s = proofs.longhaul.script(proofs.longhaul.p, AP);
-      return [s[0], { burn: 'pro', until: () => false }, { deploy: true }, ...s.slice(6)];
+      return [s[0], s[1], { burn: 'pro', until: () => false }, { deploy: true }, ...s.slice(7)];
     } },
     { name: 'park the booster up at Haven\'s height', opts: { turn: true, turnRate: 0.5 }, steps: (AP) => {
-      const p = proofs.longhaul.p.slice(); p[1] = 345; p[2] = 330;
+      const p = proofs.longhaul.p.slice(); p[2] = 345; p[3] = 330;
       return proofs.longhaul.script(p, AP);
     } },
     { name: 'no flip after the pod drop', opts: { turn: true, turnRate: 0.5 }, steps: (AP) => proofs.longhaul.script(proofs.longhaul.p, AP).slice(0, -1) },

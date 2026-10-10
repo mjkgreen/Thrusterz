@@ -639,19 +639,19 @@
     {
       id: 'impactor',
       name: 'Impactor',
-      intro: 'Science wants a crater on Luna, and a camera in orbit to watch it. Aim your whole ship at Luna, drop the impactor (E) while the path still ends on Luna, then steer yourself off the collision course and brake into orbit around Luna.',
+      intro: 'You are falling straight at Luna and will hit it in about 40 seconds. That is perfect for the impactor, not for you: science wants a crater, and a camera in orbit to watch it. Drop the impactor (E) now while your path still ends on Luna, then burn sideways to steer yourself off the collision course, and brake into orbit as you swing past.',
       objective: 'Crash the impactor into Luna, then orbit Luna between 30 and 100.',
       teaches: 'Drop, then dodge',
       bodies: [
         { id: 'terra', name: 'Terra', gm: 20000, radius: 50, color: C.blue },
         { id: 'luna', name: 'Luna', gm: 1500, radius: 18, color: C.grey, orbit: { parent: 'terra', a: 420, phase: 2.2 } },
       ],
-      ship: ship({ start: { conic: { body: 'luna', pe: 8, e: 1.01, nu: -2.75, angle: 1.8, dir: -1 } }, heading: 'prograde', dv: 8, accel: 1, cargo: [{ id: 'impactor', name: 'Impactor', mass: 0.4 }] }),
+      ship: ship({ start: { conic: { body: 'luna', pe: 8, e: 1.01, nu: -2.75, angle: 1.8, dir: -1 } }, heading: 'prograde', dv: 3.8, accel: 1, cargo: [{ id: 'impactor', name: 'Impactor', mass: 0.4 }] }),
       goals: [
         { type: 'hit', body: 'luna', craft: 'impactor' },
         { type: 'orbit', body: 'luna', rMin: 30, rMax: 100 },
       ],
-      par: 6.8, bounds: 2500, tMax: 1500, predict: 200, view: { x: 0, y: 0, span: 1000 },
+      par: 2.3, bounds: 2500, tMax: 1500, predict: 200, view: { x: 0, y: 0, span: 1000 },
     },
     {
       id: 'relaydrop',
@@ -804,9 +804,9 @@
         { id: 'terra', name: 'Terra', gm: 6000, radius: 24, color: C.blue, orbit: { parent: 'sun', a: 800, phase: 0 } },
         { id: 'rust', name: 'Rust', gm: 4000, radius: 22, color: C.red, orbit: { parent: 'sun', a: 1400, phase: 1.4 } },
       ],
-      ship: ship({ start: { orbit: { body: 'terra', r: 45, angle: 0 } }, heading: 'prograde', stack: [
-        { name: 'Transfer stage', dv: 5.2, accel: 1.2 },
-        { name: 'Orbiter', dv: 3.3, accel: 0.5, dry: 0.3 },
+      ship: ship({ start: { conic: { body: 'rust', pe: 70, e: 1.1, nu: -1.9, angle: 0.21 } }, heading: 'retrograde', stack: [
+        { name: 'Transfer stage', dv: 1.4, accel: 1.2 },
+        { name: 'Orbiter', dv: 1.7, accel: 0.5, dry: 0.3 },
       ] }),
       goals: [{ type: 'orbit', body: 'rust', rMin: 40, rMax: 140 }],
       par: 7, bounds: 5000, tMax: 3000, predict: 500, view: { x: 0, y: 0, span: 3200 },

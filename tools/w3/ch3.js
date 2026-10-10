@@ -161,7 +161,7 @@ const levels = [
     objective: 'Rendezvous with Tycho Station (within 25, relative speed under 0.5) with 1.1 s of side-thruster propellant.',
     teaches: 'Braking flip under time pressure',
     bodies: [terra, { id: 'tycho', name: 'Tycho Station', gm: 0, radius: 4, color: C.station, kind: 'station', orbit: { parent: 'terra', a: 130, phase: -3.4 } }],
-    ship: ship({ start: { conic: { body: 'terra', pe: 128, e: 0.34, nu: -2.4 } }, heading: 1.8, dv: 3.8, accel: 0.8, rcs: { fuel: 3 } }),
+    ship: ship({ start: { conic: { body: 'terra', pe: 128, e: 0.34, nu: -2.4 } }, heading: 1.8, dv: 3.8, accel: 0.8, rcs: { fuel: 0.9 } }),
     goals: [{ type: 'rendezvous', body: 'tycho', dist: 25, relVel: 0.5 }],
     par: 2.5, bounds: 2000, tMax: 400, predict: 160, view: { x: 0, y: 0, span: 640 },
   },
@@ -187,7 +187,7 @@ const levels = [
     objective: 'Orbit Luna between 30 and 90, then orbit Terra between 120 and 220, with 2.7 s of side-thruster propellant.',
     teaches: 'Planning every flip',
     bodies: [terra, { id: 'luna', name: 'Luna', gm: 1500, radius: 18, color: C.grey, orbit: { parent: 'terra', a: 400, phase: 1.75 } }],
-    ship: ship({ start: { orbit: { body: 'terra', r: 90, angle: 0 } }, heading: 'prograde', dv: 12, accel: 1, rcs: { fuel: 2.7 } }),
+    ship: ship({ start: { conic: { body: 'luna', pe: 50, e: 1.3, nu: -1.4, angle: 0 } }, heading: 1.74, dv: 12, accel: 1, rcs: { fuel: 4 } }),
     goals: [
       { type: 'orbit', body: 'luna', rMin: 30, rMax: 90 },
       { type: 'orbit', body: 'terra', rMin: 120, rMax: 220 },
@@ -236,7 +236,7 @@ const proofs = {
   stationstop: {
     // Flip straight away (fast enough to be round before you reach the
     // station, slow enough to afford), then brake as you close in.
-    p: [0.2, 0.171, 0.126], scale: [0, 0.2, 0.1], opts: T,
+    p: [0.2, -0.18, 0.213], scale: [0, 0.2, 0.1], opts: T,
     script: (p, AP, rate) => [
       slew(AP, (m) => retroAtPe(m, 'tycho', 120), rate || p[0]),
       hold((m) => { const o = AP.orb(m, 'tycho'); return o.r < p[1] * o.v * o.v / 1.6 + 10; }),
@@ -258,25 +258,23 @@ const proofs = {
     ],
   },
   roundtrip: {
-    p: [0.748, 436.732, 266.903, 96.676, 0.095, 195.646, 0.075, 207.83], scale: [1, 8, 15, 8, 0.1, 15, 0.01, 8], opts: T,
-    script: (p, AP, rate = R) => {
+    p: [0.25, 72.878, 0.068, 190.97, 0.078, 214.62], scale: [0, 8, 0.1, 15, 0.01, 8], opts: T,
+    script: (p, AP, rate) => {
       // Luna's direction of travel round Terra.
       const lunaVel = (m) => { m.sys.update(m.t); const i = m.sys.byId.luna.index; return Math.atan2(m.sys.vy[i], m.sys.vx[i]); };
       return [
-        hold((m) => m.t >= p[0]),
-        burnTrack(AP, 'pro', null, (m) => AP.orb(m, 'terra').ap >= p[1]),
-        hold((m) => AP.orb(m, 'terra').r > p[2]),
-        slew(AP, (m) => retroAtPe(m, 'luna'), rate),
-        hold((m) => { const o = AP.orb(m, 'luna'); return o.r < 150 && o.rising; }),
-        burnHere((m) => { const o = AP.orb(m, 'luna'); return o.bound && o.ap <= p[3]; }),
+        // Arriving too fast to stay: flip now, capture at closest approach.
+        slew(AP, (m) => retroAtPe(m, 'luna'), rate || p[0]),
+        hold((m) => AP.orb(m, 'luna').rising),
+        burnHere((m) => { const o = AP.orb(m, 'luna'); return o.bound && o.ap <= p[1]; }),
         // Leave Luna backwards (against its motion) to fall back to Terra:
         // turn to face that way, then burn when the orbit carries you along it.
-        slew(AP, (m) => lunaVel(m) + Math.PI, rate),
-        hold((m) => m.goalIndex >= 1 && Math.abs(AP.wrap(AP.orb(m, 'luna').pro - m.ship.angle)) < p[4]),
-        burnHere((m) => minDist(m, 'terra', 150) <= p[5]),
-        slew(AP, (m) => retroAtPe(m, 'terra'), Math.min(rate, p[6])),
+        slew(AP, (m) => lunaVel(m) + Math.PI, rate || R),
+        hold((m) => m.goalIndex >= 1 && Math.abs(AP.wrap(AP.orb(m, 'luna').pro - m.ship.angle)) < p[2]),
+        burnHere((m) => minDist(m, 'terra', 150) <= p[3]),
+        slew(AP, (m) => retroAtPe(m, 'terra'), Math.min(rate || R, p[4])),
         hold((m) => { const o = AP.orb(m, 'terra'); return o.r < 300 && o.rising; }),
-        burnHere((m) => AP.orb(m, 'terra').ap <= p[7]),
+        burnHere((m) => AP.orb(m, 'terra').ap <= p[5]),
       ];
     },
   },
@@ -305,7 +303,12 @@ const fails = {
     { name: 'look around for 15 s first', steps: (AP) => [hold((m) => m.t >= 15), ...proofs.oneflip.script(proofs.oneflip.p, AP)], opts: T },
   ],
   brake: [rushed('brake'), rushed('brake', 0.5)],
-  stationstop: [rushed('stationstop'), rushed('stationstop', 0.5)],
+  stationstop: [
+    rushed('stationstop'),
+    rushed('stationstop', 0.5),
+    { name: 'flip slowly, at 0.1 rad/s', steps: (AP) => proofs.stationstop.script(proofs.stationstop.p, AP, 0.1), opts: T },
+    { name: 'wait 15 s, then the same flip', steps: (AP) => [hold((m) => m.t >= 15), ...proofs.stationstop.script(proofs.stationstop.p, AP)], opts: T },
+  ],
   downgap: [
     rushed('downgap'),
     rushed('downgap', 0.5),

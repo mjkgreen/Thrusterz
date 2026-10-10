@@ -66,7 +66,7 @@ module.exports = {
   impactor: {
     // Already falling straight at Luna: drop the impactor, sidestep, then
     // brake into orbit at the low point.
-    p: [14.235, -1.473, 6.743, 90.85], scale: [5, 0.6, 10, 10],
+    p: [14.126, -1.655, 6.606, 91.267], scale: [5, 0.6, 10, 10],
     script: (p, AP) => [
       { wait: Math.max(0, p[0]) },
       { drop: true },
@@ -173,12 +173,12 @@ module.exports = {
   },
 
   outerplanet: {
-    p: [9.747, 1415.741, 140.892], scale: [6, 30, 20],
+    // Arriving at Rust faster than escape speed: brake around the low point,
+    // transfer stage first, before Rust flings you back out.
+    p: [5, 140], scale: [5, 20],
     script: (p, AP) => [
-      { wait: p[0] },
-      { burn: 'pro', rel: 'terra', until: (m) => AP.orb(m, 'sun').ap >= p[1] },
-      { coast: (m) => { const o = AP.orb(m, 'rust'); return o.r < 280 && o.rising; } },
-      { burn: 'retro', rel: 'rust', stage: true, until: (m) => { const o = AP.orb(m, 'rust'); return o.bound && o.ap <= p[2]; } },
+      { coast: (m) => { const o = AP.orb(m, 'rust'); return o.r < o.pe + Math.max(0, p[0]) || o.rising; } },
+      { burn: 'retro', rel: 'rust', stage: true, until: (m) => { const o = AP.orb(m, 'rust'); return o.bound && o.ap <= p[1]; } },
     ],
   },
 
