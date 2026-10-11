@@ -127,3 +127,13 @@ Moon landing that ends on "Mission complete".
 | What's New (1.0) | First release. Ninety missions across three worlds, leaderboards and experimental levels. |
 
 App Privacy answers and review notes are in `docs/APP_STORE.md` step 5.
+
+## Header and search-result artwork
+
+`node tools/store/art.js` writes `store/art/`: real game scenes, HUD hidden,
+no text (the App Store lays the name and Get button over these).
+
+| Slot | Files |
+| --- | --- |
+| Header (5244×2950 or 3840×1646) | `header-5244x2950.png`, `header-3840x1646.png`: Lander and Orbiter, engine lit between Terra and Luna |
+| Search result (5244×2950, 3840×2560 or 1920×1280) | `search-5244x2950.png`, `search-3840x2560.png`, `search-1920x1280.png`: Grand Deployment, orbit rings around Gaia |
