@@ -22,63 +22,69 @@ page.
 | Field | Text | Limit |
 | --- | --- | --- |
 | **Name** | Thrusterz: Orbital Physics | 26 / 30 |
-| **Subtitle** | Launch, orbit, slingshot, land | 30 / 30 |
+| **Subtitle** | Space puzzles. Rocket action. | 29 / 30 |
 
+The pitch everywhere: a **space puzzle game** you **fly by hand**. Each mission
+is a gravity puzzle to work out, then real-time rocket action to pull off.
 The name's words count for search, so "Orbital Physics" earns its place.
-If you'd rather keep the name pure, use **Thrusterz** and move "orbital" and
-"physics" into the keywords (dropping "astronomy,science").
 
-## Keywords (100 / 100)
+## Keywords (99 / 100)
 
 ```
-rocket,space,spaceflight,gravity,simulator,planet,moon,satellite,lander,trajectory,astronomy,science
+arcade,logic,brain,strategy,gravity,orbit,planet,moon,satellite,asteroid,spaceship,lander,simulator
 ```
 
-- Commas, no spaces; Apple already indexes the name and subtitle, so words
-  there (orbit, orbital, physics, launch, slingshot, land) aren't repeated.
+- Commas, no spaces. Apple already indexes the name and subtitle, so their
+  words (orbital, physics, space, puzzle, rocket, action) aren't repeated.
 - No other games' names (Apple rejects competitor names in keywords).
 
-## Promotional text (153 / 170)
+## Promotional text (161 / 170)
 
 Can be changed any time without a new version.
 
 ```
-Ninety missions of real rocket science: launch, reach orbit, drop stages, dodge no-fly zones and land on the Moon. Plan every burn and chase three stars.
+A space puzzle game with real rocket physics. Plan the perfect burn, thread asteroid fields and no-fly zones, then fly it by hand. 90 missions, three stars each.
 ```
 
 ## Description
 
 ```
-Fly a rocket by the real laws of orbital mechanics.
+Every mission is a puzzle. Every puzzle is a flight.
 
-Thrusterz is a puzzle game about spaceflight. Every mission is a small problem in gravity: reach orbit, catch a moon, drop a satellite exactly where it belongs, or slingshot past a planet on the fuel you have left. There's no autopilot. Point, burn, and watch your predicted path bend.
+Thrusterz is a space puzzle game with real orbital physics and hands-on rocket action. Work out the trick to each mission, then fly it yourself: steer, burn, drop stages and dodge danger, with gravity pulling on everything you do. There's no autopilot.
 
-LEARN BY FLYING
-• Start with a single burn and work up to transfers, rendezvous, gravity assists, Lagrange points and landings.
-• The predicted trajectory updates live as you thrust, so you see what every burn does before you commit.
-• Time warp, a gyro assist, and camera frames that follow the planet or the stars keep long flights easy to read.
+SOLVE IT
+• Each mission is a gravity puzzle: reach orbit, catch a moon, drop a satellite exactly where it belongs, or slingshot past a planet on the fuel you have left.
+• Every level has one clever "aha": when to burn, which way to turn, what to drop and where it ends up.
+• Your predicted path updates live as you thrust, so you can test an idea before you commit to it.
+
+FLY IT
+• Hands-on piloting: aim, throttle, flip and burn in real time.
+• Weave through asteroid fields, thread no-fly zones and race through radiation belts.
+• Stage your rocket, release satellites and probes, and land on the Moon.
+• Speed up long coasts with time warp, then take the controls for the burn that counts.
 
 THREE WORLDS, 90 MISSIONS
 • Flight School: the fundamentals, from liftoff to a grand tour of the system.
-• Payloads: rocket stages, satellites, probes and landers. Decide when to drop each stage and where every piece ends up, and don't leave junk in the way.
-• No-Fly Zones: keep-out areas, asteroid fields, flip burns on a limited side-thruster budget, and missions that put it all together.
+• Payloads: rocket stages, satellites, probes and landers. Plan where every piece ends up, and don't leave junk in the way.
+• No-Fly Zones: keep-out areas, asteroid fields and flip burns on a limited side-thruster budget.
 • Experimental levels: black holes, wormholes, solar sails, ion engines, tethers, aerobraking and more.
 
-CHASE THE PERFECT FLIGHT
-• Earn up to three stars on every mission for flying efficiently.
-• Every run gets a score for fuel, time and piloting.
-• Compete on leaderboards for each mission and each world. Runs are replayed on the server, so the scores are real.
+CHASE THE PERFECT RUN
+• Earn up to three stars on every mission by flying efficiently.
+• Score points for fuel, time and piloting skill.
+• Compete on leaderboards for every mission and every world. Runs are replayed on the server, so the scores are real.
 
 MADE FOR YOUR PHONE
-• Touch controls designed for landscape, plus full keyboard support on iPad.
-• Plays offline. Your progress is saved to the cloud and can be restored with a code or Sign in with Apple.
+• Touch controls designed for landscape, plus keyboard support on iPad.
+• Plays offline. Progress is saved to the cloud and can be restored with a code or Sign in with Apple.
 • Music and sound effects with separate volume controls.
 • No ads and no in-app purchases.
 
-Real physics, simple controls, and a satisfying "aha" in every mission. Strap in.
+Real physics, quick missions, and a satisfying "aha" every time. Strap in.
 ```
 
-(1,827 of 4,000 characters.)
+(2,051 of 4,000 characters.)
 
 ## Screenshots (upload in this order)
 
@@ -116,15 +122,15 @@ Moon landing that ends on "Mission complete".
 
 | Field | Value |
 | --- | --- |
-| Primary category | Games → Simulation |
-| Secondary category | Games → Puzzle |
+| Primary category | Games → Puzzle |
+| Secondary category | Games → Action (or Simulation) |
 | Age rating | 4+ (no objectionable content; the questionnaire is all "None") |
 | Price | Free |
 | Support URL | https://thrusterz.com/support.html |
 | Marketing URL | https://thrusterz.com |
 | Privacy policy URL | https://thrusterz.com/privacy.html |
 | Copyright | 2026 (your name or company) |
-| What's New (1.0) | First release. Ninety missions across three worlds, leaderboards and experimental levels. |
+| What's New (1.0) | First release: 90 space puzzle missions across three worlds, leaderboards and experimental levels. |
 
 App Privacy answers and review notes are in `docs/APP_STORE.md` step 5.
 
