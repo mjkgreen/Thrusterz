@@ -260,6 +260,8 @@
   // looping silent <audio> element on older versions.
   let ignoreSilent = true, silentEl = null;
   function applySession() {
+    // In the app, the native shell owns the audio session.
+    if (root.Bridge && root.Bridge.inApp) { root.Bridge.audio(ignoreSilent); return; }
     try { if (navigator.audioSession) { navigator.audioSession.type = ignoreSilent ? 'playback' : 'ambient'; return; } } catch (e) { /* not allowed */ }
     if (!ignoreSilent) { if (silentEl) silentEl.pause(); return; }
     if (!silentEl) {
@@ -281,7 +283,7 @@
     unlock() {
       applySession();
       if (!setup()) return;
-      if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+      if (ctx.state !== 'running') ctx.resume().catch(() => {});
       applyMusic();
     },
     // Volumes 0..1 (0 = off).
@@ -295,7 +297,7 @@
     musicMode(m) { if (m === mode) return; mode = m; applyMusic(); },
     // Leaving the app or tab: go quiet; coming back resumes.
     suspend() { if (ctx && ctx.state === 'running') ctx.suspend().catch(() => {}); },
-    resume() { if (ctx && ctx.state === 'suspended') ctx.resume().catch(() => {}); },
+    resume() { if (ctx && ctx.state !== 'running') ctx.resume().catch(() => {}); },
     // Continuous sounds, set every frame: engine throttle (0 = off), side thrusters on/off.
     engine(level) {
       if (!ctx || !engine) return;

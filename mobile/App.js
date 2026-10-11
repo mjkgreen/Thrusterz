@@ -4,7 +4,7 @@
 // Apple, haptics and opening links in Safari. Messages from the game arrive
 // through postMessage (js/bridge.js on the web side).
 import { useEffect, useRef, useState } from 'react';
-import { Linking, Platform, StyleSheet, View } from 'react-native';
+import { AppState, Linking, Platform, StyleSheet, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { WebView } from 'react-native-webview';
 import { Asset } from 'expo-asset';
@@ -12,6 +12,7 @@ import { File } from 'expo-file-system';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Haptics from 'expo-haptics';
+import { setAudioModeAsync, setIsAudioActiveAsync } from 'expo-audio';
 import * as SplashScreen from 'expo-splash-screen';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -22,9 +23,23 @@ const KEYS = ['thrusterz.progress.v1', 'thrusterz.account.v1', 'thrusterz.runs.v
 const BASE = 'https://app.thrusterz.game/';
 const BG = '#05060d';
 
+// The game's Web Audio plays through this app's audio session, which by
+// default is muted by the silent switch (and can stay inactive). Set it like
+// a game: play even on silent unless the player turns that off in Settings,
+// and mix with music from other apps.
+let ignoreSilent = true;
+const applyAudio = () => setAudioModeAsync({ playsInSilentMode: ignoreSilent, interruptionMode: 'mixWithOthers', shouldPlayInBackground: false, allowsRecording: false })
+  .then(() => setIsAudioActiveAsync(true)).catch(() => {});
+
 export default function App() {
   const web = useRef(null);
   const [page, setPage] = useState(null);
+
+  useEffect(() => {
+    applyAudio();
+    const sub = AppState.addEventListener('change', (s) => { if (s === 'active') applyAudio(); });
+    return () => sub.remove();
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -64,6 +79,10 @@ export default function App() {
         } catch (e) {
           reply(msg.id, false, e && e.code === 'ERR_REQUEST_CANCELED' ? 'Sign in was cancelled' : (e && e.message) || 'Sign in failed');
         }
+        break;
+      case 'audio':
+        ignoreSilent = msg.ignoreSilent !== false;
+        applyAudio();
         break;
       case 'open':
         if (typeof msg.url === 'string' && /^https:\/\//.test(msg.url)) Linking.openURL(msg.url).catch(() => {});

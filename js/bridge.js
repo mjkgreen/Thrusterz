@@ -41,6 +41,7 @@
     save: (key, value) => send('set', { key, value }),
     haptic: (kind) => send('haptic', { kind }),
     open: (url) => send('open', { url }),
+    audio: (ignoreSilent) => send('audio', { ignoreSilent }),
     call,
   };
 })(window);

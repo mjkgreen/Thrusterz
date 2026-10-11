@@ -83,6 +83,14 @@
           "imageWidth": 180,
           "backgroundColor": "#05060d"
         }
+      ],
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Thrusterz never uses the microphone.",
+          "recordAudioAndroid": false,
+          "enableBackgroundPlayback": false
+        }
       ]
     ],
     "extra": {
