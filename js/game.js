@@ -2646,7 +2646,9 @@
   Sound.configure(settings);
   if (Bridge.inApp) document.body.classList.add('in-app');
   // Browsers only allow sound after a tap or key press.
-  ['pointerdown', 'keydown'].forEach(ev => window.addEventListener(ev, () => Sound.unlock(), true));
+  // iOS only lets a tap's end (touchend / pointerup) start audio in some
+  // contexts, so try on both ends of a touch.
+  ['pointerdown', 'pointerup', 'touchend', 'keydown'].forEach(ev => window.addEventListener(ev, () => Sound.unlock(), true));
   document.addEventListener('click', (e) => { if (e.target.closest && e.target.closest('button') && !e.target.closest('#touch')) Sound.click(); }, true);
   document.addEventListener('visibilitychange', () => { if (document.hidden) Sound.suspend(); else Sound.resume(); });
   let settingsReturn = null;
@@ -2656,9 +2658,9 @@
       $(id).value = Math.round(settings[key] * 100);
       $(id + '-v').textContent = settings[key] > 0 ? Math.round(settings[key] * 100) + '%' : 'Off';
     }
-    $('set-version').textContent = 'Version ' + ((window.THRUSTERZ_CONFIG || {}).version || '1.0');
+    $('set-version').textContent = 'Version ' + ((window.THRUSTERZ_CONFIG || {}).version || '1.0') + ' · audio ' + Sound.status();
   }
-  function showSettings(from) { settingsReturn = from; hide(from); renderSettings(); show('settings'); }
+  function showSettings(from) { settingsReturn = from; hide(from); renderSettings(); show('settings'); setTimeout(renderSettings, 400); }
   for (const b of document.querySelectorAll('#settings .toggle')) {
     b.onclick = () => {
       settings[b.dataset.set] = !settings[b.dataset.set];

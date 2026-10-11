@@ -258,10 +258,10 @@
   // (headphones still play). Asking for "playback" audio, like a music or
   // game app, plays through anyway: navigator.audioSession on iOS 17+, or a
   // looping silent <audio> element on older versions.
-  let ignoreSilent = true, silentEl = null;
+  let ignoreSilent = true, silentEl = null, sentSilent = null;
   function applySession() {
     // In the app, the native shell owns the audio session.
-    if (root.Bridge && root.Bridge.inApp) { root.Bridge.audio(ignoreSilent); return; }
+    if (root.Bridge && root.Bridge.inApp) { if (sentSilent !== ignoreSilent) root.Bridge.audio(sentSilent = ignoreSilent); return; }
     try { if (navigator.audioSession) { navigator.audioSession.type = ignoreSilent ? 'playback' : 'ambient'; return; } } catch (e) { /* not allowed */ }
     if (!ignoreSilent) { if (silentEl) silentEl.pause(); return; }
     if (!silentEl) {
@@ -295,6 +295,14 @@
     },
     // Which music plays: 'menu' (menus, pause, results) or 'flight'.
     musicMode(m) { if (m === mode) return; mode = m; applyMusic(); },
+    // Short audio state for the Settings screen (helps when a phone stays silent).
+    status() {
+      if (!AC) return 'unsupported';
+      if (!ctx) return 'not started';
+      let session = '';
+      try { if (navigator.audioSession) session = ' · ' + navigator.audioSession.type; } catch (e) { /* ignore */ }
+      return ctx.state + ' · ' + Math.round(ctx.sampleRate / 100) / 10 + ' kHz' + session + (root.Bridge && root.Bridge.inApp ? ' · app' : '');
+    },
     // Leaving the app or tab: go quiet; coming back resumes.
     suspend() { if (ctx && ctx.state === 'running') ctx.suspend().catch(() => {}); },
     resume() { if (ctx && ctx.state !== 'running') ctx.resume().catch(() => {}); },
