@@ -1179,7 +1179,7 @@
       ctx.beginPath(); ctx.moveTo(sx - 6, sy - 6); ctx.lineTo(sx + 6, sy + 6); ctx.moveTo(sx + 6, sy - 6); ctx.lineTo(sx - 6, sy + 6); ctx.stroke();
       const missedSite = !good && tg && tg.site && sys.byId[tg.body].index === p.hit;
       // Soft landings show the touchdown speed against the limit.
-      const spd = tg && tg.maxSpeed && sys.byId[tg.body].index === p.hit ? ' · ' + p.impact.toFixed(1) + (fast ? ' TOO FAST' : '') : '';
+      const spd = tg && tg.maxSpeed && sys.byId[tg.body].index === p.hit ? ' · ' + p.impact.toFixed(1) + ' k/s' + (fast ? ' TOO FAST' : '') : '';
       const what = sys.bodies[p.hit].horizon ? 'EVENT HORIZON ' : good ? (spd ? 'TOUCHDOWN ' : 'IMPACT ') : missedSite ? 'OFF TARGET ' : 'CRASH ';
       label((preview ? (m.canDrop() ? 'DROP NOW → ' : 'DEPLOY NOW → ') : '') + what + sys.bodies[p.hit].name + spd + ' · ' + fmtT(p.tEnd - m.t), sx, sy - 14, good ? '#7cf7d4' : '#ff7a7a');
       ctx.lineWidth = 1;
@@ -1208,7 +1208,7 @@
       }
       ctx.fillStyle = '#f78cff';
       ctx.beginPath(); ctx.arc(sx, sy, 3.5, 0, TAU); ctx.fill();
-      label((ca.far ? 'farthest ' : 'closest ') + ca.d.toFixed(0) + ' · ' + fmtT(ca.t - m.t), sx, sy + 16, '#f78cff');
+      label((ca.far ? 'farthest ' : 'closest ') + ca.d.toFixed(0) + ' k · ' + fmtT(ca.t - m.t), sx, sy + 16, '#f78cff');
     }
   }
 
@@ -1939,7 +1939,7 @@
         else {
           sys.update(m.t);
           const d = Math.hypot(s.x - sys.px[b.index], s.y - sys.py[b.index]), rv = Math.hypot(s.vx - sys.vx[b.index], s.vy - sys.vy[b.index]);
-          t = `+${b.depot.dv} Δv · <span class="${d < b.depot.dist ? 'ok' : ''}">dist ${d.toFixed(0)}</span> · <span class="${rv < b.depot.relVel ? 'ok' : ''}">rel v ${rv.toFixed(2)}</span>`;
+          t = `+${b.depot.dv} Δv · <span class="${d < b.depot.dist ? 'ok' : ''}">dist ${U(d.toFixed(0), 'k')}</span> · <span class="${rv < b.depot.relVel ? 'ok' : ''}">rel v ${U(rv.toFixed(2), 'k/s')}</span>`;
         }
         break;
       }
@@ -1959,7 +1959,7 @@
       case 'touchdown': {
         k = 'TOUCHDOWN';
         const g = m.level.goals.find(q => q.maxSpeed);
-        t = 'gentle under ' + g.maxSpeed + (p && p.hit >= 0 ? ' · path hits at <span class="' + (p.impact <= g.maxSpeed ? 'ok' : 'warn') + '">' + p.impact.toFixed(1) + '</span>' : '');
+        t = 'gentle under ' + g.maxSpeed + ' k/s' + (p && p.hit >= 0 ? ' · path hits at <span class="' + (p.impact <= g.maxSpeed ? 'ok' : 'warn') + '">' + p.impact.toFixed(1) + '</span>' : '');
         break;
       }
       case 'sail': k = 'SAIL'; t = 'steer with rotation only'; break;
@@ -1984,6 +1984,11 @@
     state.renderedGoal = m.goalIndex;
   }
 
+  // Units: distances in klicks (k), speeds and Δv in klicks per second.
+  // Distances from a body are shown as altitude above its surface.
+  const U = (v, unit) => v + '<i class="u"> ' + unit + '</i>';
+  const alt = (m, g, r) => r - (g.body ? m.sys.byId[g.body].radius : 0);
+
   function goalText(g, m) {
     if (g.craft) {
       const c = (m.level.ship.cargo || []).concat(m.level.ship.stages).find(x => x.id === g.craft);
@@ -1991,13 +1996,13 @@
     }
     const name = g.body ? m.sys.byId[g.body].name : (g.label || 'target');
     switch (g.type) {
-      case 'hit': return g.site ? `Land in the zone on ${name}` : g.deorbit ? `Deorbit into ${name}` : g.maxSpeed ? `Land on ${name} slower than ${g.maxSpeed}` : 'Impact ' + name;
+      case 'hit': return g.site ? `Land in the zone on ${name}` : g.deorbit ? `Deorbit into ${name}` : g.maxSpeed ? `Land on ${name} slower than ${g.maxSpeed} k/s` : 'Impact ' + name;
       case 'reach': return 'Reach ' + (g.label || name);
-      case 'orbit': return `Orbit ${name} within ${g.rMin}–${g.rMax}${g.dir ? (g.dir > 0 ? ' counter-clockwise' : ' clockwise') : ''}`;
+      case 'orbit': return `Orbit ${name} at ${alt(m, g, g.rMin)}–${alt(m, g, g.rMax)} k${g.dir ? (g.dir > 0 ? ' counter-clockwise' : ' clockwise') : ''}`;
       case 'hold': return `Park at ${g.label || name} for ${g.hold}s`;
-      case 'escape': return `Get ${g.r} from ${name}`;
+      case 'escape': return `Get ${alt(m, g, g.r)} k from ${name}`;
       case 'rendezvous': return `Rendezvous with ${name}`;
-      case 'spread': return `Spread ${g.crafts.length} satellites ≥${Math.round(g.minSep * 180 / Math.PI)}° apart, orbit ${g.rMin}–${g.rMax}`;
+      case 'spread': return `Spread ${g.crafts.length} satellites ≥${Math.round(g.minSep * 180 / Math.PI)}° apart, orbit at ${alt(m, g, g.rMin)}–${alt(m, g, g.rMax)} k`;
     }
     return '';
   }
@@ -2014,14 +2019,14 @@
       // One gauge per stage; dropped stages grey out as jettisoned.
       m.stages.forEach((st, k) => {
         const v = m.stageDv(k);
-        $('sg-v-' + k).textContent = k < m.stage ? 'jettisoned' : v.toFixed(2);
+        $('sg-v-' + k).innerHTML = k < m.stage ? 'jettisoned' : U(v.toFixed(2), 'k/s');
         $('sg-b-' + k).style.width = (100 * v / m.stageDv0[k]) + '%';
         $('sg-' + k).classList.toggle('spent', k < m.stage);
         $('sg-' + k).classList.toggle('active-stage', k === m.stage);
       });
     } else {
       $('hud-dv-label').textContent = 'Δv';
-      $('hud-dv').textContent = dv.toFixed(2);
+      $('hud-dv').innerHTML = U(dv.toFixed(2), 'k/s');
       $('bar-fuel').style.width = (100 * dv / m.dv0) + '%';
     }
     if (L.ship.rcs) {
@@ -2071,21 +2076,21 @@
     const e = Math.sqrt(Math.max(0, 1 + 2 * eps * hmom * hmom / (b.gm * b.gm)));
     $('hud-ref').textContent = b.name;
     $('hud-ref-label').textContent = eps < 0 && !L.zeroG ? 'Orbiting' : 'Near';
-    $('hud-alt').textContent = (r - b.radius).toFixed(0);
-    $('hud-spd').textContent = v.toFixed(2);
+    $('hud-alt').innerHTML = U((r - b.radius).toFixed(0), 'k');
+    $('hud-spd').innerHTML = U(v.toFixed(2), 'k/s');
     // Zero-G: no orbit to speak of, so no high or low point. Near a black
     // hole's strong gravity a Newtonian orbit would mislead, so none either.
     if (L.zeroG || b.pw) { $('hud-ap').textContent = '–'; $('hud-pe').textContent = '–'; $('hud-pe').className = ''; }
     else if (eps < 0) {
       const a = -b.gm / (2 * eps);
-      $('hud-ap').textContent = (a * (1 + e) - b.radius).toFixed(0);
+      $('hud-ap').innerHTML = U((a * (1 + e) - b.radius).toFixed(0), 'k');
       const pe = a * (1 - e) - b.radius;
-      $('hud-pe').textContent = pe.toFixed(0);
+      $('hud-pe').innerHTML = U(pe.toFixed(0), 'k');
       $('hud-pe').className = pe < 0 ? 'warn' : '';
     } else {
       $('hud-ap').textContent = 'escape';
       const pe = hmom * hmom / (b.gm * (1 + e)) - b.radius;
-      $('hud-pe').textContent = pe.toFixed(0);
+      $('hud-pe').innerHTML = U(pe.toFixed(0), 'k');
       $('hud-pe').className = pe < 0 ? 'warn' : '';
     }
 
@@ -2106,7 +2111,7 @@
         // Show the orbit's lowest and highest points against the band.
         const o = m.orbitAbout(q, g.body, subj), conf = g.confirm || 3;
         const pct = Math.min(100, 100 * m.holdTime / conf);
-        const fmt = (v) => (isFinite(v) ? v.toFixed(0) : '∞');
+        const R = m.sys.byId[g.body].radius, fmt = (v) => (isFinite(v) ? (v - R).toFixed(0) : '∞');
         const lowOk = o.pe >= g.rMin, highOk = o.bound && o.ap <= g.rMax, dirOk = !g.dir || g.dir === o.dir;
         const state = !dirOk ? '<span class="warn">wrong direction</span>'
           : lowOk && highOk ? (m.thrusting && subj === s ? 'engine off to lock' : '<span class="ok">locking orbit…</span>')
@@ -2116,20 +2121,20 @@
       } else if (g.type === 'hold') {
         const pct = Math.min(100, 100 * m.holdTime / g.hold);
         const rv = Math.hypot(subj.vx - q.vx, subj.vy - q.vy), lim = g.relVel || 1;
-        sub.innerHTML = `<div class="minibar"><div style="width:${pct}%"></div></div><span>${m.holdTime.toFixed(0)}/${g.hold}s · <span class="${d < g.r ? 'ok' : ''}">dist ${d.toFixed(0)}</span> · <span class="${rv < lim ? 'ok' : 'warn'}">rel v ${rv.toFixed(2)}</span></span>`;
+        sub.innerHTML = `<div class="minibar"><div style="width:${pct}%"></div></div><span>${m.holdTime.toFixed(0)}/${g.hold}s · <span class="${d < g.r ? 'ok' : ''}">dist ${U(d.toFixed(0), 'k')}</span> · <span class="${rv < lim ? 'ok' : 'warn'}">rel v ${U(rv.toFixed(2), 'k/s')}</span></span>`;
       } else if (g.type === 'escape') {
-        sub.innerHTML = `<span>distance ${d.toFixed(0)} / ${g.r}</span>`;
+        sub.innerHTML = `<span>distance ${U(alt(m, g, d).toFixed(0) + ' / ' + alt(m, g, g.r), 'k')}</span>`;
       } else if (g.type === 'rendezvous') {
         const rv = Math.hypot(subj.vx - q.vx, subj.vy - q.vy);
-        sub.innerHTML = `<span class="${d < g.dist ? 'ok' : ''}">dist ${d.toFixed(1)}</span> · <span class="${rv < g.relVel ? 'ok' : ''}">rel v ${rv.toFixed(2)}</span>`;
+        sub.innerHTML = `<span class="${d < g.dist ? 'ok' : ''}">dist ${U(d.toFixed(1), 'k')}</span> · <span class="${rv < g.relVel ? 'ok' : ''}">rel v ${U(rv.toFixed(2), 'k/s')}</span>`;
       }
     }
     const p = state.pred;
     let tgt = '';
     if (m.landed) tgt = isTouch() ? 'Hold BURN to lift off' : 'Hold SPACE to lift off';
     else if (p && p.ca) tgt = isTouch()
-      ? `${p.ca.far ? 'Farthest' : 'Closest'} <b>${p.ca.d.toFixed(0)}</b> · ${fmtT(p.ca.t - m.t)}`
-      : `${p.ca.far ? 'Farthest point' : 'Closest approach'} <b>${p.ca.d.toFixed(0)}</b> in ${fmtT(p.ca.t - m.t)}`;
+      ? `${p.ca.far ? 'Farthest' : 'Closest'} <b>${U(p.ca.d.toFixed(0), 'k')}</b> · ${fmtT(p.ca.t - m.t)}`
+      : `${p.ca.far ? 'Farthest point' : 'Closest approach'} <b>${U(p.ca.d.toFixed(0), 'k')}</b> in ${fmtT(p.ca.t - m.t)}`;
     if (dv <= 1e-6 && m.status === 'flying') tgt += '<div class="warn">Out of fuel — R to retry</div>';
     $('hud-target').innerHTML = tgt;
   }
@@ -2274,8 +2279,8 @@
     $('brief-intro').textContent = L.intro;
     $('brief-obj').textContent = L.objective;
     const tank = new Mission(L).dv0;
-    $('brief-stats').innerHTML = `<span><span class="k">Δv</span> ${tank.toFixed(1)}</span>
-      <span><span class="k">★★★ under</span> ${L.par}</span>
+    $('brief-stats').innerHTML = `<span><span class="k">Δv</span> ${tank.toFixed(1)} k/s</span>
+      <span><span class="k">★★★ under</span> ${L.par} k/s</span>
       ${L.ship.canRotate ? '<span><span class="k">Gyro assist</span> optional, max ★★</span>' : ''}`;
     $('brief-controls').innerHTML = controlChips(L);
     show('briefing');
@@ -2312,9 +2317,9 @@
       : m.assisted && m.dvUsed() <= L.par ? 'Gyro assist was on, so this run tops out at two stars. Fly without it for three.'
       : `Use ≤ ${L.par} Δv${m.assisted ? ' without gyro assist' : ''} for three stars.`;
     if (state.worldUnlocked) $('res-msg').innerHTML += `<span class="unlocked">🔓 World ${state.worldUnlocked.n} · ${state.worldUnlocked.name} is open!</span>`;
-    $('res-stats').innerHTML = `<span><span class="k">Δv used</span> ${m.dvUsed().toFixed(2)}</span>
+    $('res-stats').innerHTML = `<span><span class="k">Δv used</span> ${m.dvUsed().toFixed(2)} k/s</span>
       <span><span class="k">Time</span> ${fmtT(m.t)}</span>
-      ${progress.best[L.id] ? `<span><span class="k">Best</span> ${progress.best[L.id].toFixed(2)}</span>` : ''}`;
+      ${progress.best[L.id] ? `<span><span class="k">Best</span> ${progress.best[L.id].toFixed(2)} k/s</span>` : ''}`;
     const hasNext = nextIndex(state.levelIndex) >= 0;
     $('btn-res-next').style.display = won && hasNext ? '' : 'none';
     $('btn-res-retry').className = won && hasNext ? '' : 'primary';
