@@ -51,7 +51,7 @@ const levels = [
     id: 'resupplyrun',
     name: 'Resupply Run',
     intro: 'Haven Station\'s amber zone is closed to everything but its supply pod, and that includes your spent kick stage: a stage left in an orbit that reaches Haven\'s height drifts in sooner or later. So drop the kick stage (the stage button) while your high point is still well below the station. Then climb the rest with the carrier, release the pod (E) on a path that meets Haven, and turn round to brake back down.',
-    objective: 'Deliver the pod to Haven Station, then orbit Terra between 100 and 220, leaving nothing in Haven\'s way.',
+    objective: 'Deliver the pod to Haven Station, then orbit Terra between 50 and 170 k up, leaving nothing in Haven\'s way.',
     teaches: 'Stage before the zone · flip to come home',
     bodies: [
       { id: 'terra', name: 'Terra', gm: 20000, radius: 50, color: C.blue },
@@ -70,8 +70,8 @@ const levels = [
   {
     id: 'blockade',
     name: 'Blockade Run',
-    intro: 'Your orbit is sagging into the patrol band at 220, and at its low point, a minute from now, Patrol 1 will be right there. Each patrol sits in an amber zone closed to everything, so get down through the band now, riding the big descent stage, to a low orbit beneath it. Don\'t drop the stage after the first burn: an empty stage whose orbit still reaches the band drifts into a zone sooner or later.',
-    objective: 'Get below the patrols before you meet one: orbit Terra between 100 and 150 without your ship or its stage entering a patrol zone.',
+    intro: 'Your orbit is sagging into the patrol band at 170 k up, and at its low point, a minute from now, Patrol 1 will be right there. Each patrol sits in an amber zone closed to everything, so get down through the band now, riding the big descent stage, to a low orbit beneath it. Don\'t drop the stage after the first burn: an empty stage whose orbit still reaches the band drifts into a zone sooner or later.',
+    objective: 'Get below the patrols before you meet one: orbit Terra between 50 and 100 k up without your ship or its stage entering a patrol zone.',
     teaches: 'Carry the stage across the band',
     bodies: [
       { id: 'terra', name: 'Terra', gm: 20000, radius: 50, color: C.blue },
@@ -90,7 +90,7 @@ const levels = [
     id: 'mooncourier',
     name: 'Moon Courier',
     intro: 'You are coasting to Luna on a collision course, about a minute and a half from impact. Use the last of the transfer stage to bend your path into a low pass under Luna, then drop the stage and release the pod (E): on that path it swings round Luna and climbs straight into Luna Gate, whose zone is closed to everything but the pod. Then flip late and brake at the low point, staying under the Gate.',
-    objective: 'Avoid hitting Luna, deliver the pod to Luna Gate, then orbit Luna between 30 and 70.',
+    objective: 'Avoid hitting Luna, deliver the pod to Luna Gate, then orbit Luna between 12 and 52 k up.',
     teaches: 'Correct, drop, capture',
     bodies: [
       { id: 'terra', name: 'Terra', gm: 20000, radius: 50, color: C.blue },
@@ -111,7 +111,7 @@ const levels = [
     id: 'relaysling',
     name: 'Slingshot Relay',
     intro: 'Your transfer burn cut out early, and this path will carry you into Goliath\'s radiation zone, which is closed to everything. Finish the job with the rest of the transfer stage: just enough to put the relay on a wide slingshot past Goliath that flings it out of Terra\'s reach. Then drop the stage, release the relay (E) and flip and brake at once, so you fall back into a low orbit while the relay flies on.',
-    objective: 'Send the relay 1600 away from Terra, but stay behind yourself: orbit Terra between 70 and 140.',
+    objective: 'Send the relay 1550 k away from Terra, but stay behind yourself: orbit Terra between 20 and 90 k up.',
     teaches: 'Send the cargo, stay home',
     bodies: [
       { id: 'terra', name: 'Terra', gm: 20000, radius: 50, color: C.blue },
@@ -131,7 +131,7 @@ const levels = [
     id: 'surveydrop',
     name: 'Survey Drop',
     intro: 'Two survey sites ride the asteroid belt, each in an amber zone closed to everything but its own probe. Drop the transfer stage while your high point is still below the belt, then release probe A (E) when your path meets Site A, climb a little more and release probe B for Site B. Then turn round before the zones and rocks and brake back down to your home orbit.',
-    objective: 'Deliver probe A to Site A and probe B to Site B, then orbit Sol between 430 and 520.',
+    objective: 'Deliver probe A to Site A and probe B to Site B, then orbit Sol between 370 and 460 k up.',
     teaches: 'Two drops on one climb · flip home',
     bodies: [
       { id: 'sun', name: 'Sol', gm: 200000, radius: 60, color: C.sun },
@@ -154,7 +154,7 @@ const levels = [
     id: 'longhaul',
     name: 'The Long Haul',
     intro: 'Your booster has you climbing straight into Patrol 1\'s zone, barely fifteen seconds out: change your climb now. Every zone here is closed to everything, so drop the booster in the gap between the patrol band and Haven Station, where its whole orbit touches neither. Then fly the carrier to Luna, brake into a low orbit beneath Luna Gate, and from your low point raise the high point to the Gate, release the pod (E) and flip at once to come back down before you reach its zone.',
-    objective: 'Dodge the patrol, deliver the pod to Luna Gate, then orbit Luna between 25 and 55, with no stage left where it can drift into a zone.',
+    objective: 'Dodge the patrol, deliver the pod to Luna Gate, then orbit Luna between 9 and 39 k up, with no stage left where it can drift into a zone.',
     teaches: 'Everything at once',
     bodies: [
       { id: 'terra', name: 'Terra', gm: 20000, radius: 50, color: C.blue },

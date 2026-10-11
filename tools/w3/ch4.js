@@ -55,7 +55,7 @@ const levels = [
     id: 'cleanzone',
     name: 'Clean Zone',
     intro: 'Haven Station\'s amber zone is closed to everything: your ship, dropped cargo and spent stages. A booster dropped on an orbit that crosses the zone\'s orbit drifts in sooner or later. Climb on the booster, and keep burning it at the top until its whole orbit is above the zone\'s band (watch PE) before you deploy the satellite to finish the job.',
-    objective: 'Put the satellite in an orbit between 320 and 380 without your ship or your spent booster entering Haven\'s zone.',
+    objective: 'Put the satellite in an orbit between 270 and 330 k up without your ship or your spent booster entering Haven\'s zone.',
     teaches: 'Zones closed to everything',
     bodies: [
       { id: 'terra', name: 'Terra', gm: 20000, radius: 50, color: C.blue },
@@ -72,7 +72,7 @@ const levels = [
     id: 'shieldedmoon',
     name: 'Shielded Moon',
     intro: 'You are already on a collision course with Luna, and its red keep-out zone for ships is only minutes away. Probes may pass, so drop the probe (E) now, while your path still ends on Luna, then burn sideways until your own path clears the zone. The longer you wait, the bigger the dodge. Brake into an orbit outside the zone to watch the impact.',
-    objective: 'Crash the probe into Luna, then orbit Luna between 55 and 110 without entering its keep-out zone.',
+    objective: 'Crash the probe into Luna, then orbit Luna between 37 and 92 k up without entering its keep-out zone.',
     teaches: 'Drop, then dodge a zone',
     bodies: [
       { id: 'terra', name: 'Terra', gm: 20000, radius: 50, color: C.blue },
@@ -89,7 +89,7 @@ const levels = [
     id: 'rangesafety',
     name: 'Range Safety',
     intro: 'Your upper stage has to come down, not stay in orbit, but Port Kiri sits under the usual reentry path and its amber zone is closed to everything. Climb on the upper stage, burn it retrograde at the top until its path falls into Terra, then turn prograde and deploy the satellite. Before you deploy, check where the dashed path hits the ground: it must be open sea. When you start the climb decides where that is.',
-    objective: 'Bring the upper stage down anywhere outside Port Kiri\'s zone, and put the satellite in an orbit between 220 and 280.',
+    objective: 'Bring the upper stage down anywhere outside Port Kiri\'s zone, and put the satellite in an orbit between 170 and 230 k up.',
     teaches: 'Where the stage comes down',
     bodies: [
       { id: 'terra', name: 'Terra', gm: 20000, radius: 50, color: C.blue },
@@ -109,7 +109,7 @@ const levels = [
     id: 'airdrop',
     name: 'Air Drop',
     intro: 'The survey beacon has to settle inside an amber drop zone that rides its own orbit, and you may not follow it in. Thrown in from a transfer orbit, it just sails through. Round off your orbit a little below the zone\'s, behind it, so you creep up on it slowly. Drop the beacon (E) and it drifts through the marker slowly enough to count. But you are on the same path: leave it at once, down to your working orbit.',
-    objective: 'Get the beacon within 20 of the marker, moving slower than 1.5 relative to it, for 8 s; then orbit Terra between 150 and 250 without entering the zone.',
+    objective: 'Get the beacon within 20 k of the marker, moving slower than 1.5 k/s relative to it, for 8 s; then orbit Terra between 100 and 200 k up without entering the zone.',
     teaches: 'Drop zones in space',
     bodies: [
       { id: 'terra', name: 'Terra', gm: 20000, radius: 50, color: C.blue },
@@ -126,7 +126,7 @@ const levels = [
     id: 'twinzones',
     name: 'Twin Zones',
     intro: 'You are already coasting up on a path that runs straight into Station Alpha\'s amber zone, so drop Probe A (E) soon, short of the zone, and burn on toward Beta at once: that burn is also your dodge. Both zones are closed to everything and each lets in only its own probe. Drop Probe B the same way and push a little higher so Beta passes beneath you, then turn round once and brake down to your working orbit. Side-thruster propellant is short: hold still between burns and turn slowly.',
-    objective: 'Deliver Probe A to Alpha and Probe B to Beta (each within 12) without any craft entering the wrong zone, then orbit Terra between 100 and 180.',
+    objective: 'Deliver Probe A to Alpha and Probe B to Beta (each within 12 k) without any craft entering the wrong zone, then orbit Terra between 50 and 130 k up.',
     teaches: 'Two drops, two closed zones',
     bodies: [
       { id: 'terra', name: 'Terra', gm: 20000, radius: 50, color: C.blue },
@@ -144,8 +144,8 @@ const levels = [
   {
     id: 'crossingtraffic',
     name: 'Crossing Traffic',
-    intro: 'Your stack is coasting up on a low suborbital arc that falls back to Terra within a minute, so light the booster now. Burn it while you are still low and fast: that raises the top of the arc to the target height while its low point stays underground, so the empty booster falls back when you deploy it. Two guard satellites patrol a long, stretched lane from 85 to 405 and their amber zones are closed to everything: burn the booster later, higher up, and it is left in orbit across their lane. Then turn round once before the top and round off on the satellite. Side-thruster propellant is short.',
-    objective: 'Put the satellite in an orbit between 300 and 360, with the booster brought down and no craft entering a guard\'s zone.',
+    intro: 'Your stack is coasting up on a low suborbital arc that falls back to Terra within a minute, so light the booster now. Burn it while you are still low and fast: that raises the top of the arc to the target height while its low point stays underground, so the empty booster falls back when you deploy it. Two guard satellites patrol a long, stretched lane from 35 to 355 k up and their amber zones are closed to everything: burn the booster later, higher up, and it is left in orbit across their lane. Then turn round once before the top and round off on the satellite. Side-thruster propellant is short.',
+    objective: 'Put the satellite in an orbit between 250 and 310 k up, with the booster brought down and no craft entering a guard\'s zone.',
     teaches: 'Planned flips · let the booster fall',
     bodies: [
       { id: 'terra', name: 'Terra', gm: 20000, radius: 50, color: C.blue },

@@ -656,7 +656,9 @@
         const d = Math.hypot(p.xs[i] - q.x, p.ys[i] - q.y);
         if (sign * d < best) { best = sign * d; bi = i; }
       }
-      if (bi > 0) ca = { i: bi, t: p.ts[bi], d: sign * best, goal: g, far: sign < 0 };
+      // Shown as altitude above the target's surface (stations and points have none to speak of).
+      const R = g.body && !g.lagrange ? m.sys.byId[g.body].radius : 0;
+      if (bi > 0) ca = { i: bi, t: p.ts[bi], d: sign * best - (R > 8 ? R : 0), goal: g, far: sign < 0 };
     }
     p.ca = ca;
     p.pickups = new Set();

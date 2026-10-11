@@ -42,7 +42,7 @@ module.exports = {
       id: 'nofly',
       name: 'No-Fly Zone',
       intro: 'A guard satellite circles between your low orbit and the high orbit you need, inside a red keep-out zone that moves with it. Your dashed path turns red where it would cross the zone. Wait until the guard has gone by, then burn prograde to climb and round off your orbit at the top.',
-      objective: 'Orbit Terra between 280 and 360 without entering the guard\'s keep-out zone.',
+      objective: 'Orbit Terra between 230 and 310 k up without entering the guard\'s keep-out zone.',
       teaches: 'Keep-out zones',
       bodies: [
         { id: 'terra', name: 'Terra', gm: 20000, radius: 50, color: C.blue },
@@ -56,7 +56,7 @@ module.exports = {
       id: 'patrol',
       name: 'Patrol',
       intro: 'Three guard satellites now patrol the orbit between you and the high orbit you need, each inside a red keep-out zone that moves with it. The gaps between them are narrower, and the climb has to fit through one all the way up. Watch where your dashed path turns red, wait for a gap, then climb through it and round off your orbit up top.',
-      objective: 'Orbit Terra between 300 and 360 without entering any keep-out zone.',
+      objective: 'Orbit Terra between 250 and 310 k up without entering any keep-out zone.',
       teaches: 'Moving keep-out zones',
       bodies: [
         { id: 'terra', name: 'Terra', gm: 20000, radius: 50, color: C.blue },
@@ -72,7 +72,7 @@ module.exports = {
       id: 'supplyrun',
       name: 'Supply Run',
       intro: 'You are already coasting up to Haven Station, on a path that carries you into its red keep-out zone in about half a minute. The pod is on the right path, you are not: drop it (E) soon so it drifts in on its own, then brake away before the zone and settle into a lower orbit. The later you drop, the harder you have to brake.',
-      objective: 'Deliver the pod to Haven Station without entering the keep-out zone, then orbit Terra between 100 and 250.',
+      objective: 'Deliver the pod to Haven Station without entering the keep-out zone, then orbit Terra between 50 and 200 k up.',
       teaches: 'Dropping cargo into a keep-out zone',
       bodies: [
         { id: 'terra', name: 'Terra', gm: 20000, radius: 50, color: C.blue },
@@ -103,7 +103,7 @@ module.exports = {
       id: 'hotmoon',
       name: 'Hot Moon',
       intro: 'You are falling toward Luna and will plunge into its radiation belt in under 20 seconds: no ship may come inside the red keep-out zone. Act now. Burn early to swing your closest pass out past the zone (braking and pushing sideways at once works well), then burn retrograde at closest approach to get captured. Press V to view your path relative to Luna.',
-      objective: 'Get captured into an orbit around Luna that stays between 50 and 80, without entering its keep-out zone.',
+      objective: 'Get captured into an orbit around Luna that stays between 32 and 62 k up, without entering its keep-out zone.',
       teaches: 'Capture outside a keep-out zone',
       bodies: [
         { id: 'terra', name: 'Terra', gm: 20000, radius: 50, color: C.blue },
@@ -117,7 +117,7 @@ module.exports = {
       id: 'crowdedtrojans',
       name: 'Crowded Trojans',
       intro: 'You share Luna\'s orbit just ahead of its L4 point, slowly drifting back toward it, but L4 has filled with a debris cloud nobody may enter. Park at L5, 60° behind Luna, instead. A higher orbit drifts you backwards, a lower one forwards: pick the way round that keeps you out of the cloud.',
-      objective: 'Park at L5: stay within 40 of it, moving with it, for 30 s, without entering the debris cloud.',
+      objective: 'Park at L5: stay within 40 k of it, moving with it, for 30 s, without entering the debris cloud.',
       teaches: 'Choosing the direction of drift',
       bodies: [
         { id: 'terra', name: 'Terra', gm: 20000, radius: 50, color: C.blue },

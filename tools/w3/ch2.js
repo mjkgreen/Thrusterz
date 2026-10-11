@@ -67,7 +67,7 @@ const levels = [
     id: 'asteroidrun',
     name: 'Asteroid Run',
     intro: 'A ring of tumbling rocks circles Terra between your low orbit and the one you need. Climb through Gate 1 and Gate 2 in order, then round off your orbit above the rocks. The gates line up with your climb once a lap, but the rocks drift at their own pace: if the dashed path shows a CRASH mark, wait a lap and look again.',
-    objective: 'Fly through Gates 1 and 2, then orbit Terra between 270 and 330.',
+    objective: 'Fly through Gates 1 and 2, then orbit Terra between 230 and 270 k up.',
     teaches: 'Weaving through orbiting rocks',
     bodies: [
       { id: 'terra', name: 'Terra', gm: 20000, radius: 50, color: C.blue },
@@ -99,8 +99,8 @@ const levels = [
   {
     id: 'detour',
     name: 'Detour',
-    intro: 'Your tank can\'t reach the high orbit on its own, but a fuel canister circles at 220. It floats just above a tanker\'s keep-out zone, so the cheap climb straight up into it is closed. Aim a little higher than the canister and let it drift in under you from ahead (it glows green when your path will collect it), then push on up.',
-    objective: 'Collect the fuel canister without entering the tanker\'s keep-out zone, then orbit Terra between 400 and 460.',
+    intro: 'Your tank can\'t reach the high orbit on its own, but a fuel canister circles 170 k up. It floats just above a tanker\'s keep-out zone, so the cheap climb straight up into it is closed. Aim a little higher than the canister and let it drift in under you from ahead (it glows green when your path will collect it), then push on up.',
+    objective: 'Collect the fuel canister without entering the tanker\'s keep-out zone, then orbit Terra between 350 and 410 k up.',
     teaches: 'Is the detour worth the fuel?',
     bodies: [
       { id: 'terra', name: 'Terra', gm: 20000, radius: 50, color: C.blue },
@@ -115,7 +115,7 @@ const levels = [
     id: 'sentryfield',
     name: 'Sentry Field',
     intro: 'Zero gravity, and a field of sentries you may not come near: two stand still, one circles. The survey beacon has to go to the marker in the middle of the closed zone, where you can\'t follow. Line up so your path runs through the marker, drop the beacon (E), then steer clear of the zone and stop at the depot. Turning costs propellant you don\'t have much of.',
-    objective: 'Drop the beacon into the marked spot inside the closed zone, then park beside the depot (within 25, relative speed under 0.6) without entering any keep-out zone.',
+    objective: 'Drop the beacon into the marked spot inside the closed zone, then park beside the depot (within 25 k, relative speed under 0.6 k/s) without entering any keep-out zone.',
     teaches: 'Zero-G · keep-out zones · drops',
     zeroG: true,
     bodies: [
@@ -154,7 +154,7 @@ const levels = [
     id: 'closequarters',
     name: 'Close Quarters',
     intro: 'Your orbit tops out in under a minute right behind the depot, inside the keep-out zone of the guard that trails it. A second guard flies just ahead, so the depot is boxed in along its orbit. Retime your orbit now, with a short burn at the low point, so a later high point comes up right under the depot, then burn to match its speed there.',
-    objective: 'Get out of the trailing guard\'s way, then rendezvous with the depot (within 12, relative speed under 0.3) without entering either keep-out zone.',
+    objective: 'Get out of the trailing guard\'s way, then rendezvous with the depot (within 12 k, relative speed under 0.3 k/s) without entering either keep-out zone.',
     teaches: 'Retiming an orbit · rendezvous from below',
     bodies: [
       { id: 'terra', name: 'Terra', gm: 20000, radius: 50, color: C.blue },
