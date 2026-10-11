@@ -7,7 +7,7 @@
   let ctx = null, master = null, sfxBus = null, musicBus = null, noise = null;
   let sfxVol = 0.8, musicVol = 0.5;
   const musicOn = () => musicVol > 0.001;
-  let engine = null, rcs = null, crunch = null;
+  let engine = null, rcs = null, crunch = null, jingle = null;
 
   function setup() {
     if (ctx || !AC) return !!ctx;
@@ -18,7 +18,10 @@
     crunch = ctx.createWaveShaper();
     const curve = new Float32Array(1024);
     for (let i = 0; i < 1024; i++) { const x = i / 511.5 - 1; curve[i] = Math.tanh(4 * x); }
-    crunch.curve = curve; crunch.connect(sfxBus);
+    // Win, crash and fail play through their own level, under the other
+    // effects, so they sit with the music rather than over it.
+    jingle = ctx.createGain(); jingle.gain.value = 0.5; jingle.connect(sfxBus);
+    crunch.curve = curve; crunch.connect(jingle);
     musicBus = ctx.createGain(); musicBus.gain.value = 0; musicBus.connect(master);
     // Two seconds of white noise, looped by the engine, side thrusters and bangs.
     noise = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
@@ -78,13 +81,13 @@
     }
     o.connect(g); g.connect(opts.bus || sfxBus); o.start(t); o.stop(t + len + (opts.tail || 0.08) + 0.05);
   }
-  function burst(type, f0, f1, peak, decay, when) {
+  function burst(type, f0, f1, peak, decay, when, bus) {
     if (!ctx) return;
     const t = now() + (when || 0), src = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
     src.buffer = noise; f.type = type; f.frequency.setValueAtTime(f0, t);
     if (f1) f.frequency.exponentialRampToValueAtTime(f1, t + decay);
     env(g, t, peak, 0.005, decay);
-    src.connect(f); f.connect(g); g.connect(sfxBus); src.start(t, Math.random() * 1.5); src.stop(t + decay + 0.1);
+    src.connect(f); f.connect(g); g.connect(bus || sfxBus); src.start(t, Math.random() * 1.5); src.stop(t + decay + 0.1);
   }
   // A G F E on the flight track's buzzy square, through its echo feel, the
   // last note sagging down: the "you blew it" phrase, in key with the music.
@@ -93,8 +96,8 @@
     let t = at;
     steps.forEach(([n, len], i) => {
       const last = i === steps.length - 1, d = len * step;
-      for (const det of [-9, 9]) note('sawtooth', n - 12, t, d, 0.06, { detune: det, bend: last ? -1.5 : 0, vibrato: last ? 5.5 : 0, tail: last ? 0.5 : 0.06 });
-      note('square', n, t, d, 0.03, { bend: last ? -1.5 : 0, tail: last ? 0.4 : 0.05 });
+      for (const det of [-9, 9]) note('sawtooth', n - 12, t, d, 0.06, { detune: det, bend: last ? -1.5 : 0, vibrato: last ? 5.5 : 0, tail: last ? 0.5 : 0.06, bus: jingle });
+      note('square', n, t, d, 0.03, { bend: last ? -1.5 : 0, tail: last ? 0.4 : 0.05, bus: jingle });
       t += d;
     });
   }
@@ -343,15 +346,15 @@
       const at = onBeat(), step = 60 / 112 / 4;
       if (playing()) {
         const t = now() + at;
-        flightLevel.gain.setTargetAtTime(1.35, t, 0.15); flightLevel.gain.setTargetAtTime(1, t + 2.2, 0.6);
+        flightLevel.gain.setTargetAtTime(1.15, t, 0.15); flightLevel.gain.setTargetAtTime(1, t + 2.2, 0.6);
       }
       const notes = [57, 61, 64, 69, 73, 76, 81];
       notes.forEach((n, i) => {
-        note('square', n, at + i * step, i === notes.length - 1 ? 1.4 : step * 1.6, 0.05, { tail: 0.4, vibrato: i === notes.length - 1 ? 5 : 0 });
-        note('triangle', n, at + i * step, i === notes.length - 1 ? 1.4 : step * 1.6, 0.08, { tail: 0.4 });
+        note('square', n, at + i * step, i === notes.length - 1 ? 1.4 : step * 1.6, 0.05, { tail: 0.4, vibrato: i === notes.length - 1 ? 5 : 0, bus: jingle });
+        note('triangle', n, at + i * step, i === notes.length - 1 ? 1.4 : step * 1.6, 0.08, { tail: 0.4, bus: jingle });
       });
-      for (const n of [57, 64, 69, 73]) note('sawtooth', n - 12, at + 6 * step, 1.6, 0.025, { detune: 6, tail: 0.8 });
-      [93, 97, 100, 105].forEach((n, i) => note('sine', n, at + 6 * step + i * 0.09, 0.12, 0.03, { tail: 0.6 }));
+      for (const n of [57, 64, 69, 73]) note('sawtooth', n - 12, at + 6 * step, 1.6, 0.025, { detune: 6, tail: 0.8, bus: jingle });
+      [93, 97, 100, 105].forEach((n, i) => note('sine', n, at + 6 * step + i * 0.09, 0.12, 0.03, { tail: 0.6, bus: jingle }));
     },
     // Crash: a muffled, spacey boom; the music sinks under water for a
     // moment (the beat keeps going), and a falling phrase in key, A G F E,
@@ -370,14 +373,14 @@
       src.buffer = noise; f.type = 'lowpass'; f.frequency.setValueAtTime(1400, t); f.frequency.exponentialRampToValueAtTime(60, t + 1.6);
       g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.9, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + 1.8);
       src.connect(f); f.connect(g); g.connect(crunch); src.start(t, 0.3); src.stop(t + 1.9);
-      tone('sine', 95, 30, 0.6, 0.005, 0.9);
+      tone('sine', 95, 30, 0.6, 0.005, 0.9, 0, jingle);
       fallPhrase(onBeat() || 0.35);
     },
     // Out of time / lost in space: the music dips, then the falling phrase.
     fail() {
       if (!ctx) return;
       if (playing()) { const t = now(); flightLevel.gain.setTargetAtTime(0.45, t, 0.2); flightLevel.gain.setTargetAtTime(1, t + 2.5, 0.8); }
-      burst('bandpass', 700, 250, 0.08, 0.6);
+      burst('bandpass', 700, 250, 0.08, 0.6, 0, jingle);
       fallPhrase(onBeat() || 0.2);
     },
   };
