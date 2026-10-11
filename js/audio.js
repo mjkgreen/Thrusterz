@@ -5,7 +5,7 @@
   'use strict';
   const AC = root.AudioContext || root.webkitAudioContext;
   let ctx = null, master = null, sfxBus = null, musicBus = null, noise = null;
-  let sfxVol = 0.8, musicVol = 0.5, music = null;
+  let sfxVol = 0.8, musicVol = 0.5;
   const musicOn = () => musicVol > 0.001;
   let engine = null, rcs = null, crunch = null;
 
@@ -112,24 +112,33 @@
   }
 
   // ------------------------------------------------------------- music
-  // A slow ambient pad (four chords, eight seconds each) with sparse plucks
-  // through a long echo. Quiet, and generated live, so it never repeats exactly.
+  // Two tracks, crossfaded: a slow ambient pad for the menu and pause screen,
+  // and a driving piece for flying. Both are generated live, so they never
+  // repeat exactly. Each plays into its own gain under the music bus.
+  const hz = (n) => 440 * Math.pow(2, (n - 69) / 12);
+  let mode = 'menu', menuGain = null, flightGain = null, menuTrack = null, flightTrack = null;
+  function buses() {
+    if (menuGain) return;
+    menuGain = ctx.createGain(); menuGain.gain.value = mode === 'menu' ? 1 : 0; menuGain.connect(musicBus);
+    flightGain = ctx.createGain(); flightGain.gain.value = mode === 'flight' ? 1 : 0; flightGain.connect(musicBus);
+  }
+
+  // Menu: four chords, eight seconds each, with sparse plucks through a long echo.
   const CHORDS = [[57, 60, 64, 67], [53, 57, 60, 64], [48, 52, 55, 59], [55, 59, 62, 66]];
   const SCALE = [69, 72, 74, 76, 79, 81, 84];
-  const hz = (n) => 440 * Math.pow(2, (n - 69) / 12);
-  function startMusic() {
-    if (music || !ctx) return;
+  function startMenu() {
+    if (menuTrack || !ctx) return;
     const echo = ctx.createDelay(2); echo.delayTime.value = 0.75;
     const fb = ctx.createGain(); fb.gain.value = 0.45;
     const wet = ctx.createGain(); wet.gain.value = 0.5;
-    echo.connect(fb); fb.connect(echo); echo.connect(wet); wet.connect(musicBus);
+    echo.connect(fb); fb.connect(echo); echo.connect(wet); wet.connect(menuGain);
     const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 700; lp.Q.value = 0.4;
-    lp.connect(musicBus);
-    music = { echo, lp, bar: 0, timer: null, seed: 7 };
-    const rnd = () => (music.seed = (music.seed * 16807) % 2147483647) / 2147483647;
+    lp.connect(menuGain);
+    const tr = menuTrack = { echo, lp, bar: 0, timer: null, seed: 7 };
+    const rnd = () => (tr.seed = (tr.seed * 16807) % 2147483647) / 2147483647;
     const bar = () => {
-      if (!music) return;
-      const t = now() + 0.05, chord = CHORDS[music.bar % CHORDS.length];
+      if (menuTrack !== tr) return;
+      const t = now() + 0.05, chord = CHORDS[tr.bar % CHORDS.length];
       for (const n of chord) {
         for (const det of [-6, 6]) {
           const o = ctx.createOscillator(), g = ctx.createGain();
@@ -144,23 +153,99 @@
         const o = ctx.createOscillator(), g = ctx.createGain(), at = t + k * 2 + rnd() * 0.6;
         o.type = 'sine'; o.frequency.value = hz(SCALE[Math.floor(rnd() * SCALE.length)]);
         env(g, at, 0.05, 0.01, 1.6);
-        o.connect(g); g.connect(echo); g.connect(musicBus); o.start(at); o.stop(at + 1.8);
+        o.connect(g); g.connect(echo); g.connect(menuGain); o.start(at); o.stop(at + 1.8);
       }
-      music.bar++;
+      tr.bar++;
     };
     bar();
-    music.timer = setInterval(bar, 8000);
+    tr.timer = setInterval(bar, 8000);
   }
-  function stopMusic() {
-    if (!music) return;
-    clearInterval(music.timer);
-    const m = music; music = null;
-    setTimeout(() => { try { m.echo.disconnect(); m.lp.disconnect(); } catch (e) { /* gone */ } }, 9000);
+
+  // Flight: A minor at 112 bpm. Pulsing eighth-note bass, a sixteenth-note
+  // arpeggio through a dotted echo, kick / snare / hats, and a low pad. An
+  // eight-bar loop (Am Am F G | Dm F Em E) that builds: the arpeggio joins
+  // after four bars, and every eighth bar drops the drums for a breath.
+  const BPM = 112, STEP = 60 / BPM / 4;
+  const PROG = [[45, 57, 60, 64], [45, 57, 60, 64], [41, 53, 57, 60], [43, 55, 59, 62],
+    [38, 50, 53, 57], [41, 53, 57, 60], [40, 52, 55, 59], [40, 52, 56, 59]];
+  const ARP = [1, 2, 3, 2, 1, 3, 2, 3, 1, 2, 3, 2, 4, 3, 2, 3];
+  function startFlight() {
+    if (flightTrack || !ctx) return;
+    const echo = ctx.createDelay(1); echo.delayTime.value = STEP * 3;
+    const fb = ctx.createGain(); fb.gain.value = 0.32;
+    const wet = ctx.createGain(); wet.gain.value = 0.45;
+    echo.connect(fb); fb.connect(echo); echo.connect(wet); wet.connect(flightGain);
+    const tr = flightTrack = { echo, step: 0, next: now() + 0.1, timer: null };
+    const voice = (type, freq, at, len, peak, cutoff, out) => {
+      const o = ctx.createOscillator(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+      o.type = type; o.frequency.value = freq;
+      f.type = 'lowpass'; f.frequency.setValueAtTime(cutoff, at); f.frequency.exponentialRampToValueAtTime(cutoff * 0.35, at + len);
+      g.gain.setValueAtTime(0.0001, at); g.gain.exponentialRampToValueAtTime(peak, at + 0.006); g.gain.exponentialRampToValueAtTime(0.0001, at + len);
+      o.connect(f); f.connect(g); g.connect(out || flightGain); o.start(at); o.stop(at + len + 0.05);
+    };
+    const hit = (type, f0, at, len, peak) => {
+      const src = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+      src.buffer = noise; f.type = type; f.frequency.value = f0;
+      g.gain.setValueAtTime(0.0001, at); g.gain.exponentialRampToValueAtTime(peak, at + 0.003); g.gain.exponentialRampToValueAtTime(0.0001, at + len);
+      src.connect(f); f.connect(g); g.connect(flightGain); src.start(at, (at * 7.3) % 1.5); src.stop(at + len + 0.05);
+    };
+    const kick = (at) => {
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.type = 'sine'; o.frequency.setValueAtTime(130, at); o.frequency.exponentialRampToValueAtTime(42, at + 0.22);
+      g.gain.setValueAtTime(0.0001, at); g.gain.exponentialRampToValueAtTime(0.42, at + 0.004); g.gain.exponentialRampToValueAtTime(0.0001, at + 0.3);
+      o.connect(g); g.connect(flightGain); o.start(at); o.stop(at + 0.35);
+    };
+    const schedule = () => {
+      if (flightTrack !== tr) return;
+      while (tr.next < now() + 0.25) {
+        const at = tr.next, st = tr.step, bar = Math.floor(st / 16), s16 = st % 16, chord = PROG[bar % 8];
+        const breath = bar % 8 === 7, built = bar >= 4;
+        // Pad: the chord, held for the bar.
+        if (s16 === 0) for (const n of chord.slice(1)) for (const det of [-7, 7]) {
+          const o = ctx.createOscillator(), f = ctx.createBiquadFilter(), g = ctx.createGain(), len = STEP * 16;
+          o.type = 'sawtooth'; o.frequency.value = hz(n); o.detune.value = det;
+          f.type = 'lowpass'; f.frequency.value = 900;
+          g.gain.setValueAtTime(0.0001, at); g.gain.linearRampToValueAtTime(0.011, at + 0.25); g.gain.setValueAtTime(0.011, at + len - 0.2); g.gain.linearRampToValueAtTime(0.0001, at + len + 0.1);
+          o.connect(f); f.connect(g); g.connect(flightGain); o.start(at); o.stop(at + len + 0.15);
+        }
+        // Bass: eighth notes, root with an octave jump on the off-beats.
+        if (s16 % 2 === 0) voice('sawtooth', hz(chord[0] - 12 + (s16 % 4 === 2 ? 12 : 0)), at, STEP * 1.6, 0.13, 520);
+        // Arpeggio: sixteenths over the chord, from bar five on.
+        if (built && !breath) {
+          const i = ARP[s16], n = i < 4 ? chord[i] + 12 : chord[1] + 24;
+          voice('square', hz(n), at, STEP * 0.9, 0.028, 2200, echo);
+          voice('square', hz(n), at, STEP * 0.9, 0.022, 2200);
+        }
+        if (!breath) {
+          if (s16 === 0 || s16 === 8 || (s16 === 14 && bar % 2 === 1)) kick(at);
+          if (s16 === 4 || s16 === 12) hit('bandpass', 1900, at, 0.14, 0.13);
+          if (s16 % 2 === 1) hit('highpass', 7500, at, 0.035, s16 % 4 === 3 ? 0.05 : 0.03);
+        } else if (s16 === 12) hit('highpass', 3000, at, 0.6, 0.05); // a swell into the next phrase
+        tr.step++; tr.next += STEP;
+      }
+    };
+    schedule();
+    tr.timer = setInterval(schedule, 50);
   }
+
+  function stopTrack(which) {
+    const tr = which === 'menu' ? menuTrack : flightTrack;
+    if (!tr) return;
+    clearInterval(tr.timer);
+    if (which === 'menu') menuTrack = null; else flightTrack = null;
+    setTimeout(() => { try { tr.echo.disconnect(); if (tr.lp) tr.lp.disconnect(); } catch (e) { /* gone */ } }, 9000);
+  }
+  // Fade to the track for the current mode; stop the other once it's silent.
   function applyMusic() {
     if (!ctx) return;
+    buses();
     musicBus.gain.setTargetAtTime(musicVol * 1.1, now(), 0.4);
-    if (musicOn()) startMusic(); else setTimeout(() => { if (!musicOn()) stopMusic(); }, 1500);
+    if (!musicOn()) { setTimeout(() => { if (!musicOn()) { stopTrack('menu'); stopTrack('flight'); } }, 1500); return; }
+    const on = mode === 'flight' ? flightGain : menuGain, off = mode === 'flight' ? menuGain : flightGain;
+    on.gain.setTargetAtTime(1, now(), 0.5); off.gain.setTargetAtTime(0, now(), 0.5);
+    if (mode === 'flight') startFlight(); else startMenu();
+    const was = mode;
+    setTimeout(() => { if (mode === was) stopTrack(was === 'flight' ? 'menu' : 'flight'); }, 3000);
   }
 
   // iPhones mute web audio on the speaker when the ring/silent switch is on
@@ -200,6 +285,8 @@
       if (o.ignoreSilent != null && !!o.ignoreSilent !== ignoreSilent) { ignoreSilent = !!o.ignoreSilent; if (ctx) applySession(); }
       if (ctx) { sfxBus.gain.setTargetAtTime(sfxVol, now(), 0.05); applyMusic(); }
     },
+    // Which music plays: 'menu' (menus, pause, results) or 'flight'.
+    musicMode(m) { if (m === mode) return; mode = m; applyMusic(); },
     // Leaving the app or tab: go quiet; coming back resumes.
     suspend() { if (ctx && ctx.state === 'running') ctx.suspend().catch(() => {}); },
     resume() { if (ctx && ctx.state === 'suspended') ctx.resume().catch(() => {}); },

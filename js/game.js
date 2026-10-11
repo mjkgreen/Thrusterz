@@ -515,6 +515,8 @@
       if (flying) update(realDt);
       // Engine and thrusters fall silent whenever we're not actually flying.
       if (!flying || !state.mission || state.mission.status !== 'flying') { Sound.engine(0); Sound.rcs(false); }
+      // Driving music while you fly; the calm track on menus, pause and results.
+      Sound.musicMode(flying && state.mission && state.mission.status === 'flying' ? 'flight' : 'menu');
       render(realDt);
       state.errorFrames = 0;
     } catch (e) {
