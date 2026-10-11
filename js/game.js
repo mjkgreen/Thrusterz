@@ -2717,6 +2717,30 @@
     btn.disabled = false;
   };
   $('wl-name').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('btn-wl-save').click(); e.stopPropagation(); });
+  for (const [input, btn] of [['pf-name-input', 'btn-pf-rename'], ['pf-restore-input', 'btn-pf-restore']]) {
+    $(input).addEventListener('keydown', (e) => { if (e.key === 'Enter') { $(btn).click(); $(input).blur(); } e.stopPropagation(); });
+  }
+  // On a phone the keyboard hides the field: lift it (and its button) to the
+  // top while typing. Dropping it waits a moment after blur so a tap on its
+  // button lands before the row moves back.
+  {
+    let dropT = 0;
+    const vv = window.visualViewport;
+    const follow = () => document.documentElement.style.setProperty('--kb-top', (vv ? vv.offsetTop : 0) + 'px');
+    if (vv) { vv.addEventListener('resize', follow); vv.addEventListener('scroll', follow); }
+    document.addEventListener('focusin', (e) => {
+      const row = e.target.closest && e.target.closest('.pf-inline');
+      if (!row || !isTouch()) return;
+      clearTimeout(dropT);
+      document.querySelectorAll('.pf-inline.lifted').forEach(r => { if (r !== row) r.classList.remove('lifted'); });
+      row.classList.add('lifted'); follow();
+    });
+    document.addEventListener('focusout', (e) => {
+      const row = e.target.closest && e.target.closest('.pf-inline');
+      if (!row || row.contains(e.relatedTarget)) return;
+      dropT = setTimeout(() => { if (!row.contains(document.activeElement)) row.classList.remove('lifted'); }, 350);
+    });
+  }
   $('btn-wl-skip').onclick = endWelcome;
   $('btn-wl-go').onclick = endWelcome;
   $('btn-wl-copy').onclick = async () => {

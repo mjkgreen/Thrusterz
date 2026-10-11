@@ -552,3 +552,19 @@ i.u { font-style: normal; font-size: 0.82em; color: var(--muted); }
 /* Quick restart: first tap asks, second tap restarts (stays in the flight). */
 #btn-quick-restart { font-size: 17px; transition: width 0.15s; white-space: nowrap; }
 #btn-quick-restart.ask { width: auto !important; padding: 0 10px; font-size: 12px !important; color: #ffd27a; border-color: rgba(255, 210, 122, 0.6); background: rgba(60, 44, 12, 0.7) !important; }
+/* Typing on a phone: the keyboard covers the bottom half of a landscape
+   screen, so the field being typed in (with its button) lifts to the top
+   over a dimmed screen, with a label saying what it is. */
+body.touch .pf-inline.lifted {
+  position: fixed; z-index: 1000; left: 50%; top: calc(var(--kb-top, 0px) + 34px); transform: translateX(-50%);
+  width: min(560px, calc(100% - 32px)); padding: 10px; border-radius: 14px;
+  background: rgba(12, 16, 32, 0.98); border: 1px solid var(--panel-border);
+  box-shadow: 0 0 0 200vmax rgba(3, 4, 10, 0.78);
+}
+body.touch .pf-inline.lifted::before {
+  content: attr(data-label); position: absolute; left: 4px; bottom: calc(100% + 6px);
+  font-family: var(--mono); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted);
+}
+body.touch .pf-inline.lifted input { font-size: 18px; padding: 10px 12px; }
+/* Drawn sideways in a portrait browser: the keyboard covers the game's right side. */
+html.rotated body.touch .pf-inline.lifted { left: 12px; top: 40%; transform: none; width: min(420px, 52%); }
