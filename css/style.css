@@ -548,3 +548,7 @@ html.short input.vol { width: 130px; }
 
 /* Units after HUD numbers (k, k/s): smaller and dimmer than the number. */
 i.u { font-style: normal; font-size: 0.82em; color: var(--muted); }
+
+/* Quick restart: first tap asks, second tap restarts (stays in the flight). */
+#btn-quick-restart { font-size: 17px; transition: width 0.15s; white-space: nowrap; }
+#btn-quick-restart.ask { width: auto !important; padding: 0 10px; font-size: 12px !important; color: #ffd27a; border-color: rgba(255, 210, 122, 0.6); background: rgba(60, 44, 12, 0.7) !important; }

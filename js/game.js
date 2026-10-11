@@ -164,6 +164,7 @@
     state.coach = { done: new Set(), key: null, idle: 0, spinIdle: 0 };
     state.eventsSeen = 0;
     state.rcsWarned = 0;
+    state.flow = true;
     state.stageFate = null;
     state.danger = null; state.alarmAt = 0; state.holdStep = -1;
     state.orbitWarnSeen = null;
@@ -515,8 +516,10 @@
       if (flying) update(realDt);
       // Engine and thrusters fall silent whenever we're not actually flying.
       if (!flying || !state.mission || state.mission.status !== 'flying') { Sound.engine(0); Sound.rcs(false); }
-      // Driving music while you fly; the calm track on menus, pause and results.
-      Sound.musicMode(flying && state.mission && state.mission.status === 'flying' ? 'flight' : 'menu');
+      // Driving music from the first launch until you go back to the menu:
+      // through pauses, results, retries and the next briefing, so the flow
+      // isn't broken. The calm track is for the menu.
+      Sound.musicMode(state.flow && state.screen !== 'menu' ? 'flight' : 'menu');
       render(realDt);
       state.errorFrames = 0;
     } catch (e) {
@@ -2186,6 +2189,7 @@
 
   function showMenu() {
     state.screen = 'menu';
+    state.flow = false;
     hide('hud'); hide('briefing'); hide('result'); hide('pause'); hide('help'); hide('board'); hide('profile');
     show('menu');
     const hasTests = LEVELS.some(l => l.test);
@@ -2401,6 +2405,19 @@
   $('btn-res-next').onclick = () => { hide('result'); showBriefing(nextIndex(state.levelIndex)); };
   $('btn-resume').onclick = togglePause;
   $('btn-restart').onclick = () => { hide('pause'); startLevel(state.levelIndex); };
+  // Quick restart beside pause: tap once to arm ("Restart?"), again to go.
+  let restartArmed = 0;
+  $('btn-quick-restart').onclick = () => {
+    const b = $('btn-quick-restart');
+    if (performance.now() < restartArmed) {
+      restartArmed = 0; b.classList.remove('ask'); b.textContent = '↺';
+      startLevel(state.levelIndex);
+      return;
+    }
+    restartArmed = performance.now() + 2500;
+    b.classList.add('ask'); b.textContent = 'Restart?';
+    setTimeout(() => { if (performance.now() >= restartArmed) { b.classList.remove('ask'); b.textContent = '↺'; } }, 2600);
+  };
   $('btn-quit').onclick = () => { state.paused = false; showMenu(); };
   $('btn-help').onclick = () => { hide('pause'); show('help'); };
   $('btn-help-menu').onclick = () => show('help');
