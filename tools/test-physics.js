@@ -54,7 +54,9 @@ const check = (name, ok, info) => { console.log((ok ? 'ok   ' : 'FAIL ') + name 
 // 3. Every orbital level's parking orbit is stable while coasting.
 for (const L of LEVELS) {
   if (!L.ship.start.orbit || L.ship.start.orbit.speed || L.ship.sail) continue; // a sail always pushes
-  const m = new Mission(L);
+  // Radiation levels make parking deadly on purpose: check the orbit alone.
+  const m = new Mission(L.bodies.some(b => b.radiation)
+    ? Object.assign({}, L, { bodies: L.bodies.map(b => b.radiation ? Object.assign({}, b, { radiation: Object.assign({}, b.radiation, { dose: 1e9 }) }) : b) }) : L);
   const host = m.sys.byId[L.ship.start.orbit.body].index, r0 = L.ship.start.orbit.r;
   let worst = 0;
   while (m.status === 'flying' && m.t < 400) {
@@ -474,6 +476,14 @@ for (const L of LEVELS) {
     'test-belt': {
       'Hohmann transfer (slow through the belt)': [{ burn: 'pro', until: (m) => AP.orb(m, 'terra').ap >= 355 }, { coast: (m) => !AP.orb(m, 'terra').rising }, { burn: 'pro', until: (m) => AP.orb(m, 'terra').pe >= 345 }],
     },
+    'test-shadow': {
+      'leave from the sunlit side': [{ wait: 22 }, { burn: 'pro', rel: 'umbra', until: (m) => !AP.orb(m, 'umbra').bound }],
+      'linger a few orbits first': [{ wait: 135 }, { burn: 'pro', rel: 'umbra', until: (m) => !AP.orb(m, 'umbra').bound }],
+    },
+    'test-pulsar': {
+      'wait one more lap (the beam arrives)': [{ wait: 66 }, { burn: 'pro', rel: 'haven', until: (m) => !AP.orb(m, 'haven').bound }],
+      'wait for the beam to go past': [{ wait: 100 }, { burn: 'pro', rel: 'haven', until: (m) => !AP.orb(m, 'haven').bound }],
+    },
     'test-depot': {
       'skip the depot, Hohmann straight up': [{ burn: 'pro', until: (m) => AP.orb(m, 'terra').ap >= 640 }, { coast: (m) => !AP.orb(m, 'terra').rising }, { burn: 'pro', until: (m) => AP.orb(m, 'terra').pe >= 615 }],
     },
@@ -493,6 +503,25 @@ for (const L of LEVELS) {
   let newtonWin = false;
   for (let b = 0; b <= 1.5 && !newtonWin; b += 0.02) newtonWin = AP.fly(newton, [{ burn: () => Math.PI / 2, max: b }]).won;
   check('Whirl: with Newtonian gravity no sideways burn reaches the gate', !newtonWin);
+  // Radiation sources: inverse-square falloff, shadows, and a pulsar's beams.
+  {
+    const m = new Mission(lv('test-shadow')), sys = m.sys;
+    sys.update(0);
+    const pos = (i) => [sys.px[i], sys.py[i]], U = sys.byId.umbra.index;
+    const hx = sys.px[0], hy = sys.py[0], ux = sys.px[U] - hx, uy = sys.py[U] - hy, d = Math.hypot(ux, uy);
+    // Off to the side of Umbra (not shaded): rate at r and 2r from Helios.
+    const a = m.radiationAt(hx, hy + 400, 0, pos).rate, b = m.radiationAt(hx, hy + 800, 0, pos).rate;
+    // Straight behind Umbra, as seen from Helios.
+    const behind = m.radiationAt(hx + ux * (d + 60) / d, hy + uy * (d + 60) / d, 0, pos);
+    const p = new Mission(lv('test-pulsar')), ps = p.sys; ps.update(0);
+    const R = ps.bodies[0].radiation, ang = R.beam.phase, ppos = (i) => [ps.px[i], ps.py[i]];
+    const vx = ps.px[0], vy = ps.py[0];
+    const inBeam = p.radiationAt(vx + 900 * Math.cos(ang + Math.PI), vy + 900 * Math.sin(ang + Math.PI), 0, ppos).rate;
+    const outBeam = p.radiationAt(vx + 900 * Math.cos(ang + 0.5), vy + 900 * Math.sin(ang + 0.5), 0, ppos).rate;
+    check('radiation: a quarter the dose at twice the distance, none in a shadow, pulsar only in its beams',
+      Math.abs(a / b - 4) < 1e-9 && behind.rate === 0 && behind.shade === U && inBeam > 0 && outBeam === 0,
+      `ratio ${(a / b).toFixed(3)} shade ${behind.rate} beam ${inBeam.toFixed(3)}/${outBeam}`);
+  }
 }
 
 // 21. Focused checks, one per experimental mechanic.

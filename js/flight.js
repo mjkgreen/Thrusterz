@@ -38,6 +38,12 @@
   //   tether: { length }         an anchor: latch within `length` (E), the rope
   //                              keeps you within it, release (E) to fly off
   //   belt: { rMin, rMax, dose } radiation belt: at most `dose` seconds inside in total
+  //   radiation: { rate, at, dose, beam? } a radiation source (hot star, pulsar):
+  //       `rate` Sv/s at distance `at`, falling off with the square of the
+  //       distance; any planet, moon or rock between it and you casts a shadow
+  //       with no dose at all. At most `dose` Sv in total. beam: { width,
+  //       period, phase } makes it a pulsar: radiation only in two opposite
+  //       beams `width` radians wide, sweeping round once every `period` s.
   //   depot: { dv, dist, relVel } refuels the current stage by dv once you rendezvous
   //   horizon: r                 black hole event horizon (crossing it is final)
   // Goal option for 'hit': maxSpeed (touch down slower than this, relative to the surface).
@@ -74,12 +80,22 @@
       // Experimental mechanics.
       this.tether = null;          // { body, L, taut } while latched to an anchor
       this.heat = 0;               // current heating (ρ·v³) in an atmosphere
-      this.dose = 0;               // seconds spent inside radiation belts
+      this.dose = 0;               // radiation taken (Sv): belts and sources
       this.inBelt = -1;
+      this.radRate = 0;            // current dose rate from radiation sources (Sv/s)
+      this.radShade = -1;          // body shading you from a source, if any
       this.refuelled = new Set();  // depots already used
       this.jumps = 0;              // wormhole trips
       this.belts = this.sys.bodies.filter(b => b.belt);
       this.depots = this.sys.bodies.filter(b => b.depot);
+      // Radiation sources, and the bodies that can shade you from them.
+      this.sources = this.sys.bodies.filter(b => b.radiation);
+      this.shields = this.sources.length ? this.sys.bodies.filter(b => !b.radiation && b.radius > 0 && !['station', 'fuel', 'wormhole', 'anchor'].includes(b.kind)) : [];
+      this.doseLimit = Math.min(Infinity, ...this.belts.map(b => b.belt.dose), ...this.sources.map(b => b.radiation.dose));
+      // A beam must never sweep past between two steps: at least four steps
+      // while one crosses you.
+      this.radMaxDt = Math.min(Infinity, ...this.sources.filter(b => b.radiation.beam).map(b => b.radiation.beam.period * b.radiation.beam.width / (2 * Math.PI) / 4));
+      for (const b of this.sources) if (b.radiation.beam) b.radiation.beam.sinHalf = DM.sin(b.radiation.beam.width / 2);
       const sail = spec.sail;
       // Extra force on the ship (drag, sail); null keeps the plain integrator.
       this._shipFx = sail || this.sys.drag ? (x, y, vx, vy, t, out) => this.shipExtra(x, y, vx, vy, t, out, this.ship.angle) : null;
@@ -417,7 +433,7 @@
         const gyroWork = canRot && this.gyro && !rotating && Math.abs(this.ship.omega) > 1e-4;
         let h;
         if (firing || rotating || gyroWork || this.landed) h = Math.min(remaining, FIXED_DT);
-        else h = Math.min(remaining, Phys.coastDt(this.sys, this.ship, this.t, 0.002, this.tether ? TETHER_DT : MAX_COAST_DT));
+        else h = Math.min(remaining, Phys.coastDt(this.sys, this.ship, this.t, 0.002, this.tether ? TETHER_DT : MAX_COAST_DT), this.radMaxDt);
         this.thrusting = firing;
         this.rotInput = rotating ? rotIn : 0;
         this._step(h, firing ? controls.throttle : 0, rotating ? rotIn : 0, gyroWork);
@@ -666,6 +682,37 @@
       else if (this.t > L.tMax) { this.status = 'timeout'; this.message = 'Mission clock ran out.'; }
     }
 
+    // Dose rate (Sv/s) at (x, y) at time t from the radiation sources. pos(i)
+    // gives body i's position at that time, so the prediction can ask about
+    // the future. Returns { rate, src: strongest source or -1, shade: the
+    // body shading you, or -1 }.
+    radiationAt(x, y, t, pos) {
+      let rate = 0, src = -1, best = 0, shade = -1;
+      for (const b of this.sources) {
+        const R = b.radiation, sp = pos(b.index);
+        const dx = x - sp[0], dy = y - sp[1], r2 = dx * dx + dy * dy, r = Math.sqrt(r2);
+        if (R.beam) {
+          // Two opposite beams: inside one when the line to you is within
+          // half the beam's width of the beam's line.
+          const a = R.beam.phase + 2 * Math.PI * t / R.beam.period;
+          if (Math.abs(dx * DM.sin(a) - dy * DM.cos(a)) > r * R.beam.sinHalf) continue;
+        }
+        let shaded = false;
+        for (const c of this.shields) {
+          const cp = pos(c.index), ex = cp[0] - sp[0], ey = cp[1] - sp[1];
+          const k = (ex * dx + ey * dy) / r2;
+          if (k <= 0 || k >= 1) continue;
+          const qx = ex - k * dx, qy = ey - k * dy;
+          if (qx * qx + qy * qy < c.radius * c.radius) { shaded = true; shade = c.index; break; }
+        }
+        if (shaded) continue;
+        const rr = Math.max(r, b.radius), add = R.rate * R.at * R.at / (rr * rr);
+        rate += add;
+        if (add > best) { best = add; src = b.index; }
+      }
+      return { rate, src, shade };
+    }
+
     // Heating, radiation dose and depots. Returns true if the mission ended.
     _experimental(h) {
       const sys = this.sys, s = this.ship;
@@ -687,6 +734,16 @@
         if (this.dose > b.belt.dose) {
           this.status = 'crashed';
           this.message = 'Radiation dose too high: over ' + b.belt.dose + ' Sv from ' + b.name + '\'s belt.';
+          return true;
+        }
+      }
+      if (this.sources.length) {
+        const sys = this.sys, q = this.radiationAt(s.x, s.y, this.t, (i) => [sys.px[i], sys.py[i]]);
+        this.radRate = q.rate; this.radShade = q.shade;
+        this.dose += q.rate * h;
+        if (this.dose > this.doseLimit) {
+          this.status = 'crashed';
+          this.message = 'Radiation dose too high: over ' + this.doseLimit + ' Sv' + (q.src >= 0 ? ' from ' + sys.bodies[q.src].name : '') + '.';
           return true;
         }
       }

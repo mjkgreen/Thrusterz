@@ -447,6 +447,27 @@ Object.assign(module.exports, {
     ],
   },
 
+  'test-shadow': {
+    // Wait in the low orbit until you're coming round Umbra's night side,
+    // then burn prograde until you escape: you leave inside Umbra's shadow,
+    // heading outward, and are far out before the sunlight catches you.
+    p: [28], scale: [1.5],
+    script: (p, AP) => [
+      { wait: Math.max(0, p[0]) },
+      { burn: 'pro', rel: 'umbra', until: (m) => !AP.orb(m, 'umbra').bound },
+    ],
+  },
+
+  'test-pulsar': {
+    // Leave on the first pass, before the beam comes round to Haven: by the
+    // time it sweeps your way you're far out, where it's weak.
+    p: [28], scale: [1.5],
+    script: (p, AP) => [
+      { wait: Math.max(0, p[0]) },
+      { burn: 'pro', rel: 'haven', until: (m) => !AP.orb(m, 'haven').bound },
+    ],
+  },
+
   'test-depot': {
     // Hohmann up to the depot, close in and match its speed, then (tank
     // refilled) Hohmann on up to the high orbit.

@@ -701,6 +701,27 @@
         }
       }
     }
+    // Radiation sources: dose rate at each point (to colour the path) and
+    // where the total would pass the limit. A segment is sampled finely
+    // enough that a sweeping beam can't slip between samples.
+    p.rad = null;
+    if (m.sources.length) {
+      p.rad = new Float32Array(p.ts.length);
+      const buf = m.sys.bodies.map(() => [0, 0]);
+      const step = Math.min(1, m.radMaxDt);
+      for (let i = 1; i < p.ts.length; i++) {
+        const t0 = p.ts[i - 1], dt = p.ts[i] - t0, n = Math.max(1, Math.ceil(dt / step));
+        let sum = 0;
+        for (let k = 1; k <= n; k++) {
+          const f = k / n, t = t0 + dt * f;
+          const q = m.radiationAt(p.xs[i - 1] + (p.xs[i] - p.xs[i - 1]) * f, p.ys[i - 1] + (p.ys[i] - p.ys[i - 1]) * f, t, (j) => { m.sys.posAt(j, t, buf[j]); return buf[j]; });
+          sum += q.rate;
+        }
+        p.rad[i] = sum / n;
+        p.dose += p.rad[i] * dt;
+        if (p.doseOut < 0 && m.dose + p.dose > m.doseLimit) p.doseOut = i;
+      }
+    }
     // Touchdown speed against the surface (soft landing goals).
     p.impact = p.hit >= 0 ? m.surfaceSpeed(p.hit, p.end, p.tEnd) : 0;
     m.sys.update(m.t);
@@ -841,6 +862,7 @@
 
     drawRails();
     drawGoals();
+    drawRadiation();
     drawTrail(disp);
     drawPrediction(disp);
     drawCrafts(disp);
@@ -1139,6 +1161,25 @@
     }
     ctx.stroke();
     ctx.setLineDash([]);
+    // Radiation along the path: a glowing overlay, brighter where the dose
+    // rate is higher (relative to the strongest point ahead).
+    if (p.rad) {
+      let top = 0;
+      for (let i = i0 + 1; i < p.ts.length; i++) top = Math.max(top, p.rad[i]);
+      if (top > 0) {
+        ctx.lineWidth = 3.2; ctx.lineCap = 'round';
+        let [px, py] = w2s(m.ship.x, m.ship.y);
+        for (let i = i0 + 1; i < p.ts.length; i++) {
+          const [sx, sy] = disp(p.xs[i], p.ys[i], p.ts[i]);
+          if (p.rad[i] > 0) {
+            ctx.strokeStyle = `rgba(255,${Math.round(150 - 90 * p.rad[i] / top)},60,${(0.35 + 0.55 * p.rad[i] / top).toFixed(2)})`;
+            ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(sx, sy); ctx.stroke();
+          }
+          px = sx; py = sy;
+        }
+        ctx.lineWidth = 1; ctx.lineCap = 'butt';
+      }
+    }
 
     const sys = m.sys;
     // Keep-out warning: where the zone will be when the path meets it.
@@ -1249,7 +1290,7 @@
       if (b.kind === 'rock') { drawRock(sx, sy, r, b); continue; }
       if (b.pickup) { if (!state.mission.collected.has(b.index)) drawCanister(sx, sy, b); continue; }
       if (b.kind === 'blackhole') { drawBlackHole(sx, sy, r, b); continue; }
-      const isStar = b.gm >= 30000 && /#ff/.test(b.color);
+      const isStar = b.kind === 'star' || b.kind === 'pulsar' || (b.gm >= 30000 && /#ff/.test(b.color));
       if (b.kind === 'comet') drawCometTail(b, sx, sy, r);
       // Glow / atmosphere.
       const glowR = r * (isStar ? 3.2 : 1.35);
@@ -1289,6 +1330,54 @@
     ctx.restore();
     if (hit) { ctx.strokeStyle = '#7cf7d4'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(sx, sy, 13, 0, TAU); ctx.stroke(); ctx.lineWidth = 1; }
     label('+' + b.dv + ' Δv', sx, sy + 24, hit ? '#7cf7d4' : '#ffb35a');
+  }
+
+  // Radiation sources: a glow that fades with distance, a pulsar's two
+  // sweeping beams, and the shadow cone behind every body that can shade you
+  // (drawn over the beams, so a beam visibly stops at a moon).
+  function drawRadiation() {
+    const m = state.mission;
+    if (!m.sources.length) return;
+    const sys = m.sys, z = state.cam.zoom, far = Math.max(W, H) * 3 + m.level.bounds * z;
+    sys.update(m.t);
+    for (const b of m.sources) {
+      const R = b.radiation, [sx, sy] = w2s(sys.px[b.index], sys.py[b.index]);
+      const col = R.beam ? '190,160,255' : '255,200,110';
+      // Falloff: bright at `at`, a quarter as strong at twice the distance.
+      const gr = Math.max(40, R.at * 3 * z);
+      const g = ctx.createRadialGradient(sx, sy, b.radius * z, sx, sy, gr);
+      g.addColorStop(0, `rgba(${col},${R.beam ? 0.18 : 0.32})`); g.addColorStop(0.33, `rgba(${col},${R.beam ? 0.06 : 0.12})`); g.addColorStop(1, `rgba(${col},0)`);
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(sx, sy, gr, 0, TAU); ctx.fill();
+      if (R.beam) {
+        const a = R.beam.phase + TAU * m.t / R.beam.period, w = R.beam.width / 2;
+        for (const arm of [0, Math.PI]) {
+          const a0 = a + arm - w, a1 = a + arm + w;
+          const lg = ctx.createLinearGradient(sx, sy, sx + Math.cos(a + arm) * far * 0.25, sy - Math.sin(a + arm) * far * 0.25);
+          lg.addColorStop(0, `rgba(${col},0.42)`); lg.addColorStop(1, `rgba(${col},0.1)`);
+          ctx.fillStyle = lg;
+          ctx.beginPath(); ctx.moveTo(sx, sy);
+          ctx.lineTo(sx + Math.cos(a0) * far, sy - Math.sin(a0) * far);
+          ctx.lineTo(sx + Math.cos(a1) * far, sy - Math.sin(a1) * far);
+          ctx.closePath(); ctx.fill();
+          ctx.strokeStyle = `rgba(${col},0.5)`; ctx.lineWidth = 1;
+          ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(sx + Math.cos(a + arm) * far, sy - Math.sin(a + arm) * far); ctx.stroke();
+        }
+      }
+      for (const c of m.shields) {
+        const [cx, cy] = w2s(sys.px[c.index], sys.py[c.index]);
+        const dx = cx - sx, dy = cy - sy, d = Math.hypot(dx, dy), rc = c.radius * z;
+        if (d <= rc + 1) continue;
+        const th = Math.atan2(dy, dx), al = Math.asin(Math.min(1, rc / d)), tl = Math.sqrt(d * d - rc * rc);
+        const p0 = [sx + Math.cos(th - al) * tl, sy + Math.sin(th - al) * tl], p1 = [sx + Math.cos(th + al) * tl, sy + Math.sin(th + al) * tl];
+        const q0 = [sx + Math.cos(th - al) * far, sy + Math.sin(th - al) * far], q1 = [sx + Math.cos(th + al) * far, sy + Math.sin(th + al) * far];
+        ctx.fillStyle = 'rgba(1,2,6,0.72)';
+        ctx.beginPath(); ctx.moveTo(p0[0], p0[1]); ctx.lineTo(q0[0], q0[1]); ctx.lineTo(q1[0], q1[1]); ctx.lineTo(p1[0], p1[1]); ctx.closePath(); ctx.fill();
+        ctx.strokeStyle = 'rgba(124,247,212,0.5)'; ctx.setLineDash([5, 7]);
+        ctx.beginPath(); ctx.moveTo(p0[0], p0[1]); ctx.lineTo(q0[0], q0[1]); ctx.moveTo(p1[0], p1[1]); ctx.lineTo(q1[0], q1[1]); ctx.stroke();
+        ctx.setLineDash([]);
+        if (rc > 4 && d < far) label('SHADOW', cx + Math.cos(th) * (rc + 40), cy + Math.sin(th) * (rc + 40), 'rgba(124,247,212,0.75)');
+      }
+    }
   }
 
   // Radiation belt: a shaded amber ring that brightens while you're in it.
@@ -1899,8 +1988,9 @@
       before.parentNode.insertBefore(g, before);
       before.parentNode.insertBefore(r, before);
     }
-    const gauge = B.some(b => b.atmosphere) ? 'heat' : B.some(b => b.belt) ? 'dose' : L.ship.sail ? 'sail' : null;
+    const gauge = B.some(b => b.atmosphere) ? 'heat' : B.some(b => b.belt || b.radiation) ? 'dose' : L.ship.sail ? 'sail' : null;
     const row = B.some(b => b.tether) ? 'tether' : B.some(b => b.depot) ? 'depot' : B.some(b => b.kind === 'wormhole') ? 'wormhole'
+      : B.some(b => b.radiation) ? 'radiation'
       : B.some(b => b.horizon) ? 'horizon' : L.ship.ion ? 'ion' : L.goals.some(g => g.maxSpeed) ? 'touchdown'
       : B.some(b => b.atmosphere) ? 'air' : L.ship.sail ? 'sail' : B.some(b => b.belt) ? 'belt' : null;
     state.mech = { gauge, row };
@@ -1919,11 +2009,11 @@
       $('mech-bar').style.width = (100 * k) + '%';
       $('mech-bar').style.background = k > 0.7 ? 'linear-gradient(90deg, #ff6b6b, #ffb35a)' : '';
     } else if (M.gauge === 'dose') {
-      const lim = m.belts[0].belt.dose;
-      // 1 Sv per second spent inside the belt.
+      // Belts: 1 Sv per second inside. Sources: their rate where you are.
+      const lim = m.doseLimit;
       $('mech-val').textContent = m.dose.toFixed(1) + '/' + lim + ' Sv';
       $('mech-bar').style.width = Math.min(100, 100 * m.dose / lim) + '%';
-      $('mech-bar').style.background = m.inBelt >= 0 || m.dose > lim * 0.7 ? 'linear-gradient(90deg, #ff6b6b, #ffb35a)' : '';
+      $('mech-bar').style.background = m.inBelt >= 0 || m.radRate > 0 || m.dose > lim * 0.7 ? 'linear-gradient(90deg, #ff6b6b, #ffb35a)' : '';
     } else if (M.gauge === 'sail') {
       const k = m.sailPush();
       $('mech-val').textContent = Math.round(100 * k) + '%';
@@ -1970,6 +2060,14 @@
         break;
       }
       case 'sail': k = 'SAIL'; t = 'steer with rotation only'; break;
+      case 'radiation': {
+        k = 'RADIATION';
+        const beam = m.sources.some(b => b.radiation.beam);
+        t = m.radRate > 0 ? '<span class="warn">exposed · ' + m.radRate.toFixed(2) + ' Sv/s</span>'
+          : m.radShade >= 0 ? '<span class="ok">in ' + sys.bodies[m.radShade].name + '\'s shadow</span>'
+          : '<span class="ok">' + (beam ? 'out of the beam' : 'clear') + '</span>';
+        break;
+      }
     }
     key.textContent = k; text.innerHTML = t;
   }

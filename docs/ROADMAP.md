@@ -1,8 +1,10 @@
 # Thrusterz roadmap
 
 Living notes on where the game goes next. World 1 (Flight School), World 2
-(Payloads) and World 3 (No-Fly Zones) are complete. New mechanics are prototyped as **Experimental levels** in the
-menu before they get a world of their own.
+(Payloads) and World 3 (No-Fly Zones) are complete. Next: **World 4, Pulsar**
+(radiation and deep gravity), then **World 5, Homecoming** (atmospheres and
+landings); see below. New mechanics are prototyped as **Experimental levels**
+in the menu before they get a world of their own.
 
 ## Principles for a world mechanic
 
@@ -29,17 +31,17 @@ judged by playing it before it gets a world.
 | **Built (World 3)** | **Area denial** | Where you may not go, and where things may end up | Keep-out zones (ship only, or closed to everything), weaving, side-thruster budgets and flip burns, combined with stages and probes. See World 3 below. |
 | **Prototype** | **Fuel pickups** | Route planning: is the detour worth the fuel? | Canisters on their own orbits. Test level: *Fuel Run*. Used as a mixer in World 2 (*Fuel Depot*). |
 | **Prototype** | **Refuelling depot** | Rendezvous to refill, then fly a mission your tank alone can't | Station with `depot: { dv, dist, relVel }`. Test level: *Top Up* (Hohmann to the depot, match its speed, +4 Δv, then a high orbit). |
-| **Prototype** | **Atmospheres / aerobraking** | How deep to skim: free braking vs. burning up | Drag layer (density falls off with height) and a heating limit (ρ·v³); the predicted path includes drag and marks where you'd burn up. Test level: *Aerobrake* (capture from a fast arrival on 0.7 Δv, then lift the low point out of the air). |
+| **Prototype → World 5** | **Atmospheres / aerobraking** | How deep to skim: free braking vs. burning up | Drag layer (density falls off with height) and a heating limit (ρ·v³); the predicted path includes drag and marks where you'd burn up. Test level: *Aerobrake* (capture from a fast arrival on 0.7 Δv, then lift the low point out of the air). |
 | Idea | Asteroid tug / planetary defense | Push a heavy mass with your small engine | Dock with a rock and redirect it off a collision course. Strong finale for a world. |
-| **Prototype** | **Soft landings** | Throttle control for a gentle touchdown | `maxSpeed` on a hit goal; the impact label shows touchdown speed. Test level: *Touchdown*. Landing legs and terrain later. |
+| **Prototype → World 5** | **Soft landings** | Throttle control for a gentle touchdown | `maxSpeed` on a hit goal; the impact label shows touchdown speed. Test level: *Touchdown*. Landing legs and terrain later. |
 | **Prototype** | **Solar sail** | Steer with sunlight, no fuel at all | Push along the nose ×cos²×1/r²; a spin matched to your orbit holds the sail angle. Test level: *Sunward Sail* (spiral out from 300 to 450–520). |
 | **Prototype** | **Ion engine** | Very low thrust for very long burns | Spirals instead of impulsive burns; time warp up to 10× while it fires. Test level: *Long Burn*. |
 | Idea | Precision docking | Fine translation thrusters for the last few meters | More buttons; needs a careful mobile design. |
-| **Prototype** (radiation belts) | Hazards | Radiation belts (time limits), solar flares, debris | Belts: a dose meter, shown on the predicted path too. Test level: *Radiation Belt* (a Hohmann is too slow through it; race through). Flares and debris still ideas. |
+| **Prototype → World 4** | **Radiation** | Where and when you're exposed: hide, time it, or keep your distance | Belts: a dose meter, shown on the predicted path too (*Radiation Belt*). Sources: inverse-square falloff, shadows behind planets, moons and rocks, and a pulsar's two sweeping beams (*Sunshade*, *Lighthouse*). The path glows where it would take dose. Solar flares and debris still ideas. |
 | **Prototype** | **Tether / grapple** | Swing around an anchor and release at the right moment | Latch / release on the contextual E button (LATCH / RELEASE); inelastic rope, slack allowed. Test level: *Swing* (zero-G: turn round with no fuel). |
 | **Prototype** | **Wormholes** | Enter one, exit another with the same velocity | The predicted path follows through. Test level: *Shortcut* (the entry angle aims the exit at an out-of-reach planet). Sci-fi, so late or never as a world. |
 | Idea | Collectible stars | Fly a route that grabs three stars along the way | Cut the Rope-style replay layer that works in every world, including World 1. |
-| **Prototype** | **Event horizons / strong gravity** | How close to pass a black hole: whirl round or fall in | A horizon much larger than the hole and a strong-gravity pull (gm/(r − pw)²): no stable orbits inside 3·pw, so a close pass whirls you round more than half a turn. Test level: *Whirl* (World 1's *Event Horizon* is the Oberth version). |
+| **Prototype → World 4** | **Event horizons / strong gravity** | How close to pass a black hole: whirl round or fall in | A horizon much larger than the hole and a strong-gravity pull (gm/(r − pw)²): no stable orbits inside 3·pw, so a close pass whirls you round more than half a turn. Test level: *Whirl* (World 1's *Event Horizon* is the Oberth version). |
 
 ## World 2: Payloads (built)
 
@@ -189,6 +191,64 @@ Zero-G levels use a depot with a negligible mass as the HUD's reference, and
 fiddly? Does running dry need a softer outcome (right now you just can't turn,
 and a spin keeps going)? A low-RCS warning on the HUD? Should turn rate depend
 on mass, so dropping cargo makes the ship nimbler?
+
+## World 4: Pulsar (plan)
+
+Radiation and deep gravity, one question: **how close dare you go?** The
+pulsar ties them together: a neutron star is a tiny, extremely dense body with
+a deep gravity well that also sweeps two radiation beams round like a
+lighthouse, so every close pass trades a gravity boost against dose.
+
+### Radiation rules (built, `radiation` on a body; see `js/flight.js`)
+
+- **Falloff:** `rate` Sv/s at distance `at`, falling with the square of the
+  distance (a quarter as strong at twice the distance). Dive in fast or park
+  far out; an ellipse spends little time at its hot low point.
+- **Shadows:** any planet, moon or rock on the line to the source blocks it
+  completely. The far side of a moon is a safe harbour; L2 sits in a planet's
+  shadow. Drawn as dark cones with teal edges.
+- **Beams:** `beam: { width, period, phase }` makes a pulsar: radiation only
+  in two opposite beams sweeping round. A timing puzzle on top of an orbit
+  puzzle: go between sweeps, hide during them.
+- **Dose budget:** at most `dose` Sv in all (belts and sources share it),
+  like World 3's side-thruster budget. The predicted path glows where it would
+  take dose and marks DOSE LIMIT where the total would run out.
+- Coast steps are capped so a beam can never sweep past between steps, and
+  the prediction samples finely enough to catch it, so replays stay exact.
+
+Prototypes: *Sunshade* (leave a planet close to a hot star from its night
+side, inside its shadow, before parking in the sunlight adds up) and
+*Lighthouse* (beat the pulsar's beam outward: close in one sweep is fatal,
+far out it's weak).
+
+### Chapters (5 × 6, like World 3)
+
+1. **Sunburn:** a dose budget and falloff: dive fast or park far, belts
+   around planets.
+2. **Shadows:** hide behind planets and moons, phase an orbit to stay in the
+   shade, park at L2.
+3. **Pulses:** the sweeping beam: burn in the gaps, hide during sweeps.
+4. **Deep Gravity:** close passes of a neutron star or black hole, where the
+   Oberth boost costs dose; whirls round a horizon.
+5. **Grand Missions:** payloads with their own dose limits, World 3's zones
+   and stages, all around a pulsar.
+
+### Still to build
+
+- **Cargo dose:** probes and satellites with their own limit, so routing a
+  payload through a beam or past a hot star is a decision.
+- Maybe a **shielded tail** (less dose with the engine toward the source),
+  which fights the burn direction and the side-thruster budget. Only if
+  playtesting wants more depth.
+
+## World 5: Homecoming (plan)
+
+Atmospheres and landings, back to grounded spaceflight for the finale:
+aerobraking and aerocapture (*Aerobrake*), skimming versus burning up, soft
+landings with throttle (*Touchdown*), drag-assisted descents, and **junk
+that burns up in the air counts as cleanly disposed of** (a new rule for
+spent stages and cargo, today only the ship has a heat limit), which pays
+off World 2's leave-no-junk missions.
 
 ## Score and leaderboards
 
