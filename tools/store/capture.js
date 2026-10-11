@@ -2,7 +2,8 @@
 // proof (tools/proofs.js) in the page up to a chosen moment, hands that state
 // to the game and screenshots it at a device's exact pixel size.
 //   node tools/store/capture.js <outDir> [device] [levelId:t[:warp] ...]
-// device: iphone (2868×1320, 6.9") or ipad (2752×2064, 13"). Used by
+// device: iphone63 (2622×1206, 6.3", the required iPhone size), iphone
+// (2868×1320, 6.9") or ipad (2752×2064, 13"). Used by
 // tools/store/make.js; on its own it writes raw frames for picking moments.
 'use strict';
 let playwright;
@@ -11,6 +12,7 @@ const fs = require('fs');
 const path = require('path');
 
 const DEVICES = {
+  iphone63: { viewport: { width: 874, height: 402 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true },
   iphone: { viewport: { width: 956, height: 440 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true },
   // A slightly smaller page drawn at a higher density, so the game isn't
   // zoomed out to specks on the big screen (still exactly 2752×2064).

@@ -1,8 +1,10 @@
 // App Store screenshots: real game frames (tools/store/capture.js) with a
 // caption above, at the exact sizes App Store Connect asks for.
 //   node tools/store/make.js [outDir]        (default store/screenshots)
-// Writes iphone-NN.png (2868×1320, 6.9" display) and ipad-NN.png
-// (2752×2064, 13" display), in upload order.
+// Writes iphone63-NN.png (2622×1206, 6.3" display: the iPhone size App Store
+// Connect requires), iphone-NN.png (2868×1320, 6.9") and ipad-NN.png
+// (2752×2064, 13"), in upload order.
+//   node tools/store/make.js [outDir] [device]   one device only
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -35,12 +37,13 @@ function progress() {
 }
 
 const SIZES = {
+  iphone63: { w: 2622, h: 1206, capH: 274, imgW: 1966, title: 95, sub: 40 },
   iphone: { w: 2868, h: 1320, capH: 300, imgW: 2150, title: 104, sub: 44 },
   ipad: { w: 2752, h: 2064, capH: 380, imgW: 2200, title: 120, sub: 52 },
 };
 
 function page(size, shot, img) {
-  const S = SIZES[size], ar = size === 'iphone' ? 1320 / 2868 : 2064 / 2752, imgH = Math.round(S.imgW * ar);
+  const S = SIZES[size], vp = cap.DEVICES[size].viewport, ar = vp.height / vp.width, imgH = Math.round(S.imgW * ar);
   const top = S.capH, left = Math.round((S.w - S.imgW) / 2);
   const fonts = fs.readFileSync(path.join(__dirname, '../../fonts/fonts.css'), 'utf8').replace(/url\(([^)]+)\)/g, (m, u) =>
     `url(data:font/woff2;base64,${fs.readFileSync(path.join(__dirname, '../../fonts', u.replace(/['"]/g, ''))).toString('base64')})`);
@@ -109,7 +112,7 @@ if (require.main === module) {
     const out = path.resolve(process.argv[2] || path.join(__dirname, '../../store/screenshots'));
     const raw = path.join(out, 'raw');
     fs.mkdirSync(raw, { recursive: true });
-    for (const device of ['iphone', 'ipad']) {
+    for (const device of process.argv[3] ? [process.argv[3]] : ['iphone63', 'iphone', 'ipad']) {
       const raws = await capture(device, raw);
       await compose(device, raws, out);
     }

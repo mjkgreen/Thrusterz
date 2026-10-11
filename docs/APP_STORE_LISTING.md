@@ -6,7 +6,7 @@ App Information). Character counts are checked against Apple's limits.
 Images and videos are generated from the game itself:
 
 ```sh
-node tools/store/make.js       # store/screenshots: iphone-01…08.png, ipad-01…08.png
+node tools/store/make.js       # store/screenshots: iphone63-, iphone- and ipad-01…08.png
 node tools/store/preview.js    # store/previews: preview-iphone.mp4, preview-ipad.mp4
 ```
 
@@ -82,12 +82,15 @@ Real physics, simple controls, and a satisfying "aha" in every mission. Strap in
 
 ## Screenshots (upload in this order)
 
-Apple needs the **6.9" iPhone** set (2868×1320, used for smaller iPhones
-too) and the **13" iPad** set (2752×2064). Up to 10 each; these are 8.
+App Store Connect requires the **6.3" iPhone** set ("iPhone with Dynamic
+Island, medium display": `iphone63-NN.png`, 2622×1206) and the **13" iPad**
+set (`ipad-NN.png`, 2752×2064). The **6.9"** set (`iphone-NN.png`,
+2868×1320) is optional, for the largest iPhones. Up to 10 each; these are 8.
+The iPhone preview (1920×886) fits both iPhone sizes.
 
 | # | File | Caption | Shows |
 | --- | --- | --- | --- |
-| 1 | `iphone-01.png` / `ipad-01.png` | Fly by real orbital physics | Lander and Orbiter: burning toward the Moon |
+| 1 | `iphone63-01.png` / `ipad-01.png` | Fly by real orbital physics | Lander and Orbiter: burning toward the Moon |
 | 2 | `-02` | See your path before you burn | No-Fly Zone: predicted path around keep-out zones |
 | 3 | `-03` | Deploy satellites, drop stages | Grand Deployment: orbits around Gaia |
 | 4 | `-04` | Thread the no-fly zones | The Long Haul |
