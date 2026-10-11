@@ -256,6 +256,31 @@ const check = (name, ok, info) => { console.log((ok ? 'ok   ' : 'FAIL ') + name 
     await p.close();
   }
 
+  // 5. Auto frame and auto zoom can be turned off: the frame stays on the
+  //    body you start around, and following the ship keeps your zoom.
+  {
+    const p = await browser.newPage({ viewport: { width: 1000, height: 600 } });
+    watch(p);
+    await p.addInitScript(() => localStorage.setItem('thrusterz.settings', JSON.stringify({ autoFrame: false, autoZoom: false })));
+    await p.goto(URL + '?unlock');
+    await p.waitForTimeout(300);
+    const r = await p.evaluate(async () => {
+      const T = window.Thrusterz, S = T.state;
+      T.startLevel(T.state ? window.Levels.LEVELS.findIndex(l => l.id === 'moonshot') : 0);
+      document.getElementById('gate').classList.add('hidden');
+      const frame = S.frameMode;
+      // Zoom out, then ask to follow: the zoom must stay where it is.
+      S.cam.follow = false; S.cam.zoom = S.cam.tzoom = 0.05;
+      window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyF' }));
+      await new Promise(res => setTimeout(res, 200));
+      return { frame, tzoom: S.cam.tzoom, follow: S.cam.follow };
+    });
+    check('with Auto frame and Auto zoom off, the frame is fixed and following keeps your zoom',
+      typeof r.frame === 'number' && r.tzoom === 0.05 && r.follow && errors.length === 0, JSON.stringify(r) + ' ' + errors.slice(0, 2).join(' | '));
+    errors.length = 0;
+    await p.close();
+  }
+
   await browser.close();
   server.close();
   process.exit(failed ? 1 : 0);

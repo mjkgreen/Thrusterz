@@ -185,6 +185,9 @@
     state.cam.follow = true;
     state.cam.zoom = state.cam.tzoom = Math.max(zoom * 2.2, Math.min(W, H) / 420);
     state.cam.x = m.ship.x; state.cam.y = m.ship.y;
+    // Auto frame off: start in the frame Auto would pick now, and keep it.
+    state.lastAutoFrame = null;
+    if (!settings.autoFrame) state.frameMode = frameBody();
     if (level.startCam === 'overview') { overview(true); state.cam.x = state.cam.tx; state.cam.y = state.cam.ty; state.cam.zoom = state.cam.tzoom; }
     setupHud();
     show('hud');
@@ -333,8 +336,21 @@
   function followShip() {
     Sound.camera();
     state.cam.follow = true;
-    state.cam.tzoom = Math.max(state.cam.zoom, Math.min(W, H) / 420);
+    // Auto zoom: following zooms in close enough to see the ship (off in Settings).
+    const close = Math.min(W, H) / 420;
+    if (settings.autoZoom && close > state.cam.zoom * 1.05) {
+      state.cam.tzoom = close;
+      noteOnce('notedZoom', 'Following your ship zooms in. To keep your own zoom, turn off Auto zoom in Settings.');
+    }
     coachDone('camera');
+  }
+
+  // A one-time note about an automatic camera behaviour and its setting.
+  function noteOnce(key, text) {
+    if (settings[key]) return;
+    settings[key] = true;
+    Online.Store.set(SETTINGS, settings);
+    toast(text, 5);
   }
 
   function overview(auto) {
@@ -606,6 +622,14 @@
     }
     Sound.rcs(!!m.rotInput && !state.paused);
 
+    // The Auto frame just switched body: say so once, with how to turn it off.
+    if (state.frameMode === 'auto') {
+      const f = frameBody();
+      if (state.lastAutoFrame != null && f !== state.lastAutoFrame) {
+        noteOnce('notedFrame', 'The view now moves with ' + (f < 0 ? 'the stars' : m.sys.bodies[f].name) + ' (Auto frame). To choose the frame yourself, turn off Auto frame in Settings.');
+      }
+      state.lastAutoFrame = f;
+    }
     // Trail (inertial positions, drawn in the current frame).
     const last = state.trail[state.trail.length - 1];
     if (!m.landed && (!last || m.t - last.t > 0.2 * Math.max(1, WARPS[state.warp] / 5))) {
@@ -770,7 +794,7 @@
     state.endDelay = 1600;
     // A spent stage doomed to hit something: pull back and let the player see
     // the crossing orbits before the result card covers them.
-    if (m.debris.some(d => d.fate && d.fate.kind === 'cross')) { state.endDelay = 4500; overview(true); toast('⚠ ' + m.message, 4.5); }
+    if (m.debris.some(d => d.fate && d.fate.kind === 'cross')) { state.endDelay = 4500; if (settings.autoZoom) overview(true); toast('⚠ ' + m.message, 4.5); }
     state.warp = 0;
     if (m.status === 'crashed' || (m.status === 'won' && shipImpactWin(m))) {
       explode(m.ship.x, m.ship.y, m.status === 'won' ? '#9cf7c4' : '#ffb35a');
@@ -2735,7 +2759,7 @@
   // ------------------------------------------------------------ settings
   // Sound effects, music and (in the app) vibration. Kept on this device.
   const SETTINGS = 'thrusterz.settings';
-  const settings = Object.assign({ sfxVol: 0.8, musicVol: 0.5, haptics: true, ignoreSilent: true }, Online.Store.get(SETTINGS) || {});
+  const settings = Object.assign({ sfxVol: 0.8, musicVol: 0.5, haptics: true, ignoreSilent: true, autoFrame: true, autoZoom: true }, Online.Store.get(SETTINGS) || {});
   if (/iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)) document.body.classList.add('ios');
   // Settings saved before the volume sliders had on/off switches. Music was
   // off by default then, so only a switched-off sound effects carries over.

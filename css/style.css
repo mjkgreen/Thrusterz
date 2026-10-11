@@ -566,5 +566,11 @@ body.touch .pf-inline.lifted::before {
   font-family: var(--mono); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted);
 }
 body.touch .pf-inline.lifted input { font-size: 18px; padding: 10px 12px; }
-/* Drawn sideways in a portrait browser: the keyboard covers the game's right side. */
-html.rotated body.touch .pf-inline.lifted { left: 12px; top: 40%; transform: none; width: min(420px, 52%); }
+/* Drawn sideways in a portrait browser: turn the field back upright and put
+   it across the top of the physical screen (the game's left edge), clear of
+   the keyboard, with its label underneath. */
+html.rotated body.touch .pf-inline.lifted {
+  left: 12px; top: calc(var(--lh) - 16px); transform: rotate(-90deg); transform-origin: 0 0;
+  width: calc(var(--lh) - 32px);
+}
+html.rotated body.touch .pf-inline.lifted::before { bottom: auto; top: calc(100% + 8px); }
