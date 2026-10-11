@@ -1888,7 +1888,7 @@
       const r = document.createElement('div');
       r.className = 'row'; r.id = 'mech-row';
       r.innerHTML = '<span class="k" id="mech-key"></span> <span id="mech-text"></span>';
-      const before = $('stage-row');
+      const before = $('status-rows');
       before.parentNode.insertBefore(g, before);
       before.parentNode.insertBefore(r, before);
     }
@@ -1899,7 +1899,7 @@
     state.mech = { gauge, row };
     $('gauge-mech').style.display = gauge ? '' : 'none';
     $('mech-row').style.display = row ? '' : 'none';
-    $('mech-label').textContent = { heat: 'Heat', dose: 'Radiation dose', sail: 'Sail push' }[gauge] || '';
+    $('mech-label').textContent = { heat: 'Heat', dose: 'Dose', sail: 'Sail push' }[gauge] || '';
   }
 
   function updateMechHud(m) {
@@ -1913,7 +1913,8 @@
       $('mech-bar').style.background = k > 0.7 ? 'linear-gradient(90deg, #ff6b6b, #ffb35a)' : '';
     } else if (M.gauge === 'dose') {
       const lim = m.belts[0].belt.dose;
-      $('mech-val').textContent = m.dose.toFixed(1) + ' / ' + lim + 's';
+      // 1 Sv per second spent inside the belt.
+      $('mech-val').textContent = m.dose.toFixed(1) + '/' + lim + ' Sv';
       $('mech-bar').style.width = Math.min(100, 100 * m.dose / lim) + '%';
       $('mech-bar').style.background = m.inBelt >= 0 || m.dose > lim * 0.7 ? 'linear-gradient(90deg, #ff6b6b, #ffb35a)' : '';
     } else if (M.gauge === 'sail') {

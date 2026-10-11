@@ -4679,8 +4679,8 @@
       id: 'test-belt',
       test: true,
       name: 'Radiation Belt',
-      intro: 'Terra is wrapped in a radiation belt, the shaded ring. Your ship can stand only 17 seconds inside it in all, and the dose meter counts every one. A gentle transfer drifts through the belt slowly near its high point and runs out of time. Burn harder so you race through the belt, then brake into your new orbit above it.',
-      objective: 'Orbit Terra within 340–370 with under 17s of radiation dose.',
+      intro: 'Terra is wrapped in a radiation belt, the shaded ring. Your ship can take only 17 Sv of radiation in all, and every second inside the belt adds 1 Sv to the dose meter. A gentle transfer drifts through the belt slowly near its high point and runs out of time. Burn harder so you race through the belt, then brake into your new orbit above it.',
+      objective: 'Orbit Terra within 340–370, taking under 17 Sv of radiation.',
       teaches: 'Radiation belts · fast transfers',
       bodies: [
         { id: 'terra', name: 'Terra', gm: 20000, radius: 50, color: C.blue, belt: { rMin: 230, rMax: 320, dose: 17 } },

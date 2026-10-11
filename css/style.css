@@ -318,9 +318,12 @@ body.touch #gauges .glabel { font-size: 11px; margin-bottom: 2px; }
 body.touch #gauges .bar { height: 5px; background: rgba(255,255,255,0.15); }
 body.touch #gauges .gauge.throttle { display: none; }
 body.touch #gauges .row { grid-column: 1 / -1; text-align: center; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-/* STAGE and SPIN side by side; the G button shows gyro, so no gyro text. */
-body.touch #gauges #stage-row:not([style*="none"]) { grid-column: 1; text-align: left; }
-body.touch #gauges #stage-row:not([style*="none"]) + #gyro-row { grid-column: 2; text-align: right; }
+/* STAGE, SPIN and CARGO on one centred line, next to each other; the G
+   button shows gyro, so no gyro text. */
+body.touch #gauges #status-rows { grid-column: 1 / -1; display: flex; justify-content: center; gap: 0 14px; min-width: 0; }
+body.touch #gauges #status-rows .row { flex: 0 1 auto; min-width: 0; }
+body.touch #gauges .glabel { white-space: nowrap; }
+body.touch #gauges .glabel span { overflow: hidden; text-overflow: ellipsis; }
 body.touch .gyro-txt { display: none; }
 #btn-gyro { position: relative; }
 #btn-gyro.capped::after { content: '★★'; position: absolute; bottom: -9px; left: 50%; transform: translateX(-50%); font-size: 8px; color: var(--warn); letter-spacing: 0; }

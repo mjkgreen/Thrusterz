@@ -686,7 +686,7 @@
         this.dose += h;
         if (this.dose > b.belt.dose) {
           this.status = 'crashed';
-          this.message = 'Radiation dose too high: you spent over ' + b.belt.dose + 's in ' + b.name + '\'s belt.';
+          this.message = 'Radiation dose too high: over ' + b.belt.dose + ' Sv from ' + b.name + '\'s belt.';
           return true;
         }
       }
