@@ -6,7 +6,7 @@
       }
     },
     "ios": {
-      "bundleIdentifier": "com.thrusterz.thrusterz",
+      "bundleIdentifier": "com.thrusterz.app",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
