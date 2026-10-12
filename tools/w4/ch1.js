@@ -131,7 +131,7 @@ const proofs = {
     ],
   },
   retrorelay: {
-    p: [0, 1150, 120], scale: [2, 20, 20],
+    p: [10, 1150, 120], scale: [4, 20, 20],
     script: (p, AP) => [
       { coast: (m) => { const o = AP.orb(m, 'brand'); return o.r < o.pe + Math.max(0, p[0]); } },
       { burn: 'retro', rel: 'brand', until: (m) => { const o = AP.orb(m, 'brand'); return o.bound && o.ap <= p[1]; } },

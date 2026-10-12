@@ -72,9 +72,9 @@ const levels = [
     teaches: 'Drop between sweeps · turn before the drop',
     bodies: [
       { id: 'talon', name: 'Talon', gm: 40000, radius: 8, color: '#e4dcff', kind: 'pulsar', radiation: { rate: 0.2, at: 300, dose: 20, beam: { width: 0.3, period: 80, phase: 0 } } },
-      { id: 'orrin', name: 'Orrin', gm: 600, radius: 14, color: C.tan, keepOut: 60, orbit: { parent: 'talon', a: 560, phase: 2.5, dir: -1 } },
+      { id: 'orrin', name: 'Orrin', gm: 600, radius: 14, color: C.tan, keepOut: 45, orbit: { parent: 'talon', a: 560, phase: 2.5, dir: -1 } },
     ],
-    ship: ship({ start: { orbit: { body: 'talon', r: 300, angle: 0 } }, heading: 'prograde', dv: 3.5, accel: 1, rcs: { fuel: 6 }, cargo: [{ id: 'pod', name: 'Supply pod', mass: 0.3, dose: 0.3 }] }),
+    ship: ship({ start: { orbit: { body: 'talon', r: 300, angle: 0 } }, heading: 'prograde', dv: 5, accel: 1, rcs: { fuel: 10 }, cargo: [{ id: 'pod', name: 'Supply pod', mass: 0.3, dose: 0.3 }] }),
     goals: [
       { type: 'reach', body: 'orrin', craft: 'pod', r: 25, label: 'Orrin Base' },
       { type: 'orbit', body: 'talon', rMin: 250, rMax: 500 },
@@ -153,7 +153,7 @@ proofs.pulsarsupply = {
   // Hold until p[0], climb so the high point is p[1]; on the way up turn
   // round; drop the pod p[2] from Orrin and brake until the high point is
   // down to p[3].
-  p: [200, 560, 150, 470], scale: [10, 5, 20, 5], opts: { turn: true, turnRate: 0.2 },
+  p: [0, 560, 150, 470], scale: [10, 5, 20, 5], opts: { turn: true, turnRate: 0.2 },
   script: (p, AP) => [
     hold((m) => m.t >= p[0]),
     { burn: 'pro', rel: 'talon', until: (m) => AP.orb(m, 'talon').ap >= p[1] },

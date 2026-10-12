@@ -125,8 +125,8 @@ const levels = [
   {
     id: 'umbrellafield',
     name: 'Umbrella Field',
-    intro: 'TBD',
-    objective: 'Orbit Corona between 575 and 675 k up, taking under 12 Sv of radiation.',
+    intro: 'Corona\'s light is fierce all the way out, and the only shade is behind the big rocks circling it, the umbrellas. Touch one and your ship is lost, and a climb right now runs straight into them. Wait for the window when your climb slips in just behind one rock after another, and watch your path: it glows wherever you would take dose. Waiting here in the light costs dose too, so don\'t miss it.',
+    objective: 'Orbit Corona between 715 and 815 k up, taking under 7 Sv of radiation.',
     teaches: 'Rocks as shade',
     bodies: [
       { id: 'corona', name: 'Corona', gm: 40000, radius: 45, color: C.sun, kind: 'star', radiation: { rate: 0.1, at: 300, dose: 7 } },
@@ -134,7 +134,7 @@ const levels = [
     ],
     ship: ship({ start: { orbit: { body: 'corona', r: 300, angle: 0 } }, heading: 'prograde', dv: 7, accel: 1 }),
     goals: [{ type: 'orbit', body: 'corona', rMin: 760, rMax: 860 }],
-    par: 3, bounds: 4000, tMax: 900, predict: 300, view: { x: 0, y: 0, span: 1600 }, startCam: 'overview',
+    par: 4.8, bounds: 4000, tMax: 900, predict: 300, view: { x: 0, y: 0, span: 1800 }, startCam: 'overview',
   },
 ];
 
