@@ -106,19 +106,19 @@ const levels = [
     objective: 'TBD',
     teaches: 'Everything at once',
     bodies: [
-      { id: 'lumen', name: 'Lumen', gm: 40000, radius: 8, color: '#e4dcff', kind: 'pulsar', radiation: { rate: 1, at: 244, dose: 1500, beam: { width: 0.3, period: 120, phase: 0 } } },
+      { id: 'lumen', name: 'Lumen', gm: 40000, radius: 8, color: '#e4dcff', kind: 'pulsar', radiation: { rate: 1, at: 244, dose: 8, beam: { width: 0.3, period: 120, phase: 0 } } },
       { id: 'beacon', name: 'Beacon', gm: 0, radius: 4, color: C.station, kind: 'station', protect: true, protectRadius: 15, orbit: { parent: 'lumen', a: 380, phase: 1 } },
       { id: 'ossa', name: 'Ossa', gm: 400, radius: 14, color: C.green, keepOut: 50, orbit: { parent: 'lumen', a: 520, phase: 1.115, dir: -1 } },
     ],
-    ship: ship({ start: { conic: { body: 'lumen', pe: 150, e: 1.15, nu: -1.9, angle: 0 } }, heading: 'prograde', stack: [
+    ship: ship({ start: { conic: { body: 'lumen', pe: 150, e: 1.15, nu: -1.9, angle: 0 } }, heading: 'prograde', rcs: { fuel: 7.4 }, stack: [
       { name: 'Booster', dv: 2.6, accel: 1.2 },
-      { name: 'Capsule', dv: 9, accel: 1, dry: 0.4, sprite: 'satellite' },
-    ], cargo: [{ id: 'lark', name: 'Lark probe', mass: 0.2, dose: 200 }] }),
+      { name: 'Capsule', dv: 12.5, accel: 1, dry: 0.4, sprite: 'satellite' },
+    ], cargo: [{ id: 'lark', name: 'Lark probe', mass: 0.2, dose: 4 }] }),
     goals: [
       { type: 'hit', body: 'ossa', craft: 'lark' },
-      { type: 'orbit', body: 'lumen', rMin: 230, rMax: 262 },
+      { type: 'orbit', body: 'lumen', rMin: 230, rMax: 262, confirm: 15 },
     ],
-    par: 6, bounds: 4000, tMax: 900, predict: 300, view: { x: 0, y: 0, span: 1600 }, startCam: 'overview',
+    par: 10.8, bounds: 4000, tMax: 300, predict: 300, view: { x: 0, y: 0, span: 1600 }, startCam: 'overview',
   },
 ];
 
@@ -215,6 +215,17 @@ const goTo = (pt, vmax, k, done, tol) => ({
   },
 });
 const bodyPt = (id) => (m) => { m.sys.update(m.t); const i = m.sys.byId[id].index; return { x: m.sys.px[i], y: m.sys.py[i], vx: m.sys.vx[i], vy: m.sys.vy[i] }; };
+// Burn until the orbit about `id` is circular where you are now.
+const circularize = (id, gm) => ({
+  control: (m) => {
+    const sys = m.sys; sys.update(m.t);
+    const i = sys.byId[id].index, rx = m.ship.x - sys.px[i], ry = m.ship.y - sys.py[i], r = Math.hypot(rx, ry);
+    const vx = m.ship.vx - sys.vx[i], vy = m.ship.vy - sys.vy[i], dir = rx * vy - ry * vx > 0 ? 1 : -1, vc = Math.sqrt(gm / r);
+    const ex = -dir * ry / r * vc - vx, ey = dir * rx / r * vc - vy;
+    if (Math.hypot(ex, ey) < 0.04) return { done: true };
+    return { thrust: true, angle: Math.atan2(ey, ex) };
+  },
+});
 const goalPt = (m) => m.goalPoint(m.currentGoal());
 // A point `back` behind a body along its path (to park beside it, not in it).
 const behind = (id, back) => (m) => { const q = bodyPt(id)(m), u = Math.hypot(q.vx, q.vy); return { x: q.x - back * q.vx / u, y: q.y - back * q.vy / u, vx: q.vx, vy: q.vy }; };
@@ -238,18 +249,30 @@ proofs.pulsartour = {
   // an escape path), drop it. Capsule: at the low point brake until the high
   // point is p[2], release the probe, and keep braking until the high point
   // is down to p[3].
-  p: [-1.5, 244, 520, 255], scale: [0.2, 4, 8, 4],
+  p: [-1.736, 251.661, 530.117], scale: [0.2, 4, 8], opts: { turn: true, turnRate: 0.3 },
   script: (p, AP) => [
     { burn: p[0], rel: 'lumen', until: (m) => AP.orb(m, 'lumen').pe >= p[1] },
     { deploy: true },
     { coast: (m) => AP.orb(m, 'lumen').rising },
     { burn: 'retro', rel: 'lumen', until: (m) => { const o = AP.orb(m, 'lumen'); return o.bound && o.ap <= p[2]; } },
     { drop: true },
-    { burn: 'retro', rel: 'lumen', until: (m) => AP.orb(m, 'lumen').ap <= p[3] },
+    circularize('lumen', 40000),
   ],
 };
 
+const tourOpts = { turn: true, turnRate: 0.3 };
 const fails = {
+  pulsartour: [
+    { name: 'wait and see', steps: () => [] },
+    { name: 'brake on the booster at the low point', opts: tourOpts, steps: (AP) => [
+      { coast: (m) => AP.orb(m, 'lumen').rising },
+      { burn: 'retro', rel: 'lumen', stage: true, until: (m) => { const o = AP.orb(m, 'lumen'); return o.bound && o.ap <= 530; } },
+      { drop: true },
+      circularize('lumen', 40000),
+    ] },
+    { name: 'a wider low point, out of step with the beams', opts: tourOpts, steps: (AP) => proofs.pulsartour.script([proofs.pulsartour.p[0], 275, proofs.pulsartour.p[2]], AP) },
+    { name: 'flip fast (holding the keys)', opts: { turn: true, turnRate: 1.2 }, steps: (AP) => proofs.pulsartour.script(proofs.pulsartour.p, AP) },
+  ],
   beamrescue: [
     { name: 'wait and see', steps: () => [] },
     { name: 'stay with Wren', steps: (AP) => [...proofs.beamrescue.script(proofs.beamrescue.p, AP).slice(0, 2), goTo(behind('wren', 8), 0.5, 0.05, () => false)] },

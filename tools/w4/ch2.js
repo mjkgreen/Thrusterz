@@ -135,7 +135,7 @@ const circularize = (id, gm, dir) => ({
 
 // Junk in the Sun: Kiln Dock rides in Ash's shadow (parented to Ash, turning
 // with Ash's orbit so it stays on the night side).
-const ASH_N = Math.sqrt(46000 / (300 * 300 * 300));
+const ASH_N = Math.sqrt(46000 / (500 * 500 * 500));
 
 const levels = [
   {
@@ -222,9 +222,9 @@ const levels = [
     objective: 'Drop the booster into Forge, then orbit Ash between 20 and 60 k up, without any craft hitting Ash or entering Kiln Dock\'s zone, taking under 14 Sv of radiation.',
     teaches: 'Dispose of a stage in the star',
     bodies: [
-      { id: 'forge', name: 'Forge', gm: 40000, radius: 100, color: C.sun, kind: 'star', radiation: { rate: 0.15, at: 300, dose: 1000 } },
-      { id: 'ash', name: 'Ash', gm: 6000, radius: 30, color: C.red, protect: true, orbit: { parent: 'forge', a: 300, phase: 0 } },
-      { id: 'dock', name: 'Kiln Dock', gm: 0, radius: 3, color: C.station, kind: 'station', keepOut: 30, zone: 'all', orbit: { parent: 'ash', a: 110, n: ASH_N, phase: 0, reflex: false } },
+      { id: 'forge', name: 'Forge', gm: 40000, radius: 60, color: C.sun, kind: 'star', radiation: { rate: 0.4, at: 300, dose: 1000 } },
+      { id: 'ash', name: 'Ash', gm: 6000, radius: 30, color: C.red, protect: true, orbit: { parent: 'forge', a: 500, phase: 0 } },
+      { id: 'dock', name: 'Kiln Dock', gm: 0, radius: 3, color: C.station, kind: 'station', keepOut: 30, zone: 'all', orbit: { parent: 'ash', a: 160, n: ASH_N, phase: 0, reflex: false } },
     ],
     ship: ship({ start: { orbit: { body: 'ash', r: 50, angle: 0 } }, heading: 'prograde', stack: [
       { id: 'booster', name: 'Booster', dv: 6.5, accel: 1 },
@@ -232,7 +232,7 @@ const levels = [
     ] }),
     goals: [
       { type: 'hit', body: 'forge', craft: 'booster', deorbit: true },
-      { type: 'orbit', body: 'forge', rMin: 150, rMax: 330 },
+      { type: 'orbit', body: 'forge', rMin: 150, rMax: 560 },
     ],
     par: 9, bounds: 4000, tMax: 400, predict: 200, view: { x: 150, y: 0, span: 700 }, startCam: 'overview',
   },
@@ -298,10 +298,10 @@ proofs.backwardmoon = {
 };
 
 proofs.junkinthesun = {
-  p: [8, 101, 160, -1], scale: [3, 2, 10, 0.5],
+  p: [2, 61, 160, 0], scale: [3, 1, 10, 0.5],
   script: (p, AP) => [
     { wait: Math.max(0, p[0]) },
-    { burn: 'pro', rel: 'ash', until: (m) => { const d = closest(m, 'forge', 150); if (process.env.DBG) console.log(m.t.toFixed(3), d.toFixed(1)); return d <= p[1]; } },
+    { burn: 'pro', rel: 'ash', until: (m) => { const d = closest(m, 'forge', 150); if (process.env.DBG) console.log(m.t.toFixed(3), d.toFixed(1), m.stage, m.stageSpec.fuel.toFixed(3), m.dvUsed().toFixed(2)); return d <= p[1]; } },
     { deploy: true },
     { burn: p[3], rel: 'forge', until: (m) => closest(m, 'forge', 150) >= p[2] },
   ],

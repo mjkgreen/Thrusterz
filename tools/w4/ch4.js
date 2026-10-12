@@ -109,7 +109,7 @@ const levels = [
       { id: 'abyss', name: 'Abyss', gm: 40000, radius: 8, horizon: 25, pw: 25, color: '#1a1020', kind: 'blackhole' },
       { id: 'tock', name: 'Tock', gm: 10000, radius: 8, pw: 8, color: NEUTRON, kind: 'pulsar', radiation: { rate: 0.3, at: 300, dose: 6, beam: { width: 0.3, period: 60, phase: 0 } }, orbit: { parent: 'abyss', a: 500, phase: 0 } },
     ],
-    ship: ship({ start: { conic: { body: 'abyss', pe: 130, e: 0.5, nu: Math.PI, angle: 0 } }, heading: 'prograde', dv: 3, accel: 1 }),
+    ship: ship({ start: { conic: { body: 'abyss', pe: 190, e: 0.3, nu: Math.PI, angle: 0 } }, heading: 'prograde', dv: 3, accel: 1 }),
     goals: [{ type: 'escape', body: 'abyss', r: 2500 }],
     par: 2, bounds: 6000, tMax: 800, predict: 250, view: { x: 0, y: 0, span: 1600 }, startCam: 'overview',
   },

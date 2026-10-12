@@ -107,7 +107,7 @@ const levels = [
     objective: 'Rendezvous with Outpost Kestrel (within 10 k, relative speed under 0.6 k/s) without entering a patrol zone, taking under 140 Sv of radiation.',
     teaches: 'Phasing in the cool lane',
     bodies: [
-      { id: 'forge', name: 'Forge', gm: 40000, radius: 45, color: C.sun, kind: 'star', radiation: { rate: 1, at: 300, dose: 140 } },
+      { id: 'forge', name: 'Forge', gm: 40000, radius: 45, color: '#ffb27a', kind: 'star', radiation: { rate: 1, at: 300, dose: 140 } },
       { id: 'outpost', name: 'Outpost Kestrel', gm: 0, radius: 4, color: C.station, kind: 'station', orbit: { parent: 'forge', a: 500, phase: 2.583 } },
       { id: 'pat1', name: 'Patrol 1', gm: 0, radius: 4, color: C.station, kind: 'station', keepOut: 50, orbit: { parent: 'forge', a: 700, dir: -1, phase: 1.8 } },
       { id: 'pat2', name: 'Patrol 2', gm: 0, radius: 4, color: C.station, kind: 'station', keepOut: 50, orbit: { parent: 'forge', a: 700, dir: -1, phase: 1.8 + 2 * Math.PI / 3 } },
@@ -120,20 +120,20 @@ const levels = [
   {
     id: 'solarsurvey',
     name: 'Solar Survey',
-    intro: 'TODO',
-    objective: 'TODO',
+    intro: 'You are on a lopsided orbit round Lumen, and its low point dips deep into the heat. Spread the three survey probes evenly round the star: round off your orbit at the top, drop one (E), and fly a phasing lap before each of the next two. Once dropped, every probe soaks up radiation until the job is done, so the slow, cool phasing laps of Constellation take too long: dip your low point for quicker laps instead. Then climb straight out to your parking orbit before those low laps add up for you.',
+    objective: 'Spread the three probes at least 100° apart in orbits between 315 and 405 k up, then orbit Lumen between 700 and 1000 k up, with no probe over 190 Sv and you under 230 Sv.',
     teaches: 'A constellation on dose budgets',
     bodies: [
-      { id: 'lumen', name: 'Lumen', gm: 40000, radius: 45, color: C.sun, kind: 'star', radiation: { rate: 0.5, at: 300, dose: 1000 } },
+      { id: 'lumen', name: 'Lumen', gm: 40000, radius: 45, color: '#fff1b0', kind: 'star', radiation: { rate: 0.5, at: 300, dose: 230 } },
     ],
-    ship: ship({ start: { conic: { body: 'lumen', pe: 210, e: 0.3115, nu: 2.5, angle: 0 } }, heading: 'prograde', dv: 14, accel: 1, cargo: [
-      { id: 'sv1', name: 'Survey 1', mass: 0.2, dose: 1000 }, { id: 'sv2', name: 'Survey 2', mass: 0.2, dose: 1000 }, { id: 'sv3', name: 'Survey 3', mass: 0.2, dose: 1000 },
+    ship: ship({ start: { conic: { body: 'lumen', pe: 210, e: 0.3115, nu: 2.5, angle: 0 } }, heading: 'prograde', dv: 15, accel: 1, cargo: [
+      { id: 'sv1', name: 'Survey 1', mass: 0.2, dose: 190 }, { id: 'sv2', name: 'Survey 2', mass: 0.2, dose: 190 }, { id: 'sv3', name: 'Survey 3', mass: 0.2, dose: 190 },
     ] }),
     goals: [
       { type: 'spread', body: 'lumen', crafts: ['sv1', 'sv2', 'sv3'], rMin: 360, rMax: 450, minSep: 100 * Math.PI / 180 },
       { type: 'orbit', body: 'lumen', rMin: 745, rMax: 1045, label: 'Parking orbit' },
     ],
-    par: 4, bounds: 4000, tMax: 1000, predict: 400, view: { x: 0, y: 0, span: 2200 },
+    par: 10.5, bounds: 4000, tMax: 1000, predict: 400, view: { x: 0, y: 0, span: 2200 },
   },
 ];
 
@@ -192,7 +192,7 @@ const proofs = {
     ],
   },
   solarsurvey: {
-    p: [399.138, 211.042, 218.911, 944.496, 827.163], scale: [1, 3, 3, 20, 20],
+    p: [398.654, 255.573, 247.959, 829.34, 760], scale: [1, 3, 3, 20, 20],
     script: (p, AP) => {
       const top = { coast: (m) => !AP.orb(m, 'lumen').rising };
       const lap = (q) => [
@@ -216,6 +216,26 @@ const proofs = {
 };
 
 const fails = {
+  solarsurvey: [
+    { name: 'wait and see', steps: () => [] },
+    { name: 'Constellation: phasing laps a third longer, out in the cool', steps: (AP) => {
+      const p = proofs.solarsurvey.p, s = proofs.solarsurvey.script(p, AP);
+      const outer = () => [
+        { burn: 'pro', rel: 'lumen', until: (m) => AP.orb(m, 'lumen').ap >= 569 },
+        { coast: (m) => AP.orb(m, 'lumen').r > 420 },
+        { coast: (m) => AP.orb(m, 'lumen').r < 402 && !AP.orb(m, 'lumen').rising },
+        { coast: (m) => AP.orb(m, 'lumen').rising },
+        { burn: 'retro', rel: 'lumen', until: (m) => AP.orb(m, 'lumen').ap <= 401 },
+        { drop: true },
+      ];
+      return [s[0], s[1], s[2], ...outer(), ...outer(), ...s.slice(-4)];
+    } },
+    { name: 'one more lap down low before the climb', steps: (AP) => {
+      const s = proofs.solarsurvey.script(proofs.solarsurvey.p, AP);
+      return [...s.slice(0, -4), { burn: 'retro', rel: 'lumen', until: (m) => AP.orb(m, 'lumen').pe <= 211 },
+        { coast: (m) => AP.orb(m, 'lumen').rising }, { coast: (m) => !AP.orb(m, 'lumen').rising }, ...s.slice(-4)];
+    } },
+  ],
   patrolshift: [
     { name: 'catch it on a fast lap in the hot inner lane', steps: (AP) => [
       { burn: 'retro', rel: 'forge', until: (m) => AP.orb(m, 'forge').pe <= 200 },
