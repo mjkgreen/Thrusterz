@@ -218,8 +218,8 @@ const levels = [
   {
     id: 'junkinthesun',
     name: 'Junk in the Sun',
-    intro: 'TBD',
-    objective: 'Drop the booster into Forge, then orbit Ash between 20 and 60 k up, without any craft hitting Ash or entering Kiln Dock\'s zone, taking under 14 Sv of radiation.',
+    intro: 'Kiln Dock rides in Ash\'s shadow, and its amber zone is closed to everything, spent stages included. Ash is inhabited, so your booster may not come down there either: it has to fall into Forge. Burn the booster prograde as you leave the night side, just enough that its path swings back past Ash and on into the star, then drop it (the stage button) and round off your orbit with the orbiter. Burn too hard and the booster is left on an orbit through the dock\'s zone; too gently and you wait in the sunlight for it to fall.',
+    objective: 'Send the booster into Forge and orbit Ash between 15 and 80 k up, with no debris hitting Ash or entering Kiln Dock\'s zone, taking under 11 Sv of radiation.',
     teaches: 'Dispose of a stage in the star',
     bodies: [
       { id: 'forge', name: 'Forge', gm: 40000, radius: 60, color: C.sun, kind: 'star', radiation: { rate: 0.4, at: 300, dose: 11 } },
@@ -227,14 +227,14 @@ const levels = [
       { id: 'dock', name: 'Kiln Dock', gm: 0, radius: 3, color: C.station, kind: 'station', keepOut: 30, zone: 'all', orbit: { parent: 'ash', a: 160, n: ASH_N, phase: 0, reflex: false } },
     ],
     ship: ship({ start: { orbit: { body: 'ash', r: 50, angle: 0 } }, heading: 'prograde', stack: [
-      { id: 'booster', name: 'Booster', dv: 6.5, accel: 1 },
-      { name: 'Orbiter', dv: 7, accel: 1, dry: 0.5, sprite: 'satellite' },
+      { id: 'booster', name: 'Booster', dv: 4, accel: 1 },
+      { name: 'Orbiter', dv: 5.5, accel: 1, dry: 0.5, sprite: 'satellite' },
     ] }),
     goals: [
       { type: 'hit', body: 'forge', craft: 'booster', deorbit: true },
       { type: 'orbit', body: 'ash', rMin: 45, rMax: 110 },
     ],
-    par: 9, bounds: 4000, tMax: 400, predict: 200, view: { x: 150, y: 0, span: 700 }, startCam: 'overview',
+    par: 6.6, bounds: 4000, tMax: 400, predict: 200, view: { x: 250, y: 0, span: 900 }, startCam: 'overview',
   },
 ];
 
@@ -298,7 +298,7 @@ proofs.backwardmoon = {
 };
 
 proofs.junkinthesun = {
-  p: [2.406, 2.504], scale: [1, 0.3],
+  p: [3, 2.8], scale: [1, 0.3],
   script: (p, AP) => [
     { wait: Math.max(0, p[0]) },
     ...dvBurn('pro', 'ash', p[1]),
@@ -378,6 +378,17 @@ const fails = {
       const p = proofs.backwardmoon.p.slice(); p[0] = 6;
       return proofs.backwardmoon.script(p, AP);
     } },
+  ],
+  junkinthesun: [
+    { name: 'Leave No Junk: drop the booster into Ash', steps: (AP) => [
+      { wait: 3 },
+      { burn: 'retro', rel: 'ash', until: (m) => AP.orb(m, 'ash').pe <= 25 },
+      { deploy: true },
+      circularize('ash', 6000, 1),
+    ] },
+    { name: 'burn the booster harder, then drop it', steps: (AP) => proofs.junkinthesun.script([3, 4], AP) },
+    { name: 'a gentle nudge, then wait for it to fall in', steps: (AP) => proofs.junkinthesun.script([3, 1.8], AP) },
+    { name: 'the same plan from the far side of Ash', steps: (AP) => proofs.junkinthesun.script([18, 2.8], AP) },
   ],
 };
 
