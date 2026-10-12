@@ -524,3 +524,4 @@ Object.assign(module.exports, {
 
 // World 3: each chapter file keeps its levels, proofs and naive "fails" together.
 for (const ch of ['ch1', 'ch2', 'ch3', 'ch4', 'ch5']) Object.assign(module.exports, require('./w3/' + ch).proofs);
+for (const ch of ['ch1', 'ch2', 'ch3', 'ch4', 'ch5']) Object.assign(module.exports, require('./w4/' + ch).proofs);

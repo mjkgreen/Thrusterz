@@ -340,6 +340,34 @@ for (const L of LEVELS) {
   check('World 3: every naive plan loses (zones, rocks and budgets bite)', wins.length === 0, wins.join('; '));
 }
 
+// 14b. World 4, the same checks against tools/w4.
+{
+  const AP = require('./autopilot.js');
+  const PROOFS = require('./proofs.js');
+  const w4 = LEVELS.filter(l => l.world === 4);
+  check('World 4 has 30 missions', w4.length === 30, String(w4.length));
+  const lost = [], wins = [], stale = [], nofail = [];
+  for (const ch of ['ch1', 'ch2', 'ch3', 'ch4', 'ch5']) {
+    const C = require('./w4/' + ch);
+    for (const L0 of C.levels) {
+      const L = LEVELS.find(l => l.id === L0.id);
+      if (!L || JSON.stringify(Object.assign({}, L0, { world: 4 })) !== JSON.stringify(L)) stale.push(L0.id);
+      const fs = (C.fails && C.fails[L0.id]) || [];
+      if (!fs.length) nofail.push(L0.id);
+      for (const f of fs) if (AP.fly(L || L0, f.steps(AP), f.opts).won) wins.push(L0.id + ': ' + f.name);
+    }
+  }
+  check('js/levels.js World 4 matches tools/w4 (npm run build:w4)', stale.length === 0, stale.join(', '));
+  for (const L of w4) {
+    const P = PROOFS[L.id];
+    const r = P && AP.fly(L, P.script(P.p, AP), P.opts);
+    if (!r || !r.won) lost.push(`${L.id} (${r ? r.status + ': ' + r.message : 'no proof'})`);
+    else if (r.dv > L.par) lost.push(`${L.id} (proof Δv ${r.dv.toFixed(2)} over par ${L.par})`);
+  }
+  check(`World 4: all ${w4.length} proofs win within par`, lost.length === 0, lost.join('; '));
+  check('World 4: every mission has a naive plan, and every naive plan loses', wins.length === 0 && nofail.length === 0, wins.concat(nofail.map(id => id + ': no naive plan')).join('; '));
+}
+
 // 15. Side-thruster budgets: proofs that turn honestly stay inside the
 //     level's RCS budget, and holding a key really drains a small one.
 {
