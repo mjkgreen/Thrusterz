@@ -298,12 +298,12 @@ proofs.backwardmoon = {
 };
 
 proofs.junkinthesun = {
-  p: [2, 61, 160, 0], scale: [3, 1, 10, 0.5],
+  p: [2, 5.5, 2, 0], scale: [2, 0.3, 0.3, 0.3],
   script: (p, AP) => [
     { wait: Math.max(0, p[0]) },
-    { burn: 'pro', rel: 'ash', until: (m) => { const d = closest(m, 'forge', 150); if (process.env.DBG) console.log(m.t.toFixed(3), d.toFixed(1), m.stage, m.stageSpec.fuel.toFixed(3), m.dvUsed().toFixed(2)); return d <= p[1]; } },
+    ...dvBurn('pro', 'ash', p[1]),
     { deploy: true },
-    { burn: p[3], rel: 'forge', until: (m) => closest(m, 'forge', 150) >= p[2] },
+    ...dvBurn(p[3], 'forge', Math.abs(p[2])),
   ],
 };
 
