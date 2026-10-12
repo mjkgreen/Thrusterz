@@ -13,8 +13,8 @@ const levels = [
   {
     id: 'darkconst',
     name: 'Dark Constellation',
-    intro: 'Three relay satellites for Nyx, spread evenly in the band, and each one starts soaking up Calor\'s heat the moment it leaves your hold: a satellite can take only 20 Sv. Long phasing laps, a third slower, give Sat 1 far too long in the sun. Phase the other way: after each drop, brake into a quick lap a third shorter that dips deep past Nyx\'s night side, and come back up to drop the next.',
-    objective: 'Spread three satellites at least 100° apart in orbits between 140 and 190 k from Nyx, each taking under 20 Sv of radiation.',
+    intro: 'Three relay satellites for Nyx, to be spread evenly round it, and each one soaks up Calor\'s heat from the moment it leaves your hold: a satellite can take only 20 Sv. The long phasing laps that work at Terra, a third slower each, leave Sat 1 out in the heat far too long. Phase the other way: drop a satellite (E), brake into a quick lap a third shorter that dips low over Nyx, and come back up to round off and drop the next.',
+    objective: 'Spread three satellites at least 100° apart in orbits between 70 and 120 k above Nyx, each taking under 20 Sv of radiation.',
     teaches: 'Quick phasing laps · cargo dose',
     bodies: [
       { id: 'calor', name: 'Calor', gm: 100000, radius: 60, color: C.sun2, kind: 'star', radiation: { rate: 0.12, at: 1200, dose: 60 } },
@@ -26,7 +26,7 @@ const levels = [
     goals: [
       { type: 'spread', body: 'nyx', crafts: ['d1', 'd2', 'd3'], rMin: 140, rMax: 190, minSep: 100 * Math.PI / 180 },
     ],
-    par: 9, bounds: 4000, tMax: 600, predict: 200, view: { x: 1200, y: 0, span: 700 },
+    par: 8.5, bounds: 4000, tMax: 400, predict: 200, view: { x: 1000, y: 0, span: 700 },
   },
   {
     id: 'stageddive',
@@ -67,14 +67,14 @@ const levels = [
   {
     id: 'pulsarsupply',
     name: 'Pulsar Supply Run',
-    intro: 'TBD',
-    objective: 'TBD',
+    intro: 'Supply Run again, this time around a pulsar. Orrin Base needs its supply pod, but Orrin goes round backwards, so it comes at you head-on and its keep-out zone closes fast. Climb to meet it, and turn round on the way up: there is no time to turn after the drop, and side thruster fuel is short. Drop the pod (E) just after Talon\'s beam has swept past, so it lands before the next sweep (it can take only 0.5 Sv), then brake at once to stay under the zone.',
+    objective: 'Land the supply pod on Orrin, then orbit Talon between 192 and 502 k up, without entering Orrin\'s keep-out zone.',
     teaches: 'Drop between sweeps · turn before the drop',
     bodies: [
       { id: 'talon', name: 'Talon', gm: 40000, radius: 8, color: '#e4dcff', kind: 'pulsar', radiation: { rate: 0.2, at: 300, dose: 20, beam: { width: 0.3, period: 80, phase: 0 } } },
       { id: 'orrin', name: 'Orrin', gm: 600, radius: 14, color: C.tan, keepOut: 60, orbit: { parent: 'talon', a: 560, phase: 2.5, dir: -1 } },
     ],
-    ship: ship({ start: { orbit: { body: 'talon', r: 300, angle: 0 } }, heading: 'prograde', dv: 4.5, accel: 1, rcs: { fuel: 4.8 }, cargo: [{ id: 'pod', name: 'Supply pod', mass: 0.3, dose: 0.5 }] }),
+    ship: ship({ start: { orbit: { body: 'talon', r: 300, angle: 0 } }, heading: 'prograde', dv: 4.5, accel: 1, rcs: { fuel: 3.6 }, cargo: [{ id: 'pod', name: 'Supply pod', mass: 0.3, dose: 0.5 }] }),
     goals: [
       { type: 'hit', body: 'orrin', craft: 'pod' },
       { type: 'orbit', body: 'talon', rMin: 200, rMax: 510 },
@@ -84,8 +84,8 @@ const levels = [
   {
     id: 'beamrescue',
     name: 'Rescue in the Beam',
-    intro: 'TBD',
-    objective: 'TBD',
+    intro: 'Wren is drifting dead just ahead of you, and Vesper\'s beams sweep this orbit every minute and a half: each sweep costs nearly 3 Sv, and you can take only 10. Close in gently and match Wren\'s speed, but don\'t stay. Umbriel is coming round behind you: let its pull fling you outward and settle into its shadow at L2, the one place the beams never reach.',
+    objective: 'Rendezvous with Wren (within 12 k, relative speed under 0.8 k/s), then hold at Umbriel\'s L2 for 10 s, taking under 10 Sv of radiation.',
     teaches: 'Rendezvous between sweeps · shelter at L2',
     bodies: [
       { id: 'vesper', name: 'Vesper', gm: 40000, radius: 8, color: '#e4dcff', kind: 'pulsar', radiation: { rate: 0.6, at: 400, dose: 10, beam: { width: 0.35, period: 100, phase: 1.0 } } },
@@ -102,8 +102,8 @@ const levels = [
   {
     id: 'pulsartour',
     name: 'Pulsar Tour',
-    intro: 'TBD',
-    objective: 'TBD',
+    intro: 'The grand tour of Lumen. You are falling in far too deep, and a spent booster left on any orbit that reaches Beacon\'s ring hits it sooner or later. So use the booster now, while you are still on an escape path: push outward to lift your low point to the dark lane, where you go round as fast as the beams sweep, then drop it (the stage button) and it flies away for good. At the low point brake with the capsule until your high point reaches Ossa\'s orbit, release Lark (E) to meet Ossa head-on, and keep braking until your orbit is round, in the dark lane.',
+    objective: 'Land the Lark probe on Ossa, then orbit Lumen between 222 and 254 k up for 15 s, taking under 8 Sv of radiation, with no spent stage on an orbit that crosses Beacon\'s.',
     teaches: 'Everything at once',
     bodies: [
       { id: 'lumen', name: 'Lumen', gm: 40000, radius: 8, color: '#e4dcff', kind: 'pulsar', radiation: { rate: 1, at: 244, dose: 8, beam: { width: 0.3, period: 120, phase: 0 } } },
@@ -126,7 +126,7 @@ const levels = [
 // whose low point is lo; back at the high point, round off again.
 const proofs = {
   darkconst: {
-    p: [0, 165, 163, 88, 163, 88, 163], scale: [5, 3, 2, 4, 2, 4, 2],
+    p: [-18.538, 161.627, 164.393, 103.306, 167.315, 94.495, 166.288], scale: [5, 3, 2, 4, 2, 4, 2],
     script: (p, AP) => [
       { wait: Math.max(0, p[0]) },
       { burn: 'pro', rel: 'nyx', until: (m) => AP.orb(m, 'nyx').ap >= p[1] },
@@ -270,7 +270,7 @@ const fails = {
       { drop: true },
       circularize('lumen', 40000),
     ] },
-    { name: 'a wider low point, out of step with the beams', opts: tourOpts, steps: (AP) => proofs.pulsartour.script([proofs.pulsartour.p[0], 275, proofs.pulsartour.p[2]], AP) },
+    { name: 'correct the other way: the low point sweeps through a beam', opts: tourOpts, steps: (AP) => proofs.pulsartour.script([-2.2, ...proofs.pulsartour.p.slice(1)], AP) },
     { name: 'flip fast (holding the keys)', opts: { turn: true, turnRate: 1.2 }, steps: (AP) => proofs.pulsartour.script(proofs.pulsartour.p, AP) },
   ],
   beamrescue: [

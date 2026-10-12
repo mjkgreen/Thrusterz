@@ -100,18 +100,18 @@ const levels = [
     par: 1.2, bounds: 5000, tMax: 250, predict: 250, view: { x: 400, y: 0, span: 2200 }, startCam: 'overview',
   },
   {
-    id: 'binary',
+    id: 'pulsarbinary',
     name: 'Binary',
     intro: 'The black hole Abyss and the pulsar Tock circle each other, and you are caught between them: Tock\'s pull is already twisting your orbit round Abyss, and every lap here adds to your dose as its beams sweep past. Your tank cannot climb out of this well alone. Burn prograde at your low point to throw your high point out to Tock\'s orbit just as Tock swings by ahead of you, and it drags you along and flings you out of the system; on the wrong lap you meet Tock head on, or not at all.',
-    objective: 'Get 2500 k from Abyss, taking under 6 Sv of radiation.',
+    objective: 'Get 1500 k from Abyss, taking under 6 Sv of radiation.',
     teaches: 'Slingshot off a moving pulsar',
     bodies: [
       { id: 'abyss', name: 'Abyss', gm: 40000, radius: 8, horizon: 25, pw: 25, color: '#1a1020', kind: 'blackhole' },
       { id: 'tock', name: 'Tock', gm: 10000, radius: 8, pw: 8, color: NEUTRON, kind: 'pulsar', radiation: { rate: 0.5, at: 300, dose: 6, beam: { width: 0.3, period: 60, phase: 0 } }, orbit: { parent: 'abyss', a: 500, phase: 0 } },
     ],
     ship: ship({ start: { conic: { body: 'abyss', pe: 190, e: 0.3, nu: Math.PI, angle: 0 } }, heading: 'prograde', dv: 1.1, accel: 1 }),
-    goals: [{ type: 'escape', body: 'abyss', r: 2500 }],
-    par: 2, bounds: 6000, tMax: 800, predict: 250, view: { x: 0, y: 0, span: 1600 }, startCam: 'overview',
+    goals: [{ type: 'escape', body: 'abyss', r: 1500 }],
+    par: 0.7, bounds: 6000, tMax: 800, predict: 300, view: { x: 0, y: 0, span: 1800 }, startCam: 'overview',
   },
 ];
 
@@ -242,7 +242,7 @@ proofs.horizonfence = {
 // Radial speed sign changes: count the low points passed.
 const lowPoints = (id, k) => { let n = 0, prevIn = false; return { fn: () => { n = 0; prevIn = false; }, coast: (m) => { const inn = radv(m, id) < 0; if (prevIn && !inn) n++; prevIn = inn; return n >= k; } }; };
 
-proofs.binary = {
+proofs.pulsarbinary = {
   // At the first low point, burn prograde p[0] of Δv: the high point reaches
   // Tock's orbit just as Tock comes by, and the slingshot flings you out.
   p: [0.64], scale: [0.02],
@@ -253,7 +253,7 @@ proofs.binary = {
 };
 
 const fails = {
-  binary: [
+  pulsarbinary: [
     { name: 'wait and see', steps: () => [] },
     { name: 'escape straight out at the low point', steps: (AP) => { const lp = lowPoints('abyss', 1); return [{ fn: lp.fn }, { coast: lp.coast }, { burn: 'pro', rel: 'abyss', until: () => false }]; } },
     { name: 'leave on the next lap', steps: (AP) => { const lp = lowPoints('abyss', 2); return [{ fn: lp.fn }, { coast: lp.coast }, ...dvBurn('pro', 'abyss', 0.64)]; } },
