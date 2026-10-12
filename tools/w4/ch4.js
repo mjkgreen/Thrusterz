@@ -71,17 +71,47 @@ const levels = [
   {
     id: 'retrowhirl',
     name: 'Retro Whirl',
-    intro: 'Vesper Station circles Halo the other way round from you, and flipping your orbit round would take twice your speed. Instead, drop out of Halo backward toward the pulsar Lumen: a pass inside its unstable ring whips you round and sends you back out, and if Halo is there when you arrive you can sweep past its far side and brake into Vesper\'s direction. Lumen\'s beams make the dive a timing puzzle too: leave on a lap when they point away as you fall and climb.',
-    objective: 'Orbit Halo clockwise, the way Vesper goes, between 30 and 80 k up, taking under 8 Sv of radiation.',
+    intro: 'Vesper Station circles Halo clockwise, the other way round from you, and flipping your orbit round would take more than your whole tank. Instead, leave Halo backward from its inner side and dive at the pulsar Lumen: a pass just inside its unstable ring whips you round so you climb back out to meet Halo, and if you pass Halo\'s far side you can brake straight into Vesper\'s direction. Lumen\'s beams sweep the dive, so leave on a lap when they point away as you fall and climb, and trim your path on the way back out.',
+    objective: 'Orbit Halo clockwise, the way Vesper goes, between 40 and 135 k up, taking under 8 Sv of radiation.',
     teaches: 'Whirl round to turn round',
     bodies: [
-      { id: 'lumen', name: 'Lumen', gm: 40000, radius: 10, pw: 25, color: NEUTRON, kind: 'pulsar', radiation: { rate: 0.3, at: 300, dose: 8, beam: { width: 0.3, period: 90, phase: 0 } } },
+      { id: 'lumen', name: 'Lumen', gm: 40000, radius: 10, pw: 25, color: NEUTRON, kind: 'pulsar', radiation: { rate: 0.3, at: 300, dose: 8, beam: { width: 0.3, period: 90, phase: 2.8 } } },
       { id: 'halo', name: 'Halo', gm: 1000, radius: 22, color: C.purple, orbit: { parent: 'lumen', a: 1000, phase: 0 } },
       { id: 'vesper', name: 'Vesper Station', gm: 0, radius: 3, color: C.station, kind: 'station', orbit: { parent: 'halo', a: 75, phase: 0, dir: -1 } },
     ],
-    ship: ship({ start: { orbit: { body: 'halo', r: 48, angle: 0 } }, heading: 'prograde', dv: 12, accel: 1 }),
+    ship: ship({ start: { orbit: { body: 'halo', r: 48, angle: 0 } }, heading: 'prograde', dv: 8.5, accel: 1 }),
     goals: [{ type: 'orbit', body: 'halo', rMin: 60, rMax: 160, dir: -1 }],
-    par: 8, bounds: 6000, tMax: 1500, predict: 400, view: { x: 300, y: 0, span: 2600 }, startCam: 'overview',
+    par: 6, bounds: 6000, tMax: 900, predict: 400, view: { x: 300, y: 0, span: 2600 }, startCam: 'overview',
+  },
+  {
+    id: 'horizonfence',
+    name: 'Horizon Fence',
+    intro: 'You are falling past the black hole Gorge on a line its fence posts were put there to stop: hold course and you fly into a red zone. The gate lies back the way you came, so you need a tighter line that whirls you round, inside the fence, not a wider one outside it. Turn your nose toward Gorge with the side thrusters (you only have enough for one careful turn) and nudge your pass in, but the hot disc round the hole is pouring out radiation, so the deeper you go the more you take.',
+    objective: 'Whirl round Gorge and fly through the gate on 1.8 s of side thrusters, taking under 4 Sv of radiation.',
+    teaches: 'Thread inside the fence',
+    bodies: [
+      { id: 'gorge', name: 'Gorge', gm: 100000, radius: 10, horizon: 40, pw: 40, color: '#1a1020', kind: 'blackhole', radiation: { rate: 0.03, at: 300, dose: 4 } },
+      { id: 'posta', name: 'Fence Post A', gm: 0, radius: 3, color: C.station, kind: 'station', keepOut: 35, x: 250 * Math.cos(2.618), y: 250 * Math.sin(2.618) },
+      { id: 'postb', name: 'Fence Post B', gm: 0, radius: 3, color: C.station, kind: 'station', keepOut: 35, x: -250, y: 0 },
+      { id: 'postc', name: 'Fence Post C', gm: 0, radius: 3, color: C.station, kind: 'station', keepOut: 35, x: 250 * Math.cos(-2.618), y: 250 * Math.sin(-2.618) },
+    ],
+    ship: ship({ start: { free: { x: 1017.4, y: -587.5, vx: -14.75, vy: 0.85 } }, heading: Math.PI, dv: 1.8, accel: 1, rcs: { fuel: 1.8 } }),
+    goals: [{ type: 'reach', x: 1126, y: 419, r: 160, label: 'the gate' }],
+    par: 1.2, bounds: 5000, tMax: 250, predict: 250, view: { x: 400, y: 0, span: 2200 }, startCam: 'overview',
+  },
+  {
+    id: 'binary',
+    name: 'Binary',
+    intro: 'The black hole Abyss and the pulsar Tock circle each other, and you are caught between them on a sagging orbit round Abyss whose low point is already inside its unstable ring: in a lap or two it swallows you. Your tank cannot climb out of this well alone, so burn at your low point to throw your high point out to Tock\'s orbit, timed to arrive just behind Tock: it drags you along and flings you out of the system. The beams sweep that pass too, so pick the lap when they point away.',
+    objective: 'Get 2500 k from Abyss, taking under 6 Sv of radiation.',
+    teaches: 'Slingshot off a moving pulsar',
+    bodies: [
+      { id: 'abyss', name: 'Abyss', gm: 40000, radius: 8, horizon: 25, pw: 25, color: '#1a1020', kind: 'blackhole' },
+      { id: 'tock', name: 'Tock', gm: 10000, radius: 8, pw: 8, color: NEUTRON, kind: 'pulsar', radiation: { rate: 0.3, at: 300, dose: 6, beam: { width: 0.3, period: 60, phase: 0 } }, orbit: { parent: 'abyss', a: 500, phase: 0 } },
+    ],
+    ship: ship({ start: { conic: { body: 'abyss', pe: 130, e: 0.5, nu: Math.PI, angle: 0 } }, heading: 'prograde', dv: 3, accel: 1 }),
+    goals: [{ type: 'escape', body: 'abyss', r: 2500 }],
+    par: 2, bounds: 6000, tMax: 800, predict: 250, view: { x: 0, y: 0, span: 1600 }, startCam: 'overview',
   },
 ];
 
@@ -184,20 +214,43 @@ function encounter(m, id, skip, T) {
 }
 
 proofs.retrowhirl = {
-  // Leave Halo backward after p[0] s and keep burning until the dashed path,
-  // whirled round Lumen, comes back past Halo's far side (clockwise) within
-  // p[1]; at that low point brake until the high point is down to p[2].
-  p: [35, 100, 120], scale: [1, 10, 5],
+  // Leave Halo backward after p[0] s until the dive's low point is p[1].
+  // On the climb back out, p[2] k from Lumen, steer (p[3] from prograde)
+  // until the dashed path passes Halo's far side (clockwise) within p[4];
+  // at that low point brake until the high point is down to p[5].
+  p: [104.332, 67.437, 386.182, -0.014, 100, 133.452], scale: [1, 2, 30, 0.3, 10, 5],
   script: (p, AP) => [
     { wait: Math.max(0, p[0]) },
-    { burn: 'pro', rel: 'halo', until: (m) => { if (m.dvUsed() < 1) return false; const e = encounter(m, 'halo', 200, 600); return e.sense === -1 && e.d <= p[1]; } },
-    { coast: (m) => dist(m, 'lumen') < 200 },
+    { burn: 'pro', rel: 'halo', until: (m) => m.dvUsed() > 1 && (c => c <= p[1] && c > 45)(closest(m, 'lumen', 400)) },
+    { coast: (m) => dist(m, 'lumen') < 150 },
+    { coast: (m) => dist(m, 'lumen') > p[2] },
+    { burn: p[3], rel: 'lumen', max: 3, until: (m) => { const e = encounter(m, 'halo', 0, 700); return e.sense === -1 && e.d <= p[4] && e.d >= 72; } },
     { coast: (m) => dist(m, 'halo') < 300 && radv(m, 'halo') > 0 },
-    { burn: 'retro', rel: 'halo', until: (m) => { const o = AP.orb(m, 'halo'); return o.bound && o.ap <= p[2]; } },
+    { burn: 'retro', rel: 'halo', until: (m) => { const o = AP.orb(m, 'halo'); return o.bound && o.ap <= p[5]; } },
+  ],
+};
+
+proofs.horizonfence = {
+  // Turn to face Gorge's side of your line (straight up the screen) and burn
+  // with p[0] of Δv: the pass drops inside the fence and whirls to the gate.
+  p: [1.15], scale: [0.05], opts: { turn: true, turnRate: 0.4 },
+  script: (p) => [
+    { burn: () => Math.PI / 2, until: (m) => m.dvUsed() >= p[0] },
   ],
 };
 
 const fails = {
+  horizonfence: [
+    { name: 'hold course', steps: () => [] },
+    { name: 'take the wide line outside the fence', opts: { turn: true, turnRate: 0.4 }, steps: () => [{ burn: () => -Math.PI / 2, until: (m) => m.dvUsed() >= 1.1 }] },
+    { name: 'dive deeper for a bigger whirl', opts: { turn: true, turnRate: 0.4 }, steps: () => [{ burn: () => Math.PI / 2, until: (m) => m.dvUsed() >= 1.6 }] },
+    { name: 'flip fast (holding the keys)', opts: { turn: true, turnRate: 1.6 }, steps: (AP) => proofs.horizonfence.script(proofs.horizonfence.p, AP) },
+  ],
+  retrowhirl: [
+    { name: 'flip the orbit round in place', steps: (AP) => [{ burn: 'retro', rel: 'halo', until: (m) => AP.orb(m, 'halo').dir === -1 && AP.orb(m, 'halo').ap >= 60 }] },
+    { name: 'leave on the first lap', steps: (AP) => proofs.retrowhirl.script([34].concat(proofs.retrowhirl.p.slice(1)), AP) },
+    { name: 'leave a lap later', steps: (AP) => proofs.retrowhirl.script([176].concat(proofs.retrowhirl.p.slice(1)), AP) },
+  ],
   slingdrop: [
     { name: 'release the probe at once', steps: (AP) => proofs.slingdrop.script([0, 860], AP) },
     { name: 'release at the bottom, before the beam', steps: (AP) => proofs.slingdrop.script([55.2, 860], AP) },

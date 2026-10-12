@@ -20,15 +20,16 @@ const dvBurn = (dir, rel, amount) => {
 // a closing speed toward it, at most vMax, k per unit distance).
 function meet(id, vMax, k) {
   return {
-    control: (m) => {
+    control: (m, ctx) => {
       if (m.goalIndex > 0 || m.status !== 'flying') return { done: true };
       const sys = m.sys; sys.update(m.t);
       const i = sys.byId[id].index, s = m.ship;
       const dx = sys.px[i] - s.x, dy = sys.py[i] - s.y, d = Math.hypot(dx, dy) || 1;
       const sp = Math.min(vMax, k * d);
-      const ex = sys.vx[i] + sp * dx / d - s.vx, ey = sys.vy[i] + sp * dy / d - s.vy;
-      if (Math.hypot(ex, ey) < 0.05) return { thrust: false, dt: 0.05 };
-      return { thrust: true, angle: Math.atan2(ey, ex) };
+      const ex = sys.vx[i] + sp * dx / d - s.vx, ey = sys.vy[i] + sp * dy / d - s.vy, e = Math.hypot(ex, ey);
+      if (ctx.burning ? e < 0.02 : e < 0.1) { ctx.burning = false; return { thrust: false, angle: null, dt: 0.05 }; }
+      ctx.burning = true;
+      return { thrust: true, angle: Math.atan2(ey, ex), tol: 0.1 };
     },
   };
 }
@@ -88,16 +89,51 @@ const levels = [
   {
     id: 'retrorelay',
     name: 'Retrograde Relay',
-    intro: 'TODO',
-    objective: 'TODO',
+    intro: 'You are coming past Brand on a fast flyby, clockwise, the same way Relay Tern circles close in to the star. Down at the relay\'s height Brand burns at almost 2 Sv a second, so you can\'t afford to wait there for it to come round. Brake at your low point into a long lap far out, where the light is weak, and choose its length so that when you drop your low point to the relay\'s height from the top, you both get there together. Brake at the bottom to match its speed.',
+    objective: 'Rendezvous with Relay Tern (within 10 k, relative speed under 0.6 k/s), taking under 165 Sv of radiation.',
     teaches: 'Phase far out, meet close in',
     bodies: [
-      { id: 'brand', name: 'Brand', gm: 40000, radius: 45, color: C.sun2, kind: 'star', radiation: { rate: 1, at: 300, dose: 1000 } },
-      { id: 'tern', name: 'Relay Tern', gm: 0, radius: 4, color: C.station, kind: 'station', orbit: { parent: 'brand', a: 220, dir: -1, phase: 0 } },
+      { id: 'brand', name: 'Brand', gm: 40000, radius: 45, color: C.sun2, kind: 'star', radiation: { rate: 1, at: 300, dose: 165 } },
+      { id: 'tern', name: 'Relay Tern', gm: 0, radius: 4, color: C.station, kind: 'station', orbit: { parent: 'brand', a: 220, dir: -1, phase: 6.1248 } },
     ],
-    ship: ship({ start: { conic: { body: 'brand', pe: 220, e: 1.1, nu: -1.6, angle: 2.4, dir: -1 } }, heading: 'retrograde', dv: 9, accel: 1.5 }),
+    ship: ship({ start: { conic: { body: 'brand', pe: 600, e: 1.1, nu: -1.2, angle: 2.4, dir: -1 } }, heading: 'retrograde', dv: 12, accel: 1.5 }),
     goals: [{ type: 'rendezvous', body: 'tern', dist: 10, relVel: 0.6 }],
-    par: 6, bounds: 4000, tMax: 1500, predict: 400, view: { x: 0, y: 0, span: 2400 }, startCam: 'overview',
+    par: 8.4, bounds: 4000, tMax: 1100, predict: 400, view: { x: 0, y: 0, span: 2400 }, startCam: 'overview',
+  },
+  {
+    id: 'patrolshift',
+    name: 'Patrol Shift',
+    intro: 'Outpost Kestrel shares your orbit, well ahead of you, and you have to catch it. A lower, faster lap would catch it in one go, but that close in Forge would cook you. The cool lane outside is patrolled by three guards circling the other way, each in a red keep-out zone. Raise your high point so one lap lasts long enough for Kestrel to come all the way round to you, leave when your dashed path slips between the patrols both ways, and brake to match Kestrel when you meet.',
+    objective: 'Rendezvous with Outpost Kestrel (within 10 k, relative speed under 0.6 k/s) without entering a patrol zone, taking under 140 Sv of radiation.',
+    teaches: 'Phasing in the cool lane',
+    bodies: [
+      { id: 'forge', name: 'Forge', gm: 40000, radius: 45, color: C.sun, kind: 'star', radiation: { rate: 1, at: 300, dose: 140 } },
+      { id: 'outpost', name: 'Outpost Kestrel', gm: 0, radius: 4, color: C.station, kind: 'station', orbit: { parent: 'forge', a: 500, phase: 2.583 } },
+      { id: 'pat1', name: 'Patrol 1', gm: 0, radius: 4, color: C.station, kind: 'station', keepOut: 50, orbit: { parent: 'forge', a: 700, dir: -1, phase: 1.8 } },
+      { id: 'pat2', name: 'Patrol 2', gm: 0, radius: 4, color: C.station, kind: 'station', keepOut: 50, orbit: { parent: 'forge', a: 700, dir: -1, phase: 1.8 + 2 * Math.PI / 3 } },
+      { id: 'pat3', name: 'Patrol 3', gm: 0, radius: 4, color: C.station, kind: 'station', keepOut: 50, orbit: { parent: 'forge', a: 700, dir: -1, phase: 1.8 + 4 * Math.PI / 3 } },
+    ],
+    ship: ship({ start: { orbit: { body: 'forge', r: 500, angle: 0 } }, heading: 'prograde', dv: 2.8, accel: 1 }),
+    goals: [{ type: 'rendezvous', body: 'outpost', dist: 10, relVel: 0.6 }],
+    par: 1.9, bounds: 4000, tMax: 1100, predict: 400, view: { x: 0, y: 0, span: 2000 },
+  },
+  {
+    id: 'solarsurvey',
+    name: 'Solar Survey',
+    intro: 'TODO',
+    objective: 'TODO',
+    teaches: 'A constellation on dose budgets',
+    bodies: [
+      { id: 'lumen', name: 'Lumen', gm: 40000, radius: 45, color: C.sun, kind: 'star', radiation: { rate: 0.5, at: 300, dose: 1000 } },
+    ],
+    ship: ship({ start: { conic: { body: 'lumen', pe: 210, e: 0.3115, nu: 2.5, angle: 0 } }, heading: 'prograde', dv: 14, accel: 1, cargo: [
+      { id: 'sv1', name: 'Survey 1', mass: 0.2, dose: 1000 }, { id: 'sv2', name: 'Survey 2', mass: 0.2, dose: 1000 }, { id: 'sv3', name: 'Survey 3', mass: 0.2, dose: 1000 },
+    ] }),
+    goals: [
+      { type: 'spread', body: 'lumen', crafts: ['sv1', 'sv2', 'sv3'], rMin: 360, rMax: 450, minSep: 100 * Math.PI / 180 },
+      { type: 'orbit', body: 'lumen', rMin: 745, rMax: 1045, label: 'Parking orbit' },
+    ],
+    par: 4, bounds: 4000, tMax: 1000, predict: 400, view: { x: 0, y: 0, span: 2200 },
   },
 ];
 
@@ -131,18 +167,83 @@ const proofs = {
     ],
   },
   retrorelay: {
-    p: [10, 1150, 120], scale: [4, 20, 20],
+    p: [5, 1000, 232, 221], scale: [3, 10, 4, 1],
     script: (p, AP) => [
       { coast: (m) => { const o = AP.orb(m, 'brand'); return o.r < o.pe + Math.max(0, p[0]); } },
       { burn: 'retro', rel: 'brand', until: (m) => { const o = AP.orb(m, 'brand'); return o.bound && o.ap <= p[1]; } },
+      { coast: (m) => AP.orb(m, 'brand').rising },
       { coast: (m) => !AP.orb(m, 'brand').rising },
-      { coast: (m) => dist(m, 'tern') < p[2] || AP.orb(m, 'brand').rising },
-      meet('tern', 10, 0.04),
+      { burn: 'retro', rel: 'brand', until: (m) => AP.orb(m, 'brand').pe <= p[3] },
+      { coast: (m) => { const o = AP.orb(m, 'brand'); return o.r < o.pe + 2; } },
+      { burn: 'retro', rel: 'brand', until: (m) => { const o = AP.orb(m, 'brand'); return o.ap <= Math.max(p[2], o.r + 2); } },
+      meet('tern', 1.5, 0.04),
     ],
+  },
+  patrolshift: {
+    p: [14, 861.671, 8.383], scale: [3, 5, 4],
+    script: (p, AP) => [
+      { wait: Math.max(0, p[0]) },
+      { burn: 'pro', rel: 'forge', until: (m) => AP.orb(m, 'forge').ap >= p[1] },
+      { coast: (m) => AP.orb(m, 'forge').rising },
+      { coast: (m) => !AP.orb(m, 'forge').rising && AP.orb(m, 'forge').r < 510 },
+      { coast: (m) => dist(m, 'outpost') < p[2] || AP.orb(m, 'forge').rising },
+      { burn: 'retro', rel: 'forge', until: (m) => { const o = AP.orb(m, 'forge'); return o.ap <= Math.max(505, o.r + 2); } },
+      meet('outpost', 1.5, 0.04),
+    ],
+  },
+  solarsurvey: {
+    p: [399.138, 211.042, 218.911, 944.496, 827.163], scale: [1, 3, 3, 20, 20],
+    script: (p, AP) => {
+      const top = { coast: (m) => !AP.orb(m, 'lumen').rising };
+      const lap = (q) => [
+        { burn: 'retro', rel: 'lumen', until: (m) => AP.orb(m, 'lumen').pe <= q },
+        { coast: (m) => AP.orb(m, 'lumen').rising }, Object.assign({}, top),
+        { burn: 'pro', rel: 'lumen', until: (m) => AP.orb(m, 'lumen').pe >= p[0] },
+        { drop: true },
+      ];
+      return [
+        top,
+        { burn: 'pro', rel: 'lumen', until: (m) => AP.orb(m, 'lumen').pe >= p[0] },
+        { drop: true },
+        ...lap(p[1]), ...lap(p[2]),
+        { burn: 'pro', rel: 'lumen', until: (m) => AP.orb(m, 'lumen').ap >= p[3] },
+        { coast: (m) => AP.orb(m, 'lumen').rising },
+        { coast: (m) => !AP.orb(m, 'lumen').rising },
+        { burn: 'pro', rel: 'lumen', until: (m) => AP.orb(m, 'lumen').pe >= p[4] },
+      ];
+    },
   },
 };
 
 const fails = {
+  patrolshift: [
+    { name: 'catch it on a fast lap in the hot inner lane', steps: (AP) => [
+      { burn: 'retro', rel: 'forge', until: (m) => AP.orb(m, 'forge').pe <= 200 },
+      { coast: (m) => AP.orb(m, 'forge').rising },
+      { coast: (m) => !AP.orb(m, 'forge').rising },
+      { burn: 'pro', rel: 'forge', until: (m) => { const o = AP.orb(m, 'forge'); return o.pe >= Math.min(495, o.r - 2); } },
+      meet('outpost', 1.5, 0.04),
+    ] },
+    { name: 'climb into the cool lane at once', steps: (AP) => proofs.patrolshift.script([0].concat(proofs.patrolshift.p.slice(1)), AP) },
+    { name: 'wait a lap for a clear look, then climb', steps: (AP) => proofs.patrolshift.script([proofs.patrolshift.p[0] + 351].concat(proofs.patrolshift.p.slice(1)), AP) },
+  ],
+  retrorelay: [
+    { name: 'dive in at once and chase the relay down there', steps: (AP) => [
+      { coast: (m) => { const o = AP.orb(m, 'brand'); return o.r < o.pe + 5; } },
+      { burn: 'retro', rel: 'brand', until: (m) => AP.orb(m, 'brand').pe <= 221 },
+      { coast: (m) => { const o = AP.orb(m, 'brand'); return o.r < o.pe + 2; } },
+      { burn: 'retro', rel: 'brand', until: (m) => { const o = AP.orb(m, 'brand'); return o.ap <= Math.max(232, o.r + 2); } },
+      meet('tern', 6, 0.04),
+    ] },
+    { name: 'dive in at once and wait on a phasing lap down there', steps: (AP) => [
+      { coast: (m) => { const o = AP.orb(m, 'brand'); return o.r < o.pe + 5; } },
+      { burn: 'retro', rel: 'brand', until: (m) => AP.orb(m, 'brand').pe <= 221 },
+      { coast: (m) => { const o = AP.orb(m, 'brand'); return o.r < o.pe + 2; } },
+      { burn: 'retro', rel: 'brand', until: (m) => AP.orb(m, 'brand').ap <= 300 },
+      { coast: (m) => dist(m, 'tern') < 40 },
+      meet('tern', 1.5, 0.04),
+    ] },
+  ],
   hotbooster: [
     { name: 'drop the booster once the dive is set', steps: (AP) => [
       { burn: 'retro', rel: 'kiln', until: (m) => AP.orb(m, 'kiln').pe <= 110 },

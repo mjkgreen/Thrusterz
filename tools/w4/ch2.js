@@ -2,6 +2,28 @@
 // star and you blocks its radiation completely. See tools/w4/README.md.
 'use strict';
 const { ship, C, belt, VE } = require('../../js/levels.js');
+const Phys = require('../../js/physics.js');
+
+// Closest the ship's coasting path comes to a body within T seconds (what
+// the predicted path shows), cached for 0.03 s of mission time.
+function closest(m, id, T) {
+  const c = m._closest || (m._closest = {}), key = id + ':' + T;
+  if (c[key] && m.t - c[key].t < 0.03 && m.t >= c[key].t) return c[key].d;
+  const sys = m.sys, i = sys.byId[id].index, s = { x: m.ship.x, y: m.ship.y, vx: m.ship.vx, vy: m.ship.vy }, bp = [0, 0];
+  let t = m.t, best = Infinity;
+  while (t < m.t + T) {
+    const dt = Phys.coastDt(sys, s, t, 0.05, 1);
+    Phys.rk4(sys, s, t, dt, 0, 0);
+    t += dt;
+    sys.posAt(i, t, bp);
+    best = Math.min(best, Math.hypot(s.x - bp[0], s.y - bp[1]));
+    const hit = Phys.collision(sys, s.x, s.y, t);
+    if (hit >= 0) { if (hit !== i) best = Math.max(best, 1e6); break; }
+  }
+  sys.update(m.t);
+  c[key] = { t: m.t, d: best };
+  return best;
+}
 
 // Distance from the ship (or an object) to a body.
 const dist = (m, id, o) => { const s = o || m.ship; m.sys.update(m.t); const i = m.sys.byId[id].index; return Math.hypot(s.x - m.sys.px[i], s.y - m.sys.py[i]); };
@@ -24,7 +46,7 @@ const park = (k, vmax, tol, max) => ({
     const g = m.currentGoal();
     if (!g || g.type !== 'hold') return { done: true };
     const P = m.goalPoint(g), s = m.ship;
-    const dx = P.x - s.x, dy = P.y - s.y, d = Math.hypot(dx, dy), c = Math.min(vmax, k * d) / Math.max(d, 1e-9);
+    const dx = P.x - s.x, dy = P.y - s.y, d = Math.hypot(dx, dy), c = Math.min(vmax, k * d, Math.sqrt(0.6 * m.thrustAccel() * d)) / Math.max(d, 1e-9);
     const ex = P.vx + dx * c - s.vx, ey = P.vy + dy * c - s.vy;
     if (Math.hypot(ex, ey) < tol) return { thrust: false, angle: null, dt: 0.05 };
     return { thrust: true, angle: Math.atan2(ey, ex) };
@@ -72,6 +94,48 @@ const SINK = behindGloam(215, 6);
 const UMBRELLAS = [[340,0.2304,22],[380,0.4957,22],[420,0.7103,22],[465,0.9198,22],[510,1.0996,22],[560,1.2741,22],[610,1.4259,22]].map(([a, phase, radius], k) => ({
   id: 'brolly' + k, name: 'Umbrella ' + (k + 1), kind: 'rock', gm: 0, radius, color: '#8d8478', orbit: { parent: 'corona', a, phase },
 }));
+
+// Backward Moon: Kesh circles Mire the wrong way round. Hide in its shadow
+// by matching its speed on its night side.
+const KESH_N = Math.sqrt(6150 / (110 * 110 * 110));
+const KESH_T = 25;                                   // when Kesh sweeps past your start
+const KESH_PH = -0.35;
+// A point d behind a body, seen from the star (in its shadow), moving with it.
+const behind = (m, id, star, d) => {
+  const sys = m.sys; sys.update(m.t);
+  const i = sys.byId[id].index, j = sys.byId[star].index;
+  const ux = sys.px[i] - sys.px[j], uy = sys.py[i] - sys.py[j], u = Math.hypot(ux, uy);
+  return { x: sys.px[i] + d * ux / u, y: sys.py[i] + d * uy / u, vx: sys.vx[i], vy: sys.vy[i] };
+};
+// Fly to the point P(m) and move with it (like park).
+const chase = (P, k, vmax, tol, until, max) => ({
+  control: (m) => {
+    if (until(m)) return { done: true };
+    const q = P(m), s = m.ship;
+    const dx = q.x - s.x, dy = q.y - s.y, d = Math.hypot(dx, dy), c = Math.min(vmax, k * d, Math.sqrt(0.6 * m.thrustAccel() * d)) / Math.max(d, 1e-9);
+    const ex = q.vx + dx * c - s.vx, ey = q.vy + dy * c - s.vy;
+    if (Math.hypot(ex, ey) < tol) return { thrust: false, angle: null, dt: 0.05 };
+    return { thrust: true, angle: Math.atan2(ey, ex) };
+  },
+  max,
+});
+
+// Burn straight onto a circular orbit about a body at the current height
+// (dir 1 counter-clockwise).
+const circularize = (id, gm, dir) => ({
+  control: (m) => {
+    const sys = m.sys; sys.update(m.t);
+    const i = sys.byId[id].index, s = m.ship;
+    const rx = s.x - sys.px[i], ry = s.y - sys.py[i], r = Math.hypot(rx, ry), vc = Math.sqrt(gm / r);
+    const ex = sys.vx[i] - dir * vc * ry / r - s.vx, ey = sys.vy[i] + dir * vc * rx / r - s.vy;
+    if (Math.hypot(ex, ey) < 0.05) return { done: true };
+    return { thrust: true, angle: Math.atan2(ey, ex) };
+  },
+});
+
+// Junk in the Sun: Kiln Dock rides in Ash's shadow (parented to Ash, turning
+// with Ash's orbit so it stays on the night side).
+const ASH_N = Math.sqrt(46000 / (300 * 300 * 300));
 
 const levels = [
   {
@@ -136,6 +200,42 @@ const levels = [
     goals: [{ type: 'orbit', body: 'corona', rMin: 760, rMax: 860 }],
     par: 4.8, bounds: 4000, tMax: 900, predict: 300, view: { x: 0, y: 0, span: 1800 }, startCam: 'overview',
   },
+  {
+    id: 'backwardmoon',
+    name: 'Backward Moon',
+    intro: 'You are drifting out of Mire\'s shadow and sinking toward Mire, and once you are out in Ardent\'s light your 2.5 Sv will be gone in about ten seconds. Kesh, Mire\'s backward moon, is sweeping toward you the wrong way round, and its shadow sweeps with it. Burn now so you fall in just behind Kesh as it passes, on its night side, and match its speed to ride along in the dark. Wait for its next pass and the sunlight gets you first.',
+    objective: 'Stay within 35 k of Kesh, moving with it (under 1 k/s), for 10 s, taking under 2.5 Sv of radiation.',
+    teaches: 'A shadow that sweeps backward',
+    bodies: [
+      { id: 'ardent', name: 'Ardent', gm: 40000, radius: 45, color: C.sun2, kind: 'star', radiation: { rate: 1, at: 300, dose: 2.5 } },
+      { id: 'mire', name: 'Mire', gm: 6000, radius: 30, color: C.green, orbit: { parent: 'ardent', a: 520, phase: 0 } },
+      { id: 'kesh', name: 'Kesh', gm: 150, radius: 16, color: C.grey, orbit: { parent: 'mire', a: 110, phase: KESH_PH, dir: -1 } },
+    ],
+    ship: ship({ start: { orbit: { body: 'mire', r: 110, angle: 0, dir: -1, speed: 0.75 } }, heading: 'prograde', dv: 11.5, accel: 2 }),
+    goals: [{ type: 'hold', body: 'kesh', r: 35, hold: 10, relVel: 1, label: 'Kesh' }],
+    par: 7.9, bounds: 4000, tMax: 300, predict: 150, view: { x: 450, y: 0, span: 420 },
+  },
+  {
+    id: 'junkinthesun',
+    name: 'Junk in the Sun',
+    intro: 'TBD',
+    objective: 'Drop the booster into Forge, then orbit Ash between 20 and 60 k up, without any craft hitting Ash or entering Kiln Dock\'s zone, taking under 14 Sv of radiation.',
+    teaches: 'Dispose of a stage in the star',
+    bodies: [
+      { id: 'forge', name: 'Forge', gm: 40000, radius: 100, color: C.sun, kind: 'star', radiation: { rate: 0.15, at: 300, dose: 1000 } },
+      { id: 'ash', name: 'Ash', gm: 6000, radius: 30, color: C.red, protect: true, orbit: { parent: 'forge', a: 300, phase: 0 } },
+      { id: 'dock', name: 'Kiln Dock', gm: 0, radius: 3, color: C.station, kind: 'station', keepOut: 30, zone: 'all', orbit: { parent: 'ash', a: 110, n: ASH_N, phase: 0, reflex: false } },
+    ],
+    ship: ship({ start: { orbit: { body: 'ash', r: 50, angle: 0 } }, heading: 'prograde', stack: [
+      { id: 'booster', name: 'Booster', dv: 6.5, accel: 1 },
+      { name: 'Sun probe', dv: 4, accel: 0.8, dry: 0.5, sprite: 'satellite' },
+    ] }),
+    goals: [
+      { type: 'hit', body: 'forge', craft: 'booster', deorbit: true },
+      { type: 'orbit', body: 'forge', rMin: 150, rMax: 330 },
+    ],
+    par: 9, bounds: 4000, tMax: 400, predict: 200, view: { x: 150, y: 0, span: 700 }, startCam: 'overview',
+  },
 ];
 
 const proofs = {
@@ -180,6 +280,30 @@ proofs.umbrellafield = {
     { burn: 'pro', until: (m) => AP.orb(m, 'corona').ap >= p[1] },
     { coast: (m) => !AP.orb(m, 'corona').rising },
     { burn: 'pro', until: (m) => AP.orb(m, 'corona').pe >= p[2] },
+  ],
+};
+
+proofs.backwardmoon = {
+  // Burn once to fall in behind Kesh as it sweeps past, then hold in its shadow.
+  p: [0.017, -0.406, 3.523, 16.435, 35.01, 0.188, 2.52, 0.383], scale: [2, 0.4, 1, 8, 6, 0.05, 0.5, 0.1],
+  script: (p, AP) => {
+    const P = (m) => behind(m, 'kesh', 'ardent', p[4]);
+    return [
+      { wait: Math.max(0, p[0]) },
+      ...dvBurn((m) => p[1], null, Math.abs(p[2])),
+      { coast: (m) => { const q = P(m); return Math.hypot(q.x - m.ship.x, q.y - m.ship.y) < p[3] || m.t > 120; } },
+      chase(P, p[5], p[6], Math.max(0.05, p[7]), (m) => m.status !== 'flying', 280),
+    ];
+  },
+};
+
+proofs.junkinthesun = {
+  p: [8, 101, 160, -1], scale: [3, 2, 10, 0.5],
+  script: (p, AP) => [
+    { wait: Math.max(0, p[0]) },
+    { burn: 'pro', rel: 'ash', until: (m) => closest(m, 'forge', 150) <= p[1] },
+    { deploy: true },
+    { burn: p[3], rel: 'forge', until: (m) => closest(m, 'forge', 150) >= p[2] },
   ],
 };
 
@@ -240,6 +364,20 @@ const fails = {
         return { thrust: true, angle: Math.atan2(dy, dx) };
       } },
     ] },
+  ],
+  backwardmoon: [
+    { name: 'catch Kesh on its sunlit side', steps: (AP) => {
+      const p = proofs.backwardmoon.p.slice(); p[4] = -30;
+      return [chase((m) => behind(m, 'kesh', 'ardent', p[4]), p[5], p[6], p[7], (m) => m.status !== 'flying', 280)];
+    } },
+    { name: 'drift and wait for Kesh to come round again', steps: (AP) => {
+      const p = proofs.backwardmoon.p.slice(); p[0] = 40;
+      return proofs.backwardmoon.script(p, AP);
+    } },
+    { name: 'the same plan, 6 s late', steps: (AP) => {
+      const p = proofs.backwardmoon.p.slice(); p[0] = 6;
+      return proofs.backwardmoon.script(p, AP);
+    } },
   ],
 };
 

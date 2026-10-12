@@ -8,6 +8,10 @@ const { ship, C } = require('../../js/levels.js');
 
 const PULSAR = '#e4dcff';
 // Nox's year round Argus (its rail includes its own mass): the beam turns with it.
+// The 400 k orbit round Lyre turns exactly with its beams.
+const LYRE_SYNC = 2 * Math.PI / Math.sqrt(20000 / 400 ** 3);
+// The 500 k orbit round Corvus turns exactly with its beams.
+const CORVUS_SYNC = 2 * Math.PI / Math.sqrt(10000 / 500 ** 3);
 const NOX_YEAR = 2 * Math.PI / Math.sqrt(44000 / 1500 ** 3);
 
 // Distance from the ship (or an object) to a body.
@@ -102,7 +106,7 @@ const levels = [
   {
     id: 'widdershins',
     name: 'Wrong Way Round',
-    intro: 'A beam from Vela is about to sweep over you, and it turns almost as fast as you go round: going with it, it would sit on you for most of a minute. Against its spin it is gone in seconds. Flip now and burn retrograde right through a stop until you are going round the other way, on a path up to Widdershins Station, which orbits backwards. Then meet it and match its speed. Climbing first and turning round up high is cheaper, but the beam is already on you.',
+    intro: 'A beam from Vela is about to sweep over you, and it turns almost as fast as you go round: going with it, it would sit on you for most of a minute, but against its spin it is gone in seconds. Climbing first and turning round up high would be cheaper, and far too slow. Flip now and burn retrograde right through a stop until you are going round the other way, on a path up to Widdershins Station, which orbits backwards. Then meet it and match its speed.',
     objective: 'Rendezvous with Widdershins Station (within 10 k, relative speed under 0.3 k/s), taking under 7 Sv of radiation.',
     teaches: 'Cross the beam against its spin',
     bodies: [
@@ -144,12 +148,43 @@ const levels = [
     goals: [{ type: 'hit', body: 'nox', site: { angle: 0, width: 1.2 }, label: 'Night side' }],
     par: 2.1, bounds: 4000, tMax: 400, predict: 200, view: { x: 1500, y: 0, span: 900 },
   },
+  {
+    id: 'beampatrol',
+    name: 'Beam Patrol',
+    intro: 'Sentry patrols guard the lane you are drifting along, each inside a red keep-out zone, and Sentry 1 is closing in from behind. Your way out is down to the 400 k band, where an orbit turns exactly with Lyre\'s beams: arrive between them and they never reach you, arrive in one and it sits on you. Dive now and you land in a beam, wait in the lane and the sentry gets you, and lower down the sweeps burn you. So brake just a touch to pull ahead of the sentry, then dive when the gap comes round.',
+    objective: 'Orbit Lyre between 380 and 420 k without entering a keep-out zone, taking under 8 Sv of radiation.',
+    teaches: 'Line up patrol gaps and beam gaps',
+    bodies: [
+      { id: 'lyre', name: 'Lyre', gm: 20000, radius: 10, color: PULSAR, kind: 'pulsar', radiation: { rate: 0.1, at: 400, dose: 8, beam: { width: 1.2, period: LYRE_SYNC, phase: 1.6 } } },
+      ...[1, 2, 3].map((k) => ({ id: 'sentry' + k, name: 'Sentry ' + k, gm: 0, radius: 4, color: C.station, kind: 'station', keepOut: 45, orbit: { parent: 'lyre', a: 600, phase: -0.1 + (k - 1) * 2 * Math.PI / 3 } })),
+    ],
+    ship: ship({ start: { conic: { body: 'lyre', pe: 590, e: 0.03, nu: 0, angle: 0 } }, heading: 'prograde', dv: 2.2, accel: 1 }),
+    goals: [{ type: 'orbit', body: 'lyre', rMin: 380, rMax: 420 }],
+    par: 1.45, bounds: 3000, tMax: 900, predict: 300, view: { x: 0, y: 0, span: 1500 }, startCam: 'overview',
+  },
+  {
+    id: 'keeper',
+    name: 'Keeper\'s Station',
+    intro: 'Keeper\'s Station rides the 500 k orbit, which turns exactly with Corvus\'s beams, so it sits between them forever, and so do you, on the far side. To catch up you have to dive and cross a beam. Dive too shallow and the beam turns nearly with you and lingers; deep down it crosses fast. Round off low on the booster and drop it there (the stage button), where its orbit stays clear of the station, then climb with the upper stage to meet the station and match its speed.',
+    objective: 'Rendezvous with Keeper\'s Station (within 10 k, relative speed under 0.3 k/s), taking under 11 Sv of radiation, with no spent stage on an orbit that crosses the station\'s.',
+    teaches: 'Phase through a beam · stage where it is safe',
+    bodies: [
+      { id: 'corvus', name: 'Corvus', gm: 10000, radius: 10, color: PULSAR, kind: 'pulsar', radiation: { rate: 0.11, at: 500, dose: 11, beam: { width: 0.3, period: CORVUS_SYNC, phase: Math.PI / 2 } } },
+      { id: 'keeper', name: 'Keeper\'s Station', gm: 0, radius: 4, color: C.station, kind: 'station', protect: true, protectRadius: 30, orbit: { parent: 'corvus', a: 500, phase: Math.PI } },
+    ],
+    ship: ship({ start: { orbit: { body: 'corvus', r: 500, angle: 0 } }, heading: 'prograde', stack: [
+      { name: 'Booster', dv: 1.4, accel: 1 },
+      { name: 'Upper stage', dv: 1.4, accel: 0.6, dry: 0.4, sprite: 'satellite' },
+    ] }),
+    goals: [{ type: 'rendezvous', body: 'keeper', dist: 10, relVel: 0.3 }],
+    par: 1.8, bounds: 3000, tMax: 1300, predict: 300, view: { x: 0, y: 0, span: 1300 }, startCam: 'overview',
+  },
 ];
 
 const proofs = {
   beacon: {
     // Burn prograde at once, well past escape, so the beam finds you far out.
-    p: [3.016, 0.149], scale: [0.3, 0.3],
+    p: [3.2, 0.149], scale: [0.3, 0.3],
     script: (p) => [
       { burn: p[1], until: (m) => m.dvUsed() >= p[0] },
     ],
@@ -188,6 +223,33 @@ const proofs = {
       hold((m) => m.t >= p[0]),
       burnHere((m) => AP.orb(m, 'nox').h * AP.orb(m, 'nox').dir <= p[1]),
       hold(() => false),
+    ],
+  },
+  beampatrol: {
+    // Drop just under the lane so Sentry 1 passes overhead, wait for the
+    // beam gap to come round, then dive to the 400 k band and round off.
+    p: [580.897, 256.179, 408.134], scale: [8, 20, 5], opts: { turn: true, turnRate: 0.3 },
+    script: (p, AP) => [
+      { burn: 'retro', until: (m) => AP.orb(m, 'lyre').pe <= p[0] },
+      hold((m) => m.t >= p[1]),
+      { burn: 'retro', until: (m) => AP.orb(m, 'lyre').pe <= p[2] },
+      { coast: (m) => { const o = AP.orb(m, 'lyre'); return o.rising && o.r < 450; } },
+      { burn: 'retro', until: (m) => AP.orb(m, 'lyre').ap <= 410 },
+    ],
+  },
+  keeper: {
+    // Dive and round off low on the booster, drop it there (its orbit is
+    // clear of the station's), wait for the beam to cross, climb and meet.
+    p: [342.018, 531.363, 11.881], scale: [6, 8, 6], opts: { turn: true, turnRate: 0.3 },
+    script: (p, AP) => [
+      { burn: 'retro', until: (m) => AP.orb(m, 'corvus').pe <= p[0] },
+      { coast: (m) => { const o = AP.orb(m, 'corvus'); return o.rising && o.r < p[0] + 30; } },
+      { burn: 'retro', until: (m) => AP.orb(m, 'corvus').ap <= p[0] + 3 },
+      { deploy: true },
+      hold((m) => m.t >= p[1]),
+      { burn: 'pro', until: (m) => AP.orb(m, 'corvus').ap >= 500 },
+      { coast: (m) => dist(m, 'keeper') < p[2] },
+      meet('keeper', 0.03, 0.6),
     ],
   },
 };
@@ -229,6 +291,26 @@ const fails = {
     { name: 'let the autopilot aim at the marker', opts: { turn: true }, steps: (AP) => [
       { burn: 'retro', rel: 'nox', until: (m) => AP.orb(m, 'nox').h * AP.orb(m, 'nox').dir <= proofs.darkturn.p[1] },
     ] },
+  ],
+  beampatrol: [
+    { name: 'dive now', opts: { turn: true, turnRate: 0.3 }, steps: (AP) => proofs.beampatrol.script([590, 0, 400], AP).slice(1) },
+    { name: 'wait in the lane for the gap, then dive', opts: { turn: true, turnRate: 0.3 }, steps: (AP) => proofs.beampatrol.script(proofs.beampatrol.p, AP).slice(1) },
+    { name: 'wait well below the lane (500 k), then dive', opts: { turn: true, turnRate: 0.3 }, steps: (AP) => proofs.beampatrol.script([500].concat(proofs.beampatrol.p.slice(1)), AP) },
+  ],
+  keeper: [
+    { name: 'drop the booster once you are on your way down', opts: { turn: true, turnRate: 0.3 }, steps: (AP) => {
+      const s = proofs.keeper.script(proofs.keeper.p, AP);
+      return [s[0], { deploy: true }, ...s.slice(1, 3), ...s.slice(4)];
+    } },
+    { name: 'drop the booster at the low point, before rounding off', opts: { turn: true, turnRate: 0.3 }, steps: (AP) => {
+      const s = proofs.keeper.script(proofs.keeper.p, AP);
+      return [s[0], s[1], { deploy: true }, s[2], ...s.slice(4)];
+    } },
+    { name: 'dive shallow (400 k) on the booster alone', opts: { turn: true, turnRate: 0.3 }, steps: (AP) => {
+      // the best departure time for this depth, so only the beam can stop it
+      const s = proofs.keeper.script([400, 920, 15], AP);
+      return [...s.slice(0, 3), ...s.slice(4)];
+    } },
   ],
 };
 

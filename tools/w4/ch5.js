@@ -72,14 +72,53 @@ const levels = [
     teaches: 'Drop between sweeps · turn before the drop',
     bodies: [
       { id: 'talon', name: 'Talon', gm: 40000, radius: 8, color: '#e4dcff', kind: 'pulsar', radiation: { rate: 0.2, at: 300, dose: 20, beam: { width: 0.3, period: 80, phase: 0 } } },
-      { id: 'orrin', name: 'Orrin', gm: 600, radius: 14, color: C.tan, keepOut: 45, orbit: { parent: 'talon', a: 560, phase: 2.5, dir: -1 } },
+      { id: 'orrin', name: 'Orrin', gm: 600, radius: 14, color: C.tan, keepOut: 60, orbit: { parent: 'talon', a: 560, phase: 2.5, dir: -1 } },
     ],
-    ship: ship({ start: { orbit: { body: 'talon', r: 300, angle: 0 } }, heading: 'prograde', dv: 5, accel: 1, rcs: { fuel: 10 }, cargo: [{ id: 'pod', name: 'Supply pod', mass: 0.3, dose: 0.3 }] }),
+    ship: ship({ start: { orbit: { body: 'talon', r: 300, angle: 0 } }, heading: 'prograde', dv: 4.5, accel: 1, rcs: { fuel: 4.8 }, cargo: [{ id: 'pod', name: 'Supply pod', mass: 0.3, dose: 0.5 }] }),
     goals: [
-      { type: 'reach', body: 'orrin', craft: 'pod', r: 25, label: 'Orrin Base' },
-      { type: 'orbit', body: 'talon', rMin: 250, rMax: 500 },
+      { type: 'hit', body: 'orrin', craft: 'pod' },
+      { type: 'orbit', body: 'talon', rMin: 200, rMax: 510 },
     ],
-    par: 2, bounds: 3000, tMax: 900, predict: 300, view: { x: 0, y: 0, span: 1500 },
+    par: 3.1, bounds: 3000, tMax: 400, predict: 300, view: { x: 0, y: 0, span: 1500 },
+  },
+  {
+    id: 'beamrescue',
+    name: 'Rescue in the Beam',
+    intro: 'TBD',
+    objective: 'TBD',
+    teaches: 'Rendezvous between sweeps · shelter at L2',
+    bodies: [
+      { id: 'vesper', name: 'Vesper', gm: 40000, radius: 8, color: '#e4dcff', kind: 'pulsar', radiation: { rate: 0.6, at: 400, dose: 10, beam: { width: 0.35, period: 100, phase: 1.0 } } },
+      { id: 'umbriel', name: 'Umbriel', gm: 1500, radius: 30, color: '#7d8fa8', orbit: { parent: 'vesper', a: 650, phase: 2.2 } },
+      { id: 'wren', name: 'Wren', gm: 0, radius: 3, color: C.station, kind: 'station', orbit: { parent: 'vesper', a: 420, e: 0.2, phase: 0.6, argp: 0 } },
+    ],
+    ship: ship({ start: { conic: { body: 'vesper', pe: 330, e: 0.21, nu: 0.8, angle: 0 } }, heading: 'prograde', dv: 7.6, accel: 1 }),
+    goals: [
+      { type: 'rendezvous', body: 'wren', dist: 12, relVel: 0.8 },
+      { type: 'hold', lagrange: { body: 'umbriel', lead: 0, scale: 1.24721 }, r: 20, hold: 10, label: 'Umbriel L2' },
+    ],
+    par: 5.4, bounds: 3000, tMax: 450, predict: 300, view: { x: 0, y: 0, span: 1800 },
+  },
+  {
+    id: 'pulsartour',
+    name: 'Pulsar Tour',
+    intro: 'TBD',
+    objective: 'TBD',
+    teaches: 'Everything at once',
+    bodies: [
+      { id: 'lumen', name: 'Lumen', gm: 40000, radius: 8, color: '#e4dcff', kind: 'pulsar', radiation: { rate: 1, at: 244, dose: 1500, beam: { width: 0.3, period: 120, phase: 0 } } },
+      { id: 'beacon', name: 'Beacon', gm: 0, radius: 4, color: C.station, kind: 'station', protect: true, protectRadius: 15, orbit: { parent: 'lumen', a: 380, phase: 1 } },
+      { id: 'ossa', name: 'Ossa', gm: 400, radius: 14, color: C.green, keepOut: 50, orbit: { parent: 'lumen', a: 520, phase: 1.2, dir: -1 } },
+    ],
+    ship: ship({ start: { conic: { body: 'lumen', pe: 150, e: 1.15, nu: -1.9, angle: 0 } }, heading: 'prograde', stack: [
+      { name: 'Booster', dv: 2.6, accel: 1.2 },
+      { name: 'Capsule', dv: 7, accel: 1, dry: 0.4, sprite: 'satellite' },
+    ], cargo: [{ id: 'lark', name: 'Lark probe', mass: 0.2, dose: 200 }] }),
+    goals: [
+      { type: 'hit', body: 'ossa', craft: 'lark' },
+      { type: 'orbit', body: 'lumen', rMin: 230, rMax: 262 },
+    ],
+    par: 6, bounds: 4000, tMax: 900, predict: 300, view: { x: 0, y: 0, span: 1600 }, startCam: 'overview',
   },
 ];
 
@@ -151,19 +190,80 @@ proofs.sentrypulsar = {
 
 proofs.pulsarsupply = {
   // Hold until p[0], climb so the high point is p[1]; on the way up turn
-  // round; drop the pod p[2] from Orrin and brake until the high point is
-  // down to p[3].
-  p: [0, 560, 150, 470], scale: [10, 5, 20, 5], opts: { turn: true, turnRate: 0.2 },
+  // to the brake heading (p[3] from prograde); drop the pod p[2] from Orrin
+  // and burn until the high point is down to p[4].
+  p: [99.166, 597.8, 409.946, 2.847, 491.479], scale: [3, 6, 15, 0.2, 6], opts: { turn: true, turnRate: 0.2 },
   script: (p, AP) => [
     hold((m) => m.t >= p[0]),
     { burn: 'pro', rel: 'talon', until: (m) => AP.orb(m, 'talon').ap >= p[1] },
-    { coast: (m) => dist(m, 'orrin') < p[2] },
+    { coast: (m) => AP.orb(m, 'talon').r >= p[2] },
     { drop: true },
-    { burn: 'retro', rel: 'talon', until: (m) => AP.orb(m, 'talon').ap <= p[3] },
+    { burn: p[3], rel: 'talon', until: (m) => AP.orb(m, 'talon').ap <= p[4] },
+  ],
+};
+
+// Fly to a moving point: aim for its velocity plus a closing speed of at
+// most vmax (k per k of distance), burning only when the error is over tol.
+const goTo = (pt, vmax, k, done, tol) => ({
+  control: (m) => {
+    if (done(m)) return { done: true };
+    const q = pt(m), dx = q.x - m.ship.x, dy = q.y - m.ship.y, d = Math.hypot(dx, dy);
+    const c = Math.min(vmax, k * d) / Math.max(d, 1e-9);
+    const ex = q.vx + dx * c - m.ship.vx, ey = q.vy + dy * c - m.ship.vy;
+    if (Math.hypot(ex, ey) < (tol || 0.08)) return { thrust: false, dt: 0.05 };
+    return { thrust: true, angle: Math.atan2(ey, ex) };
+  },
+});
+const bodyPt = (id) => (m) => { m.sys.update(m.t); const i = m.sys.byId[id].index; return { x: m.sys.px[i], y: m.sys.py[i], vx: m.sys.vx[i], vy: m.sys.vy[i] }; };
+const goalPt = (m) => m.goalPoint(m.currentGoal());
+// A point `back` behind a body along its path (to park beside it, not in it).
+const behind = (id, back) => (m) => { const q = bodyPt(id)(m), u = Math.hypot(q.vx, q.vy); return { x: q.x - back * q.vx / u, y: q.y - back * q.vy / u, vx: q.vx, vy: q.vy }; };
+
+proofs.beamrescue = {
+  // Close in on Wren and match it; wait until Umbriel leads you by p[3];
+  // climb to p[4], then fly onto L2 from p[7] out.
+  p: [-6.524, 0.751, 0.042, 0.043, 802.034, 2.913, 0.041, 172.316], scale: [5, 0.3, 0.01, 0.1, 10, 0.5, 0.01, 30],
+  script: (p, AP) => [
+    hold((m) => m.t >= p[0]),
+    goTo(behind('wren', 8), p[1], p[2], (m) => m.goalIndex > 0),
+    hold((m) => AP.wrap(AP.phase(m, 'umbriel', 'vesper') - AP.shipPhase(m, 'vesper')) <= p[3]),
+    { burn: 'pro', rel: 'vesper', until: (m) => AP.orb(m, 'vesper').ap >= p[4] },
+    { coast: (m) => { const q = goalPt(m); return Math.hypot(q.x - m.ship.x, q.y - m.ship.y) < p[7]; } },
+    goTo(goalPt, p[5], p[6], (m) => m.status !== 'flying'),
+  ],
+};
+
+proofs.pulsartour = {
+  // Booster: push p[0] from prograde until the low point is p[1] (still on
+  // an escape path), drop it. Capsule: brake at the low point until the high
+  // point is p[2]; drop the probe at r > p[3]; brake the high point to p[4];
+  // at the low point brake the high point to p[5].
+  p: [-1.5, 244, 520, 330, 380, 255], scale: [0.3, 5, 8, 20, 10, 4],
+  script: (p, AP) => [
+    { burn: p[0], rel: 'lumen', until: (m) => AP.orb(m, 'lumen').pe >= p[1] },
+    { deploy: true },
+    { coast: (m) => AP.orb(m, 'lumen').rising },
+    { burn: 'retro', rel: 'lumen', until: (m) => { const o = AP.orb(m, 'lumen'); return o.bound && o.ap <= p[2]; } },
+    { coast: (m) => AP.orb(m, 'lumen').r >= p[3] },
+    { drop: true },
+    { burn: 'retro', rel: 'lumen', until: (m) => AP.orb(m, 'lumen').ap <= p[4] },
+    { coast: (m, c) => m.t - c.t0 > 10 && AP.orb(m, 'lumen').rising },
+    { burn: 'retro', rel: 'lumen', until: (m) => AP.orb(m, 'lumen').ap <= p[5] },
   ],
 };
 
 const fails = {
+  beamrescue: [
+    { name: 'wait and see', steps: () => [] },
+    { name: 'stay with Wren', steps: (AP) => [...proofs.beamrescue.script(proofs.beamrescue.p, AP).slice(0, 2), goTo(behind('wren', 8), 0.5, 0.05, () => false)] },
+    { name: 'rush in, then rest before leaving', steps: (AP) => { const s = proofs.beamrescue.script(proofs.beamrescue.p, AP); return [goTo(behind('wren', 8), 3, 0.1, (m) => m.goalIndex > 0), hold((m, c) => m.t - c.t0 > 60), ...s.slice(2)]; } },
+  ],
+  pulsarsupply: [
+    { name: 'carry the pod in close', opts: { turn: true, turnRate: 0.2 }, steps: (AP) => { const s = proofs.pulsarsupply.script(proofs.pulsarsupply.p, AP); return [s[0], s[1], { coast: (m) => dist(m, 'orrin') < 200 }, s[3], s[4]]; } },
+    { name: 'climb at once', opts: { turn: true, turnRate: 0.2 }, steps: (AP) => { const p = proofs.pulsarsupply.p.slice(); p[0] = 0; return proofs.pulsarsupply.script(p, AP); } },
+    { name: 'drop as a sweep comes round', opts: { turn: true, turnRate: 0.2 }, steps: (AP) => { const p = proofs.pulsarsupply.p.slice(); p[2] = 330; return proofs.pulsarsupply.script(p, AP); } },
+    { name: 'flip fast (holding the keys)', opts: { turn: true, turnRate: 1.2 }, steps: (AP) => proofs.pulsarsupply.script(proofs.pulsarsupply.p, AP) },
+  ],
   sentrypulsar: [
     { name: 'climb to Tyche at once', steps: (AP) => proofs.sentrypulsar.script([7, 725, 56, 77], AP) },
     { name: 'climb to Tyche on the next lap', steps: (AP) => proofs.sentrypulsar.script([150, 725, 56, 77], AP) },
