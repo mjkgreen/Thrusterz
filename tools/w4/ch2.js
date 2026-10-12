@@ -301,7 +301,7 @@ proofs.junkinthesun = {
   p: [8, 101, 160, -1], scale: [3, 2, 10, 0.5],
   script: (p, AP) => [
     { wait: Math.max(0, p[0]) },
-    { burn: 'pro', rel: 'ash', until: (m) => closest(m, 'forge', 150) <= p[1] },
+    { burn: 'pro', rel: 'ash', until: (m) => { const d = closest(m, 'forge', 150); if (process.env.DBG) console.log(m.t.toFixed(3), d.toFixed(1)); return d <= p[1]; } },
     { deploy: true },
     { burn: p[3], rel: 'forge', until: (m) => closest(m, 'forge', 150) >= p[2] },
   ],

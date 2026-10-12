@@ -108,11 +108,11 @@ const levels = [
     bodies: [
       { id: 'lumen', name: 'Lumen', gm: 40000, radius: 8, color: '#e4dcff', kind: 'pulsar', radiation: { rate: 1, at: 244, dose: 1500, beam: { width: 0.3, period: 120, phase: 0 } } },
       { id: 'beacon', name: 'Beacon', gm: 0, radius: 4, color: C.station, kind: 'station', protect: true, protectRadius: 15, orbit: { parent: 'lumen', a: 380, phase: 1 } },
-      { id: 'ossa', name: 'Ossa', gm: 400, radius: 14, color: C.green, keepOut: 50, orbit: { parent: 'lumen', a: 520, phase: 1.2, dir: -1 } },
+      { id: 'ossa', name: 'Ossa', gm: 400, radius: 14, color: C.green, keepOut: 50, orbit: { parent: 'lumen', a: 520, phase: 1.115, dir: -1 } },
     ],
     ship: ship({ start: { conic: { body: 'lumen', pe: 150, e: 1.15, nu: -1.9, angle: 0 } }, heading: 'prograde', stack: [
       { name: 'Booster', dv: 2.6, accel: 1.2 },
-      { name: 'Capsule', dv: 7, accel: 1, dry: 0.4, sprite: 'satellite' },
+      { name: 'Capsule', dv: 9, accel: 1, dry: 0.4, sprite: 'satellite' },
     ], cargo: [{ id: 'lark', name: 'Lark probe', mass: 0.2, dose: 200 }] }),
     goals: [
       { type: 'hit', body: 'ossa', craft: 'lark' },
@@ -235,20 +235,17 @@ proofs.beamrescue = {
 
 proofs.pulsartour = {
   // Booster: push p[0] from prograde until the low point is p[1] (still on
-  // an escape path), drop it. Capsule: brake at the low point until the high
-  // point is p[2]; drop the probe at r > p[3]; brake the high point to p[4];
-  // at the low point brake the high point to p[5].
-  p: [-1.5, 244, 520, 330, 380, 255], scale: [0.3, 5, 8, 20, 10, 4],
+  // an escape path), drop it. Capsule: at the low point brake until the high
+  // point is p[2], release the probe, and keep braking until the high point
+  // is down to p[3].
+  p: [-1.5, 244, 520, 255], scale: [0.2, 4, 8, 4],
   script: (p, AP) => [
     { burn: p[0], rel: 'lumen', until: (m) => AP.orb(m, 'lumen').pe >= p[1] },
     { deploy: true },
     { coast: (m) => AP.orb(m, 'lumen').rising },
     { burn: 'retro', rel: 'lumen', until: (m) => { const o = AP.orb(m, 'lumen'); return o.bound && o.ap <= p[2]; } },
-    { coast: (m) => AP.orb(m, 'lumen').r >= p[3] },
     { drop: true },
-    { burn: 'retro', rel: 'lumen', until: (m) => AP.orb(m, 'lumen').ap <= p[4] },
-    { coast: (m, c) => m.t - c.t0 > 10 && AP.orb(m, 'lumen').rising },
-    { burn: 'retro', rel: 'lumen', until: (m) => AP.orb(m, 'lumen').ap <= p[5] },
+    { burn: 'retro', rel: 'lumen', until: (m) => AP.orb(m, 'lumen').ap <= p[3] },
   ],
 };
 
