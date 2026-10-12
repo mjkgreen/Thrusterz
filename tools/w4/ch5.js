@@ -122,9 +122,10 @@ const levels = [
   },
 ];
 
-// Circularise at the next high point, drop, then brake into a phasing lap
-// whose low point is lo; back at the high point, round off again.
 const proofs = {
+  // Circularise at the next high point, drop, then brake into a quick
+  // phasing lap (low point p[3], p[5]); back at the high point, round off
+  // again and drop the next.
   darkconst: {
     p: [-18.538, 161.627, 164.393, 103.306, 167.315, 94.495, 166.288], scale: [5, 3, 2, 4, 2, 4, 2],
     script: (p, AP) => [
@@ -160,10 +161,9 @@ const slowLaps = (AP) => {
 };
 
 proofs.stageddive = {
-  // Dive stage retrograde until the path plunges (p[0]: how far past the
-  // ring, as the low point a Newtonian orbit would have), drop it; lift the low
-  // point to p[1]; burn the kick stage from r < p[2] until dry, drop it, and
-  // burn the capsule for p[3] of Δv.
+  // Dive stage retrograde until the low point is p[0], inside Cinder, drop
+  // it; lift the low point to p[1]; from r < p[2] burn the kick stage until
+  // the energy is p[4] (escaping), drop it, and burn the capsule for p[3].
   p: [44.581, 49.446, 64.372, -0.882, 10.56], scale: [2, 3, 6, 0.3, 5],
   script: (p, AP) => [
     { burn: 'retro', rel: 'cinder', until: (m) => AP.orb(m, 'cinder').pe <= p[0] },
@@ -231,8 +231,9 @@ const goalPt = (m) => m.goalPoint(m.currentGoal());
 const behind = (id, back) => (m) => { const q = bodyPt(id)(m), u = Math.hypot(q.vx, q.vy); return { x: q.x - back * q.vx / u, y: q.y - back * q.vy / u, vx: q.vx, vy: q.vy }; };
 
 proofs.beamrescue = {
-  // Close in on Wren and match it; wait until Umbriel leads you by p[3];
-  // climb to p[4], then fly onto L2 from p[7] out.
+  // Close in on Wren and match it; coast until Umbriel leads you by p[3]
+  // (its pull flings you out), climb to p[4] if needed, then fly onto L2
+  // from p[7] out.
   p: [-6.524, 0.751, 0.042, 0.043, 802.034, 2.913, 0.041, 172.316], scale: [5, 0.3, 0.01, 0.1, 10, 0.5, 0.01, 30],
   script: (p, AP) => [
     hold((m) => m.t >= p[0]),
@@ -245,10 +246,10 @@ proofs.beamrescue = {
 };
 
 proofs.pulsartour = {
-  // Booster: push p[0] from prograde until the low point is p[1] (still on
-  // an escape path), drop it. Capsule: at the low point brake until the high
-  // point is p[2], release the probe, and keep braking until the high point
-  // is down to p[3].
+  // Booster: push p[0] from prograde (it runs dry before the low point
+  // reaches p[1]), still on an escape path, and drop it. Capsule: at the low
+  // point brake until the high point is p[2], release Lark, and brake on
+  // until the orbit is round.
   p: [-1.736, 251.661, 530.117], scale: [0.2, 4, 8], opts: { turn: true, turnRate: 0.3 },
   script: (p, AP) => [
     { burn: p[0], rel: 'lumen', until: (m) => AP.orb(m, 'lumen').pe >= p[1] },

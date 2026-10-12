@@ -222,7 +222,7 @@ const levels = [
     objective: 'Drop the booster into Forge, then orbit Ash between 20 and 60 k up, without any craft hitting Ash or entering Kiln Dock\'s zone, taking under 14 Sv of radiation.',
     teaches: 'Dispose of a stage in the star',
     bodies: [
-      { id: 'forge', name: 'Forge', gm: 40000, radius: 60, color: C.sun, kind: 'star', radiation: { rate: 0.4, at: 300, dose: 10 } },
+      { id: 'forge', name: 'Forge', gm: 40000, radius: 60, color: C.sun, kind: 'star', radiation: { rate: 0.4, at: 300, dose: 11 } },
       { id: 'ash', name: 'Ash', gm: 6000, radius: 30, color: C.red, protect: true, orbit: { parent: 'forge', a: 500, phase: 0 } },
       { id: 'dock', name: 'Kiln Dock', gm: 0, radius: 3, color: C.station, kind: 'station', keepOut: 30, zone: 'all', orbit: { parent: 'ash', a: 160, n: ASH_N, phase: 0, reflex: false } },
     ],
@@ -298,7 +298,7 @@ proofs.backwardmoon = {
 };
 
 proofs.junkinthesun = {
-  p: [6, 4.5], scale: [1, 0.3],
+  p: [2.406, 2.504], scale: [1, 0.3],
   script: (p, AP) => [
     { wait: Math.max(0, p[0]) },
     ...dvBurn('pro', 'ash', p[1]),
