@@ -746,6 +746,26 @@
         if (p.doseOut < 0 && m.dose + p.dose > m.doseLimit) p.doseOut = i;
       }
     }
+    // Cargo with its own dose limit: the coast path is where it goes if you
+    // release it now, so show where it would run out.
+    p.cargoOut = -1; p.cargoDose = 0;
+    const next = m.canDrop() ? m.cargo[0] : null;
+    if (next && next.dose != null) {
+      const bp = [0, 0];
+      let d = 0;
+      for (let i = 1; i < p.ts.length; i++) {
+        const dt = p.ts[i] - p.ts[i - 1];
+        let rate = p.rad ? p.rad[i] : 0;
+        for (const b of m.belts) {
+          m.sys.posAt(b.index, p.ts[i], bp);
+          const r = Math.hypot(p.xs[i] - bp[0], p.ys[i] - bp[1]);
+          if (r >= b.belt.rMin && r <= b.belt.rMax) rate += 1;
+        }
+        d += rate * dt;
+        if (d > next.dose) { p.cargoOut = i; break; }
+      }
+      p.cargoDose = d;
+    }
     // Touchdown speed against the surface (soft landing goals).
     p.impact = p.hit >= 0 ? m.surfaceSpeed(p.hit, p.end, p.tEnd) : 0;
     m.sys.update(m.t);
@@ -1220,7 +1240,8 @@
       label('KEEP OUT · ' + fmtT(t - m.t), sx, sy - 14, '#ff7a7a');
     }
     // Burning up in an atmosphere, or running out of radiation dose.
-    for (const [i, text] of [[p.burn ? p.burn.i : -1, 'BURNS UP'], [p.doseOut, 'DOSE LIMIT']]) {
+    const cargoName = p.cargoOut > 0 && m.cargo[0] ? m.cargo[0].name.toUpperCase() + ' DOSE LIMIT' : '';
+    for (const [i, text] of [[p.burn ? p.burn.i : -1, 'BURNS UP'], [p.doseOut, 'DOSE LIMIT'], [p.cargoOut, cargoName]]) {
       if (i <= i0) continue;
       const [sx, sy] = disp(p.xs[i], p.ys[i], p.ts[i]);
       ctx.strokeStyle = '#ff5a5a'; ctx.lineWidth = 2;
@@ -2090,6 +2111,8 @@
         t = m.radRate > 0 ? '<span class="warn">exposed · ' + m.radRate.toFixed(2) + ' Sv/s</span>'
           : m.radShade >= 0 ? '<span class="ok">in ' + sys.bodies[m.radShade].name + '\'s shadow</span>'
           : '<span class="ok">' + (beam ? 'out of the beam' : 'clear') + '</span>';
+        // Released cargo with its own limit.
+        for (const c of m.crafts) if (c.alive && c.doseLimit != null) t += ' · ' + c.name + ' ' + c.dose.toFixed(1) + '/' + c.doseLimit + ' Sv';
         break;
       }
     }

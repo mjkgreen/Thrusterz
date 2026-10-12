@@ -211,6 +211,8 @@
       if (!this.canDrop()) return null;
       const c = this.cargo.shift(), s = this.ship;
       const craft = { id: c.id, name: c.name, sprite: c.sprite || 'pod', x: s.x, y: s.y, vx: s.vx, vy: s.vy, angle: s.angle, alive: true };
+      // Cargo with its own radiation limit (shielded while aboard).
+      if (c.dose != null) { craft.doseLimit = c.dose; craft.dose = 0; }
       this.crafts.push(craft);
       this.events.push({ t: this.t, type: 'release', craft: c.id });
       return craft;
@@ -713,6 +715,19 @@
       return { rate, src, shade };
     }
 
+    // Total dose rate (Sv/s) at (x, y) now: 1 Sv/s inside any belt, plus the
+    // radiation sources. Uses the bodies' current positions.
+    doseRateAt(x, y, t) {
+      const sys = this.sys;
+      let rate = 0;
+      for (const b of this.belts) {
+        const r = DM.hypot(x - sys.px[b.index], y - sys.py[b.index]);
+        if (r >= b.belt.rMin && r <= b.belt.rMax) rate += 1;
+      }
+      if (this.sources.length) rate += this.radiationAt(x, y, t, (i) => [sys.px[i], sys.py[i]]).rate;
+      return rate;
+    }
+
     // Heating, radiation dose and depots. Returns true if the mission ended.
     _experimental(h) {
       const sys = this.sys, s = this.ship;
@@ -734,6 +749,17 @@
         if (this.dose > b.belt.dose) {
           this.status = 'crashed';
           this.message = 'Radiation dose too high: over ' + b.belt.dose + ' Sv from ' + b.name + '\'s belt.';
+          return true;
+        }
+      }
+      // Released cargo with a dose limit: the same radiation at its own position.
+      for (const c of this.crafts) {
+        if (!c.alive || c.doseLimit == null) continue;
+        c.dose += this.doseRateAt(c.x, c.y, this.t) * h;
+        if (c.dose > c.doseLimit) {
+          c.alive = false;
+          this.status = 'crashed';
+          this.message = c.name + ' took too much radiation: over ' + c.doseLimit + ' Sv.';
           return true;
         }
       }
@@ -842,9 +868,11 @@
       const sys = this.sys;
       sys.update(t == null ? this.t : t);
       if (g.lagrange) {
-        // Point sharing the body's orbit, `lead` radians ahead of it (L4 = +60°).
-        const b = sys.byId[g.lagrange.body], i = b.index, p = b.parent;
-        const c = DM.cos(g.lagrange.lead), sn = DM.sin(g.lagrange.lead);
+        // Point moving with the body round its parent, `lead` radians ahead of
+        // it (L4 = +60°) and `scale` times as far out (L2 behind a moon: lead
+        // 0, scale a little over 1; L1: a little under 1).
+        const b = sys.byId[g.lagrange.body], i = b.index, p = b.parent, k = g.lagrange.scale || 1;
+        const c = DM.cos(g.lagrange.lead) * k, sn = DM.sin(g.lagrange.lead) * k;
         const rx = sys.px[i] - sys.px[p], ry = sys.py[i] - sys.py[p];
         const ux = sys.vx[i] - sys.vx[p], uy = sys.vy[i] - sys.vy[p];
         return {

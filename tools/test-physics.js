@@ -503,6 +503,28 @@ for (const L of LEVELS) {
   let newtonWin = false;
   for (let b = 0; b <= 1.5 && !newtonWin; b += 0.02) newtonWin = AP.fly(newton, [{ burn: () => Math.PI / 2, max: b }]).won;
   check('Whirl: with Newtonian gravity no sideways burn reaches the gate', !newtonWin);
+  // Lagrange goals can sit off the orbit: scale 1.2 behind Umbra is L2-like,
+  // and stays in Umbra's shadow.
+  {
+    const m = new Mission(lv('test-shadow')), g = { type: 'hold', lagrange: { body: 'umbra', lead: 0, scale: 1.2 }, r: 20, hold: 5 };
+    const q = m.goalPoint(g, 0), sys = m.sys, U = sys.byId.umbra.index;
+    const ru = Math.hypot(sys.px[U] - sys.px[0], sys.py[U] - sys.py[0]), rq = Math.hypot(q.x - sys.px[0], q.y - sys.py[0]);
+    const shade = m.radiationAt(q.x, q.y, 0, (i) => [sys.px[i], sys.py[i]]);
+    check('lagrange scale: the L2 point lies 1.2× out along the planet\'s line, in its shadow', Math.abs(rq / ru - 1.2) < 1e-9 && shade.rate === 0, `${(rq / ru).toFixed(4)} rate ${shade.rate}`);
+  }
+  // Cargo with its own dose limit: shielded aboard, exposed once released.
+  {
+    const L = JSON.parse(JSON.stringify(lv('test-shadow')));
+    L.bodies[0].radiation.dose = 1e9;
+    L.ship.cargo = [{ id: 'probe', name: 'Probe', mass: 0.2, dose: 3 }];
+    const m = new Mission(L);
+    for (let k = 0; k < 40 && m.status === 'flying'; k++) m.advance(0.5, { thrust: false, throttle: 1, rotate: 0 });
+    const aboard = m.status === 'flying';
+    m.release();
+    for (let k = 0; k < 400 && m.status === 'flying'; k++) m.advance(0.5, { thrust: false, throttle: 1, rotate: 0 });
+    check('cargo dose: shielded aboard, and a released probe that takes over its limit is lost',
+      aboard && m.status === 'crashed' && /Probe took too much radiation/.test(m.message) && m.crafts[0].dose > 3, m.message);
+  }
   // Radiation sources: inverse-square falloff, shadows, and a pulsar's beams.
   {
     const m = new Mission(lv('test-shadow')), sys = m.sys;

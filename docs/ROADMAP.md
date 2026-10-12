@@ -23,6 +23,32 @@ Every prototype has one test level with a scripted proof in `tools/proofs.js`
 and naive plans that must lose (`npm test` flies both), so a mechanic can be
 judged by playing it before it gets a world.
 
+## How a world is built
+
+A world has a **theme** and one **new mechanic** that comes in a few
+**types** (World 4: radiation, as falloff, shadows and beams, plus deep
+gravity). Its 30 missions are five chapters of six:
+
+- **Chapter openers teach one type** of the new mechanic, each in its own
+  chapter, in a setting simple enough to see the idea. A stable start, but a
+  satellite or a zone is fine if it helps teach.
+- **Only the world's first one or two missions are easy.** From there every
+  mission combines: the current type, another type of this world's mechanic,
+  and tools from earlier worlds, more of them as the chapters go on.
+- **The toolbox** (the checklist to draw from): unstable starts (falling,
+  arriving, escaping, decaying, or an awkward fixed start such as a
+  geostationary orbit on the wrong side of a planet), stages and debris
+  rules, cargo and satellite drops, constellations, multi-moon and
+  multi-planet systems, retrograde bodies, phasing and timing, keep-out
+  zones (ship only or closed to everything), patrols, rocks and weaving,
+  side-thruster budgets and flip burns, fuel and depots, strong gravity.
+- **Something new every time:** a technique from an earlier world (a deep
+  pass, a Hohmann, a release) is no longer the puzzle on its own; it's the
+  puzzle when combined with a constraint that makes it unfamiliar (dip in
+  quickly, between two sweeps, from a start you can't choose).
+- About **half the missions start unstable**, more toward the end; every
+  mission has one clear decision and a naive plan that loses.
+
 ## Future worlds
 
 | Status | Mechanic | The decision it adds | Notes |
@@ -221,25 +247,90 @@ side, inside its shadow, before parking in the sunlight adds up) and
 *Lighthouse* (beat the pulsar's beam outward: close in one sweep is fatal,
 far out it's weak).
 
-### Chapters (5 × 6, like World 3)
+### Chapters (5 × 6)
 
-1. **Sunburn:** a dose budget and falloff: dive fast or park far, belts
-   around planets.
-2. **Shadows:** hide behind planets and moons, phase an orbit to stay in the
-   shade, park at L2.
-3. **Pulses:** the sweeping beam: burn in the gaps, hide during sweeps.
-4. **Deep Gravity:** close passes of a neutron star or black hole, where the
-   Oberth boost costs dose; whirls round a horizon.
-5. **Grand Missions:** payloads with their own dose limits, World 3's zones
-   and stages, all around a pulsar.
+Each chapter opens by teaching one type, then combines it with the other
+types and the toolbox. **Phase** marks phasing and timing puzzles (often with
+retrograde bodies); **Unstable** marks a start already in motion.
 
-### Still to build
+**1 · Sunburn: falloff**
 
-- **Cargo dose:** probes and satellites with their own limit, so routing a
-  payload through a beam or past a hot star is a decision.
+| # | Mission | Start | Combines | The decision |
+| --- | --- | --- | --- | --- |
+| 1 | Sunburn | stable | ship only | Climb away from a hot star before the dose runs out: distance is safety. |
+| 2 | Send and Release | Unstable: falling in on a long ellipse | satellite with its own dose limit | You can't afford the trip in and back: release it fast enough to cross the hot zone alive, then climb out. |
+| 3 | Hot Booster | stable | stages | Stage so the last stage does the short fast dive and the escape. |
+| 4 | Retrograde Relay | Unstable: arriving on a flyby | retrograde station · Phase | Brake into the system, phase from far out (cheap), then dive to meet it. |
+| 5 | Patrol Shift | stable | patrol zones on the cool lanes · Phase | Go between patrols in the cool lane, or take the hot inner lane fast. |
+| 6 | Solar Survey | Unstable: low point grazes the hot zone | three probes, constellation | Spread the probes on close orbits within each one's budget, and raise your low point before the laps add up. |
+
+**2 · Shadows**
+
+| # | Mission | Start | Combines | The decision |
+| --- | --- | --- | --- | --- |
+| 7 | Eclipse | stable | ship only | Leave a planet from its night side, inside its shadow (*Sunshade*). |
+| 8 | Shade Drop | stable | satellite to a station at a moon's L2 · Phase | Release it to coast in down the shadow; keep yourself out of the sun. |
+| 9 | Fenced Shade | Unstable: in the shadow, sinking | zones inside the shadow | Climb above the zones without leaving the narrowing cone. |
+| 10 | Umbrella Field | stable | orbiting rocks, the only shade | Weave close behind rocks that kill on contact. |
+| 11 | Backward Moon | Unstable: drifting into sunlight | retrograde moon · Phase | Its shadow sweeps the other way and passes fast: arrive as it lines up. |
+| 12 | Junk in the Sun | stable | stages, debris rules, a shaded station's zone | Stage in the shade, but aim the spent booster's fall into the star. |
+
+**3 · Beams**
+
+| # | Mission | Start | Combines | The decision |
+| --- | --- | --- | --- | --- |
+| 13 | Lighthouse | Unstable: escaping slowly, a sweep coming | ship only | Beat the beam outward (the prototype). |
+| 14 | Against the Spin | stable | flip to a retrograde orbit · Phase | Against the beam's spin it crosses you fast; with it, it lingers. |
+| 15 | Duck and Release | Unstable: crossing the next sweep's line | probe drop, hide at a moon's L2 · Phase | Release just after a sweep, then dive into the shade. |
+| 16 | Turn in the Dark | stable | side-thruster budget, shadows | Do the turning in the shade: no time to flip in the beam. |
+| 17 | Beam Patrol | Unstable: in a patrol lane, being caught | patrols · Phase | Find the window where the patrol gaps and beam gaps line up. |
+| 18 | Keeper's Station | stable | stages, rendezvous on the far side · Phase | Stage, go round through gaps and shadows, match speed. |
+
+**4 · Deep Gravity**
+
+| # | Mission | Start | Combines | The decision |
+| --- | --- | --- | --- | --- |
+| 19 | Heavy Star | stable | a neutron star, a moon in the way | Whip round where no orbit is stable, without clipping the moon. |
+| 20 | Needle Dive | geostationary on the far side of a planet | deep pass, the beam, a moon's zone · Phase | You can't choose your start: leave on the right lap so the dive's bottom falls between sweeps and clears the zone. |
+| 21 | Slingshot Drop | Unstable: fast flyby of the pulsar | probe release, the beam | One deep pass: release at the bottom, out of the beam. |
+| 22 | Retro Whirl | stable | whirl to reverse, retrograde station · Phase | The whirl turns you round for free; time it so the beams point away. |
+| 23 | Horizon Fence | Unstable: arriving on the fenced line | black hole, zones, side-thruster budget | Thread past the horizon on a tighter or wider line than the one fenced off. |
+| 24 | Binary | Unstable: caught between the pair | pulsar and black hole · Phase | Slingshot through the pair at the right phase of their orbit. |
+
+**5 · Grand Missions**
+
+| # | Mission | Start | Combines | The decision |
+| --- | --- | --- | --- | --- |
+| 25 | Dark Constellation | stable | three satellites in a shadow band, dose limits · Phase | Spread them evenly with every one coasting in the shade. |
+| 26 | Staged Dive | Unstable: orbit decaying into the dive | three stages, debris rules | Drop each stage where it falls safely, the last at the bottom. |
+| 27 | Sentry Pulsar | stable | moon zones, patrols, the beam · Phase | Weave through all three at once. |
+| 28 | Pulsar Supply Run | stable | cargo to a retrograde moon, side-thruster budget, beam | World 3's *Supply Run*, rebuilt around a pulsar. |
+| 29 | Rescue in the Beam | Unstable: you and the drifting ship | rendezvous between sweeps · Phase | Meet it in a gap, match speed, leave through a shadow. |
+| 30 | Pulsar Tour | Unstable: arriving into the system | everything | The finale. |
+
+15 unstable or awkward starts, 14 phasing puzzles.
+
+### Engine work
+
+- **Cargo dose** (built): a cargo item with `dose: Sv` is shielded aboard and,
+  once released, takes radiation at its own position (belts and sources);
+  over its limit it's lost and the mission fails. While it's still aboard,
+  the release preview marks where it would run out (`PROBE DOSE LIMIT`),
+  and the HUD shows each released item's dose.
+- **L2** (checked): `hold` goals take `lagrange: { body, lead: 0, scale }`
+  (scale just over 1 is L2 behind a moon, just under 1 is L1). The shade
+  there is total, but L2 is unstable: a coasting ship drifts out of a 20 k
+  zone in about 20 s. So missions 8 and 15 use a rendezvous with a station
+  there, or a short hold (about 10 s); longer waits need small correction
+  burns, which could be a skill of its own later. Solve L2 including the
+  star's wobble about the barycentre, or it's about 8 k off.
+- **Pulsar with deep gravity** (checked): `radiation.beam`, `pw` and
+  `horizon` work together on one body. Close in, the falloff makes a beam
+  hit enormous (a deep pass in the beam is instantly fatal, between sweeps
+  it's free), so tune `rate` per level so the timing reads as fair.
 - Maybe a **shielded tail** (less dose with the engine toward the source),
-  which fights the burn direction and the side-thruster budget. Only if
-  playtesting wants more depth.
+  only if playtesting wants more depth. Flares are dropped: the beam already
+  covers timing.
 
 ## World 5: Homecoming (plan)
 
