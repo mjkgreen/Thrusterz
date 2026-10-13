@@ -95,7 +95,8 @@
       // A beam must never sweep past between two steps: at least four steps
       // while one crosses you.
       this.radMaxDt = Math.min(Infinity, ...this.sources.filter(b => b.radiation.beam).map(b => b.radiation.beam.period * b.radiation.beam.width / (2 * Math.PI) / 4));
-      for (const b of this.sources) if (b.radiation.beam) b.radiation.beam.sinHalf = DM.sin(b.radiation.beam.width / 2);
+      // sin(half the beam width) per source, kept here so the level data is never written to.
+      this._beamSin = new Map(this.sources.filter(b => b.radiation.beam).map(b => [b.index, DM.sin(b.radiation.beam.width / 2)]));
       const sail = spec.sail;
       // Extra force on the ship (drag, sail); null keeps the plain integrator.
       this._shipFx = sail || this.sys.drag ? (x, y, vx, vy, t, out) => this.shipExtra(x, y, vx, vy, t, out, this.ship.angle) : null;
@@ -279,7 +280,17 @@
       const H = sys.dominant(s.x, s.y, this.t), hb = sys.bodies[H];
       const orb = this.orbitAbout({ x: sys.px[H], y: sys.py[H], vx: sys.vx[H], vy: sys.vy[H] }, hb.id, s);
       const period = orb.bound ? 2 * Math.PI * Math.sqrt(DM.pow((orb.pe + orb.ap) / 2, 3) / hb.gm) : 0;
-      const horizon = orb.bound ? Math.min(1.05 * period, 3000) : 600;
+      // Strong gravity (pw) holds on tighter than the Newtonian orbit says: a
+      // stage that looks unbound may still be bound, so fly it out for long
+      // enough to see it come back (the crossing test below is Newtonian, so
+      // it's left to the flight itself).
+      let deep = false;
+      if (hb.pw) {
+        const rx = s.x - sys.px[H], ry = s.y - sys.py[H], r = DM.hypot(rx, ry);
+        const v2 = (s.vx - sys.vx[H]) ** 2 + (s.vy - sys.vy[H]) ** 2;
+        deep = r > hb.pw && v2 / 2 - hb.gm / (r - hb.pw) < 0;
+      }
+      const horizon = deep ? 3000 : orb.bound ? Math.min(1.05 * period, 3000) : 600;
       const ts = [this.t], xs = [s.x], ys = [s.y];
       let t = this.t;
       const fate = (kind, extra) => Object.assign({ kind, t, ts, xs, ys, orbit: orb, host: H }, extra);
@@ -296,7 +307,7 @@
         }
         if (s.x * s.x + s.y * s.y > this.level.bounds * this.level.bounds) return fate('gone');
       }
-      if (orb.bound) {
+      if (orb.bound && !hb.pw) {
         for (const b of prot) {
           if (!b.orbit || b.parent !== H) continue;
           const r = guardRadius(b), o = b.orbit;
@@ -697,7 +708,7 @@
           // Two opposite beams: inside one when the line to you is within
           // half the beam's width of the beam's line.
           const a = R.beam.phase + 2 * Math.PI * t / R.beam.period;
-          if (Math.abs(dx * DM.sin(a) - dy * DM.cos(a)) > r * R.beam.sinHalf) continue;
+          if (Math.abs(dx * DM.sin(a) - dy * DM.cos(a)) > r * this._beamSin.get(b.index)) continue;
         }
         let shaded = false;
         for (const c of this.shields) {

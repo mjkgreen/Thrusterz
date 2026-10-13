@@ -2,29 +2,6 @@
 // star and you blocks its radiation completely. See tools/w4/README.md.
 'use strict';
 const { ship, C, belt, VE } = require('../../js/levels.js');
-const Phys = require('../../js/physics.js');
-
-// Closest the ship's coasting path comes to a body within T seconds (what
-// the predicted path shows), cached for 0.03 s of mission time.
-function closest(m, id, T) {
-  const c = m._closest || (m._closest = {}), key = id + ':' + T;
-  if (c[key] && m.t - c[key].t < 0.03 && m.t >= c[key].t) return c[key].d;
-  const sys = m.sys, i = sys.byId[id].index, s = { x: m.ship.x, y: m.ship.y, vx: m.ship.vx, vy: m.ship.vy }, bp = [0, 0];
-  let t = m.t, best = Infinity;
-  while (t < m.t + T) {
-    const dt = Phys.coastDt(sys, s, t, 0.05, 1);
-    Phys.rk4(sys, s, t, dt, 0, 0);
-    t += dt;
-    sys.posAt(i, t, bp);
-    best = Math.min(best, Math.hypot(s.x - bp[0], s.y - bp[1]));
-    const hit = Phys.collision(sys, s.x, s.y, t);
-    if (hit >= 0) { if (hit !== i) best = Math.max(best, 1e6); break; }
-  }
-  sys.update(m.t);
-  c[key] = { t: m.t, d: best };
-  return best;
-}
-
 // Distance from the ship (or an object) to a body.
 const dist = (m, id, o) => { const s = o || m.ship; m.sys.update(m.t); const i = m.sys.byId[id].index; return Math.hypot(s.x - m.sys.px[i], s.y - m.sys.py[i]); };
 // A burn of a set Δv (turning first doesn't count).
@@ -219,10 +196,10 @@ const levels = [
     id: 'junkinthesun',
     name: 'Junk in the Sun',
     intro: 'Kiln Dock rides in Ash\'s shadow, and its amber zone is closed to everything, spent stages included. Ash is inhabited, so your booster may not come down there either: it has to fall into Forge. Burn the booster prograde as you leave the night side, just enough that its path swings back past Ash and on into the star, then drop it (the stage button) and round off your orbit with the orbiter. Burn too hard and the booster is left on an orbit through the dock\'s zone; too gently and you wait in the sunlight for it to fall.',
-    objective: 'Send the booster into Forge and orbit Ash between 15 and 80 k up, with no debris hitting Ash or entering Kiln Dock\'s zone, taking under 11 Sv of radiation.',
+    objective: 'Send the booster into Forge and orbit Ash between 15 and 80 k up, with no debris hitting Ash or entering Kiln Dock\'s zone, taking under 10 Sv of radiation.',
     teaches: 'Dispose of a stage in the star',
     bodies: [
-      { id: 'forge', name: 'Forge', gm: 40000, radius: 60, color: C.sun, kind: 'star', radiation: { rate: 0.4, at: 300, dose: 11 } },
+      { id: 'forge', name: 'Forge', gm: 40000, radius: 60, color: C.sun, kind: 'star', radiation: { rate: 0.4, at: 300, dose: 10 } },
       { id: 'ash', name: 'Ash', gm: 6000, radius: 30, color: C.red, protect: true, orbit: { parent: 'forge', a: 500, phase: 0 } },
       { id: 'dock', name: 'Kiln Dock', gm: 0, radius: 3, color: C.station, kind: 'station', keepOut: 30, zone: 'all', orbit: { parent: 'ash', a: 160, n: ASH_N, phase: 0, reflex: false } },
     ],

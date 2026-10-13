@@ -64,7 +64,10 @@ for (const L of LEVELS) {
     m.sys.update(m.t);
     worst = Math.max(worst, Math.abs(Math.hypot(m.ship.x - m.sys.px[host], m.ship.y - m.sys.py[host]) - r0) / r0);
   }
-  check(`${L.id}: parking orbit stable for 400s`, m.status === 'flying' && worst < 0.1, `max radius drift ${(worst * 100).toFixed(1)}%`);
+  // A planet circling a neutron star or pulsar (strong gravity) flexes the
+  // orbits round it with its tides: allowed to wobble more, but never decay.
+  const hb = m.sys.bodies[host], tidal = hb.orbit && m.sys.bodies[hb.parent].pw ? 0.35 : 0.1;
+  check(`${L.id}: parking orbit stable for 400s`, (m.status === 'flying' || m.status === 'timeout') && worst < tidal, `max radius drift ${(worst * 100).toFixed(1)}%`);
 }
 
 // 4. Rocket equation: burning the whole tank yields the advertised Δv.

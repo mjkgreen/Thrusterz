@@ -1342,6 +1342,15 @@
       if (b.kind === 'rock') { drawRock(sx, sy, r, b); continue; }
       if (b.pickup) { if (!state.mission.collected.has(b.index)) drawCanister(sx, sy, b); continue; }
       if (b.kind === 'blackhole') { drawBlackHole(sx, sy, r, b); continue; }
+      // Strong gravity round a neutron star or pulsar: the same dashed ring
+      // a black hole has, where orbits stop being stable.
+      if (b.pw) {
+        const ru = 3 * b.pw * z;
+        ctx.strokeStyle = 'rgba(255,140,90,0.45)'; ctx.setLineDash([4, 6]); ctx.lineDashOffset = performance.now() / 1000 * 8;
+        ctx.beginPath(); ctx.arc(sx, sy, ru, 0, TAU); ctx.stroke();
+        ctx.setLineDash([]); ctx.lineDashOffset = 0;
+        if (ru > 40) label('NO STABLE ORBITS INSIDE', sx, sy - ru - 8, 'rgba(255,160,110,0.85)');
+      }
       const isStar = b.kind === 'star' || b.kind === 'pulsar' || (b.gm >= 30000 && /#ff/.test(b.color));
       if (b.kind === 'comet') drawCometTail(b, sx, sy, r);
       // Glow / atmosphere.

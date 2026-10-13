@@ -1,9 +1,9 @@
 # Thrusterz roadmap
 
 Living notes on where the game goes next. World 1 (Flight School), World 2
-(Payloads) and World 3 (No-Fly Zones) are complete. Next: **World 4, Pulsar**
-(radiation and deep gravity), then **World 5, Homecoming** (atmospheres and
-landings); see below. New mechanics are prototyped as **Experimental levels**
+(Payloads), World 3 (No-Fly Zones) and **World 4 (Pulsar**: radiation and
+deep gravity, built in `tools/w4`) are complete. Next: **World 5,
+Homecoming** (atmospheres and landings); see below. New mechanics are prototyped as **Experimental levels**
 in the menu before they get a world of their own.
 
 ## Principles for a world mechanic
@@ -218,7 +218,7 @@ fiddly? Does running dry need a softer outcome (right now you just can't turn,
 and a spin keeps going)? A low-RCS warning on the HUD? Should turn rate depend
 on mass, so dropping cargo makes the ship nimbler?
 
-## World 4: Pulsar (plan)
+## World 4: Pulsar (built)
 
 Radiation and deep gravity, one question: **how close dare you go?** The
 pulsar ties them together: a neutron star is a tiny, extremely dense body with
