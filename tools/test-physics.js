@@ -369,6 +369,18 @@ for (const L of LEVELS) {
   }
   check(`World 4: all ${w4.length} proofs win within par`, lost.length === 0, lost.join('; '));
   check('World 4: every mission has a naive plan, and every naive plan loses', wins.length === 0 && nofail.length === 0, wins.concat(nofail.map(id => id + ': no naive plan')).join('; '));
+  // Playable by hand: the proof flown with human-sized errors (proof.tol)
+  // still wins at least half the time, with dose and fuel to spare
+  // (tools/w4/robust.js; 16 samples here to keep the suite quick).
+  const { robust } = require('./w4/robust.js');
+  const tight = [];
+  for (const L of w4) {
+    const P = PROOFS[L.id];
+    if (!P) continue;
+    const r = robust(L, P, 16);
+    if (!r.ok) tight.push(`${L.id} (wins ${Math.round(100 * r.win)}%${P.tol ? '' : ', no tol'}, dose ${Math.round(100 * r.dose)}%, cargo ${Math.round(100 * r.cargo)}%, fuel ×${r.fuel.toFixed(2)})`);
+  }
+  check('World 4: every mission is playable by hand (tools/w4/robust.js)', tight.length === 0, tight.join('; '));
 }
 
 // 15. Side-thruster budgets: proofs that turn honestly stay inside the
