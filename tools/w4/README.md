@@ -179,3 +179,34 @@ retrograde bodies); **Unstable** marks a start already in motion.
 | 30 | Pulsar Tour | Unstable: arriving into the system | everything | The finale. |
 
 15 unstable or awkward starts, 14 phasing puzzles.
+
+## Playability pass (after the first playtest)
+
+Playtesting found World 4 too tight: the player beat 1 to 19 but not
+Needle Dive, margins were razor thin, and some missions were execution
+tests rather than puzzles. The rules now, for every mission:
+
+- **A person tapping BURN can't control the exact amount of fuel.** Every
+  proof gets `tol`: per parameter, the ± a player can't help being off by.
+  Use honest human values: a wait or departure time ±2 s (more if the moment
+  can only be judged by eye), a burn target ±4% of the quantity it watches
+  (high point, low point, speed) or ±0.1 k/s, an aim ±0.06 rad, a release
+  ±1.5 s. `node tools/w4/robust.js chN` flies 40 jittered copies: **win rate
+  ≥ 50%**, ship and cargo **dose ≤ 75%** of their limits, **ship Δv ≥ 1.4×**
+  the proof's. All three must pass (PLAYABLE).
+- **Puzzle first, execution second.** The difficulty is in working out the
+  plan (which way, when, what to drop, where to hide), not in pixel-precise
+  flying. The decision must be readable from the screen (predicted path,
+  its radiation glow, shadows, beams, zones) and the intro: no hidden
+  trial and error like "only the third lap works" with nothing on screen to
+  tell you so. Tight windows are fine if you can see them coming.
+- **Rendezvous and holds a thumb can hit:** relative speed limits about
+  0.6 to 1 k/s and distances 12 to 25 k unless precision is the point, and
+  then the fuel is generous. Fuel for corrections: proofs should not need
+  perfect matching burns.
+- Keep the mission's idea, start type and combinations, and keep it hard as
+  a puzzle. Loosen margins, add fuel, widen windows, or redesign the parts
+  that were pure execution. Naive plans must still lose (the shortcut must
+  not become valid when you add fuel; raise dose or zone pressure instead).
+- Intros: say what to look for on screen (the glow on the path, the beam's
+  position, where the shadow falls) so the plan can be found by thinking.
