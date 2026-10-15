@@ -161,15 +161,32 @@ const dvBurn = (dir, rel, amount) => {
   ];
 };
 
+// Burn until pred holds, then keep going for `extra` of Δv (a thumb lets go
+// a little late).
+const burnPast = (dir, rel, pred, extra) => {
+  const st = { d0: null };
+  return { burn: dir, rel, until: (m) => { if (st.d0 == null) { if (pred(m)) st.d0 = m.dvUsed(); return false; } return m.dvUsed() - st.d0 >= extra; } };
+};
+
+// Time of the first pass over Tor's inner side, and the lap length there
+// (Spindle's tide stretches the later laps a little).
+const ND_INNER = 44.4, ND_LAP = 89.1;
+
 proofs.needledive = {
-  // Wait p[0] s (laps round Tor), leave Tor backward from its inner side
-  // with p[1] of Δv, and at the bottom of the dive burn prograde until free.
-  p: [219.277, 70.103, 0.559], scale: [2, 3, 0.3],
+  // Leave on lap p[0] (offset p[1] s from the inner side): burn backward
+  // until the dashed path dives inside p[2] k, then on the way down trim the
+  // low point to p[3] (retro lowers it, prograde raises it). Just after the
+  // bottom (p[4] k out) burn prograde until free, and p[5] more.
+  p: [0, 0, 150, 85, 90, 0.3], scale: [0, 1, 10, 3, 10, 0.1],
+  tol: [0, 2, 6, 3.4, 20, 0.1],
   script: (p, AP) => [
-    { wait: Math.max(0, p[0]) },
-    { burn: 'pro', rel: 'tor', until: (m) => m.dvUsed() > 2 && closest(m, 'spindle', 400) <= p[1] },
-    { coast: (m) => dist(m, 'spindle') < 140 && radv(m, 'spindle') > 0 },
-    { burn: 'pro', rel: 'spindle', until: (m) => pwEnergy(m, 'spindle') > p[2] },
+    { wait: Math.max(0, ND_INNER + Math.round(p[0]) * ND_LAP + p[1]) },
+    { burn: 'pro', rel: 'tor', until: (m) => closest(m, 'spindle', 400) <= p[2] },
+    { coast: (m) => dist(m, 'spindle') < 800 },
+    { burn: 'retro', rel: 'spindle', until: (m) => closest(m, 'spindle', 300) <= p[3] },
+    { burn: 'pro', rel: 'spindle', until: (m) => closest(m, 'spindle', 300) >= p[3] },
+    { coast: (m) => radv(m, 'spindle') > 0 && dist(m, 'spindle') >= p[4] },
+    burnPast('pro', 'spindle', (m) => pwEnergy(m, 'spindle') > 0, p[5]),
   ],
 };
 

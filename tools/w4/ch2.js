@@ -204,8 +204,8 @@ const levels = [
   {
     id: 'umbrellafield',
     name: 'Umbrella Field',
-    intro: 'Corona\'s light is fierce all the way out, and the only shade is behind the big rocks circling it, the umbrellas. Touch one and your ship is lost, and a climb right now runs straight into them. Wait for the window when your climb slips in just behind one rock after another, and watch your path: it glows wherever you would take dose. Waiting here in the light costs dose too, so don\'t miss it.',
-    objective: 'Orbit Corona between 715 and 815 k up, taking under 7 Sv of radiation.',
+    intro: 'Corona\'s light is fierce all the way out, and the only shade is behind the big rocks circling it, the umbrellas. Touch one and your ship is lost, and a climb right now runs straight into them. Umbrella 1 circles just inside your orbit, faster than you, and its shadow is about to sweep over you: climb from under it and your path slips behind one umbrella after another. Watch your path, which glows wherever you would take dose, and don\'t linger: waiting here in the light costs dose too.',
+    objective: 'Orbit Corona between 715 and 815 k up, taking under 5 Sv of radiation.',
     teaches: 'Rocks as shade',
     bodies: [
       { id: 'corona', name: 'Corona', gm: 40000, radius: 45, color: C.sun, kind: 'star', radiation: { rate: 0.1, at: 300, dose: 5 } },

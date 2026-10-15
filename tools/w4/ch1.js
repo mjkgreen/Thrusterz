@@ -7,6 +7,9 @@ const { ship, C } = require('../../js/levels.js');
 // Distance from the ship (or an object) to a body's centre.
 const dist = (m, id, o) => { const s = o || m.ship; m.sys.update(m.t); const i = m.sys.byId[id].index; return Math.hypot(s.x - m.sys.px[i], s.y - m.sys.py[i]); };
 
+// Speed relative to a body.
+const relSpeed = (m, id) => { m.sys.update(m.t); const i = m.sys.byId[id].index; return Math.hypot(m.ship.vx - m.sys.vx[i], m.ship.vy - m.sys.vy[i]); };
+
 // A burn of a set Δv in a direction (relative to `rel`).
 const dvBurn = (dir, rel, amount) => {
   const st = { d0: 0 };
@@ -234,7 +237,7 @@ const proofs = {
       { burn: 'retro', rel: 'brand', until: (m) => AP.orb(m, 'brand').pe <= p[3] },
       trim('tern', 'brand', 80, 15),
       { coast: (m) => { const o = AP.orb(m, 'brand'); return o.r < o.pe + 2; } },
-      { burn: 'retro', rel: 'brand', until: (m) => { const o = AP.orb(m, 'brand'); return o.ap <= Math.max(232, o.r + 2); } },
+      { burn: 'retro', rel: 'tern', until: (m) => relSpeed(m, 'tern') < 0.4 },
       meet('tern', 1.5, 0.04),
     ],
   },
