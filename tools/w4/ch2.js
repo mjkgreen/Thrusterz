@@ -46,6 +46,40 @@ const meet = (id, k, vmax, tol, max) => ({
   max,
 });
 
+// Correct the course like a player watching the predicted path: nudge it
+// (chunk k/s at a time, or 3 or 8 times that, in whichever of 8 directions
+// helps most) until the
+// coast path passes within tol of a body in the next `horizon` seconds.
+const aimAt = (id, horizon, tol, chunk, max) => {
+  const st = { until: -1, ang: 0 }, o = [0, 0];
+  const miss = (m, s) => {
+    const P = globalThis.Phys.predict(m.sys, s, m.t, horizon), i = m.sys.byId[id].index;
+    let best = Infinity;
+    for (let k = 0; k < P.ts.length; k++) { m.sys.posAt(i, P.ts[k], o); best = Math.min(best, Math.hypot(P.xs[k] - o[0], P.ys[k] - o[1])); }
+    return best;
+  };
+  return {
+    control: (m) => {
+      if (m.status !== 'flying') return { done: true };
+      if (m.dvUsed() < st.until) return { thrust: true, angle: st.ang };
+      const s = m.ship, d0 = miss(m, s);
+      let best = d0, ang = null, dv = chunk;
+      for (const c of [chunk, 3 * chunk, 8 * chunk]) {
+        for (let k = 0; k < 8 && d0 >= tol; k++) {
+          const a = k * Math.PI / 4, d = miss(m, { x: s.x, y: s.y, vx: s.vx + c * Math.cos(a), vy: s.vy + c * Math.sin(a) });
+          if (d < best) { best = d; ang = a; dv = c; }
+        }
+        if (ang != null && best < d0 * 0.97) break;
+      }
+      m.sys.update(m.t);
+      if (ang == null || best > d0 * 0.97) return { done: true };
+      st.until = m.dvUsed() + dv; st.ang = ang;
+      return { thrust: true, angle: ang };
+    },
+    max,
+  };
+};
+
 // Shade Drop: Lee Station co-rotates with Veil, parked in its shadow.
 const VEIL_A = 520, VEIL_PH = 0.9, VEIL_N = Math.sqrt(46000 / (VEIL_A * VEIL_A * VEIL_A));
 // Veil's centre sits at VEIL_A × 40000/46000 from the barycentre (the star wobbles).
@@ -66,11 +100,15 @@ const behindGloam = (d, w) => {
 const fence = (k, w) => { const p = behindGloam(115, w); return { id: 'fence' + k, name: 'Fence ' + (k + 1), gm: 0, radius: 3, color: '#ff8a8a', kind: 'station', keepOut: 15, orbit: { parent: 'sear', a: p.r, n: GLOAM_N, phase: p.ph, reflex: false } }; };
 const SINK = behindGloam(215, 6);
 
-// Umbrella Field: big rocks on their own orbits, placed so one transfer
-// window slips behind them in turn ([radius, phase, size]).
-const UMBRELLAS = [[340,0.2304,22],[380,0.4957,22],[420,0.7103,22],[465,0.9198,22],[510,1.0996,22],[560,1.2741,22],[610,1.4259,22]].map(([a, phase, radius], k) => ({
+// Umbrella Field: big rocks on their own orbits. Umbrella 1 circles just
+// inside your orbit, faster than you, so its shadow sweeps over you soon
+// after the start; the others are placed so a climb begun in that shadow
+// slips behind them in turn ([radius, phase, size]).
+const UMBRELLAS = [[262,-0.2,24],[340,0.2194,24],[390,0.5187,24],[450,0.7979,24],[520,1.0772,24],[600,1.3265,24]].map(([a, phase, radius], k) => ({
   id: 'brolly' + k, name: 'Umbrella ' + (k + 1), kind: 'rock', gm: 0, radius, color: '#8d8478', orbit: { parent: 'corona', a, phase },
 }));
+// In Umbrella 1's shadow?
+const underBrolly = (m) => m.radShade >= 0 && m.sys.bodies[m.radShade].id === 'brolly0';
 
 // Backward Moon: Kesh circles Mire the wrong way round. Hide in its shadow
 // by matching its speed on its night side.
@@ -118,40 +156,40 @@ const levels = [
   {
     id: 'eclipse',
     name: 'Eclipse',
-    intro: 'Pyra is a hot star, and Nyx orbits close enough to feel it: you can take only 16 Sv in all, and every sunlit half lap adds a few. Nyx\'s shadow, the dark cone on its far side, is the only place with no radiation. Burn prograde as you pass over the day side, closest to Pyra: your climb then swings out behind Nyx and through the dark cone. Burn while you are in the shadow and you climb out into full sunlight.',
-    objective: 'Get 1050 k from Pyra, taking under 18 Sv of radiation.',
+    intro: 'Pyra is a hot star, and Nyx orbits close enough to feel it: you can take only 22 Sv in all, and every sunlit half lap adds a few. Nyx\'s shadow, the dark cone on its far side, is the only place with no radiation. Burn prograde as you pass over the day side, closest to Pyra: your climb then swings out behind Nyx and through the dark cone. Watch the glow on your predicted path: burn from inside the shadow and the whole climb lights up.',
+    objective: 'Get 1050 k from Pyra, taking under 22 Sv of radiation.',
     teaches: 'Shadows · leave from the night side',
     bodies: [
-      { id: 'pyra', name: 'Pyra', gm: 45000, radius: 50, color: C.sun2, kind: 'star', radiation: { rate: 0.8, at: 300, dose: 16 } },
+      { id: 'pyra', name: 'Pyra', gm: 45000, radius: 50, color: C.sun2, kind: 'star', radiation: { rate: 0.8, at: 300, dose: 22 } },
       { id: 'nyx', name: 'Nyx', gm: 5000, radius: 40, color: C.purple, orbit: { parent: 'pyra', a: 480, phase: 2.3 } },
     ],
-    ship: ship({ start: { orbit: { body: 'nyx', r: 58, angle: 2.8, dir: -1 } }, heading: 'prograde', dv: 6.5, accel: 1 }),
+    ship: ship({ start: { orbit: { body: 'nyx', r: 58, angle: 2.8, dir: -1 } }, heading: 'prograde', dv: 7, accel: 1 }),
     goals: [{ type: 'escape', body: 'pyra', r: 1100 }],
     par: 4.5, bounds: 4000, tMax: 600, predict: 300, view: { x: -300, y: 300, span: 1700 }, startCam: 'overview',
   },
   {
     id: 'shadedrop',
     name: 'Shade Drop',
-    intro: 'Lee Station rides in Veil\'s shadow, always on its night side, and it needs the relay you carry. Once you drop it (E) the relay is unshielded: it can take only 1 Sv, and the sunlit stretch of the climb is more than that. Climb from the day side so your path rises past the station into the dark cone, and drop the relay once you are in the dark. Then coast on and park at L2, just beyond the station, where the shade is total, before your own dose adds up.',
-    objective: 'Get the relay within 15 k of Lee Station, then hold within 20 k of Veil\'s L2 for 10 s, with the relay under 1 Sv and you under 10 Sv.',
+    intro: 'Lee Station rides in Veil\'s shadow, always on its night side, and it needs the relay you carry. Once you drop it (E) the relay is unshielded and can take only 1 Sv, so it must never see Brand\'s light. Burn on the day side so your climb rises into the dark cone (the glow on your path goes out there) and park at L2, beyond the station, where the shade is total. Then nudge toward the station until your path runs through it, and drop the relay: it falls in down the shadow.',
+    objective: 'Hold within 25 k of Veil\'s L2 for 8 s, then get the relay within 25 k of Lee Station, with the relay under 1 Sv and you under 13 Sv.',
     teaches: 'Drop in the shade',
     bodies: [
-      { id: 'brand', name: 'Brand', gm: 40000, radius: 45, color: C.sun, kind: 'star', radiation: { rate: 0.6, at: 300, dose: 10 } },
+      { id: 'brand', name: 'Brand', gm: 40000, radius: 45, color: C.sun, kind: 'star', radiation: { rate: 0.6, at: 300, dose: 13 } },
       { id: 'veil', name: 'Veil', gm: 6000, radius: 34, color: C.tan, orbit: { parent: 'brand', a: VEIL_A, phase: VEIL_PH } },
       { id: 'lee', name: 'Lee Station', gm: 0, radius: 4, color: C.station, kind: 'station', orbit: { parent: 'brand', a: LEE_R, n: VEIL_N, phase: VEIL_PH, reflex: false } },
     ],
-    ship: ship({ start: { orbit: { body: 'veil', r: 60, angle: 0 } }, heading: 'prograde', dv: 3.8, accel: 1, cargo: [{ id: 'relay', name: 'Relay', mass: 0.3, dose: 1 }] }),
+    ship: ship({ start: { orbit: { body: 'veil', r: 60, angle: 0 } }, heading: 'prograde', dv: 4.5, accel: 1, cargo: [{ id: 'relay', name: 'Relay', mass: 0.3, dose: 1 }] }),
     goals: [
-      { type: 'reach', body: 'lee', craft: 'relay', r: 15, label: 'Lee Station' },
-      { type: 'hold', lagrange: { body: 'veil', lead: 0, scale: L2_K }, r: 20, hold: 10, relVel: 1, label: 'L2' },
+      { type: 'hold', lagrange: { body: 'veil', lead: 0, scale: L2_K }, r: 25, hold: 8, relVel: 1, label: 'L2' },
+      { type: 'reach', body: 'lee', craft: 'relay', r: 25, label: 'Lee Station' },
     ],
-    par: 2.4, bounds: 4000, tMax: 600, predict: 300, view: { x: 300, y: 300, span: 1500 }, startCam: 'overview',
+    par: 3, bounds: 4000, tMax: 600, predict: 300, view: { x: 300, y: 300, span: 1500 }, startCam: 'overview',
   },
   {
     id: 'fencedshade',
     name: 'Fenced Shade',
-    intro: 'You are drifting in Gloam\'s shadow, and Gloam is pulling you down toward it. Out in Sear\'s light your whole dose would be gone in about 15 seconds, and the dark cone narrows as you sink. Lower down, a fence of red keep-out zones blocks the shadow. Stop the fall before the fence and climb back up the middle of the cone to the Shelter at L2: Gloam\'s orbit swings your path sideways, so steer against it.',
-    objective: 'Dock with the Shelter (within 8 k, relative speed under 0.5 k/s) without entering a zone, taking under 6 Sv of radiation.',
+    intro: 'You are drifting in Gloam\'s shadow, and Gloam is pulling you down toward it. Out in Sear\'s light your whole dose would be gone in about 15 seconds, and the dark cone narrows as you sink. Lower down, a fence of red keep-out zones blocks the shadow. Stop the fall before the fence and climb back up the middle of the cone to the Shelter at L2: Gloam\'s orbit swings your path sideways, so steer against it and keep the glow off your predicted path.',
+    objective: 'Dock with the Shelter (within 15 k, relative speed under 0.8 k/s) without entering a zone, taking under 6 Sv of radiation.',
     teaches: 'Stay in the cone',
     bodies: [
       { id: 'sear', name: 'Sear', gm: 40000, radius: 50, color: C.sun, kind: 'star', radiation: { rate: 3, at: 300, dose: 6 } },
@@ -160,7 +198,7 @@ const levels = [
       { id: 'shelter', name: 'Shelter', gm: 0, radius: 3, color: C.station, kind: 'station', orbit: { parent: 'sear', a: SHELTER_R, n: GLOAM_N, phase: GLOAM_PH, reflex: false } },
     ],
     ship: ship({ start: { free: { x: SINK.x, y: SINK.y, vx: SINK.vx - 1.2 * Math.cos(GLOAM_PH), vy: SINK.vy - 1.2 * Math.sin(GLOAM_PH) } }, heading: GLOAM_PH, dv: 5.5, accel: 1 }),
-    goals: [{ type: 'rendezvous', body: 'shelter', dist: 8, relVel: 0.5 }],
+    goals: [{ type: 'rendezvous', body: 'shelter', dist: 15, relVel: 0.8 }],
     par: 3.8, bounds: 4000, tMax: 400, predict: 200, view: { x: 650 * Math.cos(GLOAM_PH), y: 650 * Math.sin(GLOAM_PH), span: 600 },
   },
   {
@@ -170,7 +208,7 @@ const levels = [
     objective: 'Orbit Corona between 715 and 815 k up, taking under 7 Sv of radiation.',
     teaches: 'Rocks as shade',
     bodies: [
-      { id: 'corona', name: 'Corona', gm: 40000, radius: 45, color: C.sun, kind: 'star', radiation: { rate: 0.1, at: 300, dose: 7 } },
+      { id: 'corona', name: 'Corona', gm: 40000, radius: 45, color: C.sun, kind: 'star', radiation: { rate: 0.1, at: 300, dose: 5 } },
       ...UMBRELLAS,
     ],
     ship: ship({ start: { orbit: { body: 'corona', r: 300, angle: 0 } }, heading: 'prograde', dv: 7, accel: 1 }),
@@ -217,7 +255,8 @@ const levels = [
 
 const proofs = {
   eclipse: {
-    p: [19, 4.4], scale: [2, 0.3],
+    // Wait for the day side (judged by eye: ±3 s), burn about 4.4 k/s.
+    p: [18, 4.4], scale: [2, 0.3], tol: [3, 0.2],
     script: (p, AP) => [
       { wait: Math.max(0, p[0]) },
       { burn: 'pro', rel: 'nyx', until: (m) => m.dvUsed() >= p[1] },
@@ -226,37 +265,44 @@ const proofs = {
 };
 
 proofs.shadedrop = {
-  p: [32.392, 133.96, 112.781, -2.339, -0.008, 0.043, 0.507, 32.881], scale: [3, 10, 15, 0.5, 0.5, 0.02, 1, 10],
+  // Climb from the day side into the dark cone, park at L2, then push in
+  // toward Lee Station and let the relay go: it falls in down the shadow.
+  p: [32.392, 133.96, 32.881, 0.043, 0.507, 8], scale: [3, 10, 10, 0.02, 1, 3],
+  tol: [2, 5, 4, 0, 0, 4],
   script: (p, AP) => [
     { wait: Math.max(0, p[0]) },
     { burn: 'pro', rel: 'veil', until: (m) => AP.orb(m, 'veil').ap >= p[1] },
-    { coast: (m) => AP.orb(m, 'veil').r >= p[2] },
+    { coast: (m) => !AP.orb(m, 'veil').rising || goalDist(m) < p[2] },
+    park(p[3], p[4], 0.3, 300),
+    aimAt('lee', 120, p[5], 0.05, 30),
     { drop: true },
-    ...dvBurn(p[3], 'veil', 0.2 + Math.abs(p[4])),
-    { coast: (m) => m.goalIndex >= 1 && (!AP.orb(m, 'veil').rising || goalDist(m) < p[7]) },
-    park(p[5], p[6], 0.3, 300),
   ],
 };
 
 proofs.fencedshade = {
-  // Burn up the cone at once, a little against the sideways drift, coast
-  // up to the Shelter and match its speed there.
-  p: [0, 0.386, 3.102, 17.004, 0.041, 0.679, 0.195], scale: [2, 0.2, 0.4, 10, 0.02, 0.4, 0.05],
+  // React (a couple of seconds), burn up the cone a little against the
+  // sideways drift, trim the path onto the Shelter, then match its speed.
+  p: [2, 0.386, 3.102, 25, 0.041, 0.679, 0.195], scale: [1, 0.2, 0.4, 10, 0.02, 0.4, 0.05],
+  tol: [2, 0.06, 0.15, 5, 0, 0, 0],
   script: (p, AP) => [
     { wait: Math.max(0, p[0]) },
     ...dvBurn((m) => GLOAM_PH + GLOAM_N * m.t + p[1], null, Math.abs(p[2])),
+    aimAt('shelter', 80, 6, 0.03, 40),
     { coast: (m) => dist(m, 'shelter') < p[3] || m.t > 300 },
     meet('shelter', p[4], p[5], p[6], 380),
   ],
 };
 
 proofs.umbrellafield = {
-  p: [19.291, 761.87, 756.386], scale: [3, 15, 10],
+  // Wait for Umbrella 1's shadow to cover you, burn prograde a moment later
+  // until the high point is in the band, coast to the top and round off.
+  p: [2, 810, 790], scale: [2, 15, 10], tol: [2, 30, 30],
   script: (p, AP) => [
+    { coast: (m) => underBrolly(m) || m.t > 300 },
     { wait: Math.max(0, p[0]) },
     { burn: 'pro', until: (m) => AP.orb(m, 'corona').ap >= p[1] },
     { coast: (m) => !AP.orb(m, 'corona').rising },
-    { burn: 'pro', until: (m) => AP.orb(m, 'corona').pe >= p[2] },
+    { burn: 'pro', until: (m) => AP.orb(m, 'corona').pe >= Math.min(p[2], 0.97 * AP.orb(m, 'corona').ap) },
   ],
 };
 
@@ -284,6 +330,14 @@ proofs.junkinthesun = {
   ],
 };
 
+// A plain Hohmann transfer to the band after waiting T seconds.
+const hohmann = (AP, T, ap) => [
+  { wait: T },
+  { burn: 'pro', until: (m) => AP.orb(m, 'corona').ap >= ap },
+  { coast: (m) => !AP.orb(m, 'corona').rising },
+  { burn: 'pro', until: (m) => AP.orb(m, 'corona').pe >= Math.min(790, 0.97 * AP.orb(m, 'corona').ap) },
+];
+
 const fails = {
   eclipse: [
     { name: 'burn at once, in the shadow', steps: (AP) => [
@@ -301,8 +355,8 @@ const fails = {
         { wait: p[0] },
         { burn: 'pro', rel: 'veil', until: (m) => AP.orb(m, 'veil').ap >= p[1] },
         { drop: true },
-        { coast: (m) => AP.orb(m, 'veil').r >= p[2] },
-        ...dvBurn(p[3], 'veil', 0.2 + p[4]),
+        { coast: (m) => !AP.orb(m, 'veil').rising || goalDist(m) < p[2] },
+        park(p[3], p[4], 0.3, 300),
       ];
     } },
     { name: 'climb at once', steps: (AP) => proofs.shadedrop.script([0].concat(proofs.shadedrop.p.slice(1)), AP) },
@@ -310,10 +364,12 @@ const fails = {
   ],
   fencedshade: [
     { name: 'coast and see', steps: () => [] },
-    { name: 'burn straight up the cone, no lead against the drift', steps: (AP) => {
-      const p = proofs.fencedshade.p.slice(); p[1] = 0;
-      return proofs.fencedshade.script(p, AP);
-    } },
+    { name: 'burn straight up the cone, no lead against the drift', steps: (AP) => [
+      { wait: 2 },
+      ...dvBurn((m) => GLOAM_PH + GLOAM_N * m.t, null, 3.1),
+      { coast: (m) => dist(m, 'shelter') < 25 || m.t > 300 },
+      meet('shelter', 0.041, 0.679, 0.195, 380),
+    ] },
     { name: 'burn straight away from Gloam', steps: (AP) => [
       ...dvBurn('out', 'gloam', 3.1),
       { coast: (m) => dist(m, 'shelter') < 17 || m.t > 300 },
@@ -327,8 +383,8 @@ const fails = {
     ] },
   ],
   umbrellafield: [
-    { name: 'Hohmann at once', steps: (AP) => proofs.umbrellafield.script([0, 790, 790], AP) },
-    { name: 'wait for a clear lane, then Hohmann', steps: (AP) => proofs.umbrellafield.script([30, 790, 790], AP) },
+    { name: 'Hohmann at once', steps: (AP) => hohmann(AP, 0, 810) },
+    { name: 'wait for a clear lane, then Hohmann', steps: (AP) => hohmann(AP, 30, 810) },
     { name: 'clear lane, then a fast transfer', steps: (AP) => [
       { wait: 30 },
       { burn: 'pro', until: (m) => AP.orb(m, 'corona').ap >= 1200 },

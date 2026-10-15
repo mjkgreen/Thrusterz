@@ -37,20 +37,20 @@ const levels = [
   {
     id: 'needledive',
     name: 'Needle Dive',
-    intro: 'You are parked in a geostationary orbit over Tor\'s far side, and Spindle is a pulsar. Dive through its eye, inside 100 k, and burn at the bottom to climb out of the system, but this close in a beam hit is enormous: a sweep that catches you on the way in or out is fatal, and Wisp\'s red zone circles close in. Each lap round Tor shifts when you arrive, so leave backward from Tor\'s inner side on the lap where the dashed path stays dark and clear of the zone.',
-    objective: 'Pass within 100 k of Spindle, then get 1800 k away from it, taking under 6 Sv of radiation.',
-    teaches: 'Pick the lap · dive between sweeps',
+    intro: 'You are parked in a geostationary orbit over Tor\'s far side, and Spindle is a pulsar that turns once in Tor\'s day: each time you come round to Tor\'s inner side, its beams point the same way, so any lap will do. Leave backward from the inner side until the dashed path dives at Spindle, then trim your low point to just inside 100 k, where you flash through a beam in a moment; a beam that catches the slow part of the fall is fatal. Watch the bottom of the path: it glows where the dose builds up, and it shows where it would run into Wisp\'s red zone. Burn hard at the very bottom to climb out before the next sweep.',
+    objective: 'Pass within 100 k of Spindle, then get 1800 k away from it, taking under 8 Sv of radiation.',
+    teaches: 'Leave on the beam\'s beat · dive between sweeps',
     bodies: [
-      { id: 'spindle', name: 'Spindle', gm: 40000, radius: 10, pw: 25, color: NEUTRON, kind: 'pulsar', radiation: { rate: 0.3, at: 300, dose: 6, beam: { width: 0.3, period: 78.7, phase: 2.31 } } },
-      { id: 'wisp', name: 'Wisp', gm: 20, radius: 8, color: C.ice, keepOut: 35, orbit: { parent: 'spindle', a: 150, phase: 3.722, dir: -1 } },
+      { id: 'spindle', name: 'Spindle', gm: 40000, radius: 10, pw: 25, color: NEUTRON, kind: 'pulsar', radiation: { rate: 0.3, at: 300, dose: 8, beam: { width: 0.3, period: 2 * Math.PI / TOR_SPIN, phase: 0.6 } } },
+      { id: 'wisp', name: 'Wisp', gm: 20, radius: 8, color: C.ice, keepOut: 25, orbit: { parent: 'spindle', a: 150, phase: 3.722, dir: -1 } },
       { id: 'tor', name: 'Tor', gm: TOR_GM, radius: 28, spin: TOR_SPIN, color: C.tan, orbit: { parent: 'spindle', a: 1000, phase: 0 } },
     ],
-    ship: ship({ start: { orbit: { body: 'tor', r: GEO, angle: 0 } }, heading: 'prograde', dv: 7, accel: 2 }),
+    ship: ship({ start: { orbit: { body: 'tor', r: GEO, angle: 0 } }, heading: 'prograde', dv: 8, accel: 2 }),
     goals: [
       { type: 'reach', body: 'spindle', r: 100, label: 'Needle\'s eye' },
       { type: 'escape', body: 'spindle', r: 1800 },
     ],
-    par: 4.4, bounds: 6000, tMax: 1100, predict: 300, view: { x: 400, y: 0, span: 2600 }, startCam: 'overview',
+    par: 6, bounds: 6000, tMax: 1100, predict: 300, view: { x: 400, y: 0, span: 2600 }, startCam: 'overview',
   },
   {
     id: 'slingdrop',
