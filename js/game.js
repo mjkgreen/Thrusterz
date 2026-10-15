@@ -2144,7 +2144,7 @@
       const done = i < m.goalIndex || m.done.has(i);
       li.className = done ? 'done' : i === m.goalIndex ? 'active' : '';
       li.innerHTML = `<span class="chk">${done ? '✓' : i === m.goalIndex ? '▸' : '·'}</span><span>${goalText(g, m)}</span>`;
-      if (i === m.goalIndex && ['orbit', 'rendezvous', 'hold', 'escape', 'spread'].includes(g.type)) {
+      if (i === m.goalIndex && ['orbit', 'rendezvous', 'hold', 'escape', 'spread', 'reach'].includes(g.type)) {
         li.innerHTML += `<div class="sub" id="goal-sub"></div>`;
       }
       ul.appendChild(li);
@@ -2289,12 +2289,14 @@
       } else if (g.type === 'hold') {
         const pct = Math.min(100, 100 * m.holdTime / g.hold);
         const rv = Math.hypot(subj.vx - q.vx, subj.vy - q.vy), lim = g.relVel || 1;
-        sub.innerHTML = `<div class="minibar"><div style="width:${pct}%"></div></div><span>${m.holdTime.toFixed(0)}/${g.hold}s · <span class="${d < g.r ? 'ok' : ''}">dist ${U(d.toFixed(0), 'k')}</span> · <span class="${rv < lim ? 'ok' : 'warn'}">rel v ${U(rv.toFixed(2), 'k/s')}</span></span>`;
+        sub.innerHTML = `<div class="minibar"><div style="width:${pct}%"></div></div><span>${m.holdTime.toFixed(0)}/${g.hold}s · <span class="${d < g.r ? 'ok' : ''}">dist ${U(d.toFixed(0) + ' / <' + g.r, 'k')}</span> · <span class="${rv < lim ? 'ok' : 'warn'}">rel v ${U(rv.toFixed(2) + ' / <' + lim, 'k/s')}</span></span>`;
       } else if (g.type === 'escape') {
         sub.innerHTML = `<span>distance ${U(alt(m, g, d).toFixed(0) + ' / ' + alt(m, g, g.r), 'k')}</span>`;
       } else if (g.type === 'rendezvous') {
         const rv = Math.hypot(subj.vx - q.vx, subj.vy - q.vy);
-        sub.innerHTML = `<span class="${d < g.dist ? 'ok' : ''}">dist ${U(d.toFixed(1), 'k')}</span> · <span class="${rv < g.relVel ? 'ok' : ''}">rel v ${U(rv.toFixed(2), 'k/s')}</span>`;
+        sub.innerHTML = `<span class="${d < g.dist ? 'ok' : ''}">dist ${U(d.toFixed(1) + ' / <' + g.dist, 'k')}</span> · <span class="${rv < g.relVel ? 'ok' : ''}">rel v ${U(rv.toFixed(2) + ' / <' + g.relVel, 'k/s')}</span>`;
+      } else if (g.type === 'reach') {
+        sub.innerHTML = `<span class="${d < g.r ? 'ok' : ''}">dist ${U(d.toFixed(0) + ' / <' + g.r, 'k')}</span>`;
       }
     }
     const p = state.pred;

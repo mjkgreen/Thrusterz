@@ -301,11 +301,13 @@ body.touch #mission .eyebrow { display: none; }
 body.touch #mission .title { font-size: 13px; margin: 0; line-height: 1.25; }
 body.touch #hud-goals { font-size: 11px; line-height: 1.3; }
 body.touch #hud-goals li { display: block; padding: 0; }
-body.touch #hud-goals li:not(.active) { display: none; }
-body.touch #hud-goals .chk { display: none; }
-body.touch #hud-goals li > span:not(.chk) { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-body.touch #hud-goals .sub { display: flex; align-items: center; gap: 6px; padding: 1px 0 0; font-size: 10px; white-space: nowrap; overflow: hidden; }
-body.touch #hud-goals .sub .minibar { width: 54px; flex: none; margin: 0; }
+/* Every objective is listed as a checklist; done and later ones are smaller. */
+body.touch #hud-goals li:not(.active) { font-size: 10px; opacity: 0.75; }
+body.touch #hud-goals li.done { opacity: 0.55; }
+body.touch #hud-goals .chk { display: inline-block; width: 12px; }
+body.touch #hud-goals li > span:not(.chk) { display: inline-block; max-width: calc(100% - 14px); vertical-align: top; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+body.touch #hud-goals .sub { display: flex; flex-wrap: wrap; align-items: center; column-gap: 6px; padding: 1px 0 0 14px; font-size: 10px; }
+body.touch #hud-goals .sub .minibar { width: 100%; flex: none; margin: 1px 0 2px; }
 
 /* Phones: the gauges fill the top between the mission panel and the
    buttons (time, warp and frame live in the orbit panel instead). */
