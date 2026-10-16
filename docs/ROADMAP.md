@@ -1,6 +1,6 @@
 # Thrusterz roadmap
 
-Living notes on where the game goes next. World 1 (Flight School), World 2
+Living notes on where the game goes next. Training (world 0), World 1 (Flight School), World 2
 (Payloads), World 3 (No-Fly Zones) and **World 4 (Pulsar**: radiation and
 deep gravity, built in `tools/w4`) are complete. Next: **World 5,
 Homecoming** (atmospheres and landings); see below. New mechanics are prototyped as **Experimental levels**
@@ -68,6 +68,27 @@ gravity). Its 30 missions are five chapters of six:
 | **Prototype** | **Wormholes** | Enter one, exit another with the same velocity | The predicted path follows through. Test level: *Shortcut* (the entry angle aims the exit at an out-of-reach planet). Sci-fi, so late or never as a world. |
 | Idea | Collectible stars | Fly a route that grabs three stars along the way | Cut the Rope-style replay layer that works in every world, including World 1. |
 | **Prototype → World 4** | **Event horizons / strong gravity** | How close to pass a black hole: whirl round or fall in | A horizon much larger than the hole and a strong-gravity pull (gm/(r − pw)²): no stable orbits inside 3·pw, so a close pass whirls you round more than half a turn. Test level: *Whirl* (World 1's *Event Horizon* is the Oberth version). |
+
+## Training (world 0, built)
+
+Playtesters found the step from the first missions into World 1 too steep,
+so the basics have their own short world, ahead of World 1, one control per
+mission, each simple enough to win by using that control well:
+
+1. **Liftoff**: the main engine.
+2. **Point and Burn** (zero-G): side thrusters, stopping a spin.
+3. **Full Stop** (zero-G): flip and burn, the retrograde marker.
+4. **Long Coast** (zero-G): time warp, out and back to 1× before the stop.
+5. **The Big Picture**: overview camera, a prograde burn out to a gate.
+6. **Moving Frame**: starts in the inertial frame round a planet that is
+   racing round its star; V to Terra's frame, then raise the low point.
+7. **Lean Burn** (zero-G): stars come from fuel; burn gently, coast, restart.
+
+Each has a proof in `tools/proofs.js` with a beginner-sized `tol`, and the
+suite checks every one wins at least 3 times in 4 when flown sloppily.
+World 1 now opens with Circularize, and its rendezvous missions (Docking,
+Constellation, Rescue) come before the Luna transfers. `level.startFrame`
+sets the reference frame a mission starts in.
 
 ## World 2: Payloads (built)
 

@@ -522,6 +522,52 @@ Object.assign(module.exports, {
   },
 });
 
+// Training (world 0). 0G missions steer by absolute angles: there is no
+// gravity to measure prograde against. tol: what a person flying by hand is
+// off by (tools/w4/robust.js).
+const toward = (id, off, dy) => (m) => { m.sys.update(m.t); const b = m.sys.byId[id].index; return Math.atan2(m.sys.py[b] + (dy || 0) - m.ship.y, m.sys.px[b] - m.ship.x) + (off || 0); };
+const backward = (m) => Math.atan2(-m.ship.vy, -m.ship.vx);
+const speed = (m) => Math.hypot(m.ship.vx, m.ship.vy);
+// Distance still to go toward a station, along the way you're moving.
+const ahead = (m, id) => { m.sys.update(m.t); const b = m.sys.byId[id].index, v = speed(m); return ((m.sys.px[b] - m.ship.x) * m.ship.vx + (m.sys.py[b] - m.ship.y) * m.ship.vy) / v; };
+// Burn to speed p[0] toward a point 15 k beside a station (flying into it
+// would crash), coast, flip and brake to p[2] starting p[1] k later than the
+// ideal braking point.
+const parkAt = (id) => (p) => [
+  { burn: toward(id, 0, 15), until: (m) => speed(m) >= p[0] },
+  { coast: (m) => ahead(m, id) <= p[0] * p[0] / 2 + 10 - p[1] },
+  { burn: backward, until: (m) => speed(m) <= Math.max(0.05, p[2]) },
+];
+Object.assign(module.exports, {
+  liftoff: {
+    // Pebble's escape speed at the surface is about 11.5 k/s.
+    p: [16], scale: [1], tol: [3],
+    script: (p) => [{ burn: (m) => m.ship.angle, until: (m) => m.dvUsed() >= p[0] }],
+  },
+  point: {
+    p: [1.5, 0], scale: [0.2, 0.05], tol: [0.5, 0.06],
+    script: (p) => [{ burn: toward('beacon', p[1]), until: (m) => speed(m) >= p[0] }],
+  },
+  stop: { p: [1.8, 0, 0.2], scale: [0.2, 5, 0.1], tol: [0.5, 15, 0.3], script: parkAt('buoy') },
+  longcoast: { p: [1.6, 0, 0.2], scale: [0.2, 5, 0.1], tol: [0.5, 25, 0.3], script: parkAt('outpost') },
+  leanburn: { p: [1.5, 0, 0.2], scale: [0.1, 5, 0.1], tol: [0.2, 15, 0.15], script: parkAt('depot') },
+  bigpicture: {
+    // Burn prograde until the high point reaches the gate's height.
+    p: [1.5, 400], scale: [0.5, 10], tol: [1.5, 25],
+    script: (p, AP) => [{ wait: Math.max(0, p[0]) }, { burn: 'pro', rel: 'terra', until: (m) => AP.orb(m, 'terra').ap >= p[1] }],
+  },
+  movingframe: {
+    // Coast to the high point (p[1] s early or late), then raise the low point.
+    p: [288, 0], scale: [5, 1], tol: [22, 4],
+    script: (p, AP) => [
+      { wait: 5 },
+      { coast: (m) => !AP.orb(m, 'terra').rising },
+      { wait: Math.max(0, p[1]) },
+      { burn: 'pro', rel: 'terra', until: (m) => { const o = AP.orb(m, 'terra'); return o.pe >= Math.min(p[0], 298); } },
+    ],
+  },
+});
+
 // World 3: each chapter file keeps its levels, proofs and naive "fails" together.
 for (const ch of ['ch1', 'ch2', 'ch3', 'ch4', 'ch5']) Object.assign(module.exports, require('./w3/' + ch).proofs);
 for (const ch of ['ch1', 'ch2', 'ch3', 'ch4', 'ch5']) Object.assign(module.exports, require('./w4/' + ch).proofs);

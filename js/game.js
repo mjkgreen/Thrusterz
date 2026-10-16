@@ -188,6 +188,8 @@
     // Auto frame off: start in the frame Auto would pick now, and keep it.
     state.lastAutoFrame = null;
     if (!settings.autoFrame) state.frameMode = frameBody();
+    // A mission can start in another frame, e.g. to show why switching helps.
+    if (level.startFrame) state.frameMode = level.startFrame;
     if (level.startCam === 'overview') { overview(true); state.cam.x = state.cam.tx; state.cam.y = state.cam.ty; state.cam.zoom = state.cam.tzoom; }
     setupHud();
     show('hud');
@@ -1988,7 +1990,7 @@
     else if (c.idle > 5 && state.warp === 0 && wants('warp')) key = 'warp';
     else if (c.idle > 2 && m.dvUsed() > 0.3 && wants('camera')) key = 'camera';
     else if (grav >= 2 && c.idle > 3 && wants('frame')) key = 'frame';
-    else if (L.ship.canRotate && m.t > 25 && c.idle > 2 && wants('gyro') && state.levelIndex >= 5) key = 'gyro';
+    else if (L.ship.canRotate && m.t > 25 && c.idle > 2 && wants('gyro') && state.levelIndex >= 9) key = 'gyro';
     const id = key === 'counter' ? key + Math.sign(s.omega) : key;
     if (id === c.id) return;
     c.key = key; c.id = id;
@@ -2016,7 +2018,7 @@
   // ------------------------------------------------------------------ HUD
   function setupHud() {
     const m = state.mission, L = m.level;
-    $('hud-level').textContent = (L.test ? 'Experimental' : (worldOf(L) > 1 ? worldOf(L) + '-' : 'Mission ') + missionNum(state.levelIndex)) + ' · ' + L.teaches;
+    $('hud-level').textContent = (L.test ? 'Experimental' : (worldOf(L) > 1 ? worldOf(L) + '-' : worldOf(L) === 0 ? 'Training ' : 'Mission ') + missionNum(state.levelIndex)) + ' · ' + L.teaches;
     $('hud-name').textContent = L.name;
     $('gauge-rcs').style.display = L.ship.rcs ? '' : 'none';
     $('gyro-row').style.display = L.ship.canRotate ? '' : 'none';
@@ -2344,10 +2346,14 @@
   function levelOpen(i) { return LEVELS[i].test || worldOpen(worldOf(LEVELS[i])); }
 
   function defaultTab() {
-    // The furthest open world that still has missions without stars.
-    let tab = 1;
-    for (const w of WORLDS) if (worldOpen(w.n) && worldLevels(w.n).some(l => !progress.stars[l.id])) { tab = w.n; }
-    return tab;
+    // The furthest open world you've started that still has missions without
+    // stars; a new pilot starts at the first (Training).
+    let tab = null;
+    for (const w of WORLDS) {
+      const ls = worldLevels(w.n);
+      if (worldOpen(w.n) && ls.some(l => !progress.stars[l.id]) && (tab == null || ls.some(l => progress.stars[l.id]))) tab = w.n;
+    }
+    return tab != null ? tab : WORLDS[WORLDS.length - 1].n;
   }
 
   function showMenu() {
@@ -2365,7 +2371,7 @@
       b.className = 'wtab w' + w.n + (state.menuTab === w.n ? ' active' : '') + (open ? '' : ' locked');
       b.setAttribute('role', 'tab');
       b.setAttribute('aria-selected', state.menuTab === w.n);
-      b.innerHTML = `<span class="wnum">World ${w.n}</span><span class="wname">${w.name}</span>`
+      b.innerHTML = `<span class="wnum">${worldName(w.n)}</span><span class="wname">${w.name}</span>`
         + `<span class="wstars">${open ? '★ ' + worldStars(w.n) + '/' + max : '🔒 ' + w.unlock + '★'}</span>`;
       b.onclick = () => selectTab(w.n);
       tabs.appendChild(b);
@@ -2396,7 +2402,7 @@
     else if (open) info.innerHTML = `<span class="k">${worldStars(t)} of ${list.length * 3} ★ earned</span>`;
     else {
       const w = WORLDS.find(x => x.n === t), have = worldStars(t - 1);
-      info.innerHTML = `<span class="lock">🔒 Earn ${w.unlock} ★ in World ${t - 1} to open ${w.name}</span>`
+      info.innerHTML = `<span class="lock">🔒 Earn ${w.unlock} ★ in ${worldName(t - 1)} to open ${w.name}</span>`
         + `<div class="unlockbar"><div style="width:${Math.min(100, 100 * have / w.unlock)}%"></div></div>`
         + `<span class="k">${have} / ${w.unlock} ★ · ${Math.max(0, w.unlock - have)} to go</span>`;
     }
@@ -2425,12 +2431,14 @@
   }
 
   // Missions are numbered within their world: "World 2 · Mission 5 of 30".
-  const worldOf = (L) => L.world || 1;
+  const worldOf = (L) => L.world != null ? L.world : 1;
+  // World 0 is Training; the rest are numbered.
+  const worldName = (n) => n === 0 ? 'Training' : 'World ' + n;
   const worldLevels = (n) => LEVELS.filter(l => !l.test && worldOf(l) === n);
   function missionNum(i) { return worldLevels(worldOf(LEVELS[i])).indexOf(LEVELS[i]) + 1; }
   function missionLabel(i) {
     const L = LEVELS[i];
-    return L.test ? 'Experimental level' : `World ${worldOf(L)} · Mission ${missionNum(i)} of ${worldLevels(worldOf(L)).length}`;
+    return L.test ? 'Experimental level' : `${worldName(worldOf(L))} · Mission ${missionNum(i)} of ${worldLevels(worldOf(L)).length}`;
   }
   function nextIndex(i) {
     const j = i + 1;
@@ -2634,15 +2642,15 @@
     if (sel.options.length) return;
     for (const w of WORLDS) {
       const o = document.createElement('option');
-      o.value = 'w' + w.n; o.textContent = `World ${w.n} · ${w.name} (all missions)`;
+      o.value = 'w' + w.n; o.textContent = (w.n ? `World ${w.n} · ${w.name}` : w.name) + ' (all missions)';
       sel.appendChild(o);
     }
     for (const w of WORLDS) {
       const g = document.createElement('optgroup');
-      g.label = `World ${w.n} · ${w.name}`;
+      g.label = w.n ? `World ${w.n} · ${w.name}` : w.name;
       for (const L of worldLevels(w.n)) {
         const i = LEVELS.indexOf(L), o = document.createElement('option');
-        o.value = 'm' + i; o.textContent = `${w.n}-${missionNum(i)} ${L.name}`;
+        o.value = 'm' + i; o.textContent = `${w.n || 'T'}-${missionNum(i)} ${L.name}`;
         g.appendChild(o);
       }
       sel.appendChild(g);
@@ -2661,7 +2669,7 @@
     if (sel.world != null) {
       const w = WORLDS.find(x => x.n === sel.world);
       $('board-title').textContent = w.name;
-      $('board-eyebrow').textContent = `Leaderboard · World ${w.n} · all ${worldLevels(w.n).length} missions`;
+      $('board-eyebrow').textContent = `Leaderboard · ${worldName(w.n)} · all ${worldLevels(w.n).length} missions`;
     } else {
       $('board-title').textContent = LEVELS[sel.level].name;
       $('board-eyebrow').textContent = 'Leaderboard · ' + missionLabel(sel.level);

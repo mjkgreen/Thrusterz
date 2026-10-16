@@ -248,6 +248,29 @@ for (const L of LEVELS) {
   check('Clear the Station: a stage left on a crossing orbit fails', cross.debris[0].fate.kind === 'cross' && cross.status === 'crashed', cross.debris[0].fate.kind + ' ' + cross.message);
 }
 
+// 11b. Training (world 0): one new control per mission, each easy to win.
+//      Proofs win within par, and win at least 3 times in 4 when flown with
+//      a beginner's sloppiness (proof.tol, tools/w4/robust.js).
+{
+  const AP = require('./autopilot.js');
+  const PROOFS = require('./proofs.js');
+  const { robust } = require('./w4/robust.js');
+  const w0 = LEVELS.filter(l => l.world === 0);
+  check('Training comes first and has 7 missions', w0.length === 7 && LEVELS.slice(0, 7).every(l => l.world === 0), w0.map(l => l.id).join(', '));
+  check('Point and Burn, Full Stop, Long Coast and Lean Burn are zero-G', ['point', 'stop', 'longcoast', 'leanburn'].every(id => { const L = LEVELS.find(l => l.id === id); return L.zeroG && L.bodies.every(b => b.gm < 1e-3); }));
+  const lost = [], tight = [];
+  for (const L of w0) {
+    const P = PROOFS[L.id];
+    const r = P && AP.fly(L, P.script(P.p, AP), P.opts);
+    if (!r || !r.won) { lost.push(`${L.id} (${r ? r.status + ': ' + r.message : 'no proof'})`); continue; }
+    if (r.dv > L.par) lost.push(`${L.id} (proof Δv ${r.dv.toFixed(2)} over par ${L.par})`);
+    const k = robust(L, P, 20);
+    if (!k.ok || k.win < 0.75) tight.push(`${L.id} (wins ${Math.round(100 * k.win)}%, fuel ×${k.fuel.toFixed(2)})`);
+  }
+  check('Training: every proof wins within par', lost.length === 0, lost.join('; '));
+  check('Training: forgiving when flown by hand', tight.length === 0, tight.join('; '));
+}
+
 // 12. Every World 2 mission has a scripted flight plan that still wins
 //     (tools/proofs.js; re-tune with tools/check-scripted.js).
 {

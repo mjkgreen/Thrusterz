@@ -21,7 +21,8 @@ const boardKey = (L) => 'board:' + L.id + ':' + HASHES[L.id];
 // The key carries a hash of every mission's hash, so changing any mission
 // starts a fresh world board, as it does for the mission's own board.
 const WORLD_LEVELS = {};
-for (const L of Object.values(LEVEL_BY_ID)) (WORLD_LEVELS[L.world || 1] = WORLD_LEVELS[L.world || 1] || []).push(L);
+const worldOf = (L) => L.world != null ? L.world : 1; // world 0 is Training
+for (const L of Object.values(LEVEL_BY_ID)) (WORLD_LEVELS[worldOf(L)] = WORLD_LEVELS[worldOf(L)] || []).push(L);
 const fnv = (str) => { let h = 0x811c9dc5; for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; } return h.toString(36); };
 const WORLD_KEYS = Object.fromEntries(Object.entries(WORLD_LEVELS).map(([n, ls]) => [n, 'wboard:' + n + ':' + fnv(ls.map(boardKey).join('|'))]));
 
@@ -289,7 +290,7 @@ const routes = {
     await store.zadd(key + ':score', p.id, run.score, 'GT');
     await store.zadd(key + ':time', p.id, run.time, 'LT');
     if (prevScore == null || run.score > prevScore) await store.set('best:' + key + ':' + p.id, { run, log }); // replay kept for ghosts / audits
-    const world = await updateWorld(store, L.world || 1, p.id);
+    const world = await updateWorld(store, worldOf(L), p.id);
     const rank = async (kind) => { const r = await store.zrank(key + ':' + kind, p.id, kind === 'score'); return r == null ? null : r + 1; };
     return { world, run, best: { score: Math.max(run.score, prevScore || 0), time: prevTime == null ? run.time : Math.min(prevTime, run.time) }, rank: { score: await rank('score'), time: await rank('time') }, total: await store.zcard(key + ':score') };
   }),

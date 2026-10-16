@@ -229,7 +229,7 @@ const check = (name, ok, info) => { console.log((ok ? 'ok   ' : 'FAIL ') + name 
       await new Promise(res => setTimeout(res, 300));
       return { gateHidden, stars, apple, sent: window.__sent.map(x => x.type + (x.key ? ':' + x.key : '') + (x.kind ? ':' + x.kind : '')) };
     });
-    check('app shell: saved stars handed in at launch appear', /★ 5\/90/.test(r.stars), r.stars);
+    check('app shell: saved stars handed in at launch appear', /★ 5\/21/.test(r.stars), r.stars);
     check('app shell: no fullscreen prompt inside the app', r.gateHidden);
     check('app shell: progress is saved back to native storage', r.sent.includes('set:thrusterz.progress.v1'), r.sent.join(','));
     check('app shell: Sign in with Apple answers come back (here: cancelled)', r.apple === 'Sign in was cancelled', r.apple);
