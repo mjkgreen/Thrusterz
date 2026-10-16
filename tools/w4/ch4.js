@@ -31,13 +31,13 @@ const levels = [
       { id: 'ash', name: 'Ash', gm: 60, radius: 18, color: C.rock, orbit: { parent: 'kern', a: 480, phase: -2.35 } },
     ],
     ship: ship({ start: { orbit: { body: 'kern', r: 900, angle: Math.PI, speed: 0.69 } }, heading: 'retrograde', dv: 1.6, accel: 1 }),
-    goals: [{ type: 'reach', x: 366, y: -822, r: 120, label: 'the gate' }],
+    goals: [{ type: 'reach', x: 366, y: -822, r: 180, label: 'the gate' }],
     par: 1, bounds: 4000, tMax: 900, predict: 400, view: { x: 0, y: -100, span: 2200 },
   },
   {
     id: 'needledive',
     name: 'Needle Dive',
-    intro: 'You are parked in a geostationary orbit over Tor\'s far side, and the pulsar Spindle turns once in Tor\'s day, so its beams and its moon Wisp are in the same place on every lap: any lap will do. Leave as you swing round toward Spindle, a little before Tor\'s inner side, burning forward until the dashed path dives at Spindle, then trim its low point to between 80 and 95 k. Watch the bottom of the path: dive too deep and it glows where you whirl round into a second beam, and it marks where you would cross Wisp\'s red zone. Burn prograde at the very bottom, where a little fuel goes a long way.',
+    intro: 'You are parked in a geostationary orbit over Tor\'s far side, and the pulsar Spindle turns once in Tor\'s day, so its beams and its moon Wisp are in the same place on every lap: any lap will do. Leave as you swing round toward Spindle, a little before Tor\'s inner side, burning forward until the dashed path dives at Spindle, then trim its low point to between 70 and 85 k up. Watch the bottom of the path: dive too deep and it glows where you whirl round into a second beam, and it marks where you would cross Wisp\'s red zone. Burn prograde at the very bottom, where a little fuel goes a long way.',
     objective: 'Pass within 100 k of Spindle, then get 1800 k away from it, taking under 8 Sv of radiation.',
     teaches: 'Beams in step with your lap · dive between sweeps',
     bodies: [
@@ -73,23 +73,23 @@ const levels = [
   {
     id: 'retrowhirl',
     name: 'Retro Whirl',
-    intro: 'Vesper Station circles Halo clockwise, the other way round from you, and flipping your orbit round would take more than your whole tank. Instead, leave Halo backward from its inner side and dive at the pulsar Lumen: a pass just inside its unstable ring whips you round so you climb back out to meet Halo, and if you pass Halo\'s far side you can brake straight into Vesper\'s direction. Lumen\'s beams sweep the dive, so leave on a lap when they point away as you fall and climb, and trim your path on the way back out.',
-    objective: 'Orbit Halo clockwise, the way Vesper goes, between 40 and 135 k up, taking under 8 Sv of radiation.',
+    intro: 'Vesper Station circles Halo clockwise, the other way round from you, and flipping your orbit round on the spot would take far more than your tank. The pulsar Lumen spins once for each lap you make round Halo, so its beams point the same way on every lap. Leave a little before Halo\'s inner side, burning forward until the dashed path dives at Lumen, and trim its low point to about 70 k, just inside the dashed unstable ring: the whirl throws you back out toward Halo. On the climb, steer until the path swings round Halo\'s far side, nudge that pass to about 80 k up, and brake there into Vesper\'s direction.',
+    objective: 'Orbit Halo clockwise, the way Vesper goes, between 28 and 158 k up, taking under 9 Sv of radiation.',
     teaches: 'Whirl round to turn round',
     bodies: [
-      { id: 'lumen', name: 'Lumen', gm: 40000, radius: 10, pw: 25, color: NEUTRON, kind: 'pulsar', radiation: { rate: 0.3, at: 300, dose: 8, beam: { width: 0.3, period: 90, phase: 0.13 } } },
+      { id: 'lumen', name: 'Lumen', gm: 40000, radius: 10, pw: 25, color: NEUTRON, kind: 'pulsar', radiation: { rate: 0.3, at: 300, dose: 9, beam: { width: 0.3, period: 65.8, phase: 2.5 } } },
       { id: 'halo', name: 'Halo', gm: 1000, radius: 22, color: C.purple, orbit: { parent: 'lumen', a: 1000, phase: 0 } },
       { id: 'vesper', name: 'Vesper Station', gm: 0, radius: 3, color: C.station, kind: 'station', orbit: { parent: 'halo', a: 75, phase: 0, dir: -1 } },
     ],
-    ship: ship({ start: { orbit: { body: 'halo', r: 48, angle: 0 } }, heading: 'prograde', dv: 10, accel: 1 }),
+    ship: ship({ start: { orbit: { body: 'halo', r: 48, angle: 0 } }, heading: 'prograde', dv: 10.5, accel: 1 }),
     goals: [{ type: 'orbit', body: 'halo', rMin: 50, rMax: 180, dir: -1 }],
-    par: 6, bounds: 6000, tMax: 900, predict: 400, view: { x: 300, y: 0, span: 2600 }, startCam: 'overview',
+    par: 7.2, bounds: 6000, tMax: 900, predict: 400, view: { x: 300, y: 0, span: 2600 }, startCam: 'overview',
   },
   {
     id: 'horizonfence',
     name: 'Horizon Fence',
-    intro: 'You are falling past the black hole Gorge on a line its fence posts were put there to stop: hold course and you fly into a red zone. The gate lies back the way you came, so you need a tighter line that whirls you round, inside the fence, not a wider one outside it. Turn your nose toward Gorge with the side thrusters (you only have enough for one careful turn) and nudge your pass in, but the hot disc round the hole is pouring out radiation, so the deeper you go the more you take.',
-    objective: 'Whirl round Gorge and fly through the gate on 1.8 s of side thrusters, taking under 4 Sv of radiation.',
+    intro: 'You are falling past the black hole Gorge on a line its fence posts were put there to stop: hold course and you fly into a red zone. The gate lies back the way you came, so you need a tighter line that whirls you round, inside the fence, not a wider one outside it. Turn your nose toward Gorge with the side thrusters (you have enough for one careful turn, with a little to spare) and nudge your pass in, but the hot disc round the hole is pouring out radiation, so the deeper you go the more you take.',
+    objective: 'Whirl round Gorge and fly through the gate on 2.4 s of side thrusters, taking under 4 Sv of radiation.',
     teaches: 'Thread inside the fence',
     bodies: [
       { id: 'gorge', name: 'Gorge', gm: 100000, radius: 10, horizon: 40, pw: 40, color: '#1a1020', kind: 'blackhole', radiation: { rate: 0.03, at: 300, dose: 4 } },
@@ -97,14 +97,14 @@ const levels = [
       { id: 'postb', name: 'Fence Post B', gm: 0, radius: 3, color: C.station, kind: 'station', keepOut: 35, x: -250, y: 0 },
       { id: 'postc', name: 'Fence Post C', gm: 0, radius: 3, color: C.station, kind: 'station', keepOut: 35, x: 250 * Math.cos(-2.618), y: 250 * Math.sin(-2.618) },
     ],
-    ship: ship({ start: { free: { x: 1017.4, y: -587.5, vx: -14.75, vy: 0.85 } }, heading: Math.PI, dv: 1.8, accel: 1, rcs: { fuel: 1.8 } }),
+    ship: ship({ start: { free: { x: 1017.4, y: -587.5, vx: -14.75, vy: 0.85 } }, heading: Math.PI, dv: 1.8, accel: 1, rcs: { fuel: 2.4 } }),
     goals: [{ type: 'reach', x: 1126, y: 419, r: 160, label: 'the gate' }],
     par: 1.2, bounds: 5000, tMax: 250, predict: 250, view: { x: 400, y: 0, span: 2200 }, startCam: 'overview',
   },
   {
     id: 'pulsarbinary',
     name: 'Binary',
-    intro: 'The black hole Abyss and the pulsar Tock circle each other, and you are caught between them: Tock\'s pull is already twisting your orbit round Abyss, and every lap here adds to your dose as its beams sweep past. Your tank cannot climb out of this well alone. Burn prograde at your low point to throw your high point out to Tock\'s orbit just as Tock swings by ahead of you, and it drags you along and flings you out of the system; on the wrong lap you meet Tock head on, or not at all.',
+    intro: 'The black hole Abyss and the pulsar Tock circle each other, and you are caught between them: Tock\'s pull is already twisting your orbit round Abyss, and every lap here adds to your dose as its beams sweep past. Your tank cannot climb out of this well alone. Burn prograde at your low point to throw your high point out to Tock\'s orbit just as Tock swings by ahead of you, and it drags you along and flings you out of the system; on the wrong lap you meet Tock head on, or not at all. As you burn, watch the dashed path: stop once it bends round Tock and heads out.',
     objective: 'Get 1500 k from Abyss, taking under 6 Sv of radiation.',
     teaches: 'Slingshot off a moving pulsar',
     bodies: [
@@ -121,7 +121,7 @@ const proofs = {
   heavystar: {
     // Brake at the top until the speed is p[0]: the low point drops inside
     // the unstable ring and the whirl swings the climb round to the gate.
-    p: [3.7], scale: [0.03],
+    p: [3.67], scale: [0.03], tol: [0.1],
     script: (p, AP) => [
       { burn: 'retro', rel: 'kern', until: (m) => speed(m, 'kern') <= p[0] },
     ],
@@ -226,24 +226,24 @@ function encounter(m, id, skip, T) {
   const c = m._enc || (m._enc = {}), key = id + ':' + skip + ':' + T;
   if (c[key] && m.t - c[key].t < 0.02 && m.t >= c[key].t) return c[key].e;
   const sys = m.sys, i = sys.byId[id].index, s = { x: m.ship.x, y: m.ship.y, vx: m.ship.vx, vy: m.ship.vy }, bp = [0, 0], bq = [0, 0];
-  let t = m.t, best = Infinity, sense = 0;
+  let t = m.t, best = Infinity, sense = 0, ux = 0, uy = 0;
   while (t < m.t + T) {
     const dt = Phys.coastDt(sys, s, t, 0.01, 1);
     Phys.rk4(sys, s, t, dt, 0, 0);
     t += dt;
-    if (Phys.collision(sys, s.x, s.y, t) >= 0) { if (t > m.t + skip) { sys.posAt(i, t, bp); const d = Math.hypot(s.x - bp[0], s.y - bp[1]); if (d < best) { best = d; sense = 0; } } break; }
+    if (Phys.collision(sys, s.x, s.y, t) >= 0) { if (t > m.t + skip) { sys.posAt(i, t, bp); const d = Math.hypot(s.x - bp[0], s.y - bp[1]); if (d < best) { best = d; sense = 0; ux = (s.x - bp[0]) / d; uy = (s.y - bp[1]) / d; } } break; }
     if (t < m.t + skip) continue;
     sys.posAt(i, t, bp);
     const dx = s.x - bp[0], dy = s.y - bp[1], d = Math.hypot(dx, dy);
     if (d < best) {
-      best = d;
+      best = d; ux = dx / d; uy = dy / d;
       sys.posAt(i, t + 0.01, bq);
       const vx = s.vx - (bq[0] - bp[0]) / 0.01, vy = s.vy - (bq[1] - bp[1]) / 0.01;
       sense = dx * vy - dy * vx > 0 ? 1 : -1;
     }
   }
   sys.update(m.t);
-  const e = { d: best, sense };
+  const e = { d: best, sense, ux, uy };
   c[key] = { t: m.t, e };
   return e;
 }
@@ -255,10 +255,11 @@ proofs.retrowhirl = {
   // Leave on lap p[0], p[1] s from the inner side: burn forward until the
   // dashed path dives at Lumen, then on the way down trim the low point to
   // p[2]. On the climb back out, p[3] k from Lumen, steer (p[4] from
-  // prograde) until the dashed path passes Halo's far side (clockwise)
-  // within p[5]; at that low point brake until the high point is p[6].
-  p: [1, -10, 68, 386, 0, 100, 133], scale: [0, 1, 2, 30, 0.3, 10, 5],
-  tol: [0, 2, 2.7, 30, 0.06, 4, 5],
+  // prograde) until the dashed path swings round Halo's far side; once
+  // within 250 k of Halo, nudge the pass sideways until it is p[5] k from
+  // Halo, and at that low point brake until the high point is p[6].
+  p: [1, -11, 68, 386, 0, 100, 140], scale: [0, 1, 2, 30, 0.3, 3, 5],
+  tol: [0, 2, 2.7, 30, 0.06, 4, 6],
   script: (p, AP) => [
     { wait: Math.max(0, RW_INNER + Math.round(p[0]) * RW_LAP + p[1]) },
     { burn: 'pro', rel: 'halo', until: (m) => closest(m, 'lumen', 400) <= 150 },
@@ -267,8 +268,15 @@ proofs.retrowhirl = {
     { burn: 'pro', rel: 'lumen', until: (m) => closest(m, 'lumen', 300) >= p[2] },
     { coast: (m) => dist(m, 'lumen') < 150 },
     { coast: (m) => dist(m, 'lumen') > p[3] },
-    { burn: p[4], rel: 'lumen', max: 4, until: (m) => { const e = encounter(m, 'halo', 0, 700); return e.sense === -1 && e.d <= p[5] && e.d >= 72; } },
-    { coast: (m) => dist(m, 'halo') < 300 && radv(m, 'halo') > 0 },
+    { burn: p[4], rel: 'lumen', max: 4, until: (m) => { const e = encounter(m, 'halo', 0, 700); return e.sense === -1 && Math.abs(e.d - p[5]) <= 40; } },
+    { coast: (m) => dist(m, 'halo') < 250 },
+    { control: (m) => {
+      const e = encounter(m, 'halo', 0, 300);
+      if (e.sense === -1 && Math.abs(e.d - p[5]) <= 1.5) return { done: true };
+      const out = e.sense === -1 && e.d < p[5] ? 1 : -1;
+      return { thrust: true, angle: Math.atan2(out * e.uy, out * e.ux) };
+    }, max: 20 },
+    { coast: (m) => dist(m, 'halo') < 150 && radv(m, 'halo') > 0 },
     { burn: 'retro', rel: 'halo', until: (m) => { const o = AP.orb(m, 'halo'); return o.bound && o.ap <= p[6]; } },
   ],
 };
@@ -276,9 +284,10 @@ proofs.retrowhirl = {
 proofs.horizonfence = {
   // Turn to face Gorge's side of your line (straight up the screen) and burn
   // with p[0] of Δv: the pass drops inside the fence and whirls to the gate.
-  p: [1.15], scale: [0.05], opts: { turn: true, turnRate: 0.4 },
+  // (p[1]: how far off straight up the nose ends up.)
+  p: [1.15, 0], scale: [0.05, 0.02], tol: [0.1, 0.06], opts: { turn: true, turnRate: 0.4 },
   script: (p) => [
-    { burn: () => Math.PI / 2, until: (m) => m.dvUsed() >= p[0] },
+    { burn: () => Math.PI / 2 + (p[1] || 0), until: (m) => m.dvUsed() >= p[0] },
   ],
 };
 
@@ -288,10 +297,11 @@ const lowPoints = (id, k) => { let n = 0, prevIn = false; return { fn: () => { n
 proofs.pulsarbinary = {
   // At the first low point, burn prograde p[0] of Δv: the high point reaches
   // Tock's orbit just as Tock comes by, and the slingshot flings you out.
-  p: [0.64], scale: [0.02],
+  // (p[1]: how many seconds after the low point the burn starts.)
+  p: [0.66, 1.5], scale: [0.02, 0.5], tol: [0.1, 1.5],
   script: (p) => {
     const lp = lowPoints('abyss', 1);
-    return [{ fn: lp.fn }, { coast: lp.coast }, ...dvBurn('pro', 'abyss', p[0])];
+    return [{ fn: lp.fn }, { coast: lp.coast }, { wait: Math.max(0, p[1] || 0) }, ...dvBurn('pro', 'abyss', p[0])];
   },
 };
 
@@ -310,8 +320,9 @@ const fails = {
   ],
   retrowhirl: [
     { name: 'flip the orbit round in place', steps: (AP) => [{ burn: 'retro', rel: 'halo', until: (m) => AP.orb(m, 'halo').dir === -1 && AP.orb(m, 'halo').ap >= 60 }] },
-    { name: 'leave on the first lap', steps: (AP) => proofs.retrowhirl.script([0].concat(proofs.retrowhirl.p.slice(1)), AP) },
-    { name: 'leave a lap later', steps: (AP) => proofs.retrowhirl.script([2].concat(proofs.retrowhirl.p.slice(1)), AP) },
+    { name: 'dive for the middle of Lumen', steps: (AP) => proofs.retrowhirl.script([1, -11, 45].concat(proofs.retrowhirl.p.slice(3)), AP) },
+    { name: 'skim outside the unstable ring', steps: (AP) => proofs.retrowhirl.script([1, -11, 90].concat(proofs.retrowhirl.p.slice(3)), AP) },
+    { name: 'leave from the inner side, half a lap late', steps: (AP) => proofs.retrowhirl.script([1, 24].concat(proofs.retrowhirl.p.slice(2)), AP) },
   ],
   slingdrop: [
     { name: 'release the probe at once', steps: (AP) => proofs.slingdrop.script([0, 750], AP) },

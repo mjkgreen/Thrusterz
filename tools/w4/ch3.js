@@ -101,7 +101,7 @@ const levels = [
     ],
     ship: ship({ start: { conic: { body: 'pharos', pe: 150, e: 0.5, nu: 0.8, angle: 0 } }, heading: 'prograde', dv: 7.4, accel: 1 }),
     goals: [{ type: 'escape', body: 'pharos', r: 1200 }],
-    par: 4, bounds: 4000, tMax: 400, predict: 300, view: { x: 0, y: 300, span: 1700 }, startCam: 'overview',
+    par: 5.2, bounds: 4000, tMax: 400, predict: 300, view: { x: 0, y: 300, span: 1700 }, startCam: 'overview',
   },
   {
     id: 'widdershins',
