@@ -248,20 +248,28 @@ function encounter(m, id, skip, T) {
   return e;
 }
 
+// First pass over Halo's inner side, and the lap length there.
+const RW_INNER = 35.2, RW_LAP = 70.5;
+
 proofs.retrowhirl = {
-  // Leave Halo backward after p[0] s until the dive's low point is p[1].
-  // On the climb back out, p[2] k from Lumen, steer (p[3] from prograde)
-  // until the dashed path passes Halo's far side (clockwise) within p[4];
-  // at that low point brake until the high point is down to p[5].
-  p: [104.332, 67.437, 386.182, -0.014, 100, 133.452], scale: [1, 2, 30, 0.3, 10, 5],
+  // Leave on lap p[0], p[1] s from the inner side: burn forward until the
+  // dashed path dives at Lumen, then on the way down trim the low point to
+  // p[2]. On the climb back out, p[3] k from Lumen, steer (p[4] from
+  // prograde) until the dashed path passes Halo's far side (clockwise)
+  // within p[5]; at that low point brake until the high point is p[6].
+  p: [1, -12, 65, 386, 0, 100, 133], scale: [0, 1, 2, 30, 0.3, 10, 5],
+  tol: [0, 2, 2.6, 30, 0.06, 4, 5],
   script: (p, AP) => [
-    { wait: Math.max(0, p[0]) },
-    { burn: 'pro', rel: 'halo', until: (m) => m.dvUsed() > 1 && (c => c <= p[1] && c > 45)(closest(m, 'lumen', 400)) },
+    { wait: Math.max(0, RW_INNER + Math.round(p[0]) * RW_LAP + p[1]) },
+    { burn: 'pro', rel: 'halo', until: (m) => closest(m, 'lumen', 400) <= 150 },
+    { coast: (m) => dist(m, 'lumen') < 800 },
+    { burn: 'retro', rel: 'lumen', until: (m) => closest(m, 'lumen', 300) <= p[2] },
+    { burn: 'pro', rel: 'lumen', until: (m) => closest(m, 'lumen', 300) >= p[2] },
     { coast: (m) => dist(m, 'lumen') < 150 },
-    { coast: (m) => dist(m, 'lumen') > p[2] },
-    { burn: p[3], rel: 'lumen', max: 3, until: (m) => { const e = encounter(m, 'halo', 0, 700); return e.sense === -1 && e.d <= p[4] && e.d >= 72; } },
+    { coast: (m) => dist(m, 'lumen') > p[3] },
+    { burn: p[4], rel: 'lumen', max: 4, until: (m) => { const e = encounter(m, 'halo', 0, 700); return e.sense === -1 && e.d <= p[5] && e.d >= 72; } },
     { coast: (m) => dist(m, 'halo') < 300 && radv(m, 'halo') > 0 },
-    { burn: 'retro', rel: 'halo', until: (m) => { const o = AP.orb(m, 'halo'); return o.bound && o.ap <= p[5]; } },
+    { burn: 'retro', rel: 'halo', until: (m) => { const o = AP.orb(m, 'halo'); return o.bound && o.ap <= p[6]; } },
   ],
 };
 
@@ -302,8 +310,8 @@ const fails = {
   ],
   retrowhirl: [
     { name: 'flip the orbit round in place', steps: (AP) => [{ burn: 'retro', rel: 'halo', until: (m) => AP.orb(m, 'halo').dir === -1 && AP.orb(m, 'halo').ap >= 60 }] },
-    { name: 'leave on the first lap', steps: (AP) => proofs.retrowhirl.script([34].concat(proofs.retrowhirl.p.slice(1)), AP) },
-    { name: 'leave a lap later', steps: (AP) => proofs.retrowhirl.script([176].concat(proofs.retrowhirl.p.slice(1)), AP) },
+    { name: 'leave on the first lap', steps: (AP) => proofs.retrowhirl.script([0].concat(proofs.retrowhirl.p.slice(1)), AP) },
+    { name: 'leave a lap later', steps: (AP) => proofs.retrowhirl.script([2].concat(proofs.retrowhirl.p.slice(1)), AP) },
   ],
   slingdrop: [
     { name: 'release the probe at once', steps: (AP) => proofs.slingdrop.script([0, 750], AP) },

@@ -392,4 +392,4 @@ const fails = {
   ],
 };
 
-module.exports = { levels, proofs, fails, _h: { nudge, closest, sinceSweep, dist }, _g: { hold, goTo, behind, goalPt, bodyPt } };
+module.exports = { levels, proofs, fails, _h: { nudge, closest, sinceSweep, dist }, _g: { hold, goTo, behind, goalPt, bodyPt, circularize } };
