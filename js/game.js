@@ -2363,6 +2363,7 @@
     show('menu');
     const hasTests = LEVELS.some(l => l.test);
     if (state.menuTab == null || (state.menuTab !== TEST_TAB && !WORLDS.some(w => w.n === state.menuTab))) state.menuTab = progress.tab != null ? progress.tab : defaultTab();
+    renderMenuTop();
     const tabs = $('world-tabs');
     tabs.innerHTML = '';
     for (const w of WORLDS) {
@@ -2385,6 +2386,16 @@
       tabs.appendChild(b);
     }
     renderTab();
+    const act = tabs.querySelector('.wtab.active');
+    if (act && tabs.scrollWidth > tabs.clientWidth) tabs.scrollLeft = Math.max(0, act.offsetLeft - tabs.offsetLeft - (tabs.clientWidth - act.offsetWidth) / 2);
+  }
+
+  // Menu corners: pilot name and stars across every world.
+  function renderMenuTop() {
+    const a = Online.state.account, p = a && a.player;
+    $('menu-pilot').textContent = p ? p.name : 'Pilot';
+    const ls = LEVELS.filter(l => !l.test), got = ls.reduce((x, l) => x + (progress.stars[l.id] || 0), 0);
+    $('menu-stars').innerHTML = `★ ${got} <span class="of">/ ${ls.length * 3}</span>`;
   }
 
   function selectTab(t) {
@@ -2799,7 +2810,10 @@
     const a = Online.state.account; if (!a) return;
     try { await navigator.clipboard.writeText(a.player.code); toast('Restore code copied', 1.2); } catch (e) { toast(a.player.code, 3); }
   };
-  Online.onChange(() => { if (!$('profile').classList.contains('hidden')) renderProfile(); });
+  Online.onChange(() => {
+    if (!$('profile').classList.contains('hidden')) renderProfile();
+    if (state.screen === 'menu') renderMenuTop();
+  });
 
   // In the app, the native copy of progress survives the OS clearing WebView
   // storage; fold it back in, then sync with the cloud.
