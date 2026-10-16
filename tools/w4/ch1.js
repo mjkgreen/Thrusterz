@@ -193,7 +193,7 @@ const levels = [
       { id: 'sv1', name: 'Survey 1', mass: 0.2, dose: 1e9 }, { id: 'sv2', name: 'Survey 2', mass: 0.2, dose: 1e9 }, { id: 'sv3', name: 'Survey 3', mass: 0.2, dose: 1e9 },
     ] }),
     goals: [
-      { type: 'spread', body: 'lumen', crafts: ['sv1', 'sv2', 'sv3'], rMin: 360, rMax: 450, minSep: 100 * Math.PI / 180 },
+      { type: 'spread', body: 'lumen', crafts: ['sv1', 'sv2', 'sv3'], rMin: 360, rMax: 450, minSep: 90 * Math.PI / 180 },
       { type: 'orbit', body: 'lumen', rMin: 745, rMax: 1045, label: 'Parking orbit' },
     ],
     par: 10.5, bounds: 4000, tMax: 1000, predict: 400, view: { x: 0, y: 0, span: 2200 },
@@ -259,7 +259,7 @@ const proofs = {
     ],
   },
   solarsurvey: {
-    p: [396, 240, 240, 829.34, 760, 1.5], scale: [1, 3, 3, 20, 20, 1], tol: [16, 10, 10, 33, 30, 1.5],
+    p: [396, 235, 235, 829.34, 760, 1.5], scale: [1, 3, 3, 20, 20, 1], tol: [16, 10, 10, 33, 30, 1.5],
     script: (p, AP) => {
       const top = { coast: (m) => !AP.orb(m, 'lumen').rising };
       const lap = (q) => [

@@ -108,10 +108,10 @@ const levels = [
     bodies: [
       { id: 'lumen', name: 'Lumen', gm: 40000, radius: 8, color: '#e4dcff', kind: 'pulsar', radiation: { rate: 1, at: 244, dose: 8, beam: { width: 0.3, period: 120, phase: 0 } } },
       { id: 'beacon', name: 'Beacon', gm: 0, radius: 4, color: C.station, kind: 'station', protect: true, protectRadius: 15, orbit: { parent: 'lumen', a: 380, phase: 1 } },
-      { id: 'ossa', name: 'Ossa', gm: 400, radius: 14, color: C.green, keepOut: 50, orbit: { parent: 'lumen', a: 520, phase: 1.115, dir: -1 } },
+      { id: 'ossa', name: 'Ossa', gm: 400, radius: 14, color: C.green, keepOut: 50, orbit: { parent: 'lumen', a: 520, phase: 2.8, dir: -1 } },
     ],
     ship: ship({ start: { conic: { body: 'lumen', pe: 150, e: 1.15, nu: -1.9, angle: 0 } }, heading: 'prograde', rcs: { fuel: 7.4 }, stack: [
-      { name: 'Booster', dv: 2.6, accel: 1.2 },
+      { name: 'Booster', dv: 3, accel: 1.2 },
       { name: 'Capsule', dv: 12.5, accel: 1, dry: 0.4, sprite: 'satellite' },
     ], cargo: [{ id: 'lark', name: 'Lark probe', mass: 0.2, dose: 4 }] }),
     goals: [
@@ -326,18 +326,19 @@ proofs.beamrescue = {
 };
 
 proofs.pulsartour = {
-  // Booster: push p[0] from prograde (it runs dry before the low point
-  // reaches p[1]), still on an escape path, and drop it. Capsule: at the low
-  // point brake until the high point is p[2], release Lark, and brake on
-  // until the orbit is round.
-  p: [-1.736, 251.661, 530.117], scale: [0.2, 4, 8], tol: [0.06, 8, 20], opts: { turn: true, turnRate: 0.3 },
+  // Booster: push p[0] from prograde until it runs dry (still on an escape
+  // path) and drop it. Capsule: at the low point brake until the high point
+  // is p[1], release Lark, and brake on until the orbit is round; p[2], p[3]
+  // are the speed error a hand-flown rounding leaves (along, out; k/s).
+  p: [-1.2, 635, 0, 0], scale: [0.2, 8, 0, 0], tol: [0.1, 25, 0.15, 0.15], opts: { turn: true, turnRate: 0.3 },
   script: (p, AP) => [
-    { burn: p[0], rel: 'lumen', until: (m) => AP.orb(m, 'lumen').pe >= p[1] },
+    { burn: p[0], rel: 'lumen', until: () => false },
     { deploy: true },
     { coast: (m) => AP.orb(m, 'lumen').rising },
-    { burn: 'retro', rel: 'lumen', until: (m) => { const o = AP.orb(m, 'lumen'); return o.bound && o.ap <= p[2]; } },
+    { burn: 'retro', rel: 'lumen', until: (m) => { const o = AP.orb(m, 'lumen'); return o.bound && o.ap <= p[1]; } },
     { drop: true },
     circularize('lumen', 40000),
+    { fn: (m) => { const o = AP.orb(m, 'lumen'); m.ship.vx += p[2] * Math.cos(o.pro) + p[3] * Math.cos(o.theta); m.ship.vy += p[2] * Math.sin(o.pro) + p[3] * Math.sin(o.theta); } },
   ],
 };
 
@@ -347,11 +348,11 @@ const fails = {
     { name: 'wait and see', steps: () => [] },
     { name: 'brake on the booster at the low point', opts: tourOpts, steps: (AP) => [
       { coast: (m) => AP.orb(m, 'lumen').rising },
-      { burn: 'retro', rel: 'lumen', stage: true, until: (m) => { const o = AP.orb(m, 'lumen'); return o.bound && o.ap <= 530; } },
+      { burn: 'retro', rel: 'lumen', stage: true, until: (m) => { const o = AP.orb(m, 'lumen'); return o.bound && o.ap <= 635; } },
       { drop: true },
       circularize('lumen', 40000),
     ] },
-    { name: 'correct the other way: the low point sweeps through a beam', opts: tourOpts, steps: (AP) => proofs.pulsartour.script([-2.2, ...proofs.pulsartour.p.slice(1)], AP) },
+    { name: 'push the booster inward: the low point sweeps through a beam', opts: tourOpts, steps: (AP) => proofs.pulsartour.script([-2.4, ...proofs.pulsartour.p.slice(1)], AP) },
     { name: 'flip fast (holding the keys)', opts: { turn: true, turnRate: 1.2 }, steps: (AP) => proofs.pulsartour.script(proofs.pulsartour.p, AP) },
   ],
   beamrescue: [
