@@ -269,6 +269,10 @@ for (const L of LEVELS) {
   }
   check('Training: every proof wins within par', lost.length === 0, lost.join('; '));
   check('Training: forgiving when flown by hand', tight.length === 0, tight.join('; '));
+  // Lean Burn's lesson: a nudge onto the depot earns ★★★; stopping dead and
+  // flying there as in Long Coast still wins, but only ★.
+  const lean = LEVELS.find(l => l.id === 'leanburn'), naive = AP.fly(lean, PROOFS.leanburnNaive.script(PROOFS.leanburnNaive.p, AP));
+  check('Lean Burn: stopping dead first wins only one star', naive.won && naive.m.stars() === 1, naive.status + ' ' + naive.dv.toFixed(2));
 }
 
 // 12. Every World 2 mission has a scripted flight plan that still wins

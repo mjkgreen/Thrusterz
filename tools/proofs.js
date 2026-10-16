@@ -550,7 +550,18 @@ Object.assign(module.exports, {
   },
   stop: { p: [1.8, 0, 0.2], scale: [0.2, 5, 0.1], tol: [0.5, 15, 0.3], script: parkAt('buoy') },
   longcoast: { p: [1.6, 0, 0.2], scale: [0.2, 5, 0.1], tol: [0.5, 25, 0.3], script: parkAt('outpost') },
-  leanburn: { p: [1.5, 0, 0.2], scale: [0.1, 5, 0.1], tol: [0.2, 15, 0.15], script: parkAt('depot') },
+  leanburn: {
+    // Nudge sideways (straight up) until the straight-line path passes p[0] k
+    // from the depot, then coast and brake as above (p[1], p[2]).
+    p: [0, 0, 0.2], scale: [5, 5, 0.1], tol: [25, 15, 0.15],
+    script: (p) => [
+      { burn: () => Math.PI / 2, until: (m) => { m.sys.update(m.t); const b = m.sys.byId.depot.index, dx = m.sys.px[b] - m.ship.x, dy = m.sys.py[b] - m.ship.y; return (dx * m.ship.vy - dy * m.ship.vx) / speed(m) >= -p[0]; } },
+      { coast: (m) => ahead(m, 'depot') <= speed(m) * speed(m) / 2 + 10 - p[1] },
+      { burn: backward, until: (m) => speed(m) <= Math.max(0.05, p[2]) },
+    ],
+  },
+  // A naive pilot stops dead, then flies to the depot as in Long Coast.
+  leanburnNaive: { p: [1.6, 0, 0.2], script: (p) => [{ burn: backward, until: (m) => speed(m) <= 0.05 }].concat(parkAt('depot')(p)) },
   bigpicture: {
     // Burn prograde until the high point reaches the gate's height.
     p: [1.5, 400], scale: [0.5, 10], tol: [1.5, 25],

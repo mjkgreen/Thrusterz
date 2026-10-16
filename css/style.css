@@ -77,6 +77,9 @@ button { font-family: var(--sans); }
 .minibar div { height: 100%; background: var(--accent); }
 
 #clock { top: 12px; right: 12px; font-family: var(--mono); font-size: 13px; text-align: right; line-height: 1.6; }
+#clock .tmax { color: var(--muted); }
+#clock .tmax.warn { color: var(--warn); }
+#clock .tmax.bad { color: var(--bad, #ff6b6b); }
 #topbtns {
   position: absolute; top: 108px; right: 12px; display: flex; gap: 6px; pointer-events: auto;
 }

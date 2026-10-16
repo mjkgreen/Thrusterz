@@ -2181,6 +2181,10 @@
     const m = state.mission, L = m.level, s = m.ship, sys = m.sys;
     if (state.renderedGoal !== m.goalIndex || state.renderedDone !== m.done.size) { renderGoals(); state.renderedDone = m.done.size; }
     $('hud-time').textContent = fmtT(m.t);
+    // The mission clock: how long you have, amber in the last quarter, red in the last tenth.
+    const left = 1 - m.t / L.tMax;
+    $('hud-tmax').textContent = ' / ' + fmtLimit(L.tMax);
+    $('hud-tmax').className = 'tmax' + (left < 0.1 ? ' bad' : left < 0.25 ? ' warn' : '');
     $('hud-warp').textContent = WARPS[state.warp] + '×';
     $('hud-warp').className = state.warp ? 'warn' : '';
     $('hud-frame').textContent = frameName();
@@ -2617,6 +2621,12 @@
     if (t >= 3600) return Math.floor(t / 3600) + 'h' + String(Math.floor(t % 3600 / 60)).padStart(2, '0') + 'm';
     const mnt = Math.floor(t / 60), sec = Math.floor(t % 60);
     return mnt + 'm' + String(sec).padStart(2, '0') + 's';
+  }
+  // Time limits read as round figures: "15m", "6m40s", "45s".
+  function fmtLimit(t) {
+    if (t < 60) return Math.round(t) + 's';
+    const mnt = Math.floor(t / 60), sec = Math.round(t % 60);
+    return sec ? mnt + 'm' + String(sec).padStart(2, '0') + 's' : mnt + 'm';
   }
   function parseHex(c) {
     const h = c.replace('#', '');
