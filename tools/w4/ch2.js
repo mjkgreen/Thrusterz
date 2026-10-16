@@ -112,9 +112,10 @@ const underBrolly = (m) => m.radShade >= 0 && m.sys.bodies[m.radShade].id === 'b
 
 // Backward Moon: Kesh circles Mire the wrong way round. Hide in its shadow
 // by matching its speed on its night side.
-const KESH_N = Math.sqrt(6150 / (110 * 110 * 110));
-const KESH_T = 25;                                   // when Kesh sweeps past your start
-const KESH_PH = -0.35;
+// You start just outside Kesh's orbit, so it passes underneath you about
+// 10 s in, and its shadow (pointing straight out from Mire here) sweeps
+// over your start.
+const KESH_PH = -0.5;
 // A point d behind a body, seen from the star (in its shadow), moving with it.
 const behind = (m, id, star, d) => {
   const sys = m.sys; sys.update(m.t);
@@ -151,6 +152,13 @@ const circularize = (id, gm, dir) => ({
 // Junk in the Sun: Kiln Dock rides in Ash's shadow (parented to Ash, turning
 // with Ash's orbit so it stays on the night side).
 const ASH_N = Math.sqrt(46000 / (500 * 500 * 500));
+// Does the coast path from here (what the screen shows) end in body id
+// within `horizon` seconds?
+const pathHits = (m, id, horizon) => {
+  const P = globalThis.Phys.predict(m.sys, m.ship, m.t, horizon);
+  m.sys.update(m.t);
+  return P.hit === m.sys.byId[id].index;
+};
 
 const levels = [
   {
@@ -218,38 +226,38 @@ const levels = [
   {
     id: 'backwardmoon',
     name: 'Backward Moon',
-    intro: 'You are drifting out of Mire\'s shadow and sinking toward Mire, and once you are out in Ardent\'s light your 2.5 Sv will be gone in about ten seconds. Kesh, Mire\'s backward moon, is sweeping toward you the wrong way round, and its shadow sweeps with it. Burn now so you fall in just behind Kesh as it passes, on its night side, and match its speed to ride along in the dark. Wait for its next pass and the sunlight gets you first.',
-    objective: 'Stay within 35 k of Kesh, moving with it (under 1 k/s), for 10 s, taking under 2.5 Sv of radiation.',
+    intro: 'You are drifting out of Mire\'s shadow and sinking toward Mire, and out in Ardent\'s light your 3 Sv lasts about seven seconds. Kesh, Mire\'s backward moon, is coming round the wrong way and passes right under you in about ten seconds, its shadow pointing straight out from Mire across your path. Fly to Kesh\'s night side as it passes (watch for the dark strip behind it) and match its speed to ride along in the shade. Sit still and it hits you; let it go by and its next pass comes far too late.',
+    objective: 'Stay within 35 k of Kesh, moving with it (under 1 k/s), for 6 s, taking under 3 Sv of radiation.',
     teaches: 'A shadow that sweeps backward',
     bodies: [
-      { id: 'ardent', name: 'Ardent', gm: 40000, radius: 45, color: C.sun2, kind: 'star', radiation: { rate: 1, at: 300, dose: 2.5 } },
+      { id: 'ardent', name: 'Ardent', gm: 40000, radius: 45, color: C.sun2, kind: 'star', radiation: { rate: 1.5, at: 300, dose: 3 } },
       { id: 'mire', name: 'Mire', gm: 6000, radius: 30, color: C.green, orbit: { parent: 'ardent', a: 520, phase: 0 } },
       { id: 'kesh', name: 'Kesh', gm: 150, radius: 16, color: C.grey, orbit: { parent: 'mire', a: 110, phase: KESH_PH, dir: -1 } },
     ],
-    ship: ship({ start: { orbit: { body: 'mire', r: 110, angle: 0, dir: -1, speed: 0.75 } }, heading: 'prograde', dv: 11.5, accel: 2 }),
-    goals: [{ type: 'hold', body: 'kesh', r: 35, hold: 10, relVel: 1, label: 'Kesh' }],
-    par: 7.9, bounds: 4000, tMax: 300, predict: 150, view: { x: 450, y: 0, span: 420 },
+    ship: ship({ start: { orbit: { body: 'mire', r: 135, angle: 0, dir: -1, speed: 0.75 } }, heading: 'prograde', dv: 12, accel: 2 }),
+    goals: [{ type: 'hold', body: 'kesh', r: 35, hold: 6, relVel: 1, label: 'Kesh' }],
+    par: 8.5, bounds: 4000, tMax: 300, predict: 150, view: { x: 450, y: 0, span: 420 },
   },
   {
     id: 'junkinthesun',
     name: 'Junk in the Sun',
-    intro: 'Kiln Dock rides in Ash\'s shadow, and its amber zone is closed to everything, spent stages included. Ash is inhabited, so your booster may not come down there either: it has to fall into Forge. Burn the booster prograde as you leave the night side, just enough that its path swings back past Ash and on into the star, then drop it (the stage button) and round off your orbit with the orbiter. Burn too hard and the booster is left on an orbit through the dock\'s zone; too gently and you wait in the sunlight for it to fall.',
-    objective: 'Send the booster into Forge and orbit Ash between 15 and 80 k up, with no debris hitting Ash or entering Kiln Dock\'s zone, taking under 10 Sv of radiation.',
+    intro: 'Kiln Dock rides in Ash\'s shadow, and its amber zone is closed to everything, spent stages included. Ash is inhabited, so your booster may not come down there either: it has to fall into Forge. Leave the night side burning the booster prograde and watch your predicted path: keep burning until it swings back past Ash and dives into Forge, then a moment more, since dropping the booster pushes it back a little. Drop it (the stage button) and round off your orbit with the orbiter; burn far too hard and the booster is left on an orbit through the dock\'s zone, too gently and it comes down on Ash.',
+    objective: 'Send the booster into Forge and orbit Ash between 15 and 80 k up, with no debris hitting Ash or entering Kiln Dock\'s zone, taking under 14 Sv of radiation.',
     teaches: 'Dispose of a stage in the star',
     bodies: [
-      { id: 'forge', name: 'Forge', gm: 40000, radius: 60, color: C.sun, kind: 'star', radiation: { rate: 0.4, at: 300, dose: 10 } },
+      { id: 'forge', name: 'Forge', gm: 40000, radius: 60, color: C.sun, kind: 'star', radiation: { rate: 0.4, at: 300, dose: 14 } },
       { id: 'ash', name: 'Ash', gm: 6000, radius: 30, color: C.red, protect: true, orbit: { parent: 'forge', a: 500, phase: 0 } },
       { id: 'dock', name: 'Kiln Dock', gm: 0, radius: 3, color: C.station, kind: 'station', keepOut: 30, zone: 'all', orbit: { parent: 'ash', a: 160, n: ASH_N, phase: 0, reflex: false } },
     ],
     ship: ship({ start: { orbit: { body: 'ash', r: 50, angle: 0 } }, heading: 'prograde', stack: [
       { id: 'booster', name: 'Booster', dv: 4, accel: 1 },
-      { name: 'Orbiter', dv: 5.5, accel: 1, dry: 0.5, sprite: 'satellite' },
+      { name: 'Orbiter', dv: 7, accel: 1, dry: 0.5, sprite: 'satellite' },
     ] }),
     goals: [
       { type: 'hit', body: 'forge', craft: 'booster', deorbit: true },
       { type: 'orbit', body: 'ash', rMin: 45, rMax: 110 },
     ],
-    par: 6.6, bounds: 4000, tMax: 400, predict: 200, view: { x: 250, y: 0, span: 900 }, startCam: 'overview',
+    par: 7.6, bounds: 4000, tMax: 400, predict: 200, view: { x: 250, y: 0, span: 900 }, startCam: 'overview',
   },
 ];
 
@@ -307,24 +315,24 @@ proofs.umbrellafield = {
 };
 
 proofs.backwardmoon = {
-  // Burn once to fall in behind Kesh as it sweeps past, then hold in its shadow.
-  p: [0.017, -0.406, 3.523, 16.435, 35.01, 0.188, 2.52, 0.383], scale: [2, 0.4, 1, 8, 6, 0.05, 0.5, 0.1],
-  script: (p, AP) => {
-    const P = (m) => behind(m, 'kesh', 'ardent', p[4]);
-    return [
-      { wait: Math.max(0, p[0]) },
-      ...dvBurn((m) => p[1], null, Math.abs(p[2])),
-      { coast: (m) => { const q = P(m); return Math.hypot(q.x - m.ship.x, q.y - m.ship.y) < p[3] || m.t > 120; } },
-      chase(P, p[5], p[6], Math.max(0.05, p[7]), (m) => m.status !== 'flying', 280),
-    ];
-  },
+  // React, then fly to Kesh's night side as it passes underneath and ride
+  // along there, matching its speed.
+  p: [4, 25, 0.2, 4, 0.5], scale: [2, 5, 0.05, 1, 0.1], tol: [2, 4, 0, 0, 0],
+  script: (p, AP) => [
+    { wait: Math.max(0, p[0]) },
+    chase((m) => behind(m, 'kesh', 'ardent', p[1]), p[2], p[3], p[4], (m) => m.status !== 'flying', 280),
+  ],
 };
 
 proofs.junkinthesun = {
-  p: [3, 2.8], scale: [1, 0.3],
+  // Leave the night side, burn the booster prograde until the path on the
+  // screen swings back into Forge, a little more for margin, drop it and
+  // round off the orbiter's orbit.
+  p: [4, 1], scale: [1, 0.1], tol: [2, 0.2],
   script: (p, AP) => [
     { wait: Math.max(0, p[0]) },
-    ...dvBurn('pro', 'ash', p[1]),
+    { burn: 'pro', rel: 'ash', until: (m) => pathHits(m, 'forge', 200) },
+    ...dvBurn('pro', 'ash', Math.max(0, p[1])),
     { deploy: true },
     circularize('ash', 6000, 1),
   ],
@@ -336,6 +344,14 @@ const hohmann = (AP, T, ap) => [
   { burn: 'pro', until: (m) => AP.orb(m, 'corona').ap >= ap },
   { coast: (m) => !AP.orb(m, 'corona').rising },
   { burn: 'pro', until: (m) => AP.orb(m, 'corona').pe >= Math.min(790, 0.97 * AP.orb(m, 'corona').ap) },
+];
+
+// Wait T, burn the booster prograde by dv, drop it, round off the orbit.
+const boost = (AP, T, dv) => [
+  { wait: T },
+  ...dvBurn('pro', 'ash', dv),
+  { deploy: true },
+  circularize('ash', 6000, 1),
 ];
 
 const fails = {
@@ -400,16 +416,12 @@ const fails = {
   ],
   backwardmoon: [
     { name: 'catch Kesh on its sunlit side', steps: (AP) => {
-      const p = proofs.backwardmoon.p.slice(); p[4] = -30;
-      return [chase((m) => behind(m, 'kesh', 'ardent', p[4]), p[5], p[6], p[7], (m) => m.status !== 'flying', 280)];
+      const p = proofs.backwardmoon.p;
+      return [...dvBurn('out', 'mire', 1), chase((m) => behind(m, 'kesh', 'ardent', -p[1]), p[2], p[3], p[4], (m) => m.status !== 'flying', 280)];
     } },
-    { name: 'drift and wait for Kesh to come round again', steps: (AP) => {
-      const p = proofs.backwardmoon.p.slice(); p[0] = 40;
-      return proofs.backwardmoon.script(p, AP);
-    } },
-    { name: 'the same plan, 6 s late', steps: (AP) => {
-      const p = proofs.backwardmoon.p.slice(); p[0] = 6;
-      return proofs.backwardmoon.script(p, AP);
+    { name: 'dodge Kesh, then wait for its next pass', steps: (AP) => {
+      const p = proofs.backwardmoon.p;
+      return [...dvBurn('out', 'mire', 1.5), { wait: 30 }, chase((m) => behind(m, 'kesh', 'ardent', p[1]), p[2], p[3], p[4], (m) => m.status !== 'flying', 280)];
     } },
   ],
   junkinthesun: [
@@ -419,9 +431,9 @@ const fails = {
       { deploy: true },
       circularize('ash', 6000, 1),
     ] },
-    { name: 'burn the booster harder, then drop it', steps: (AP) => proofs.junkinthesun.script([3, 4], AP) },
-    { name: 'a gentle nudge, then wait for it to fall in', steps: (AP) => proofs.junkinthesun.script([3, 1.8], AP) },
-    { name: 'the same plan from the far side of Ash', steps: (AP) => proofs.junkinthesun.script([18, 2.8], AP) },
+    { name: 'burn the booster harder, then drop it', steps: (AP) => boost(AP, 3, 4) },
+    { name: 'a gentle nudge, then wait for it to fall in', steps: (AP) => boost(AP, 3, 1.8) },
+    { name: 'the same plan from the far side of Ash', steps: (AP) => boost(AP, 18, 3.6) },
   ],
 };
 

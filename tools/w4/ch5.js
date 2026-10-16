@@ -67,37 +67,37 @@ const levels = [
   {
     id: 'pulsarsupply',
     name: 'Pulsar Supply Run',
-    intro: 'Supply Run again, this time around a pulsar. Orrin Base needs its supply pod, but Orrin goes round backwards, so it comes at you head-on and its keep-out zone closes fast. Climb to meet it, and turn round on the way up: there is no time to turn after the drop, and side thruster fuel is short. Drop the pod (E) just after Talon\'s beam has swept past, so it lands before the next sweep (it can take only 0.5 Sv), then brake at once to stay under the zone.',
+    intro: 'Supply Run again, this time around a pulsar. Orrin Base needs its supply pod, but Orrin goes round backwards, so it comes at you head-on and its keep-out zone closes fast. Climb until your path meets Orrin, and turn round on the way up (there is no time to turn after the drop, and side thruster fuel is short); a tap of the engine keeps the path on Orrin. The pod can take only 0.25 Sv, less than one sweep: watch Talon\'s beam and time the climb so a sweep passes you on the way up, drop the pod (E) just after it, and brake at once to bring your high point under the zone.',
     objective: 'Land the supply pod on Orrin, then orbit Talon between 192 and 502 k up, without entering Orrin\'s keep-out zone.',
     teaches: 'Drop between sweeps · turn before the drop',
     bodies: [
       { id: 'talon', name: 'Talon', gm: 40000, radius: 8, color: '#e4dcff', kind: 'pulsar', radiation: { rate: 0.2, at: 300, dose: 20, beam: { width: 0.3, period: 80, phase: 0 } } },
       { id: 'orrin', name: 'Orrin', gm: 600, radius: 14, color: C.tan, keepOut: 60, orbit: { parent: 'talon', a: 560, phase: 2.5, dir: -1 } },
     ],
-    ship: ship({ start: { orbit: { body: 'talon', r: 300, angle: 0 } }, heading: 'prograde', dv: 4.5, accel: 1, rcs: { fuel: 3.6 }, cargo: [{ id: 'pod', name: 'Supply pod', mass: 0.3, dose: 0.5 }] }),
+    ship: ship({ start: { orbit: { body: 'talon', r: 300, angle: 0 } }, heading: 'prograde', dv: 6.4, accel: 1, rcs: { fuel: 3.6 }, cargo: [{ id: 'pod', name: 'Supply pod', mass: 0.3, dose: 0.25 }] }),
     goals: [
       { type: 'hit', body: 'orrin', craft: 'pod' },
       { type: 'orbit', body: 'talon', rMin: 200, rMax: 510 },
     ],
-    par: 3.1, bounds: 3000, tMax: 400, predict: 300, view: { x: 0, y: 0, span: 1500 },
+    par: 4.5, bounds: 3000, tMax: 400, predict: 300, view: { x: 0, y: 0, span: 1500 },
   },
   {
     id: 'beamrescue',
     name: 'Rescue in the Beam',
-    intro: 'Wren is drifting dead just ahead of you, and Vesper\'s beams sweep this orbit every minute and a half: each sweep costs nearly 3 Sv, and you can take only 10. Close in gently and match Wren\'s speed, but don\'t stay. Umbriel is coming round behind you: let its pull fling you outward and settle into its shadow at L2, the one place the beams never reach.',
-    objective: 'Rendezvous with Wren (within 12 k, relative speed under 0.8 k/s), then hold at Umbriel\'s L2 for 10 s, taking under 10 Sv of radiation.',
+    intro: 'Wren is drifting dead just ahead of you, and Vesper\'s beams sweep this orbit every 50 s: each sweep costs nearly 3 Sv, and you can take only 10. Close in gently and match Wren\'s speed, but don\'t stay. Umbriel is up ahead: right after the match, nudge your path onto the L2 marker beyond it (watch the closest approach marker) and let Umbriel\'s pull fling you up there, then brake onto L2, in its shadow, the one place the beams never reach.',
+    objective: 'Rendezvous with Wren (within 20 k, relative speed under 1 k/s), then hold within 25 k of Umbriel\'s L2 for 10 s, taking under 10 Sv of radiation.',
     teaches: 'Rendezvous between sweeps · shelter at L2',
     bodies: [
       { id: 'vesper', name: 'Vesper', gm: 40000, radius: 8, color: '#e4dcff', kind: 'pulsar', radiation: { rate: 0.6, at: 400, dose: 10, beam: { width: 0.35, period: 100, phase: 1.0 } } },
       { id: 'umbriel', name: 'Umbriel', gm: 1500, radius: 30, color: '#7d8fa8', orbit: { parent: 'vesper', a: 650, phase: 2.2 } },
       { id: 'wren', name: 'Wren', gm: 0, radius: 3, color: C.station, kind: 'station', orbit: { parent: 'vesper', a: 420, e: 0.2, phase: 0.6, argp: 0 } },
     ],
-    ship: ship({ start: { conic: { body: 'vesper', pe: 330, e: 0.21, nu: 0.8, angle: 0 } }, heading: 'prograde', dv: 7.6, accel: 1 }),
+    ship: ship({ start: { conic: { body: 'vesper', pe: 330, e: 0.21, nu: 0.8, angle: 0 } }, heading: 'prograde', dv: 9, accel: 1 }),
     goals: [
-      { type: 'rendezvous', body: 'wren', dist: 12, relVel: 0.8 },
-      { type: 'hold', lagrange: { body: 'umbriel', lead: 0, scale: 1.24721 }, r: 20, hold: 10, label: 'Umbriel L2' },
+      { type: 'rendezvous', body: 'wren', dist: 20, relVel: 1 },
+      { type: 'hold', lagrange: { body: 'umbriel', lead: 0, scale: 1.24721 }, r: 25, hold: 10, label: 'Umbriel L2' },
     ],
-    par: 5.4, bounds: 3000, tMax: 450, predict: 300, view: { x: 0, y: 0, span: 1800 },
+    par: 6.2, bounds: 3000, tMax: 450, predict: 300, view: { x: 0, y: 0, span: 1800 },
   },
   {
     id: 'pulsartour',
@@ -193,11 +193,15 @@ proofs.stageddive = {
 // Closest predicted approach to body `id` if the ship coasts from now with
 // its velocity changed by (dvx, dvy): what the path preview's closest
 // approach marker shows a player.
+// `id` is a body, or 'goal' for the current goal's point (e.g. an L2).
 const closest = (m, id, dvx, dvy, dur) => {
-  const sys = m.sys, s = m.ship, bp = [0, 0], i = sys.byId[id].index;
+  const sys = m.sys, s = m.ship, bp = [0, 0], g = id === 'goal' ? m.currentGoal() : null, i = g ? -1 : sys.byId[id].index;
   const p = globalThis.Phys.predict(sys, { x: s.x, y: s.y, vx: s.vx + dvx, vy: s.vy + dvy }, m.t, dur, {});
   let d = Infinity;
-  for (let k = 0; k < p.ts.length; k++) { sys.posAt(i, p.ts[k], bp); d = Math.min(d, Math.hypot(p.xs[k] - bp[0], p.ys[k] - bp[1])); }
+  for (let k = 0; k < p.ts.length; k++) {
+    if (g) { const q = m.goalPoint(g, p.ts[k]); bp[0] = q.x; bp[1] = q.y; } else sys.posAt(i, p.ts[k], bp);
+    d = Math.min(d, Math.hypot(p.xs[k] - bp[0], p.ys[k] - bp[1]));
+  }
   sys.update(m.t);
   return d;
 };
@@ -257,19 +261,20 @@ const sinceSweep = (m, id, AP) => {
 };
 
 proofs.pulsarsupply = {
-  // Hold until p[0], climb until the path meets Orrin (closest approach
-  // p[1]); on the way up turn to the brake heading (p[3] from prograde);
-  // past p[2] from Talon, drop the pod p[5] s after a sweep goes by, and
-  // burn until the high point is p[4].
-  p: [99, 13, 380, 2.847, 470, 1], scale: [3, 2, 15, 0.2, 6, 1], tol: [2, 0, 15, 0.06, 15, 1.5], opts: { turn: true, turnRate: 0.2 },
+  // Hold until p[0], climb until the path meets Orrin and a little past it
+  // (p[1] more); turn to the brake heading (p[3] from prograde) and past
+  // p[6] from Talon tap the engine until the path meets Orrin again; past
+  // p[2], drop the pod p[5] s after a sweep goes by, and burn until the high
+  // point is p[4].
+  p: [112, 0.15, 380, 2.847, 470, 1, 350], scale: [3, 0.05, 15, 0.2, 6, 1, 15], tol: [2, 0.1, 15, 0.06, 15, 1.5, 15], opts: { turn: true, turnRate: 0.2 },
   script: (p, AP) => [
     hold((m) => m.t >= p[0]),
-    { burn: 'pro', rel: 'talon', until: (m, c) => {
-      const o = AP.orb(m, 'talon');
-      if (o.ap < 480) return false;
-      if (o.ap > 800) return true;
-      return closest(m, 'orrin', 0, 0, 200) <= p[1];
-    } },
+    { burn: 'pro', rel: 'talon', until: (m) => { const o = AP.orb(m, 'talon'); return o.ap > 800 || (o.ap > 480 && closest(m, 'orrin', 0, 0, 200) <= 15); } },
+    { fn: (m, c) => { c.d0 = m.dvUsed(); } },
+    { burn: 'pro', rel: 'talon', until: (m, c) => m.dvUsed() - c.d0 >= p[1] },
+    { coast: (m) => AP.orb(m, 'talon').r >= p[6] },
+    { fn: (m, c) => { c.d0 = m.dvUsed(); } },
+    { burn: p[3], rel: 'talon', until: (m, c) => m.dvUsed() - c.d0 > 1 || closest(m, 'orrin', 0, 0, 150) <= 15 },
     { coast: (m) => { if (AP.orb(m, 'talon').r < p[2]) return false; const k = sinceSweep(m, 'talon', AP); return k >= Math.max(0, p[5]) && k < Math.max(0, p[5]) + 1; } },
     { drop: true },
     { burn: p[3], rel: 'talon', until: (m) => AP.orb(m, 'talon').ap <= p[4] },
@@ -305,17 +310,18 @@ const goalPt = (m) => m.goalPoint(m.currentGoal());
 const behind = (id, back) => (m) => { const q = bodyPt(id)(m), u = Math.hypot(q.vx, q.vy); return { x: q.x - back * q.vx / u, y: q.y - back * q.vy / u, vx: q.vx, vy: q.vy }; };
 
 proofs.beamrescue = {
-  // Close in on Wren and match it; coast until Umbriel leads you by p[3]
-  // (its pull flings you out), climb to p[4] if needed, then fly onto L2
-  // from p[7] out.
-  p: [-6.524, 0.751, 0.042, 0.043, 802.034, 2.913, 0.041, 172.316], scale: [5, 0.3, 0.01, 0.1, 10, 0.5, 0.01, 30], tol: [2, 0.1, 0.005, 0.06, 30, 0.1, 0.005, 15],
+  // Close in on Wren (closing speed at most p[0]) and match it; p[1], p[2]
+  // are the velocity error a hand-flown match leaves (k/s). p[3] s later
+  // nudge the path onto the L2 marker (closest approach p[4]); from p[5]
+  // out, fly onto L2 (closing speed at most p[6]).
+  p: [0.75, 0, 0, 5, 5, 60, 1.5], scale: [0.2, 0, 0, 3, 3, 10, 0.3], tol: [0.1, 0.3, 0.3, 2, 5, 15, 0.2],
   script: (p, AP) => [
-    hold((m) => m.t >= p[0]),
-    goTo(behind('wren', 8), p[1], p[2], (m) => m.goalIndex > 0),
-    hold((m) => AP.wrap(AP.phase(m, 'umbriel', 'vesper') - AP.shipPhase(m, 'vesper')) <= p[3]),
-    { burn: 'pro', rel: 'vesper', until: (m) => AP.orb(m, 'vesper').ap >= p[4] },
-    { coast: (m) => { const q = goalPt(m); return Math.hypot(q.x - m.ship.x, q.y - m.ship.y) < p[7]; } },
-    goTo(goalPt, p[5], p[6], (m) => m.status !== 'flying'),
+    goTo(behind('wren', 8), p[0], 0.042, (m) => m.goalIndex > 0),
+    { fn: (m) => { m.ship.vx += p[1]; m.ship.vy += p[2]; } },
+    { wait: Math.max(0, p[3]) },
+    nudge('goal', 'vesper', p[4], 300, AP),
+    { coast: (m) => { const q = goalPt(m); return Math.hypot(q.x - m.ship.x, q.y - m.ship.y) < p[5]; } },
+    goTo(goalPt, p[6], 0.04, (m) => m.status !== 'flying'),
   ],
 };
 
@@ -354,9 +360,9 @@ const fails = {
     { name: 'rush in, then rest before leaving', steps: (AP) => { const s = proofs.beamrescue.script(proofs.beamrescue.p, AP); return [goTo(behind('wren', 8), 3, 0.1, (m) => m.goalIndex > 0), hold((m, c) => m.t - c.t0 > 60), ...s.slice(2)]; } },
   ],
   pulsarsupply: [
-    { name: 'carry the pod in close', opts: { turn: true, turnRate: 0.2 }, steps: (AP) => { const s = proofs.pulsarsupply.script(proofs.pulsarsupply.p, AP); return [s[0], s[1], { coast: (m) => dist(m, 'orrin') < 200 }, s[3], s[4]]; } },
+    { name: 'carry the pod in close', opts: { turn: true, turnRate: 0.2 }, steps: (AP) => { const s = proofs.pulsarsupply.script(proofs.pulsarsupply.p, AP); return [...s.slice(0, 7), { coast: (m) => dist(m, 'orrin') < 200 }, s[8], s[9]]; } },
     { name: 'climb at once', opts: { turn: true, turnRate: 0.2 }, steps: (AP) => { const p = proofs.pulsarsupply.p.slice(); p[0] = 0; return proofs.pulsarsupply.script(p, AP); } },
-    { name: 'drop as a sweep comes round', opts: { turn: true, turnRate: 0.2 }, steps: (AP) => { const p = proofs.pulsarsupply.p.slice(); p[2] = 330; return proofs.pulsarsupply.script(p, AP); } },
+    { name: 'drop as a sweep comes round', opts: { turn: true, turnRate: 0.2 }, steps: (AP) => { const p = proofs.pulsarsupply.p.slice(); p[2] = 320; p[5] = 37; return proofs.pulsarsupply.script(p, AP); } },
     { name: 'flip fast (holding the keys)', opts: { turn: true, turnRate: 1.2 }, steps: (AP) => proofs.pulsarsupply.script(proofs.pulsarsupply.p, AP) },
   ],
   sentrypulsar: [
@@ -386,4 +392,4 @@ const fails = {
   ],
 };
 
-module.exports = { levels, proofs, fails, _h: { nudge, closest } };
+module.exports = { levels, proofs, fails, _h: { nudge, closest, sinceSweep, dist }, _g: { hold, goTo, behind, goalPt, bodyPt } };

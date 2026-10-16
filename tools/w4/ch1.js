@@ -7,6 +7,11 @@ const { ship, C } = require('../../js/levels.js');
 // Distance from the ship (or an object) to a body's centre.
 const dist = (m, id, o) => { const s = o || m.ship; m.sys.update(m.t); const i = m.sys.byId[id].index; return Math.hypot(s.x - m.sys.px[i], s.y - m.sys.py[i]); };
 
+// Coast until within `d` of a body, or until it starts to pull away.
+function nearest(id, d) {
+  return { coast: (m, ctx) => { const x = dist(m, id), prev = ctx.near; ctx.near = x; return x < d || (x < 5 * d && prev != null && x > prev); } };
+}
+
 // Speed relative to a body.
 const relSpeed = (m, id) => { m.sys.update(m.t); const i = m.sys.byId[id].index; return Math.hypot(m.ship.vx - m.sys.vx[i], m.ship.vy - m.sys.vy[i]); };
 
@@ -151,7 +156,7 @@ const levels = [
     objective: 'Rendezvous with Relay Tern (within 10 k, relative speed under 0.6 k/s), taking under 165 Sv of radiation.',
     teaches: 'Phase far out, meet close in',
     bodies: [
-      { id: 'brand', name: 'Brand', gm: 40000, radius: 45, color: C.sun2, kind: 'star', radiation: { rate: 1, at: 300, dose: 165 } },
+      { id: 'brand', name: 'Brand', gm: 40000, radius: 45, color: C.sun2, kind: 'star', radiation: { rate: 1, at: 300, dose: 180 } },
       { id: 'tern', name: 'Relay Tern', gm: 0, radius: 4, color: C.station, kind: 'station', orbit: { parent: 'brand', a: 220, dir: -1, phase: 6.1248 } },
     ],
     ship: ship({ start: { conic: { body: 'brand', pe: 600, e: 1.1, nu: -1.2, angle: 2.4, dir: -1 } }, heading: 'retrograde', dv: 12, accel: 1.5 }),
@@ -165,14 +170,14 @@ const levels = [
     objective: 'Rendezvous with Outpost Kestrel (within 10 k, relative speed under 0.6 k/s) without entering a patrol zone, taking under 140 Sv of radiation.',
     teaches: 'Phasing in the cool lane',
     bodies: [
-      { id: 'forge', name: 'Forge', gm: 40000, radius: 45, color: '#ffb27a', kind: 'star', radiation: { rate: 1, at: 300, dose: 140 } },
+      { id: 'forge', name: 'Forge', gm: 40000, radius: 45, color: '#ffb27a', kind: 'star', radiation: { rate: 1, at: 300, dose: 150 } },
       { id: 'outpost', name: 'Outpost Kestrel', gm: 0, radius: 4, color: C.station, kind: 'station', orbit: { parent: 'forge', a: 500, phase: 2.583 } },
       { id: 'pat1', name: 'Patrol 1', gm: 0, radius: 4, color: C.station, kind: 'station', keepOut: 50, orbit: { parent: 'forge', a: 700, dir: -1, phase: 1.8 } },
       { id: 'pat2', name: 'Patrol 2', gm: 0, radius: 4, color: C.station, kind: 'station', keepOut: 50, orbit: { parent: 'forge', a: 700, dir: -1, phase: 1.8 + 2 * Math.PI / 3 } },
       { id: 'pat3', name: 'Patrol 3', gm: 0, radius: 4, color: C.station, kind: 'station', keepOut: 50, orbit: { parent: 'forge', a: 700, dir: -1, phase: 1.8 + 4 * Math.PI / 3 } },
     ],
-    ship: ship({ start: { orbit: { body: 'forge', r: 500, angle: 0 } }, heading: 'prograde', dv: 2.8, accel: 1 }),
-    goals: [{ type: 'rendezvous', body: 'outpost', dist: 10, relVel: 0.6 }],
+    ship: ship({ start: { orbit: { body: 'forge', r: 500, angle: 0 } }, heading: 'prograde', dv: 4, accel: 1 }),
+    goals: [{ type: 'rendezvous', body: 'outpost', dist: 20, relVel: 1 }],
     par: 1.9, bounds: 4000, tMax: 1100, predict: 400, view: { x: 0, y: 0, span: 2000 },
   },
   {
@@ -227,7 +232,7 @@ const proofs = {
     ],
   },
   retrorelay: {
-    p: [2, 1000, 2.45, 221], scale: [2, 30, 0.3, 5], tol: [2, 40, 0.11, 9],
+    p: [2, 1000, 2.3, 221], scale: [2, 30, 0.3, 5], tol: [2, 40, 0.11, 9],
     script: (p, AP) => [
       { coast: (m) => { const o = AP.orb(m, 'brand'); return o.r < o.pe + 5; } },
       { wait: Math.max(0, p[0]) },
@@ -236,20 +241,20 @@ const proofs = {
       { coast: (m) => { const d = AP.wrap(ternLead(m, AP) - p[2]); return d >= 0 && d < 0.2; } },
       { burn: 'retro', rel: 'brand', until: (m) => AP.orb(m, 'brand').pe <= p[3] },
       trim('tern', 'brand', 80, 15),
-      { coast: (m) => { const o = AP.orb(m, 'brand'); return o.r < o.pe + 2; } },
+      nearest('tern', 18),
       { burn: 'retro', rel: 'tern', until: (m) => relSpeed(m, 'tern') < 0.4 },
       meet('tern', 1.5, 0.04),
     ],
   },
   patrolshift: {
-    p: [14, 861.671, 8.383], scale: [3, 5, 4],
+    p: [10, 850, 300], scale: [3, 5, 50], tol: [2, 34, 30],
     script: (p, AP) => [
       { wait: Math.max(0, p[0]) },
       { burn: 'pro', rel: 'forge', until: (m) => AP.orb(m, 'forge').ap >= p[1] },
       { coast: (m) => AP.orb(m, 'forge').rising },
-      { coast: (m) => !AP.orb(m, 'forge').rising && AP.orb(m, 'forge').r < 510 },
-      { coast: (m) => dist(m, 'outpost') < p[2] || AP.orb(m, 'forge').rising },
-      { burn: 'retro', rel: 'forge', until: (m) => { const o = AP.orb(m, 'forge'); return o.ap <= Math.max(505, o.r + 2); } },
+      trim('outpost', 'forge', p[2], 10),
+      nearest('outpost', 18),
+      { burn: 'retro', rel: 'outpost', until: (m) => relSpeed(m, 'outpost') < 0.4 },
       meet('outpost', 1.5, 0.04),
     ],
   },
@@ -299,17 +304,18 @@ const fails = {
     } },
   ],
   patrolshift: [
-    { name: 'catch it on a fast lap in the hot inner lane', steps: (AP) => [
-      { burn: 'retro', rel: 'forge', until: (m) => AP.orb(m, 'forge').pe <= 200 },
-      { coast: (m) => AP.orb(m, 'forge').rising },
-      { coast: (m) => !AP.orb(m, 'forge').rising },
-      { burn: 'pro', rel: 'forge', until: (m) => { const o = AP.orb(m, 'forge'); return o.pe >= Math.min(495, o.r - 2); } },
+    ...[200, 260, 320, 380].map((pe) => ({ name: 'catch it on a fast lap in the hot inner lane (low point ' + pe + ' k)', steps: (AP) => [
+      { burn: 'retro', rel: 'forge', until: (m) => AP.orb(m, 'forge').pe <= pe },
+      trim('outpost', 'forge', 300, 15),
+      nearest('outpost', 18),
+      { burn: 'retro', rel: 'outpost', until: (m) => relSpeed(m, 'outpost') < 0.4 },
       meet('outpost', 1.5, 0.04),
-    ] },
+    ] })),
     { name: 'climb into the cool lane at once', steps: (AP) => proofs.patrolshift.script([0].concat(proofs.patrolshift.p.slice(1)), AP) },
     { name: 'wait a lap for a clear look, then climb', steps: (AP) => proofs.patrolshift.script([proofs.patrolshift.p[0] + 351].concat(proofs.patrolshift.p.slice(1)), AP) },
   ],
   retrorelay: [
+    { name: 'drop as Tern passes right below you', steps: (AP) => proofs.retrorelay.script([2, 1000, 0, 221], AP) },
     { name: 'dive in at once and chase the relay down there', steps: (AP) => [
       { coast: (m) => { const o = AP.orb(m, 'brand'); return o.r < o.pe + 5; } },
       { burn: 'retro', rel: 'brand', until: (m) => AP.orb(m, 'brand').pe <= 221 },

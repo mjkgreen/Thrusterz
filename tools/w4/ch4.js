@@ -37,34 +37,36 @@ const levels = [
   {
     id: 'needledive',
     name: 'Needle Dive',
-    intro: 'You are parked in a geostationary orbit over Tor\'s far side, and Spindle is a pulsar that turns once in Tor\'s day: each time you come round to Tor\'s inner side, its beams point the same way, so any lap will do. Leave backward from the inner side until the dashed path dives at Spindle, then trim your low point to just inside 100 k, where you flash through a beam in a moment; a beam that catches the slow part of the fall is fatal. Watch the bottom of the path: it glows where the dose builds up, and it shows where it would run into Wisp\'s red zone. Burn hard at the very bottom to climb out before the next sweep.',
+    intro: 'You are parked in a geostationary orbit over Tor\'s far side, and the pulsar Spindle turns once in Tor\'s day, so its beams and its moon Wisp are in the same place on every lap: any lap will do. Leave as you swing round toward Spindle, a little before Tor\'s inner side, burning forward until the dashed path dives at Spindle, then trim its low point to between 80 and 95 k. Watch the bottom of the path: dive too deep and it glows where you whirl round into a second beam, and it marks where you would cross Wisp\'s red zone. Burn prograde at the very bottom, where a little fuel goes a long way.',
     objective: 'Pass within 100 k of Spindle, then get 1800 k away from it, taking under 8 Sv of radiation.',
-    teaches: 'Leave on the beam\'s beat · dive between sweeps',
+    teaches: 'Beams in step with your lap · dive between sweeps',
     bodies: [
-      { id: 'spindle', name: 'Spindle', gm: 40000, radius: 10, pw: 25, color: NEUTRON, kind: 'pulsar', radiation: { rate: 0.3, at: 300, dose: 8, beam: { width: 0.3, period: 2 * Math.PI / TOR_SPIN, phase: 0.6 } } },
-      { id: 'wisp', name: 'Wisp', gm: 20, radius: 8, color: C.ice, keepOut: 25, orbit: { parent: 'spindle', a: 150, phase: 3.722, dir: -1 } },
+      { id: 'spindle', name: 'Spindle', gm: 40000, radius: 10, pw: 25, color: NEUTRON, kind: 'pulsar', radiation: { rate: 0.3, at: 300, dose: 8, beam: { width: 0.3, period: 2 * Math.PI / TOR_SPIN, phase: 3 } } },
+      // Wisp goes round once backward for each lap you make round Tor, so it
+      // too is in the same place every lap.
+      { id: 'wisp', name: 'Wisp', gm: 20, radius: 8, color: C.ice, keepOut: 25, orbit: { parent: 'spindle', a: 213.4, phase: 2.4, dir: -1 } },
       { id: 'tor', name: 'Tor', gm: TOR_GM, radius: 28, spin: TOR_SPIN, color: C.tan, orbit: { parent: 'spindle', a: 1000, phase: 0 } },
     ],
-    ship: ship({ start: { orbit: { body: 'tor', r: GEO, angle: 0 } }, heading: 'prograde', dv: 8, accel: 2 }),
+    ship: ship({ start: { orbit: { body: 'tor', r: GEO, angle: 0 } }, heading: 'prograde', dv: 7.5, accel: 2 }),
     goals: [
       { type: 'reach', body: 'spindle', r: 100, label: 'Needle\'s eye' },
       { type: 'escape', body: 'spindle', r: 1800 },
     ],
-    par: 6, bounds: 6000, tMax: 1100, predict: 300, view: { x: 400, y: 0, span: 2600 }, startCam: 'overview',
+    par: 4.6, bounds: 6000, tMax: 1100, predict: 300, view: { x: 400, y: 0, span: 2600 }, startCam: 'overview',
   },
   {
     id: 'slingdrop',
     name: 'Slingshot Drop',
-    intro: 'You are diving past the pulsar Vigil far too fast to stay, carrying a relay probe for deep space. The probe is shielded while it is aboard but takes only 1 Sv once you let it go, and at the bottom of the pass a beam crossing is far more than that. Ride through the beam with the probe aboard, release it (E) just after, while you are still at the bottom, then brake hard at once so Vigil captures you while the probe flies on.',
-    objective: 'Send the probe 1500 k from Vigil, then orbit Vigil with your high point under 900 k, taking under 6 Sv yourself.',
+    intro: 'You are diving past the pulsar Vigil far too fast to stay, carrying a relay probe for deep space. The probe is shielded while it is aboard but takes only 1 Sv once you let it go, and at the bottom of the pass a beam crossing is far more than that: watch the beam sweep toward your path and ride through it with the probe aboard. Release it (E) just after, while you are still deep, then brake until your dashed path stays well inside the ring round Vigil, so Vigil holds on to you while the probe flies on.',
+    objective: 'Send the probe 1100 k from Vigil, then stay within 900 k of Vigil for 40 s, taking under 7 Sv yourself.',
     teaches: 'Release at the bottom, out of the beam',
     bodies: [
-      { id: 'vigil', name: 'Vigil', gm: 40000, radius: 10, pw: 25, color: NEUTRON, kind: 'pulsar', radiation: { rate: 0.3, at: 300, dose: 6, beam: { width: 0.3, period: 80, phase: 5.502 } } },
+      { id: 'vigil', name: 'Vigil', gm: 40000, radius: 10, pw: 25, color: NEUTRON, kind: 'pulsar', radiation: { rate: 0.3, at: 300, dose: 7, beam: { width: 0.3, period: 80, phase: 5.502 } } },
     ],
     ship: ship({ start: { free: { x: -487.4, y: -461.6, vx: 9.076, vy: 2.194 } }, heading: Math.PI, dv: 1.6, accel: 3, cargo: [{ id: 'relay', name: 'Relay probe', mass: 0.2, dose: 1 }] }),
     goals: [
       { type: 'escape', body: 'vigil', craft: 'relay', r: 1100, label: 'Deep space' },
-      { type: 'orbit', body: 'vigil', rMin: 30, rMax: 910 },
+      { type: 'hold', body: 'vigil', r: 900, hold: 40, relVel: 40, label: 'Vigil' },
     ],
     par: 1, bounds: 5000, tMax: 600, predict: 300, view: { x: -200, y: -200, span: 2000 }, startCam: 'overview',
   },
@@ -177,8 +179,8 @@ proofs.needledive = {
   // until the dashed path dives inside p[2] k, then on the way down trim the
   // low point to p[3] (retro lowers it, prograde raises it). Just after the
   // bottom (p[4] k out) burn prograde until free, and p[5] more.
-  p: [0, 0, 150, 85, 90, 0.3], scale: [0, 1, 10, 3, 10, 0.1],
-  tol: [0, 2, 6, 3.4, 20, 0.1],
+  p: [0, -17, 150, 85, 90, 0.3], scale: [0, 1, 10, 3, 10, 0.1],
+  tol: [0, 3, 6, 3.4, 20, 0.1],
   script: (p, AP) => [
     { wait: Math.max(0, ND_INNER + Math.round(p[0]) * ND_LAP + p[1]) },
     { burn: 'pro', rel: 'tor', until: (m) => closest(m, 'spindle', 400) <= p[2] },
@@ -190,14 +192,30 @@ proofs.needledive = {
   ],
 };
 
+// Farthest the coasting path gets from a body within T seconds (the high
+// point a player reads off the dashed path).
+function farthest(m, id, T) {
+  const sys = m.sys, i = sys.byId[id].index, s = { x: m.ship.x, y: m.ship.y, vx: m.ship.vx, vy: m.ship.vy }, bp = [0, 0];
+  let t = m.t, best = 0;
+  while (t < m.t + T) {
+    const dt = Phys.coastDt(sys, s, t, 0.01, 1);
+    Phys.rk4(sys, s, t, dt, 0, 0);
+    t += dt;
+    sys.posAt(i, t, bp);
+    best = Math.max(best, Math.hypot(s.x - bp[0], s.y - bp[1]));
+  }
+  sys.update(m.t);
+  return best;
+}
+
 proofs.slingdrop = {
   // Coast through the beam at the bottom with the probe aboard, release it at
-  // p[0] s, then brake at once until the high point is down to p[1].
-  p: [56.5, 860], scale: [0.3, 30],
+  // p[0] s, then brake at once until the dashed path's high point is p[1] k.
+  p: [58.5, 750], scale: [0.3, 30], tol: [1.5, 30],
   script: (p, AP) => [
     { coast: (m) => m.t >= p[0] },
     { drop: true },
-    { burn: 'retro', rel: 'vigil', until: (m) => pwAp(m, 'vigil') <= p[1] },
+    { burn: 'retro', rel: 'vigil', until: (m) => farthest(m, 'vigil', 200) <= p[1] },
   ],
 };
 
@@ -288,17 +306,16 @@ const fails = {
     { name: 'leave a lap later', steps: (AP) => proofs.retrowhirl.script([176].concat(proofs.retrowhirl.p.slice(1)), AP) },
   ],
   slingdrop: [
-    { name: 'release the probe at once', steps: (AP) => proofs.slingdrop.script([0, 860], AP) },
-    { name: 'release at the bottom, before the beam', steps: (AP) => proofs.slingdrop.script([55.2, 860], AP) },
-    { name: 'brake first, then release', steps: (AP) => [{ coast: (m) => m.t >= 56.3 }, { burn: 'retro', rel: 'vigil', until: (m) => pwAp(m, 'vigil') <= 860 }, { drop: true }] },
-    { name: 'release, then brake once clear of Vigil', steps: (AP) => [{ coast: (m) => m.t >= 56.3 }, { drop: true }, { coast: (m) => dist(m, 'vigil') > 400 }, { burn: 'retro', rel: 'vigil', until: (m) => pwAp(m, 'vigil') <= 860 }] },
+    { name: 'release the probe at once', steps: (AP) => proofs.slingdrop.script([0, 750], AP) },
+    { name: 'release at the bottom, before the beam', steps: (AP) => proofs.slingdrop.script([55.2, 750], AP) },
+    { name: 'brake first, then release', steps: (AP) => [{ coast: (m) => m.t >= 56.3 }, { burn: 'retro', rel: 'vigil', until: (m) => farthest(m, 'vigil', 200) <= 750 }, { drop: true }] },
+    { name: 'release and fly on with it', steps: (AP) => proofs.slingdrop.script([58.5, 0], AP).slice(0, 2) },
   ],
   needledive: [
-    { name: 'leave on the first lap', steps: (AP) => proofs.needledive.script([41].concat(proofs.needledive.p.slice(1)), AP) },
-    { name: 'leave on the second lap', steps: (AP) => proofs.needledive.script([131].concat(proofs.needledive.p.slice(1)), AP) },
-    { name: 'a shallow dive on the first lap', steps: (AP) => proofs.needledive.script([41, 94, 0.56], AP) },
-    { name: 'wait one lap too many', steps: (AP) => proofs.needledive.script([311].concat(proofs.needledive.p.slice(1)), AP) },
-    { name: 'dive in from the far side', steps: (AP) => [{ burn: 'retro', rel: 'tor', until: (m) => m.dvUsed() > 2 && closest(m, 'spindle', 400) <= 70 }, ...proofs.needledive.script(proofs.needledive.p, AP).slice(2)] },
+    { name: 'dive for the middle of the eye', steps: (AP) => proofs.needledive.script([0, -17, 150, 55, 90, 0.3], AP) },
+    { name: 'trim to 70 k without checking Wisp', steps: (AP) => proofs.needledive.script([0, -17, 150, 70, 90, 0.3], AP) },
+    { name: 'coast back out after the pass', steps: (AP) => proofs.needledive.script([0, -17, 150, 85, 90, 0.3], AP).slice(0, 5) },
+    { name: 'dive in from the far side', steps: (AP) => [{ burn: 'retro', rel: 'tor', until: (m) => m.dvUsed() > 2 && closest(m, 'spindle', 400) <= 85 }, ...proofs.needledive.script(proofs.needledive.p, AP).slice(2)] },
   ],
   heavystar: [
     { name: 'wait for the orbit to swing round', steps: () => [] },
