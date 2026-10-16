@@ -77,12 +77,12 @@ const levels = [
     objective: 'Orbit Halo clockwise, the way Vesper goes, between 40 and 135 k up, taking under 8 Sv of radiation.',
     teaches: 'Whirl round to turn round',
     bodies: [
-      { id: 'lumen', name: 'Lumen', gm: 40000, radius: 10, pw: 25, color: NEUTRON, kind: 'pulsar', radiation: { rate: 0.3, at: 300, dose: 8, beam: { width: 0.3, period: 90, phase: 2.8 } } },
+      { id: 'lumen', name: 'Lumen', gm: 40000, radius: 10, pw: 25, color: NEUTRON, kind: 'pulsar', radiation: { rate: 0.3, at: 300, dose: 8, beam: { width: 0.3, period: 90, phase: 0.13 } } },
       { id: 'halo', name: 'Halo', gm: 1000, radius: 22, color: C.purple, orbit: { parent: 'lumen', a: 1000, phase: 0 } },
       { id: 'vesper', name: 'Vesper Station', gm: 0, radius: 3, color: C.station, kind: 'station', orbit: { parent: 'halo', a: 75, phase: 0, dir: -1 } },
     ],
-    ship: ship({ start: { orbit: { body: 'halo', r: 48, angle: 0 } }, heading: 'prograde', dv: 8.5, accel: 1 }),
-    goals: [{ type: 'orbit', body: 'halo', rMin: 60, rMax: 160, dir: -1 }],
+    ship: ship({ start: { orbit: { body: 'halo', r: 48, angle: 0 } }, heading: 'prograde', dv: 10, accel: 1 }),
+    goals: [{ type: 'orbit', body: 'halo', rMin: 50, rMax: 180, dir: -1 }],
     par: 6, bounds: 6000, tMax: 900, predict: 400, view: { x: 300, y: 0, span: 2600 }, startCam: 'overview',
   },
   {
@@ -257,8 +257,8 @@ proofs.retrowhirl = {
   // p[2]. On the climb back out, p[3] k from Lumen, steer (p[4] from
   // prograde) until the dashed path passes Halo's far side (clockwise)
   // within p[5]; at that low point brake until the high point is p[6].
-  p: [1, -12, 65, 386, 0, 100, 133], scale: [0, 1, 2, 30, 0.3, 10, 5],
-  tol: [0, 2, 2.6, 30, 0.06, 4, 5],
+  p: [1, -10, 68, 386, 0, 100, 133], scale: [0, 1, 2, 30, 0.3, 10, 5],
+  tol: [0, 2, 2.7, 30, 0.06, 4, 5],
   script: (p, AP) => [
     { wait: Math.max(0, RW_INNER + Math.round(p[0]) * RW_LAP + p[1]) },
     { burn: 'pro', rel: 'halo', until: (m) => closest(m, 'lumen', 400) <= 150 },

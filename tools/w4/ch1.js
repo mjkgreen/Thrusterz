@@ -101,7 +101,7 @@ const levels = [
   {
     id: 'sunburn',
     name: 'Sunburn',
-    intro: 'Ardent is a hot star, and its radiation is strongest close in: a quarter as strong at twice the distance. The dose meter shows what you have taken, and your ship can take only 130 Sv in all. Every lap down here adds up fast, so don\'t wait: burn prograde now to climb, and round off your orbit far out where the light is weak.',
+    intro: 'Ardent is a hot star, and its radiation is strongest close in: a quarter as strong at twice the distance. Watch the dose meter: your ship can take only 130 Sv in all, and down here it climbs by about 2 Sv a second. Burn prograde now to climb, and round off your orbit far out, where the glow on your dashed path fades.',
     objective: 'Orbit Ardent between 600 and 1000 k up, taking under 130 Sv of radiation.',
     teaches: 'Radiation falloff',
     bodies: [
@@ -114,7 +114,7 @@ const levels = [
   {
     id: 'sendrelease',
     name: 'Send and Release',
-    intro: 'You are falling toward Pyra on a long ellipse, and the Sundrop probe has to land on Cinder, the scorched planet racing round close to the star. Your path already ends on Cinder, but only after a pass round Pyra: far too hot for the probe, and for you. Out here a small burn moves your path a lot, so aim to hit Cinder on the way in, release the probe (E), and burn at once to lift your own low point. The longer you ride along, the dearer that climb gets.',
+    intro: 'You are falling toward Pyra on a long ellipse, and the Sundrop probe has to land on Cinder, the scorched planet racing round close to the star. Your path already ends on Cinder, but only after a pass round Pyra: far too hot for the probe, and for you. Out here a small burn moves your path a lot: nudge it until it hits Cinder on the way in, release the probe (E), and burn at once to lift your own low point well clear of the glow, before riding along makes that climb hotter and dearer.',
     objective: 'Land the probe on Cinder before it takes 80 Sv, then get 1200 k from Pyra, taking under 50 Sv yourself.',
     teaches: 'Cargo with its own dose limit',
     bodies: [
@@ -131,8 +131,8 @@ const levels = [
   {
     id: 'hotbooster',
     name: 'Hot Booster',
-    intro: 'Fly through the sample point in Kiln\'s corona, then get out fast: the dose adds up so quickly down there that the Sunskipper has to burn hard at the bottom of the dive. Hearth is inhabited, and a spent booster left on a path that crosses its orbit hits it sooner or later. So burn the slow, heavy booster retrograde until it is empty and its path falls into Kiln, and drop it (the stage button) at once: the Sunskipper has to lift your low point back up to the sample point while you are still far out, where that is cheap, and save the rest to burn prograde hard as you pass.',
-    objective: 'Fly through the corona sample point, then get 1500 k from Kiln, taking under 90 Sv of radiation and leaving no booster on a path that crosses Hearth\'s orbit.',
+    intro: 'Fly through the sample point in Kiln\'s corona, then burn prograde hard as you pass: every second down there costs. Hearth is inhabited: a spent booster left on a path that crosses its orbit hits it sooner or later, and its red keep-out zone is closed to you. Burn the slow, heavy booster retrograde until it is empty and its path falls into Kiln, and drop it (the stage button) at once. Your own dashed path then runs through Hearth\'s zone, so lift your low point to the sample point with the Sunskipper right away, while you are far out and it is cheap.',
+    objective: 'Fly through the corona sample point, then get 1500 k from Kiln, taking under 110 Sv of radiation, staying out of Hearth\'s zone and leaving no booster on a path that crosses Hearth\'s orbit.',
     teaches: 'Stages for a fast dive',
     bodies: [
       { id: 'kiln', name: 'Kiln', gm: 40000, radius: 45, color: C.sun, kind: 'star', radiation: { rate: 0.5, at: 300, dose: 110 } },
@@ -152,8 +152,8 @@ const levels = [
   {
     id: 'retrorelay',
     name: 'Retrograde Relay',
-    intro: 'You are coming past Brand on a fast flyby, clockwise, the same way Relay Tern circles close in to the star. Down at the relay\'s height Brand burns at almost 2 Sv a second, so you can\'t afford to wait there for it to come round. Brake at your low point into a long lap far out, where the light is weak, and choose its length so that when you drop your low point to the relay\'s height from the top, you both get there together. Brake at the bottom to match its speed.',
-    objective: 'Rendezvous with Relay Tern (within 10 k, relative speed under 0.6 k/s), taking under 165 Sv of radiation.',
+    intro: 'You are coming past Brand on a fast flyby, clockwise, the same way Relay Tern circles close in to the star. Down at the relay\'s height Brand burns at almost 2 Sv a second, so you can\'t afford to chase it there. Brake at your low point into a long lap far out, where the light is weak, and wait until Relay Tern is about a third of a lap ahead of you. Then drop your low point to its height: the ghost on your path shows where it will be when you get there, so tap to bring the closest approach down, and brake to match its speed as you meet.',
+    objective: 'Rendezvous with Relay Tern (within 20 k, relative speed under 1 k/s), taking under 180 Sv of radiation.',
     teaches: 'Phase far out, meet close in',
     bodies: [
       { id: 'brand', name: 'Brand', gm: 40000, radius: 45, color: C.sun2, kind: 'star', radiation: { rate: 1, at: 300, dose: 180 } },
@@ -166,8 +166,8 @@ const levels = [
   {
     id: 'patrolshift',
     name: 'Patrol Shift',
-    intro: 'Outpost Kestrel shares your orbit, well ahead of you, and you have to catch it. A lower, faster lap would catch it in one go, but that close in Forge would cook you. The cool lane outside is patrolled by three guards circling the other way, each in a red keep-out zone. Raise your high point so one lap lasts long enough for Kestrel to come all the way round to you, leave when your dashed path slips between the patrols both ways, and brake to match Kestrel when you meet.',
-    objective: 'Rendezvous with Outpost Kestrel (within 10 k, relative speed under 0.6 k/s) without entering a patrol zone, taking under 140 Sv of radiation.',
+    intro: 'Outpost Kestrel shares your orbit, well ahead of you, and you have to catch it. A lower, faster lap would catch it, but that close in Forge would cook you. The cool lane outside is patrolled by three guards circling the other way, each in a red keep-out zone. Raise your high point to about 850 k so one lap lasts long enough for Kestrel to come all the way round to you, leaving when your dashed path slips between the patrols both ways; on the way back down, tap to bring the closest approach to Kestrel down, and brake to match it when you meet.',
+    objective: 'Rendezvous with Outpost Kestrel (within 20 k, relative speed under 1 k/s) without entering a patrol zone, taking under 150 Sv of radiation.',
     teaches: 'Phasing in the cool lane',
     bodies: [
       { id: 'forge', name: 'Forge', gm: 40000, radius: 45, color: '#ffb27a', kind: 'star', radiation: { rate: 1, at: 300, dose: 150 } },
@@ -183,18 +183,18 @@ const levels = [
   {
     id: 'solarsurvey',
     name: 'Solar Survey',
-    intro: 'You are on a lopsided orbit round Lumen, and its low point dips deep into the heat. Spread the three survey probes evenly round the star: round off your orbit at the top, drop one (E), and fly a phasing lap before each of the next two. Once dropped, every probe soaks up radiation until the job is done, so the slow, cool phasing laps of Constellation take too long: dip your low point for quicker laps instead. Then climb straight out to your parking orbit before those low laps add up for you.',
-    objective: 'Spread the three probes at least 100° apart in orbits between 315 and 405 k up, then orbit Lumen between 700 and 1000 k up, with no probe over 190 Sv and you under 230 Sv.',
+    intro: 'You are on a lopsided orbit round Lumen, and its low point dips deep into the heat. Spread the three survey probes round the star: round off your orbit at the top, drop one (E), and fly a phasing lap before each of the next two. Once dropped, every probe soaks up radiation until the job is done, so the slow, cool phasing laps of Constellation take too long: dip your low point to about 230 k for quicker laps instead, and watch each probe\'s dose. Then climb straight out to your parking orbit before those low laps add up for you.',
+    objective: 'Spread the three probes at least 90° apart in orbits between 315 and 405 k up, then orbit Lumen between 600 and 1000 k up, with no probe over 235 Sv and you under 280 Sv.',
     teaches: 'A constellation on dose budgets',
     bodies: [
-      { id: 'lumen', name: 'Lumen', gm: 40000, radius: 45, color: '#fff1b0', kind: 'star', radiation: { rate: 0.5, at: 300, dose: 1e9 } },
+      { id: 'lumen', name: 'Lumen', gm: 40000, radius: 45, color: '#fff1b0', kind: 'star', radiation: { rate: 0.5, at: 300, dose: 280 } },
     ],
     ship: ship({ start: { conic: { body: 'lumen', pe: 210, e: 0.3115, nu: 2.5, angle: 0 } }, heading: 'prograde', dv: 15, accel: 1, cargo: [
-      { id: 'sv1', name: 'Survey 1', mass: 0.2, dose: 1e9 }, { id: 'sv2', name: 'Survey 2', mass: 0.2, dose: 1e9 }, { id: 'sv3', name: 'Survey 3', mass: 0.2, dose: 1e9 },
+      { id: 'sv1', name: 'Survey 1', mass: 0.2, dose: 235 }, { id: 'sv2', name: 'Survey 2', mass: 0.2, dose: 235 }, { id: 'sv3', name: 'Survey 3', mass: 0.2, dose: 235 },
     ] }),
     goals: [
       { type: 'spread', body: 'lumen', crafts: ['sv1', 'sv2', 'sv3'], rMin: 360, rMax: 450, minSep: 90 * Math.PI / 180 },
-      { type: 'orbit', body: 'lumen', rMin: 745, rMax: 1045, label: 'Parking orbit' },
+      { type: 'orbit', body: 'lumen', rMin: 645, rMax: 1045, label: 'Parking orbit' },
     ],
     par: 10.5, bounds: 4000, tMax: 1000, predict: 400, view: { x: 0, y: 0, span: 2200 },
   },
@@ -259,7 +259,7 @@ const proofs = {
     ],
   },
   solarsurvey: {
-    p: [396, 235, 235, 829.34, 760, 1.5], scale: [1, 3, 3, 20, 20, 1], tol: [16, 10, 10, 33, 30, 1.5],
+    p: [396, 235, 235, 850, 800, 1.5], scale: [1, 3, 3, 20, 20, 1], tol: [16, 10, 10, 33, 30, 1.5],
     script: (p, AP) => {
       const top = { coast: (m) => !AP.orb(m, 'lumen').rising };
       const lap = (q) => [
@@ -295,7 +295,7 @@ const fails = {
         { burn: 'retro', rel: 'lumen', until: (m) => AP.orb(m, 'lumen').ap <= 401 },
         { drop: true },
       ];
-      return [s[0], s[1], s[2], ...outer(), ...outer(), ...s.slice(-4)];
+      return [...s.slice(0, 4), ...outer(), ...outer(), ...s.slice(-4)];
     } },
     { name: 'one more lap down low before the climb', steps: (AP) => {
       const s = proofs.solarsurvey.script(proofs.solarsurvey.p, AP);

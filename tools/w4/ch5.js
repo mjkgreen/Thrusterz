@@ -102,23 +102,23 @@ const levels = [
   {
     id: 'pulsartour',
     name: 'Pulsar Tour',
-    intro: 'The grand tour of Lumen. You are falling in far too deep, and a spent booster left on any orbit that reaches Beacon\'s ring hits it sooner or later. So use the booster now, while you are still on an escape path: push outward to lift your low point to the dark lane, where you go round as fast as the beams sweep, then drop it (the stage button) and it flies away for good. At the low point brake with the capsule until your high point reaches Ossa\'s orbit, release Lark (E) to meet Ossa head-on, and keep braking until your orbit is round, in the dark lane.',
+    intro: 'The grand tour of Lumen. You are falling in far too deep, and a spent booster left on any orbit that reaches Beacon\'s ring hits it sooner or later. So use the booster now, while you are still on an escape path: push out and a little forward, halfway between prograde and straight out, until it runs dry. Your low point rises to the dark lane, about 235 k up, where you go round as fast as the beams sweep; drop the booster (the stage button) and it flies away for good. Just before the low point brake with the capsule until your path meets Ossa head-on (watch the closest approach marker), release Lark (E), and keep braking until your orbit is round, inside the band, with no glow on your path.',
     objective: 'Land the Lark probe on Ossa, then orbit Lumen between 222 and 254 k up for 15 s, taking under 8 Sv of radiation, with no spent stage on an orbit that crosses Beacon\'s.',
     teaches: 'Everything at once',
     bodies: [
       { id: 'lumen', name: 'Lumen', gm: 40000, radius: 8, color: '#e4dcff', kind: 'pulsar', radiation: { rate: 1, at: 244, dose: 8, beam: { width: 0.3, period: 120, phase: 0 } } },
       { id: 'beacon', name: 'Beacon', gm: 0, radius: 4, color: C.station, kind: 'station', protect: true, protectRadius: 15, orbit: { parent: 'lumen', a: 380, phase: 1 } },
-      { id: 'ossa', name: 'Ossa', gm: 400, radius: 14, color: C.green, keepOut: 50, orbit: { parent: 'lumen', a: 520, phase: 2.8, dir: -1 } },
+      { id: 'ossa', name: 'Ossa', gm: 400, radius: 14, color: C.green, keepOut: 50, orbit: { parent: 'lumen', a: 520, phase: 2.55, dir: -1 } },
     ],
     ship: ship({ start: { conic: { body: 'lumen', pe: 150, e: 1.15, nu: -1.9, angle: 0 } }, heading: 'prograde', rcs: { fuel: 7.4 }, stack: [
       { name: 'Booster', dv: 3, accel: 1.2 },
-      { name: 'Capsule', dv: 12.5, accel: 1, dry: 0.4, sprite: 'satellite' },
+      { name: 'Capsule', dv: 13, accel: 1, dry: 0.4, sprite: 'satellite' },
     ], cargo: [{ id: 'lark', name: 'Lark probe', mass: 0.2, dose: 4 }] }),
     goals: [
       { type: 'hit', body: 'ossa', craft: 'lark' },
       { type: 'orbit', body: 'lumen', rMin: 230, rMax: 262, confirm: 15 },
     ],
-    par: 10.8, bounds: 4000, tMax: 300, predict: 300, view: { x: 0, y: 0, span: 1600 }, startCam: 'overview',
+    par: 11.4, bounds: 4000, tMax: 300, predict: 300, view: { x: 0, y: 0, span: 1600 }, startCam: 'overview',
   },
 ];
 
@@ -327,14 +327,15 @@ proofs.beamrescue = {
 
 proofs.pulsartour = {
   // Booster: push p[0] from prograde until it runs dry (still on an escape
-  // path) and drop it. Capsule: at the low point brake until the high point
-  // is p[1], release Lark, and brake on until the orbit is round; p[2], p[3]
-  // are the speed error a hand-flown rounding leaves (along, out; k/s).
-  p: [-1.2, 635, 0, 0], scale: [0.2, 8, 0, 0], tol: [0.1, 25, 0.15, 0.15], opts: { turn: true, turnRate: 0.3 },
+  // path) and drop it. Capsule: from p[4] above the low point brake until
+  // the high point is p[1], release Lark, and brake on until the orbit is
+  // round; p[2], p[3] are the speed error a hand-flown rounding leaves
+  // (along, out; k/s).
+  p: [-1.2, 690, 0, 0, 10], scale: [0.2, 8, 0, 0, 3], tol: [0.1, 25, 0.15, 0.15, 4], opts: { turn: true, turnRate: 0.3 },
   script: (p, AP) => [
     { burn: p[0], rel: 'lumen', until: () => false },
     { deploy: true },
-    { coast: (m) => AP.orb(m, 'lumen').rising },
+    { coast: (m) => { const o = AP.orb(m, 'lumen'); return o.rising || o.r < o.pe + p[4]; } },
     { burn: 'retro', rel: 'lumen', until: (m) => { const o = AP.orb(m, 'lumen'); return o.bound && o.ap <= p[1]; } },
     { drop: true },
     circularize('lumen', 40000),
@@ -348,12 +349,13 @@ const fails = {
     { name: 'wait and see', steps: () => [] },
     { name: 'brake on the booster at the low point', opts: tourOpts, steps: (AP) => [
       { coast: (m) => AP.orb(m, 'lumen').rising },
-      { burn: 'retro', rel: 'lumen', stage: true, until: (m) => { const o = AP.orb(m, 'lumen'); return o.bound && o.ap <= 635; } },
+      { burn: 'retro', rel: 'lumen', stage: true, until: (m) => { const o = AP.orb(m, 'lumen'); return o.bound && o.ap <= 690; } },
       { drop: true },
       circularize('lumen', 40000),
     ] },
-    { name: 'push the booster inward: the low point sweeps through a beam', opts: tourOpts, steps: (AP) => proofs.pulsartour.script([-2.4, ...proofs.pulsartour.p.slice(1)], AP) },
+    { name: 'push the booster backward: it stays bound', opts: tourOpts, steps: (AP) => proofs.pulsartour.script([-2.4, ...proofs.pulsartour.p.slice(1)], AP) },
     { name: 'flip fast (holding the keys)', opts: { turn: true, turnRate: 1.2 }, steps: (AP) => proofs.pulsartour.script(proofs.pulsartour.p, AP) },
+    { name: 'round off high above the dark lane', opts: tourOpts, steps: (AP) => { const s = proofs.pulsartour.script(proofs.pulsartour.p, AP); return [...s.slice(0, 5), { coast: (m) => AP.orb(m, 'lumen').r >= 300 }, s[5]]; } },
   ],
   beamrescue: [
     { name: 'wait and see', steps: () => [] },
@@ -393,4 +395,4 @@ const fails = {
   ],
 };
 
-module.exports = { levels, proofs, fails, _h: { nudge, closest, sinceSweep, dist }, _g: { hold, goTo, behind, goalPt, bodyPt, circularize } };
+module.exports = { levels, proofs, fails };
