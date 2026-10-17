@@ -265,7 +265,7 @@ for (const L of LEVELS) {
     if (!r || !r.won) { lost.push(`${L.id} (${r ? r.status + ': ' + r.message : 'no proof'})`); continue; }
     if (r.dv > L.par) lost.push(`${L.id} (proof Δv ${r.dv.toFixed(2)} over par ${L.par})`);
     const k = robust(L, P, 20);
-    if (!k.ok || k.win < 0.75) tight.push(`${L.id} (wins ${Math.round(100 * k.win)}%, fuel ×${k.fuel.toFixed(2)})`);
+    if (!k.won || k.fuel < 1.4 || k.win < 0.75) tight.push(`${L.id} (wins ${Math.round(100 * k.win)}%, fuel ×${k.fuel.toFixed(2)})`);
   }
   check('Training: every proof wins within par', lost.length === 0, lost.join('; '));
   check('Training: forgiving when flown by hand', tight.length === 0, tight.join('; '));
@@ -396,18 +396,20 @@ for (const L of LEVELS) {
   }
   check(`World 4: all ${w4.length} proofs win within par`, lost.length === 0, lost.join('; '));
   check('World 4: every mission has a naive plan, and every naive plan loses', wins.length === 0 && nofail.length === 0, wins.concat(nofail.map(id => id + ': no naive plan')).join('; '));
-  // Playable by hand: the proof flown with human-sized errors (proof.tol)
-  // still wins at least half the time, with dose and fuel to spare
-  // (tools/w4/robust.js; 16 samples here to keep the suite quick).
+  // Difficulty by hand: the proof flown with an average player's errors
+  // (proof.tol), then half and a quarter of them. An average player should
+  // need several tries, a good one a couple, an expert rarely more than one
+  // (tools/w4/robust.js, same 40 seeded samples, so the results match).
   const { robust } = require('./w4/robust.js');
-  const tight = [];
+  const off = [];
   for (const L of w4) {
     const P = PROOFS[L.id];
     if (!P) continue;
-    const r = robust(L, P, 16);
-    if (!r.ok) tight.push(`${L.id} (wins ${Math.round(100 * r.win)}%${P.tol ? '' : ', no tol'}, dose ${Math.round(100 * r.dose)}%, cargo ${Math.round(100 * r.cargo)}%, fuel ×${r.fuel.toFixed(2)})`);
+    const r = robust(L, P, 40);
+    const pc = (v) => Math.round(100 * v) + '%';
+    if (!r.ok) off.push(`${L.id} (avg ${pc(r.win)}, good ${pc(r.good)}, expert ${pc(r.expert)}${P.tol ? '' : ', no tol'}, dose ${pc(r.dose)}, cargo ${pc(r.cargo)}, fuel ×${r.fuel.toFixed(2)})`);
   }
-  check('World 4: every mission is playable by hand (tools/w4/robust.js)', tight.length === 0, tight.join('; '));
+  check('World 4: every mission sits in the difficulty band (tools/w4/robust.js)', off.length === 0, off.join('; '));
 }
 
 // 15. Side-thruster budgets: proofs that turn honestly stay inside the

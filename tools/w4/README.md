@@ -180,6 +180,36 @@ retrograde bodies); **Unstable** marks a start already in motion.
 
 15 unstable or awkward starts, 14 phasing puzzles.
 
+## Difficulty band (after the second playtest)
+
+The playability pass overshot: nearly every mission won 95–100% of jittered
+runs, and the rendezvous windows got too big. The target now is that an
+average player needs about **5 to 10 attempts**, fewer if they're good.
+`node tools/w4/robust.js chN` flies each proof 40 times at three skill
+levels, jittering every parameter by its `tol` × 1, ½ and ¼:
+
+| Skill | Error | Win rate |
+| --- | --- | --- |
+| Average | 1 × tol | 10–35% |
+| Good | ½ × tol | ≥ 40% |
+| Expert | ¼ × tol | ≥ 80% |
+
+plus ship and cargo dose ≤ 90% of their limits on the proof, and ship Δv
+≥ 1.15 × the proof's. A mission in all of these reads IN BAND; the test
+suite requires it.
+
+- **`tol` stays honest.** Use the human values below (they describe the
+  player, not the mission). Don't shrink a tol to make a mission look
+  harder or grow one to look easier: tighten the mission itself.
+- **Make the execution matter**, where the previous pass loosened it:
+  rendezvous distance and relative speed (around 8 to 15 k and 0.3 to
+  0.6 k/s; precision docking with limited fuel is the fun, as Keeper's
+  Station was meant to be), gate and band sizes, the tank (corrections
+  should cost you), dose limits, beam timing.
+- **Still no hidden trial and error.** The hard part must be visible:
+  flying the plan well, not guessing which lap works. Everything from the
+  playability pass below still applies, except its numeric targets.
+
 ## Playability pass (after the first playtest)
 
 Playtesting found World 4 too tight: the player beat 1 to 19 but not
@@ -200,9 +230,7 @@ tests rather than puzzles. The rules now, for every mission:
   its radiation glow, shadows, beams, zones) and the intro: no hidden
   trial and error like "only the third lap works" with nothing on screen to
   tell you so. Tight windows are fine if you can see them coming.
-- **Rendezvous and holds a thumb can hit:** relative speed limits about
-  0.6 to 1 k/s and distances 12 to 25 k unless precision is the point, and
-  then the fuel is generous. Fuel for corrections: proofs should not need
+- **Rendezvous and holds a thumb can hit** (superseded by the band above). Fuel for corrections: proofs should not need
   perfect matching burns.
 - Keep the mission's idea, start type and combinations, and keep it hard as
   a puzzle. Loosen margins, add fuel, widen windows, or redesign the parts
