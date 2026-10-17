@@ -164,34 +164,34 @@ const levels = [
   {
     id: 'eclipse',
     name: 'Eclipse',
-    intro: 'Pyra is a hot star, and Nyx orbits close enough to feel it: you can take only 22 Sv in all, and every sunlit half lap adds a few. Nyx\'s shadow, the dark cone on its far side, is the only place with no radiation. Burn prograde as you pass over the day side, closest to Pyra: your climb then swings out behind Nyx and through the dark cone. Watch the glow on your predicted path: burn from inside the shadow and the whole climb lights up.',
-    objective: 'Get 1050 k from Pyra, taking under 22 Sv of radiation.',
+    intro: 'Pyra is a hot star, and Nyx orbits close enough to feel it: you can take only 9 Sv in all, and waiting even one more lap here uses it up. Nyx\'s shadow, the dark cone on its far side, is the only place with no radiation. Burn prograde as you pass over the day side, closest to Pyra: your climb then swings out behind Nyx and through the dark cone. Watch the glow on your predicted path: burn from inside the shadow and the whole climb lights up.',
+    objective: 'Get 900 k from Pyra, taking under 9 Sv of radiation.',
     teaches: 'Shadows · leave from the night side',
     bodies: [
-      { id: 'pyra', name: 'Pyra', gm: 45000, radius: 50, color: C.sun2, kind: 'star', radiation: { rate: 0.8, at: 300, dose: 22 } },
-      { id: 'nyx', name: 'Nyx', gm: 5000, radius: 40, color: C.purple, orbit: { parent: 'pyra', a: 480, phase: 2.3 } },
+      { id: 'pyra', name: 'Pyra', gm: 45000, radius: 50, color: C.sun2, kind: 'star', radiation: { rate: 0.814, at: 300, dose: 9 } },
+      { id: 'nyx', name: 'Nyx', gm: 20000, radius: 40, color: C.purple, orbit: { parent: 'pyra', a: 480, phase: 2.3 } },
     ],
-    ship: ship({ start: { orbit: { body: 'nyx', r: 58, angle: 2.8, dir: -1 } }, heading: 'prograde', dv: 7, accel: 1 }),
-    goals: [{ type: 'escape', body: 'pyra', r: 1100 }],
-    par: 4.5, bounds: 4000, tMax: 600, predict: 300, view: { x: -300, y: 300, span: 1700 }, startCam: 'overview',
+    ship: ship({ start: { orbit: { body: 'nyx', r: 58, angle: 2.8, dir: -1 } }, heading: 'prograde', dv: 8.4, accel: 1 }),
+    goals: [{ type: 'escape', body: 'pyra', r: 900 }],
+    par: 7.5, bounds: 4000, tMax: 600, predict: 300, view: { x: -300, y: 300, span: 1700 }, startCam: 'overview',
   },
   {
     id: 'shadedrop',
     name: 'Shade Drop',
     intro: 'Lee Station rides in Veil\'s shadow, always on its night side, and it needs the relay you carry. Once you drop it (E) the relay is unshielded and can take only 1 Sv, so it must never see Brand\'s light. Burn on the day side so your climb rises into the dark cone (the glow on your path goes out there) and park at L2, beyond the station, where the shade is total. Then nudge toward the station until your path runs through it, and drop the relay: it falls in down the shadow.',
-    objective: 'Hold within 25 k of Veil\'s L2 for 8 s, then get the relay within 25 k of Lee Station, with the relay under 1 Sv and you under 13 Sv.',
+    objective: 'Hold within 15 k of Veil\'s L2 for 8 s, then get the relay within 12 k of Lee Station, with the relay under 1 Sv and you under 11 Sv.',
     teaches: 'Drop in the shade',
     bodies: [
-      { id: 'brand', name: 'Brand', gm: 40000, radius: 45, color: C.sun, kind: 'star', radiation: { rate: 0.6, at: 300, dose: 13 } },
+      { id: 'brand', name: 'Brand', gm: 40000, radius: 45, color: C.sun, kind: 'star', radiation: { rate: 0.6, at: 300, dose: 11 } },
       { id: 'veil', name: 'Veil', gm: 6000, radius: 34, color: C.tan, orbit: { parent: 'brand', a: VEIL_A, phase: VEIL_PH } },
       { id: 'lee', name: 'Lee Station', gm: 0, radius: 4, color: C.station, kind: 'station', orbit: { parent: 'brand', a: LEE_R, n: VEIL_N, phase: VEIL_PH, reflex: false } },
     ],
-    ship: ship({ start: { orbit: { body: 'veil', r: 60, angle: 0 } }, heading: 'prograde', dv: 4.5, accel: 1, cargo: [{ id: 'relay', name: 'Relay', mass: 0.3, dose: 1 }] }),
+    ship: ship({ start: { orbit: { body: 'veil', r: 60, angle: 0 } }, heading: 'prograde', dv: 3.9, accel: 1, cargo: [{ id: 'relay', name: 'Relay', mass: 0.3, dose: 1 }] }),
     goals: [
-      { type: 'hold', lagrange: { body: 'veil', lead: 0, scale: L2_K }, r: 25, hold: 8, relVel: 1, label: 'L2' },
-      { type: 'reach', body: 'lee', craft: 'relay', r: 25, label: 'Lee Station' },
+      { type: 'hold', lagrange: { body: 'veil', lead: 0, scale: L2_K }, r: 15, hold: 8, relVel: 1, label: 'L2' },
+      { type: 'reach', body: 'lee', craft: 'relay', r: 12, label: 'Lee Station' },
     ],
-    par: 3, bounds: 4000, tMax: 600, predict: 300, view: { x: 300, y: 300, span: 1500 }, startCam: 'overview',
+    par: 3.5, bounds: 4000, tMax: 600, predict: 300, view: { x: 300, y: 300, span: 1500 }, startCam: 'overview',
   },
   {
     id: 'fencedshade',
@@ -263,8 +263,8 @@ const levels = [
 
 const proofs = {
   eclipse: {
-    // Wait for the day side (judged by eye: ±3 s), burn about 4.4 k/s.
-    p: [18, 4.4], scale: [2, 0.3], tol: [3, 0.2],
+    // Wait for the day side (judged by eye: ±3 s), burn about 7.2 k/s.
+    p: [8.1, 7.2], scale: [1, 0.3], tol: [3, 0.2],
     script: (p, AP) => [
       { wait: Math.max(0, p[0]) },
       { burn: 'pro', rel: 'nyx', until: (m) => m.dvUsed() >= p[1] },
@@ -357,11 +357,11 @@ const boost = (AP, T, dv) => [
 const fails = {
   eclipse: [
     { name: 'burn at once, in the shadow', steps: (AP) => [
-      { burn: 'pro', rel: 'nyx', until: (m) => m.dvUsed() >= 5 },
+      { burn: 'pro', rel: 'nyx', until: (m) => m.dvUsed() >= 7.2 },
     ] },
     { name: 'the right burn, one lap later', steps: (AP) => [
-      { wait: 14 + 31.4 },
-      { burn: 'pro', rel: 'nyx', until: (m) => m.dvUsed() >= 4.4 },
+      { wait: 8.1 + 19.6 },
+      { burn: 'pro', rel: 'nyx', until: (m) => m.dvUsed() >= 7.2 },
     ] },
   ],
   shadedrop: [

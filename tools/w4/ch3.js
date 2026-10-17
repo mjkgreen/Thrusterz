@@ -106,16 +106,16 @@ const levels = [
   {
     id: 'widdershins',
     name: 'Wrong Way Round',
-    intro: 'A beam from Vela is about to sweep over you, and it turns almost as fast as you go round: going with it, it would sit on you for most of a minute, but against its spin it is gone in seconds. Climbing first and turning round up high would be cheaper, and far too slow. Flip now and burn retrograde right through a stop until you are going round the other way, and keep burning until your path climbs to meet Widdershins Station, which orbits backwards. The path glows where a beam catches you: watch the glow shrink as you turn round. Then match the station\'s speed.',
-    objective: 'Rendezvous with Widdershins Station (within 20 k, relative speed under 0.8 k/s), taking under 7 Sv of radiation.',
+    intro: 'A beam from Vela is about to sweep over you, and it turns almost as fast as you go round: going with it, it would sit on you for most of a minute, but against its spin it is gone in seconds. Climbing first and turning round up high would be cheaper, and far too slow. Flip now and burn retrograde right through a stop until you are going round the other way, and keep burning until your path climbs to meet Widdershins Station, which orbits backwards. The path glows where a beam catches you: watch the glow shrink as you turn round. Hold the nose right on the retrograde marker: a few degrees off and you arrive late, under the next sweeps, or spend the little spare fuel chasing the station. Then match its speed.',
+    objective: 'Rendezvous with Widdershins Station (within 10 k, relative speed under 0.3 k/s), taking under 5.4 Sv of radiation.',
     teaches: 'Cross the beam against its spin',
     bodies: [
-      { id: 'vela', name: 'Vela', gm: 3000, radius: 8, color: PULSAR, kind: 'pulsar', radiation: { rate: 0.15, at: 250, dose: 7, beam: { width: 0.3, period: 317, phase: -0.2 } } },
-      { id: 'widd', name: 'Widdershins Station', gm: 0, radius: 3, color: C.station, kind: 'station', orbit: { parent: 'vela', a: 500, phase: 1.879, dir: -1 } },
+      { id: 'vela', name: 'Vela', gm: 3000, radius: 8, color: PULSAR, kind: 'pulsar', radiation: { rate: 0.15, at: 250, dose: 5.4, beam: { width: 0.3, period: 317, phase: -0.2 } } },
+      { id: 'widd', name: 'Widdershins Station', gm: 0, radius: 3, color: C.station, kind: 'station', orbit: { parent: 'vela', a: 500, phase: 1.86, dir: -1 } },
     ],
-    ship: ship({ start: { orbit: { body: 'vela', r: 250, angle: 0 } }, heading: 'prograde', dv: 13, accel: 1 }),
-    goals: [{ type: 'rendezvous', body: 'widd', dist: 20, relVel: 0.8 }],
-    par: 8.8, bounds: 3000, tMax: 900, predict: 300, view: { x: 0, y: 0, span: 1300 }, startCam: 'overview',
+    ship: ship({ start: { orbit: { body: 'vela', r: 250, angle: 0 } }, heading: 'prograde', dv: 9.6, accel: 1 }),
+    goals: [{ type: 'rendezvous', body: 'widd', dist: 10, relVel: 0.3 }],
+    par: 8.8, bounds: 3000, tMax: 500, predict: 300, view: { x: 0, y: 0, span: 1300 }, startCam: 'overview',
   },
   {
     id: 'duckdrop',
@@ -165,19 +165,19 @@ const levels = [
   {
     id: 'keeper',
     name: 'Keeper\'s Station',
-    intro: 'Keeper\'s Station rides the 500 k orbit, which turns exactly with Corvus\'s beams, so it sits between them forever, and so do you, on the far side. To catch up you must cross a beam: near the 500 k orbit it turns almost with you and lingers, but deep down you cross it fast (the path glows where it will catch you). Dive deep on the booster, round off down there and drop it (the stage button) where its orbit stays well clear of the station\'s: the readout says STAGE NOW → SAFE ORBIT when it is. Then climb on the upper stage when Keeper is about 50° ahead of you: the closest approach readout shows how near you will pass.',
-    objective: 'Rendezvous with Keeper\'s Station (within 20 k, relative speed under 0.8 k/s), taking under 13 Sv of radiation, with no spent stage on an orbit that crosses the station\'s.',
+    intro: 'Keeper\'s Station rides the 500 k orbit, which turns exactly with Corvus\'s beams, so it sits between them forever, and so do you, on the far side. To catch up you must cross a beam: near the 500 k orbit it turns almost with you and lingers, but deep down you cross it fast (the path glows where it will catch you). Dive deep on the booster, round off down there and drop it (the stage button) where its orbit stays well clear of the station\'s: the readout says STAGE NOW → SAFE ORBIT when it is. Then climb on the upper stage when Keeper is about 50° ahead of you: the closest approach readout shows how near you will pass. The upper stage has little fuel to spare: a sloppy climb leaves a big miss, and the matching burns eat what is left.',
+    objective: 'Rendezvous with Keeper\'s Station (within 12 k, relative speed under 0.4 k/s), taking under 11 Sv of radiation, with no spent stage on an orbit that crosses the station\'s.',
     teaches: 'Phase through a beam · stage where it is safe',
     bodies: [
-      { id: 'corvus', name: 'Corvus', gm: 10000, radius: 10, color: PULSAR, kind: 'pulsar', radiation: { rate: 0.11, at: 500, dose: 13, beam: { width: 0.3, period: CORVUS_SYNC, phase: Math.PI / 2 } } },
+      { id: 'corvus', name: 'Corvus', gm: 10000, radius: 10, color: PULSAR, kind: 'pulsar', radiation: { rate: 0.11, at: 500, dose: 11, beam: { width: 0.3, period: CORVUS_SYNC, phase: Math.PI / 2 } } },
       { id: 'keeper', name: 'Keeper\'s Station', gm: 0, radius: 4, color: C.station, kind: 'station', protect: true, protectRadius: 30, orbit: { parent: 'corvus', a: 500, phase: Math.PI } },
     ],
     ship: ship({ start: { orbit: { body: 'corvus', r: 500, angle: 0 } }, heading: 'prograde', stack: [
       { name: 'Booster', dv: 1.6, accel: 1 },
-      { name: 'Upper stage', dv: 2.4, accel: 0.6, dry: 0.4, sprite: 'satellite' },
+      { name: 'Upper stage', dv: 1.05, accel: 0.6, dry: 0.4, sprite: 'satellite' },
     ] }),
-    goals: [{ type: 'rendezvous', body: 'keeper', dist: 20, relVel: 0.8 }],
-    par: 2.3, bounds: 3000, tMax: 950, predict: 300, view: { x: 0, y: 0, span: 1300 }, startCam: 'overview',
+    goals: [{ type: 'rendezvous', body: 'keeper', dist: 12, relVel: 0.4 }],
+    par: 2.4, bounds: 3000, tMax: 950, predict: 300, view: { x: 0, y: 0, span: 1300 }, startCam: 'overview',
   },
 ];
 
@@ -193,12 +193,14 @@ const proofs = {
   widdershins: {
     // Flip at once and burn retrograde through a stop: going round the other
     // way the beam crosses in seconds. Up to the station's height, then meet it.
-    // p: high point to burn to, distance to start matching speed.
-    p: [600, 60], scale: [10, 10], tol: [24, 10], opts: { turn: true, turnRate: 0.3 },
+    // p: high point to burn to, how far off retrograde the nose is held
+    // (rad), distance to start matching speed (or the closest approach),
+    // top closing speed.
+    p: [600, 0, 60, 1], scale: [10, 0.01, 10, 0], tol: [24, 0.06, 10, 0], opts: { turn: true, turnRate: 0.3 },
     script: (p, AP) => [
-      ...held(AP, 'retro', 'vela', (m) => { const o = AP.orb(m, 'vela'); return o.dir < 0 && o.ap >= p[0]; }),
-      { coast: (m) => dist(m, 'widd') < p[1] },
-      meet('widd', 0.03, 0.6),
+      ...held(AP, (m) => AP.aim(m, 'retro', 'vela') + p[1], null, (m) => { const o = AP.orb(m, 'vela'); return o.dir < 0 && o.ap >= p[0]; }),
+      { coast: (m, c) => { const d = dist(m, 'widd'), r = d < p[2] || (c.dl != null && d > c.dl); c.dl = d; return r; } },
+      meet('widd', 0.03, p[3] || 0.6),
     ],
   },
   duckdrop: {

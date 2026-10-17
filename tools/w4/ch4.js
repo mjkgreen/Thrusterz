@@ -31,7 +31,7 @@ const levels = [
       { id: 'ash', name: 'Ash', gm: 60, radius: 18, color: C.rock, orbit: { parent: 'kern', a: 480, phase: -2.35 } },
     ],
     ship: ship({ start: { orbit: { body: 'kern', r: 900, angle: Math.PI, speed: 0.69 } }, heading: 'retrograde', dv: 1.6, accel: 1 }),
-    goals: [{ type: 'reach', x: 366, y: -822, r: 180, label: 'the gate' }],
+    goals: [{ type: 'reach', x: 366, y: -822, r: 40, label: 'the gate' }],
     par: 1, bounds: 4000, tMax: 900, predict: 400, view: { x: 0, y: -100, span: 2200 },
   },
   {
@@ -121,7 +121,7 @@ const proofs = {
   heavystar: {
     // Brake at the top until the speed is p[0]: the low point drops inside
     // the unstable ring and the whirl swings the climb round to the gate.
-    p: [3.67], scale: [0.03], tol: [0.1],
+    p: [3.63], scale: [0.03], tol: [0.1],
     script: (p, AP) => [
       { burn: 'retro', rel: 'kern', until: (m) => speed(m, 'kern') <= p[0] },
     ],

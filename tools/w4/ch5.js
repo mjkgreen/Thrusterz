@@ -13,38 +13,38 @@ const levels = [
   {
     id: 'darkconst',
     name: 'Dark Constellation',
-    intro: 'Three relay satellites for Nyx, to be spread evenly round it, and each one soaks up Calor\'s heat from the moment it leaves your hold: a satellite can take only 22 Sv. The long phasing laps that work at Terra, a third slower each, leave Sat 1 out in the heat far too long. Phase the other way: round off about 95 k up, drop a satellite (E), and brake until your low point is about 20 k up, a lap a third shorter. Back at the high point, round off again and drop the next; the spacing readout should show about 120°.',
-    objective: 'Spread three satellites at least 100° apart in orbits between 70 and 120 k above Nyx, each taking under 22 Sv of radiation.',
+    intro: 'Three relay satellites for Nyx, to be spread evenly round it, and each one soaks up Calor\'s heat from the moment it leaves your hold: a satellite can take only 17 Sv. The long phasing laps that work at Terra, a third slower each, leave Sat 1 out in the heat far too long. Phase the other way: round off about 95 k up, drop a satellite (E), and brake until your low point is about 18 k up, a lap a third shorter. Back at the high point, round off again and drop the next; the spacing readout should show close to 120°, and every orbit must be nearly round.',
+    objective: 'Spread three satellites at least 116° apart in orbits between 77 and 103 k above Nyx, each taking under 17 Sv of radiation.',
     teaches: 'Quick phasing laps · cargo dose',
     bodies: [
       { id: 'calor', name: 'Calor', gm: 100000, radius: 60, color: C.sun2, kind: 'star', radiation: { rate: 0.12, at: 1200, dose: 60 } },
       { id: 'nyx', name: 'Nyx', gm: 20000, radius: 70, color: '#5a6b8c', orbit: { parent: 'calor', a: 1200, phase: 0 } },
     ],
-    ship: ship({ start: { orbit: { body: 'nyx', r: 110, angle: 0 } }, heading: 'prograde', dv: 13, accel: 1, cargo: [
-      { id: 'd1', name: 'Sat 1', mass: 0.2, dose: 22 }, { id: 'd2', name: 'Sat 2', mass: 0.2, dose: 22 }, { id: 'd3', name: 'Sat 3', mass: 0.2, dose: 22 },
+    ship: ship({ start: { orbit: { body: 'nyx', r: 110, angle: 0 } }, heading: 'prograde', dv: 10.8, accel: 1, cargo: [
+      { id: 'd1', name: 'Sat 1', mass: 0.2, dose: 17 }, { id: 'd2', name: 'Sat 2', mass: 0.2, dose: 17 }, { id: 'd3', name: 'Sat 3', mass: 0.2, dose: 17 },
     ] }),
     goals: [
-      { type: 'spread', body: 'nyx', crafts: ['d1', 'd2', 'd3'], rMin: 140, rMax: 190, minSep: 100 * Math.PI / 180 },
+      { type: 'spread', body: 'nyx', crafts: ['d1', 'd2', 'd3'], rMin: 147, rMax: 173, minSep: 116 * Math.PI / 180 },
     ],
-    par: 9.3, bounds: 4000, tMax: 400, predict: 200, view: { x: 1000, y: 0, span: 700 },
+    par: 10.2, bounds: 4000, tMax: 400, predict: 200, view: { x: 1000, y: 0, span: 700 },
   },
   {
     id: 'stageddive',
     name: 'Staged Dive',
-    intro: 'Your orbit has sagged deep into Cinder\'s heat, and every lap crosses Watch Station\'s ring: a spent stage left on any orbit that reaches the ring hits the station sooner or later. So each stage has to go where it can\'t come back. Burn the dive stage retrograde until it runs dry: your path now ends inside Cinder, so drop it there. Then burn prograde until the low point readout shows 5 to 25 k up, and as you reach the low point burn the kick stage dry: you are escaping, so it flies away for good.',
-    objective: 'Get 2400 k from Cinder, taking under 14 Sv of radiation, with no spent stage left on an orbit that crosses Watch Station\'s.',
+    intro: 'Your orbit has sagged deep into Cinder\'s heat, and every lap crosses Watch Station\'s ring: a spent stage left on any orbit that reaches the ring hits the station sooner or later. So each stage has to go where it can\'t come back. Burn the dive stage retrograde until it runs dry: your path now ends inside Cinder, so drop it there. Then burn prograde until your low point just clears the surface, about 1 to 2 k up: the kick stage has barely enough to escape, and only from that deep. As you reach the low point burn it dry, right at the bottom: you are escaping, so it flies away for good.',
+    objective: 'Get 2400 k from Cinder, taking under 9.4 Sv of radiation, with no spent stage left on an orbit that crosses Watch Station\'s.',
     teaches: 'Disposal dives · staging at the bottom',
     bodies: [
-      { id: 'cinder', name: 'Cinder', gm: 40000, radius: 50, color: '#ffe2b8', kind: 'star', radiation: { rate: 0.3, at: 100, dose: 14 } },
+      { id: 'cinder', name: 'Cinder', gm: 40000, radius: 50, color: '#ffe2b8', kind: 'star', radiation: { rate: 0.3, at: 100, dose: 9.4 } },
       { id: 'watch', name: 'Watch Station', gm: 0, radius: 4, color: C.station, kind: 'station', protect: true, protectRadius: 15, orbit: { parent: 'cinder', a: 250, phase: 1 } },
     ],
     ship: ship({ start: { conic: { body: 'cinder', pe: 80, e: 0.698, nu: -2.6, angle: 0 } }, heading: 'retrograde', stack: [
       { name: 'Dive stage', dv: 2.4, accel: 1.2 },
-      { name: 'Kick stage', dv: 5.2, accel: 1.5 },
-      { name: 'Capsule', dv: 3.9, accel: 1, dry: 0.4, sprite: 'satellite' },
+      { name: 'Kick stage', dv: 3.35, accel: 1.5 },
+      { name: 'Capsule', dv: 1.5, accel: 1, dry: 0.4, sprite: 'satellite' },
     ] }),
     goals: [{ type: 'escape', body: 'cinder', r: 2400 }],
-    par: 8.2, bounds: 5000, tMax: 600, predict: 300, view: { x: 0, y: 0, span: 900 },
+    par: 6.6, bounds: 5000, tMax: 600, predict: 300, view: { x: 0, y: 0, span: 900 },
   },
   {
     id: 'sentrypulsar',
@@ -127,7 +127,7 @@ const proofs = {
   // phasing lap (low point p[3], p[5]); back at the high point, round off
   // again and drop the next.
   darkconst: {
-    p: [0, 161.627, 164.393, 92, 167.315, 92, 166.288], scale: [5, 3, 2, 4, 2, 4, 2], tol: [2, 6, 6, 4, 6, 4, 6],
+    p: [0, 166, 164.393, 88, 167.315, 88, 166.288], scale: [5, 3, 2, 4, 2, 4, 2], tol: [2, 6, 6, 4, 6, 4, 6],
     script: (p, AP) => [
       { wait: Math.max(0, p[0]) },
       { burn: 'pro', rel: 'nyx', until: (m) => AP.orb(m, 'nyx').ap >= p[1] },
@@ -173,7 +173,7 @@ proofs.stageddive = {
   // it; lift the low point to p[1] with the kick stage; start burning the
   // rest of it p[2] s before the low point (negative: after) until it runs
   // dry, drop it, and burn the capsule for p[3].
-  p: [42, 60, 1, 0.3], scale: [2, 4, 1, 0.3], tol: [2, 3, 2, 0.2],
+  p: [42, 51.5, 0.75, 0.3], scale: [2, 2, 1, 0.3], tol: [2, 3, 2, 0.2],
   script: (p, AP) => [
     { burn: 'retro', rel: 'cinder', until: (m) => AP.orb(m, 'cinder').pe <= p[0] },
     { deploy: true },

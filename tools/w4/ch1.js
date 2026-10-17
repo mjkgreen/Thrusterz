@@ -101,27 +101,27 @@ const levels = [
   {
     id: 'sunburn',
     name: 'Sunburn',
-    intro: 'Ardent is a hot star, and its radiation is strongest close in: a quarter as strong at twice the distance. Watch the dose meter: your ship can take only 130 Sv in all, and down here it climbs by about 2 Sv a second. Burn prograde now to climb, and round off your orbit far out, where the glow on your dashed path fades.',
-    objective: 'Orbit Ardent between 600 and 1000 k up, taking under 130 Sv of radiation.',
+    intro: 'Ardent is a hot star, and its radiation is strongest close in: a quarter as strong at twice the distance. Watch the dose meter: your ship can take only 130 Sv in all, and down here it climbs by about 2 Sv a second. Burn prograde now to climb, and round off your orbit far out, where the glow on your dashed path fades. The parking band is narrow, so watch the high and low point readouts and cut the engine on the number.',
+    objective: 'Orbit Ardent between 750 and 800 k up, taking under 130 Sv of radiation.',
     teaches: 'Radiation falloff',
     bodies: [
       { id: 'ardent', name: 'Ardent', gm: 40000, radius: 45, color: C.sun, kind: 'star', radiation: { rate: 1, at: 300, dose: 130 } },
     ],
-    ship: ship({ start: { orbit: { body: 'ardent', r: 200, angle: 0 } }, heading: 'prograde', dv: 11, accel: 1 }),
-    goals: [{ type: 'orbit', body: 'ardent', rMin: 645, rMax: 1045 }],
+    ship: ship({ start: { orbit: { body: 'ardent', r: 200, angle: 0 } }, heading: 'prograde', dv: 9.5, accel: 1 }),
+    goals: [{ type: 'orbit', body: 'ardent', rMin: 795, rMax: 845 }],
     par: 7.2, bounds: 4000, tMax: 900, predict: 400, view: { x: 0, y: 0, span: 2100 },
   },
   {
     id: 'sendrelease',
     name: 'Send and Release',
-    intro: 'You are falling toward Pyra on a long ellipse, and the Sundrop probe has to land on Cinder, the scorched planet racing round close to the star. Your path already ends on Cinder, but only after a pass round Pyra: far too hot for the probe, and for you. Out here a small burn moves your path a lot: nudge it until it hits Cinder on the way in, release the probe (E), and burn at once to lift your own low point well clear of the glow, before riding along makes that climb hotter and dearer.',
-    objective: 'Land the probe on Cinder before it takes 80 Sv, then get 1200 k from Pyra, taking under 50 Sv yourself.',
+    intro: 'You are falling toward Pyra on a long ellipse, and the Sundrop probe has to land on Cinder, the scorched planet racing round close to the star. Your path already ends on Cinder, but only after a pass round Pyra: far too hot for the probe, and for you. Out here a small burn moves your path a lot: nudge it until it hits little Cinder on the way in before the probe\'s dose mark, release the probe (E), and burn at once to lift your own low point well clear of the glow, before riding along makes that climb hotter and dearer.',
+    objective: 'Land the probe on Cinder before it takes 55 Sv, then get 1200 k from Pyra, taking under 42 Sv yourself.',
     teaches: 'Cargo with its own dose limit',
     bodies: [
-      { id: 'pyra', name: 'Pyra', gm: 40000, radius: 40, color: C.sun2, kind: 'star', radiation: { rate: 1, at: 300, dose: 50 } },
-      { id: 'cinder', name: 'Cinder', gm: 300, radius: 12, color: C.red, orbit: { parent: 'pyra', a: 150, phase: 3.45 } },
+      { id: 'pyra', name: 'Pyra', gm: 40000, radius: 40, color: C.sun2, kind: 'star', radiation: { rate: 1, at: 300, dose: 42 } },
+      { id: 'cinder', name: 'Cinder', gm: 60, radius: 8, color: C.red, orbit: { parent: 'pyra', a: 150, phase: 3.45 } },
     ],
-    ship: ship({ start: { conic: { body: 'pyra', pe: 110, e: 0.85, nu: -2.85, angle: 0 } }, heading: 'prograde', dv: 8, accel: 1, cargo: [{ id: 'sundrop', name: 'Sundrop', mass: 0.3, dose: 80 }] }),
+    ship: ship({ start: { conic: { body: 'pyra', pe: 110, e: 0.85, nu: -2.85, angle: 0 } }, heading: 'prograde', dv: 7, accel: 1, cargo: [{ id: 'sundrop', name: 'Sundrop', mass: 0.3, dose: 55 }] }),
     goals: [
       { type: 'hit', body: 'cinder', craft: 'sundrop' },
       { type: 'escape', body: 'pyra', r: 1240 },
@@ -202,7 +202,7 @@ const levels = [
 
 const proofs = {
   sunburn: {
-    p: [2, 850, 800], scale: [1, 20, 20], tol: [2, 34, 32],
+    p: [2, 830, 810], scale: [1, 10, 10], tol: [2, 33, 32],
     script: (p, AP) => [
       { wait: Math.max(0, p[0]) },
       { burn: 'pro', until: (m) => AP.orb(m, 'ardent').ap >= p[1] },
@@ -211,7 +211,7 @@ const proofs = {
     ],
   },
   sendrelease: {
-    p: [2, 0.15, 1.1, 750, -0.7], scale: [2, 0.3, 0.2, 20, 0.4], tol: [2, 0.06, 0.1, 30, 0.06],
+    p: [2, 0.17, 1.11, 750, -0.7], scale: [2, 0.3, 0.2, 20, 0.4], tol: [2, 0.06, 0.1, 30, 0.06],
     script: (p, AP) => [
       { wait: Math.max(0, p[0]) },
       ...dvBurn(p[1], 'pyra', Math.max(0, p[2])),
