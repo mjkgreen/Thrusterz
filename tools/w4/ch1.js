@@ -45,11 +45,11 @@ function closest(m, id, horizon) {
 // retrograde, outward or inward, whichever brings the readout toward `want`
 // k (a near miss: stations are solid), until it is within 6 k of it or
 // there is no time left.
-function trim(id, rel, lead, want) {
+function trim(id, rel, lead, want, gi) {
   const tap = 0.1;
   return {
     control: (m, ctx) => {
-      if (m.goalIndex > 0 || m.status !== 'flying') return { done: true };
+      if (m.goalIndex > (gi || 0) || m.status !== 'flying') return { done: true };
       if (ctx.tap) {
         if (m.dvUsed() - ctx.tap.d0 < tap) return { thrust: true, angle: ctx.tap.a, tol: 0.1 };
         ctx.tap = null;
@@ -77,10 +77,10 @@ function trim(id, rel, lead, want) {
 
 // Rendezvous with a moving body: steer the velocity toward (its velocity +
 // a closing speed toward it, at most vMax, k per unit distance).
-function meet(id, vMax, k) {
+function meet(id, vMax, k, gi) {
   return {
     control: (m, ctx) => {
-      if (m.goalIndex > 0 || m.status !== 'flying') return { done: true };
+      if (m.goalIndex > (gi || 0) || m.status !== 'flying') return { done: true };
       const sys = m.sys; sys.update(m.t);
       const i = sys.byId[id].index, s = m.ship;
       const dx = sys.px[i] - s.x, dy = sys.py[i] - s.y, d = Math.hypot(dx, dy) || 1;
@@ -101,32 +101,35 @@ const levels = [
   {
     id: 'sunburn',
     name: 'Sunburn',
-    intro: 'Ardent is a hot star, and its radiation is strongest close in: a quarter as strong at twice the distance. Watch the dose meter: your ship can take only 130 Sv in all, and down here it climbs by about 2 Sv a second. Burn prograde now to climb, and round off your orbit far out, where the glow on your dashed path fades. The parking band is narrow, so watch the high and low point readouts and cut the engine on the number.',
-    objective: 'Orbit Ardent between 750 and 800 k up, taking under 130 Sv of radiation.',
+    intro: 'Ardent is a hot star, and its radiation is strongest close in: four times as strong at half the distance. Your ship can take 160 Sv in all, and down here the dose meter already climbs by about 1 Sv a second. First dip into the corona for a sample, then climb straight out and park far away, where the glow on your dashed path fades. Do it in one pass: brake to drop your low point, burn prograde hard at the bottom, and round off at the top on the high and low point readouts.',
+    objective: 'Dip below 100 k above Ardent, then orbit it between 700 and 760 k up, taking under 160 Sv of radiation.',
     teaches: 'Radiation falloff',
     bodies: [
-      { id: 'ardent', name: 'Ardent', gm: 40000, radius: 45, color: C.sun, kind: 'star', radiation: { rate: 1, at: 300, dose: 130 } },
+      { id: 'ardent', name: 'Ardent', gm: 40000, radius: 45, color: C.sun, kind: 'star', radiation: { rate: 0.6, at: 300, dose: 160 } },
     ],
-    ship: ship({ start: { orbit: { body: 'ardent', r: 200, angle: 0 } }, heading: 'prograde', dv: 9.5, accel: 1 }),
-    goals: [{ type: 'orbit', body: 'ardent', rMin: 795, rMax: 845 }],
-    par: 7.2, bounds: 4000, tMax: 900, predict: 400, view: { x: 0, y: 0, span: 2100 },
+    ship: ship({ start: { orbit: { body: 'ardent', r: 240, angle: 0 } }, heading: 'retrograde', dv: 9.9, accel: 1 }),
+    goals: [
+      { type: 'reach', body: 'ardent', r: 145, label: 'Corona sample' },
+      { type: 'orbit', body: 'ardent', rMin: 745, rMax: 805, label: 'Cool parking orbit' },
+    ],
+    par: 9.2, bounds: 4000, tMax: 900, predict: 400, view: { x: 0, y: 0, span: 2100 },
   },
   {
     id: 'sendrelease',
     name: 'Send and Release',
-    intro: 'You are falling toward Pyra on a long ellipse, and the Sundrop probe has to land on Cinder, the scorched planet racing round close to the star. Your path already ends on Cinder, but only after a pass round Pyra: far too hot for the probe, and for you. Out here a small burn moves your path a lot: nudge it until it hits little Cinder on the way in before the probe\'s dose mark, release the probe (E), and burn at once to lift your own low point well clear of the glow, before riding along makes that climb hotter and dearer.',
-    objective: 'Land the probe on Cinder before it takes 55 Sv, then get 1200 k from Pyra, taking under 42 Sv yourself.',
+    intro: 'You are falling toward Pyra on a long ellipse, and the Sundrop probe has to land on Cinder, the scorched planet racing round close to the star. Your path already ends on Cinder, but only after a pass round Pyra: far too hot for the probe, and for you. Out here a small burn moves your path a lot: nudge it until it hits little Cinder on the way in, before the probe\'s dose mark, and release the probe (E). Then turn half way between prograde and straight out and burn at once, watching the low and high point readouts: your ship can take only 16 Sv, so you must stay far out while the probe falls.',
+    objective: 'Land the probe on Cinder before it takes 55 Sv, then orbit Pyra between 800 and 2000 k up, taking under 16 Sv yourself.',
     teaches: 'Cargo with its own dose limit',
     bodies: [
-      { id: 'pyra', name: 'Pyra', gm: 40000, radius: 40, color: C.sun2, kind: 'star', radiation: { rate: 1, at: 300, dose: 42 } },
-      { id: 'cinder', name: 'Cinder', gm: 60, radius: 8, color: C.red, orbit: { parent: 'pyra', a: 150, phase: 3.45 } },
+      { id: 'pyra', name: 'Pyra', gm: 40000, radius: 40, color: C.sun2, kind: 'star', radiation: { rate: 1, at: 300, dose: 16 } },
+      { id: 'cinder', name: 'Cinder', gm: 60, radius: 9, color: C.red, orbit: { parent: 'pyra', a: 150, phase: 3.45 } },
     ],
     ship: ship({ start: { conic: { body: 'pyra', pe: 110, e: 0.85, nu: -2.85, angle: 0 } }, heading: 'prograde', dv: 7, accel: 1, cargo: [{ id: 'sundrop', name: 'Sundrop', mass: 0.3, dose: 55 }] }),
     goals: [
       { type: 'hit', body: 'cinder', craft: 'sundrop' },
-      { type: 'escape', body: 'pyra', r: 1240 },
+      { type: 'orbit', body: 'pyra', rMin: 840, rMax: 2040, label: 'Cool orbit' },
     ],
-    par: 5.8, bounds: 4000, tMax: 1000, predict: 400, view: { x: 0, y: 0, span: 2000 },
+    par: 6.1, bounds: 4000, tMax: 1000, predict: 400, view: { x: 0, y: 0, span: 2000 },
   },
   {
     id: 'hotbooster',
@@ -135,17 +138,18 @@ const levels = [
     objective: 'Fly through the corona sample point, then get 1500 k from Kiln, taking under 110 Sv of radiation, staying out of Hearth\'s zone and leaving no booster on a path that crosses Hearth\'s orbit.',
     teaches: 'Stages for a fast dive',
     bodies: [
-      { id: 'kiln', name: 'Kiln', gm: 40000, radius: 45, color: C.sun, kind: 'star', radiation: { rate: 0.5, at: 300, dose: 110 } },
+      { id: 'kiln', name: 'Kiln', gm: 40000, radius: 45, color: C.sun, kind: 'star', radiation: { rate: 0.5, at: 300, dose: 118 } },
       { id: 'hearth', name: 'Hearth', gm: 300, radius: 16, color: C.green, protect: true, keepOut: 80, orbit: { parent: 'kiln', a: 260, phase: 2.3 } },
       { id: 'watch', name: 'Kiln Watch', gm: 0, radius: 4, color: C.station, kind: 'station', protect: true, orbit: { parent: 'kiln', a: 600, phase: Math.PI } },
     ],
     ship: ship({ start: { orbit: { body: 'kiln', r: 600, angle: 0 } }, heading: 'retrograde', stack: [
       { id: 'booster', name: 'Booster', dv: 5.8, accel: 0.15 },
-      { name: 'Sunskipper', dv: 11.6, accel: 1.5, dry: 0.4 },
+      { name: 'Sunskipper', dv: 9.4, accel: 1.5, dry: 0.4 },
     ] }),
     goals: [
       { type: 'reach', x: -110, y: 0, r: 20, label: 'Corona sample' },
-      { type: 'escape', body: 'kiln', r: 1545 },
+      { type: 'hit', body: 'kiln', craft: 'booster', label: 'Booster into Kiln' },
+      { type: 'rendezvous', body: 'watch', dist: 12, relVel: 0.5 },
     ],
     par: 12.5, bounds: 4000, tMax: 700, predict: 400, view: { x: 0, y: 0, span: 1400 },
   },
@@ -202,16 +206,19 @@ const levels = [
 
 const proofs = {
   sunburn: {
-    p: [2, 830, 810], scale: [1, 10, 10], tol: [2, 33, 32],
+    p: [2, 133, 787, 767], scale: [1, 5, 10, 10], tol: [2, 5, 31, 31],
     script: (p, AP) => [
       { wait: Math.max(0, p[0]) },
-      { burn: 'pro', until: (m) => AP.orb(m, 'ardent').ap >= p[1] },
+      { burn: 'retro', rel: 'ardent', until: (m) => AP.orb(m, 'ardent').pe <= p[1] },
+      { coast: (m) => { const o = AP.orb(m, 'ardent'); return !o.rising && o.r < o.pe + 4; } },
+      { coast: (m) => AP.orb(m, 'ardent').rising },
+      { burn: 'pro', rel: 'ardent', until: (m) => AP.orb(m, 'ardent').ap >= p[2] },
       { coast: (m) => !AP.orb(m, 'ardent').rising },
-      { burn: 'pro', until: (m) => AP.orb(m, 'ardent').pe >= p[2] },
+      { burn: 'pro', rel: 'ardent', until: (m) => AP.orb(m, 'ardent').pe >= p[3] },
     ],
   },
   sendrelease: {
-    p: [2, 0.17, 1.11, 750, -0.7], scale: [2, 0.3, 0.2, 20, 0.4], tol: [2, 0.06, 0.1, 30, 0.06],
+    p: [2, 0.17, 1.11, 900, -1.3], scale: [2, 0.3, 0.2, 20, 0.4], tol: [2, 0.06, 0.1, 42, 0.06],
     script: (p, AP) => [
       { wait: Math.max(0, p[0]) },
       ...dvBurn(p[1], 'pyra', Math.max(0, p[2])),
@@ -220,15 +227,17 @@ const proofs = {
     ],
   },
   hotbooster: {
-    p: [2, 118, 1, 4], scale: [2, 5, 1, 0.5], tol: [2, 5, 1, 0.3],
+    p: [2, 118, 60, 30, 0.3], scale: [2, 5, 10, 5, 0.1], tol: [2, 5, 6, 6, 0.1],
     script: (p, AP) => [
       { wait: Math.max(0, p[0]) },
       { burn: 'retro', rel: 'kiln', until: () => false },
       { deploy: true },
       { burn: 'pro', rel: 'kiln', until: (m) => AP.orb(m, 'kiln').pe >= p[1] },
-      { coast: (m) => { const o = AP.orb(m, 'kiln'); return o.r < o.pe + 6; } },
-      { wait: Math.max(0, p[2]) },
-      ...dvBurn('pro', 'kiln', p[3]),
+      { coast: (m) => AP.orb(m, 'kiln').rising },
+      trim('watch', 'kiln', p[2], 10, 2),
+      nearest('watch', p[3]),
+      { burn: 'retro', rel: 'watch', until: (m) => relSpeed(m, 'watch') < p[4] },
+      meet('watch', 1.5, 0.04, 2),
     ],
   },
   retrorelay: {
@@ -369,17 +378,34 @@ const fails = {
       const p = proofs.sendrelease.p;
       return [...dvBurn(p[1], 'pyra', p[2]), { coast: (m) => dist(m, 'cinder') < 120 }, { drop: true }, { burn: p[4], rel: 'pyra', until: (m) => AP.orb(m, 'pyra').pe >= p[3] }];
     } },
+    { name: 'release, watch the probe for half a minute, then climb', steps: (AP) => {
+      const p = proofs.sendrelease.p, s = proofs.sendrelease.script(p, AP);
+      return [...s.slice(0, -1), { wait: 30 }, s[s.length - 1]];
+    } },
+    { name: 'release, then climb straight prograde', steps: (AP) => {
+      const p = proofs.sendrelease.p, s = proofs.sendrelease.script(p, AP);
+      return [...s.slice(0, -1), { burn: 'pro', rel: 'pyra', until: (m) => AP.orb(m, 'pyra').pe >= p[3] }];
+    } },
   ],
   sunburn: [
-    { name: 'wait half a lap, then climb', steps: (AP) => [{ wait: 44 }, ...proofs.sunburn.script(proofs.sunburn.p, AP)] },
-    { name: 'climb in two easy steps', steps: (AP) => [
-      { burn: 'pro', until: (m) => AP.orb(m, 'ardent').ap >= 420 },
+    { name: 'wait half a lap, then dive', steps: (AP) => [{ wait: 58 }, ...proofs.sunburn.script(proofs.sunburn.p, AP)] },
+    { name: 'climb to the cool orbit first, dive from there', steps: (AP) => [
+      { burn: 'pro', rel: 'ardent', until: (m) => AP.orb(m, 'ardent').ap >= 787 },
       { coast: (m) => !AP.orb(m, 'ardent').rising },
-      { burn: 'pro', until: (m) => AP.orb(m, 'ardent').pe >= 400 },
-      { burn: 'pro', until: (m) => AP.orb(m, 'ardent').ap >= 845 },
-      { wait: 10 },
+      { burn: 'pro', rel: 'ardent', until: (m) => AP.orb(m, 'ardent').pe >= 767 },
+      { burn: 'retro', rel: 'ardent', until: (m) => AP.orb(m, 'ardent').pe <= 133 },
+      { coast: (m) => AP.orb(m, 'ardent').rising },
       { coast: (m) => !AP.orb(m, 'ardent').rising },
-      { burn: 'pro', until: (m) => AP.orb(m, 'ardent').pe >= 800 },
+      { burn: 'pro', rel: 'ardent', until: (m) => AP.orb(m, 'ardent').pe >= 767 },
+    ] },
+    { name: 'dive, ride back up, climb from the top', steps: (AP) => [
+      { burn: 'retro', rel: 'ardent', until: (m) => AP.orb(m, 'ardent').pe <= 133 },
+      { coast: (m) => AP.orb(m, 'ardent').rising },
+      { coast: (m) => !AP.orb(m, 'ardent').rising },
+      { burn: 'pro', rel: 'ardent', until: (m) => AP.orb(m, 'ardent').ap >= 787 },
+      { coast: (m) => AP.orb(m, 'ardent').r < 700 },
+      { coast: (m) => !AP.orb(m, 'ardent').rising },
+      { burn: 'pro', rel: 'ardent', until: (m) => AP.orb(m, 'ardent').pe >= 767 },
     ] },
   ],
 };

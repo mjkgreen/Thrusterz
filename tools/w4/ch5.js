@@ -9,6 +9,25 @@ const dist = (m, id, o) => { const s = o || m.ship; m.sys.update(m.t); const i =
 // Coast with the nose held still (no side thrusters spent chasing a target).
 const hold = (pred) => ({ control: (m, c) => pred(m, c) ? { done: true } : { thrust: false, angle: null, dt: 0.25 } });
 
+// Direction of the current goal's point as seen from body `id`.
+const l2Dir = (m, id) => { const q = m.goalPoint(m.currentGoal()); m.sys.update(m.t); const i = m.sys.byId[id || 'nyx'].index; return Math.atan2(q.y - m.sys.py[i], q.x - m.sys.px[i]); };
+
+// Lowest point about body `id` on the predicted path (what the path preview
+// shows; far from a planet its pull is not the whole story).
+const predLow = (m, id, dur) => {
+  const sys = m.sys, s = m.ship, i = sys.byId[id].index, bp = [0, 0];
+  const p = globalThis.Phys.predict(sys, { x: s.x, y: s.y, vx: s.vx, vy: s.vy }, m.t, dur, {});
+  let d = Infinity, prev = Infinity, falling = false;
+  for (let k = 0; k < p.ts.length; k++) {
+    sys.posAt(i, p.ts[k], bp);
+    const r = Math.hypot(p.xs[k] - bp[0], p.ys[k] - bp[1]);
+    if (k > 0 && r < prev) falling = true; else if (falling) { d = prev; break; }
+    prev = r;
+  }
+  sys.update(m.t);
+  return p.hit >= 0 ? 0 : d;
+};
+
 const levels = [
   {
     id: 'darkconst',
@@ -20,13 +39,17 @@ const levels = [
       { id: 'calor', name: 'Calor', gm: 100000, radius: 60, color: C.sun2, kind: 'star', radiation: { rate: 0.12, at: 1200, dose: 60 } },
       { id: 'nyx', name: 'Nyx', gm: 20000, radius: 70, color: '#5a6b8c', orbit: { parent: 'calor', a: 1200, phase: 0 } },
     ],
-    ship: ship({ start: { orbit: { body: 'nyx', r: 110, angle: 0 } }, heading: 'prograde', dv: 10.8, accel: 1, cargo: [
+    ship: ship({ start: { orbit: { body: 'nyx', r: 110, angle: 0 } }, heading: 'prograde', dv: 24, accel: 1, cargo: [
+      { id: 'relay', name: 'Shade relay', mass: 0.2 },
       { id: 'd1', name: 'Sat 1', mass: 0.2, dose: 17 }, { id: 'd2', name: 'Sat 2', mass: 0.2, dose: 17 }, { id: 'd3', name: 'Sat 3', mass: 0.2, dose: 17 },
     ] }),
     goals: [
+      { type: 'hold', craft: 'relay', lagrange: { body: 'nyx', lead: 0, scale: 1.43808 }, r: 15, relVel: 0.5, hold: 10, label: 'Nyx L2' },
+      { type: 'orbit', craft: 'd1', body: 'nyx', rMin: 147, rMax: 173 },
+      { type: 'orbit', craft: 'd2', body: 'nyx', rMin: 147, rMax: 173 },
       { type: 'spread', body: 'nyx', crafts: ['d1', 'd2', 'd3'], rMin: 147, rMax: 173, minSep: 116 * Math.PI / 180 },
     ],
-    par: 10.2, bounds: 4000, tMax: 400, predict: 200, view: { x: 1000, y: 0, span: 700 },
+    par: 21, bounds: 4000, tMax: 800, predict: 400, view: { x: 1300, y: 0, span: 1000 },
   },
   {
     id: 'stageddive',
@@ -127,22 +150,37 @@ const proofs = {
   // phasing lap (low point p[3], p[5]); back at the high point, round off
   // again and drop the next.
   darkconst: {
-    p: [0, 166, 164.393, 88, 167.315, 88, 166.288], scale: [5, 3, 2, 4, 2, 4, 2], tol: [2, 6, 6, 4, 6, 4, 6],
+    // Leave the parking orbit at p[0] and burn until the closest approach to
+    // L2 is p[1]; from p[2] out fly onto L2 (closing speed at most p[3]) and
+    // drop the Shade relay with a hand-flown speed error (p[4], p[5], k/s).
+    // Brake p[6] to fall back in; at the low point lower the high point to
+    // p[7] and round off there (low point p[8]), drop Sat 1; then the quick
+    // phasing laps (low points p[9], p[11]; round off at the high point to
+    // p[10], p[12]) and drop the others.
+    p: [34.017, 10.95, 59.758, 1.186, 0, 0, 0.474, 159.202, 159.866, 91.159, 166.233, 85.573, 173.21], scale: [3, 3, 10, 0.2, 0, 0, 0.1, 3, 2, 4, 2, 4, 2], tol: [2, 8, 15, 0.2, 0.15, 0.15, 0.1, 6, 6, 4, 6, 4, 6],
     script: (p, AP) => [
       { wait: Math.max(0, p[0]) },
-      { burn: 'pro', rel: 'nyx', until: (m) => AP.orb(m, 'nyx').ap >= p[1] },
-      { coast: (m) => !AP.orb(m, 'nyx').rising },
-      { burn: 'pro', rel: 'nyx', until: (m) => { const o = AP.orb(m, 'nyx'); return o.pe >= Math.min(p[2], o.r - 1.5); } },
+      { burn: 'pro', rel: 'nyx', until: (m, c) => { if (AP.orb(m, 'nyx').ap < 350) return false; if (c.tc != null && m.t - c.tc < 0.1) return false; c.tc = m.t; return closest(m, 'goal', 0, 0, 250) <= p[1]; } },
+      { coast: (m) => { const q = goalPt(m); return Math.hypot(q.x - m.ship.x, q.y - m.ship.y) < p[2]; } },
+      goTo(goalPt, p[3], 0.04, (m) => { const q = goalPt(m); return Math.hypot(q.x - m.ship.x, q.y - m.ship.y) < 4 && Math.hypot(q.vx - m.ship.vx, q.vy - m.ship.vy) < 0.1; }),
+      { fn: (m) => { m.ship.vx += p[4]; m.ship.vy += p[5]; } },
       { drop: true },
-      { burn: 'retro', rel: 'nyx', until: (m) => AP.orb(m, 'nyx').pe <= p[3] },
+      { fn: (m, c) => { c.d0 = m.dvUsed(); } },
+      { burn: 'retro', rel: 'nyx', until: (m, c) => m.dvUsed() - c.d0 >= p[6] },
+      { coast: (m) => { const o = AP.orb(m, 'nyx'); return o.r < 250 && o.rising; } },
+      { burn: 'retro', rel: 'nyx', until: (m) => AP.orb(m, 'nyx').ap <= p[7] },
+      { coast: (m) => !AP.orb(m, 'nyx').rising },
+      { burn: 'pro', rel: 'nyx', until: (m) => { const o = AP.orb(m, 'nyx'); return o.pe >= Math.min(p[8], o.r - 1.5); } },
+      { drop: true },
+      { burn: 'retro', rel: 'nyx', until: (m) => AP.orb(m, 'nyx').pe <= p[9] },
       { coast: (m) => AP.orb(m, 'nyx').rising },
       { coast: (m) => !AP.orb(m, 'nyx').rising },
-      { burn: 'pro', rel: 'nyx', until: (m) => { const o = AP.orb(m, 'nyx'); return o.pe >= Math.min(p[4], o.r - 1.5); } },
+      { burn: 'pro', rel: 'nyx', until: (m) => { const o = AP.orb(m, 'nyx'); return o.pe >= Math.min(p[10], o.r - 1.5); } },
       { drop: true },
-      { burn: 'retro', rel: 'nyx', until: (m) => AP.orb(m, 'nyx').pe <= p[5] },
+      { burn: 'retro', rel: 'nyx', until: (m) => AP.orb(m, 'nyx').pe <= p[11] },
       { coast: (m) => AP.orb(m, 'nyx').rising },
       { coast: (m) => !AP.orb(m, 'nyx').rising },
-      { burn: 'pro', rel: 'nyx', until: (m) => { const o = AP.orb(m, 'nyx'); return o.pe >= Math.min(p[6], o.r - 1.5); } },
+      { burn: 'pro', rel: 'nyx', until: (m) => { const o = AP.orb(m, 'nyx'); return o.pe >= Math.min(p[12], o.r - 1.5); } },
       { drop: true },
     ],
   },

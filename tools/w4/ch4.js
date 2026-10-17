@@ -17,22 +17,31 @@ const pwEnergy = (m, id) => { const b = m.sys.byId[id]; const r = dist(m, id), v
 
 // Tor: a planet whose day matches a 70 k orbit, so a ship there hangs over
 // one spot (geostationary).
+// Kern Watch: the strong-gravity circular rate at 900 k, and where and when
+// a good whirl meets the gate (it passes HS_LAG s later).
+const HS_N = Math.sqrt(40000 * 900) / (870 * 900), HS_GATE_ANG = Math.atan2(-822, 366), HS_T = 353, HS_LAG = 10;
 const TOR_GM = 2000, GEO = 70, TOR_SPIN = Math.sqrt(TOR_GM / (GEO * GEO * GEO));
 
 const levels = [
   {
     id: 'heavystar',
     name: 'Heavy Star',
-    intro: 'Kern is a neutron star: no bigger than a moon, but so dense that close in it pulls far harder than any planet. Inside about 90 k no orbit is stable, and a pass that dips in there whips you round much further than half a turn. Brake a little at the top of your orbit and watch the dashed path swing round toward the gate as your low point drops. Ash crosses your orbit soon, so don\'t wait around.',
-    objective: 'Whip round Kern and fly through the gate.',
+    intro: 'Kern is a neutron star: no bigger than a moon, but so dense that close in it pulls far harder than any planet. Inside the dashed ring (about 90 k) no orbit is stable, and a pass that dips in there whips you round much further than half a turn. Brake a little at the top of your orbit and watch the dashed path swing round toward the gate as your low point drops; Ash crosses your orbit soon, so don\'t wait around. Kern Watch comes up behind you at the gate, much faster than you: burn toward its marker as it closes and match its speed.',
+    objective: 'Whirl round Kern through the gate, then rendezvous with Kern Watch (within 12 k, relative speed under 0.5 k/s).',
     teaches: 'Neutron stars · whirling round',
     bodies: [
       { id: 'kern', name: 'Kern', gm: 40000, radius: 12, pw: 30, color: NEUTRON, kind: 'pulsar' },
       { id: 'ash', name: 'Ash', gm: 60, radius: 18, color: C.rock, orbit: { parent: 'kern', a: 480, phase: -2.35 } },
+      // On the true circular orbit at 900 k (strong gravity: a little faster
+      // than a plain orbit), the same way round as you, passing the gate HS_LAG s after you.
+      { id: 'watch', name: 'Kern Watch', gm: 0, radius: 3, color: C.station, kind: 'station', orbit: { parent: 'kern', a: 900, n: HS_N, phase: HS_GATE_ANG - HS_N * (HS_T + HS_LAG) } },
     ],
-    ship: ship({ start: { orbit: { body: 'kern', r: 900, angle: Math.PI, speed: 0.69 } }, heading: 'retrograde', dv: 1.6, accel: 1 }),
-    goals: [{ type: 'reach', x: 366, y: -822, r: 40, label: 'the gate' }],
-    par: 1, bounds: 4000, tMax: 900, predict: 400, view: { x: 0, y: -100, span: 2200 },
+    ship: ship({ start: { orbit: { body: 'kern', r: 900, angle: Math.PI, speed: 0.69 } }, heading: 'retrograde', dv: 5.2, accel: 1 }),
+    goals: [
+      { type: 'reach', x: 366, y: -822, r: 45, label: 'the gate' },
+      { type: 'rendezvous', body: 'watch', dist: 12, relVel: 0.5 },
+    ],
+    par: 4.4, bounds: 4000, tMax: 900, predict: 400, view: { x: 0, y: -100, span: 2200 },
   },
   {
     id: 'needledive',
@@ -47,9 +56,10 @@ const levels = [
       { id: 'wisp', name: 'Wisp', gm: 20, radius: 8, color: C.ice, keepOut: 25, orbit: { parent: 'spindle', a: 213.4, phase: 2.4, dir: -1 } },
       { id: 'tor', name: 'Tor', gm: TOR_GM, radius: 28, spin: TOR_SPIN, color: C.tan, orbit: { parent: 'spindle', a: 1000, phase: 0 } },
     ],
-    ship: ship({ start: { orbit: { body: 'tor', r: GEO, angle: 0 } }, heading: 'prograde', dv: 7.5, accel: 2 }),
+    ship: ship({ start: { orbit: { body: 'tor', r: GEO, angle: 0 } }, heading: 'prograde', dv: 7.5, accel: 2, cargo: [{ id: 'lander', name: 'Wisp lander', mass: 0.2 }] }),
     goals: [
       { type: 'reach', body: 'spindle', r: 100, label: 'Needle\'s eye' },
+      { type: 'hit', body: 'wisp', craft: 'lander', label: 'Lander on Wisp' },
       { type: 'escape', body: 'spindle', r: 1800 },
     ],
     par: 4.6, bounds: 6000, tMax: 1100, predict: 300, view: { x: 400, y: 0, span: 2600 }, startCam: 'overview',
@@ -117,13 +127,43 @@ const levels = [
   },
 ];
 
+// Relative velocity of the ship to a body: { x, y, v }.
+const relVel = (m, id) => { m.sys.update(m.t); const i = m.sys.byId[id].index, s = m.ship; const x = m.sys.vx[i] - s.vx, y = m.sys.vy[i] - s.vy; return { x, y, v: Math.hypot(x, y) }; };
+// Burn to match a body's velocity (nose on the "target" marker) until the
+// relative speed is down to `until`.
+const match = (id, until) => ({ burn: (m) => { const r = relVel(m, id); return Math.atan2(r.y, r.x); }, until: (m) => relVel(m, id).v <= until });
+// Close in on a body and match its velocity: steer the velocity toward the
+// body's own plus a slow approach (k per k of distance, at most vMax).
+const meet = (id, k, vMax) => ({ control: (m, c) => {
+  if (m.status !== 'flying' || m.goalIndex > (c.g0 == null ? (c.g0 = m.goalIndex) : c.g0)) return { done: true };
+  const sys = m.sys; sys.update(m.t);
+  const i = sys.byId[id].index, s = m.ship;
+  const dx = sys.px[i] - s.x, dy = sys.py[i] - s.y, d = Math.hypot(dx, dy) || 1;
+  const sp = Math.min(vMax, k * d);
+  const ex = sys.vx[i] + sp * dx / d - s.vx, ey = sys.vy[i] + sp * dy / d - s.vy;
+  if (Math.hypot(ex, ey) < (c.burning ? 0.02 : 0.08)) { c.burning = false; return { thrust: false, angle: null, dt: 0.05 }; }
+  c.burning = true;
+  return { thrust: true, angle: Math.atan2(ey, ex), tol: 0.1 };
+} });
+// Coast until a body is within d k, or at its closest.
+const closing = (id, d) => ({ coast: (m, c) => { const r = dist(m, id), done = r <= d || (c.dl != null && r > c.dl); c.dl = r; return done; } });
+// Coast until the current goal is done.
+const goalDone = (k) => ({ coast: (m) => m.goalIndex >= k });
+
 const proofs = {
   heavystar: {
     // Brake at the top until the speed is p[0]: the low point drops inside
     // the unstable ring and the whirl swings the climb round to the gate.
-    p: [3.63], scale: [0.03], tol: [0.1],
+    // Through the gate, wait for Kern Watch to close to p[1] k (or start to
+    // draw away), burn to match it until the relative speed is p[2], then
+    // close in.
+    p: [3.632, 21, 0.6], scale: [0.03, 3, 0.1], tol: [0.1, 6, 0.1],
     script: (p, AP) => [
       { burn: 'retro', rel: 'kern', until: (m) => speed(m, 'kern') <= p[0] },
+      goalDone(1),
+      closing('watch', p[1]),
+      match('watch', p[2]),
+      meet('watch', 0.03, 0.6),
     ],
   },
 };
@@ -175,20 +215,24 @@ const burnPast = (dir, rel, pred, extra) => {
 const ND_INNER = 44.4, ND_LAP = 89.1;
 
 proofs.needledive = {
-  // Leave on lap p[0] (offset p[1] s from the inner side): burn backward
+  // Leave on lap p[0] (offset p[1] s from the inner side): burn forward
   // until the dashed path dives inside p[2] k, then on the way down trim the
-  // low point to p[3] (retro lowers it, prograde raises it). Just after the
-  // bottom (p[4] k out) burn prograde until free, and p[5] more.
-  p: [0, -17, 150, 85, 90, 0.3], scale: [0, 1, 10, 3, 10, 0.1],
-  tol: [0, 3, 6, 3.4, 20, 0.1],
+  // low point to p[3] (retro lowers it, prograde raises it), where the
+  // release preview hits Wisp. Drop the lander, then lift your own low point
+  // to p[4], clear of Wisp's zone. Just after the bottom (p[5] k out) burn
+  // prograde until free, and p[6] more.
+  p: [0, -17, 150, 75, 85, 90, 0.3], scale: [0, 1, 10, 1, 2, 10, 0.1],
+  tol: [0, 3, 6, 3, 3.4, 20, 0.1],
   script: (p, AP) => [
     { wait: Math.max(0, ND_INNER + Math.round(p[0]) * ND_LAP + p[1]) },
     { burn: 'pro', rel: 'tor', until: (m) => closest(m, 'spindle', 400) <= p[2] },
     { coast: (m) => dist(m, 'spindle') < 800 },
     { burn: 'retro', rel: 'spindle', until: (m) => closest(m, 'spindle', 300) <= p[3] },
     { burn: 'pro', rel: 'spindle', until: (m) => closest(m, 'spindle', 300) >= p[3] },
-    { coast: (m) => radv(m, 'spindle') > 0 && dist(m, 'spindle') >= p[4] },
-    burnPast('pro', 'spindle', (m) => pwEnergy(m, 'spindle') > 0, p[5]),
+    { drop: true },
+    { burn: 'pro', rel: 'spindle', until: (m) => closest(m, 'spindle', 300) >= p[4] },
+    { coast: (m) => radv(m, 'spindle') > 0 && dist(m, 'spindle') >= p[5] },
+    burnPast('pro', 'spindle', (m) => pwEnergy(m, 'spindle') > 0, p[6]),
   ],
 };
 
