@@ -1426,18 +1426,49 @@
           ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(sx + Math.cos(a + arm) * far, sy - Math.sin(a + arm) * far); ctx.stroke();
         }
       }
+      // Shadows. A point source (pulsar) casts a sharp shadow that widens.
+      // A disc (star) casts an umbra that narrows and ends behind anything
+      // smaller than it, inside a soft penumbra that widens (dose scales
+      // with how much of the disc shows; see Mission.radiationAt).
+      const Rs = (m._srcSize.get(b.index) || 0) * z;
       for (const c of m.shields) {
         const [cx, cy] = w2s(sys.px[c.index], sys.py[c.index]);
         const dx = cx - sx, dy = cy - sy, d = Math.hypot(dx, dy), rc = c.radius * z;
-        if (d <= rc + 1) continue;
-        const th = Math.atan2(dy, dx), al = Math.asin(Math.min(1, rc / d)), tl = Math.sqrt(d * d - rc * rc);
-        const p0 = [sx + Math.cos(th - al) * tl, sy + Math.sin(th - al) * tl], p1 = [sx + Math.cos(th + al) * tl, sy + Math.sin(th + al) * tl];
-        const q0 = [sx + Math.cos(th - al) * far, sy + Math.sin(th - al) * far], q1 = [sx + Math.cos(th + al) * far, sy + Math.sin(th + al) * far];
-        ctx.fillStyle = 'rgba(1,2,6,0.72)';
-        ctx.beginPath(); ctx.moveTo(p0[0], p0[1]); ctx.lineTo(q0[0], q0[1]); ctx.lineTo(q1[0], q1[1]); ctx.lineTo(p1[0], p1[1]); ctx.closePath(); ctx.fill();
+        if (d <= rc + Rs + 1) continue;
+        const ux = dx / d, uy = dy / d, nx = -uy, ny = ux;
+        // Tangent lines to the source and the body: sinA = (Rs ∓ rc) / d;
+        // `sgn` +1 gives the external pair (umbra), -1 the internal (penumbra).
+        const cone = (sgn) => {
+          const sa = (Rs - sgn * rc) / d, ca = Math.sqrt(Math.max(0, 1 - sa * sa)), pts = [];
+          for (const side of [1, -1]) {
+            // Radius at the tangent point, and the line's direction.
+            const wx = side * nx * ca + sgn * ux * sa, wy = side * ny * ca + sgn * uy * sa;
+            const px = cx + rc * wx, py = cy + rc * wy;
+            const vx = ux * ca - sgn * side * nx * sa, vy = uy * ca - sgn * side * ny * sa;
+            pts.push([px, py, vx, vy]);
+          }
+          return pts;
+        };
+        const shade = (pts, alpha) => {
+          const [[p0x, p0y, v0x, v0y], [p1x, p1y, v1x, v1y]] = pts;
+          ctx.fillStyle = `rgba(1,2,6,${alpha})`;
+          ctx.beginPath(); ctx.moveTo(p0x, p0y);
+          // Converging lines (umbra behind a smaller body) meet at the tip.
+          const det = v0x * v1y - v0y * v1x;
+          const tt = Math.abs(det) > 1e-9 ? ((p1x - p0x) * v1y - (p1y - p0y) * v1x) / det : -1;
+          if (tt > 0 && tt < far) ctx.lineTo(p0x + v0x * tt, p0y + v0y * tt);
+          else { ctx.lineTo(p0x + v0x * far, p0y + v0y * far); ctx.lineTo(p1x + v1x * far, p1y + v1y * far); }
+          ctx.lineTo(p1x, p1y); ctx.closePath(); ctx.fill();
+          return tt > 0 && tt < far ? [p0x + v0x * tt, p0y + v0y * tt] : null;
+        };
+        if (Rs > 0) shade(cone(-1), 0.3);
+        const umb = cone(1), tip = shade(umb, 0.72);
         ctx.strokeStyle = 'rgba(124,247,212,0.5)'; ctx.setLineDash([5, 7]);
-        ctx.beginPath(); ctx.moveTo(p0[0], p0[1]); ctx.lineTo(q0[0], q0[1]); ctx.moveTo(p1[0], p1[1]); ctx.lineTo(q1[0], q1[1]); ctx.stroke();
+        ctx.beginPath();
+        for (const [px, py, vx, vy] of umb) { ctx.moveTo(px, py); if (tip) ctx.lineTo(tip[0], tip[1]); else ctx.lineTo(px + vx * far, py + vy * far); }
+        ctx.stroke();
         ctx.setLineDash([]);
+        const th = Math.atan2(dy, dx);
         if (rc > 4 && d < far) label('SHADOW', cx + Math.cos(th) * (rc + 40), cy + Math.sin(th) * (rc + 40), 'rgba(124,247,212,0.75)');
       }
     }
@@ -2126,7 +2157,8 @@
       case 'radiation': {
         k = 'RADIATION';
         const beam = m.sources.some(b => b.radiation.beam);
-        t = m.radRate > 0 ? '<span class="warn">exposed · ' + m.radRate.toFixed(2) + ' Sv/s</span>'
+        t = m.radRate > 0 && m.radShade >= 0 ? '<span class="warn">half-shadow of ' + sys.bodies[m.radShade].name + ' · ' + m.radRate.toFixed(2) + ' Sv/s</span>'
+          : m.radRate > 0 ? '<span class="warn">exposed · ' + m.radRate.toFixed(2) + ' Sv/s</span>'
           : m.radShade >= 0 ? '<span class="ok">in ' + sys.bodies[m.radShade].name + '\'s shadow</span>'
           : '<span class="ok">' + (beam ? 'out of the beam' : 'clear') + '</span>';
         // Released cargo with its own limit.

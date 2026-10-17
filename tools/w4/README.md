@@ -180,6 +180,56 @@ retrograde bodies); **Unstable** marks a start already in motion.
 
 15 unstable or awkward starts, 14 phasing puzzles.
 
+## Redesign v3 (after the second playtest): multi-part, sprinkled pulsars, shadow lanes
+
+The player's direction, in their words: "the key thing should be with
+multiple stages or parts to the level ... you can fly the first part
+correctly, but if you mistime the second part or the third part, then you
+can't win ... you use too much fuel on one thing, or too much RCS, or have
+too much radiation accumulation. That's when the windows start to get
+tight ... not the 10% or 20% off of a button press error, but the
+accumulation of being off on each one ... for World 4 especially, having
+them be multi-part as a rule is good."
+
+Rules for every World 4 mission now:
+
+- **Multi-part.** At least two goals, most three or four (dive then orbit,
+  deploy then something else, hold then transfer then rendezvous). Fuel,
+  RCS and the dose limit are shared across the parts, so a sloppy first
+  part costs you later. That accumulation is where the difficulty comes
+  from, not razor-thin single windows. The goal checklist shows every part.
+- **Proofs model each part with its own parameters**, each with an honest
+  human `tol`; robust.js jitters them all at once, so errors accumulate the
+  way a player's do.
+- **Pulsars are sprinkled, not a chapter.** The beam is introduced early in
+  chapter 2 and then mixed into missions across chapters 2 to 5 alongside
+  falloff, shadows and deep gravity.
+- **Shadows are now physical** (js/flight.js `discVisible`): a star is a
+  disc (its radius, or `radiation.size`), so behind a body smaller than the
+  star the umbra (no dose) narrows and ends, at about d·Rc/(Rs − Rc) behind
+  it, inside a penumbra where the dose is the share of the disc still
+  showing. Pulsars are points (`size` 0): sharp shadows that widen. Check
+  your hiding places really are in the umbra.
+
+Chapters:
+
+1. **Sunburn** (falloff): diving and parking on dose budgets, cargo with
+   its own limit. Multi-part.
+2. **Shadows and Beams**: shadows (umbra, penumbra, eclipses by moons and
+   rocks); the pulsar beam is introduced here (about mission 3 or 4) and
+   combined with shadows.
+3. **Shadow Lanes** (new, replaces the Beams chapter): hanging in a
+   planet's L2 shadow while it orbits (the `lagrange` goal with `hold`),
+   planets on **elliptical orbits** (`orbit: { e, argp }`; nothing has used
+   them yet), timing the transfer from one planet to the next for when
+   they line up, passing through a beam on the way. Hold, then transfer,
+   then arrive.
+4. **Deep Gravity**: strong gravity and horizons, with beams and shadows.
+5. **Grand Missions**: three or four parts each, everything combined.
+
+The difficulty band below still applies (average 10–35%, good ≥ 40%,
+expert ≥ 80%), and naive plans must still lose.
+
 ## Difficulty band (after the second playtest)
 
 The playability pass overshot: nearly every mission won 95–100% of jittered

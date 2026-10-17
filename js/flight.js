@@ -40,13 +40,38 @@
   //   belt: { rMin, rMax, dose } radiation belt: at most `dose` seconds inside in total
   //   radiation: { rate, at, dose, beam? } a radiation source (hot star, pulsar):
   //       `rate` Sv/s at distance `at`, falling off with the square of the
-  //       distance; any planet, moon or rock between it and you casts a shadow
-  //       with no dose at all. At most `dose` Sv in total. beam: { width,
+  //       distance; any planet, moon or rock between it and you casts a shadow.
+  //       A star is a disc (radius `size`, default its own radius), so a
+  //       shadow has a full umbra (no dose) that narrows and ends behind a
+  //       body smaller than the star, inside a penumbra where part of the
+  //       disc shows and the dose is that fraction. A pulsar is a point
+  //       (size 0): sharp shadows that widen. At most `dose` Sv in total. beam: { width,
   //       period, phase } makes it a pulsar: radiation only in two opposite
   //       beams `width` radians wide, sweeping round once every `period` s.
   //   depot: { dv, dist, relVel } refuels the current stage by dv once you rendezvous
   //   horizon: r                 black hole event horizon (crossing it is final)
   // Goal option for 'hit': maxSpeed (touch down slower than this, relative to the surface).
+  // Seen from a point, the share of a source disc (radius Rs, at distance r in
+  // direction (sx, sy)) left showing past a body of radius Rc at offset
+  // (cx, cy). Angular radii and separation, then the overlap of two circles.
+  function discVisible(r, Rs, cx, cy, sx, sy, Rc) {
+    const dc2 = cx * cx + cy * cy;
+    if (dc2 <= Rc * Rc) return 0;
+    const dc = Math.sqrt(dc2);
+    const a1 = DM.atan2(Math.min(Rs, r * 0.999), Math.sqrt(Math.max(1e-12, r * r - Rs * Rs)));
+    const a2 = DM.atan2(Rc, Math.sqrt(dc2 - Rc * Rc));
+    const d = DM.atan2(Math.abs(sx * cy - sy * cx), sx * cx + sy * cy);
+    if (d >= a1 + a2) return 1;
+    if (d <= a2 - a1) return 0;
+    if (d <= a1 - a2) return 1 - (a2 * a2) / (a1 * a1);
+    const acos = (v) => DM.atan2(Math.sqrt(Math.max(0, 1 - v * v)), v);
+    const c1 = Math.max(-1, Math.min(1, (d * d + a1 * a1 - a2 * a2) / (2 * d * a1)));
+    const c2 = Math.max(-1, Math.min(1, (d * d + a2 * a2 - a1 * a1) / (2 * d * a2)));
+    const k = Math.max(0, (-d + a1 + a2) * (d + a1 - a2) * (d - a1 + a2) * (d + a1 + a2));
+    const area = a1 * a1 * acos(c1) + a2 * a2 * acos(c2) - 0.5 * Math.sqrt(k);
+    return Math.max(0, Math.min(1, 1 - area / (Math.PI * a1 * a1)));
+  }
+
   class Mission {
     constructor(level) {
       this.level = level;
@@ -97,6 +122,8 @@
       this.radMaxDt = Math.min(Infinity, ...this.sources.filter(b => b.radiation.beam).map(b => b.radiation.beam.period * b.radiation.beam.width / (2 * Math.PI) / 4));
       // sin(half the beam width) per source, kept here so the level data is never written to.
       this._beamSin = new Map(this.sources.filter(b => b.radiation.beam).map(b => [b.index, DM.sin(b.radiation.beam.width / 2)]));
+      // Each source's disc radius for shadows (0: a point).
+      this._srcSize = new Map(this.sources.map(b => [b.index, b.radiation.size != null ? b.radiation.size : b.kind === 'pulsar' ? 0 : b.radius]));
       const sail = spec.sail;
       // Extra force on the ship (drag, sail); null keeps the plain integrator.
       this._shipFx = sail || this.sys.drag ? (x, y, vx, vy, t, out) => this.shipExtra(x, y, vx, vy, t, out, this.ship.angle) : null;
@@ -710,16 +737,23 @@
           const a = R.beam.phase + 2 * Math.PI * t / R.beam.period;
           if (Math.abs(dx * DM.sin(a) - dy * DM.cos(a)) > r * this._beamSin.get(b.index)) continue;
         }
-        let shaded = false;
+        const Rs = this._srcSize.get(b.index);
+        let lit = 1;
         for (const c of this.shields) {
           const cp = pos(c.index), ex = cp[0] - sp[0], ey = cp[1] - sp[1];
           const k = (ex * dx + ey * dy) / r2;
           if (k <= 0 || k >= 1) continue;
-          const qx = ex - k * dx, qy = ey - k * dy;
-          if (qx * qx + qy * qy < c.radius * c.radius) { shaded = true; shade = c.index; break; }
+          if (Rs <= 0) {
+            const qx = ex - k * dx, qy = ey - k * dy;
+            if (qx * qx + qy * qy < c.radius * c.radius) { lit = 0; shade = c.index; break; }
+            continue;
+          }
+          // Disc source: the share of the star's disc the body hides, seen from you.
+          const f = discVisible(r, Rs, cp[0] - x, cp[1] - y, -dx, -dy, c.radius);
+          if (f < lit) { lit = f; shade = c.index; if (f <= 0) break; }
         }
-        if (shaded) continue;
-        const rr = Math.max(r, b.radius), add = R.rate * R.at * R.at / (rr * rr);
+        if (lit <= 0) continue;
+        const rr = Math.max(r, b.radius), add = lit * R.rate * R.at * R.at / (rr * rr);
         rate += add;
         if (add > best) { best = add; src = b.index; }
       }
