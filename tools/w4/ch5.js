@@ -54,6 +54,9 @@ const fixLow = (id, want, band, dur, AP) => ({
   },
 });
 
+// Talon's dark lane: the height where an orbit keeps pace with its beams.
+const TALON_LANE = Math.cbrt(40000 * (80 / (2 * Math.PI)) ** 2);
+
 const levels = [
   {
     id: 'darkconst',
@@ -131,13 +134,15 @@ const levels = [
     bodies: [
       { id: 'talon', name: 'Talon', gm: 40000, radius: 8, color: '#e4dcff', kind: 'pulsar', radiation: { rate: 0.2, at: 300, dose: 20, beam: { width: 0.3, period: 80, phase: 0 } } },
       { id: 'orrin', name: 'Orrin', gm: 600, radius: 14, color: C.tan, keepOut: 60, orbit: { parent: 'talon', a: 560, phase: 2.5, dir: -1 } },
+      { id: 'dock', name: 'Hollow Dock', gm: 0, radius: 4, color: C.station, kind: 'station', orbit: { parent: 'talon', a: TALON_LANE, phase: 4.37 } },
     ],
-    ship: ship({ start: { orbit: { body: 'talon', r: 300, angle: 0 } }, heading: 'prograde', dv: 6.4, accel: 1, rcs: { fuel: 3.6 }, cargo: [{ id: 'pod', name: 'Supply pod', mass: 0.3, dose: 0.25 }] }),
+    ship: ship({ start: { orbit: { body: 'talon', r: 300, angle: 0 } }, heading: 'prograde', dv: 12, accel: 1, rcs: { fuel: 12 }, cargo: [{ id: 'pod', name: 'Supply pod', mass: 0.3, dose: 0.25 }, { id: 'relay', name: 'Lane relay', mass: 0.1, dose: 0.5 }] }),
     goals: [
       { type: 'hit', body: 'orrin', craft: 'pod' },
-      { type: 'orbit', body: 'talon', rMin: 200, rMax: 510 },
+      { type: 'rendezvous', body: 'dock', dist: 12, relVel: 0.5 },
+      { type: 'orbit', craft: 'relay', body: 'talon', rMin: 178, rMax: 196, confirm: 10 },
     ],
-    par: 4.5, bounds: 3000, tMax: 400, predict: 300, view: { x: 0, y: 0, span: 1500 },
+    par: 8.5, bounds: 3000, tMax: 600, predict: 300, view: { x: 0, y: 0, span: 1500 },
   },
   {
     id: 'beamrescue',
@@ -360,7 +365,7 @@ proofs.pulsarsupply = {
   // p[6] from Talon tap the engine until the path meets Orrin again; past
   // p[2], drop the pod p[5] s after a sweep goes by, and burn until the high
   // point is p[4].
-  p: [112, 0.15, 380, 2.847, 470, 1, 350], scale: [3, 0.05, 15, 0.2, 6, 1, 15], tol: [2, 0.1, 15, 0.06, 15, 1.5, 15], opts: { turn: true, turnRate: 0.2 },
+  p: [112, 0.15, 380, 2.847, 470, 1, 350, 186.6, 0.4, 0, 0, 0.14, 30], scale: [3, 0.05, 15, 0.2, 6, 1, 15, 3, 0.1, 0, 0, 0.05, 3], tol: [2, 0.1, 15, 0.06, 15, 1.5, 15, 6, 0.1, 0.25, 0.25, 0.1, 4], opts: { turn: true, turnRate: 0.2 },
   script: (p, AP) => [
     hold((m) => m.t >= p[0]),
     { burn: 'pro', rel: 'talon', until: (m) => { const o = AP.orb(m, 'talon'); return o.ap > 800 || (o.ap > 480 && closest(m, 'orrin', 0, 0, 200) <= 15); } },
@@ -372,6 +377,21 @@ proofs.pulsarsupply = {
     { coast: (m) => { if (AP.orb(m, 'talon').r < p[2]) return false; const k = sinceSweep(m, 'talon', AP); return k >= Math.max(0, p[5]) && k < Math.max(0, p[5]) + 1; } },
     { drop: true },
     { burn: p[3], rel: 'talon', until: (m) => AP.orb(m, 'talon').ap <= p[4] },
+    // Lane: at the high point brake until the low point is p[7], round off
+    // there and drop the relay with a hand-flown speed error (p[9], p[10]);
+    // then fly onto the dock (closing speed at most p[8]).
+    { coast: (m) => m.goalIndex >= 1 && !AP.orb(m, 'talon').rising },
+    { burn: 'retro', rel: 'talon', until: (m) => AP.orb(m, 'talon').pe <= p[7] },
+    { coast: (m) => AP.orb(m, 'talon').rising },
+    { burn: 'retro', rel: 'talon', until: (m) => { const o = AP.orb(m, 'talon'); return o.ap <= Math.max(TALON_LANE + 2, o.r + 1.5); } },
+    dockTo(behind('dock', 8), p[8], 0.03, (m) => m.goalIndex > 1, 0.12),
+    // Relay: brake p[11] to dip a little lower (a faster lap), and once
+    // p[12] k ahead of the dock drop the relay with a hand-flown speed error.
+    { fn: (m, c) => { c.d0 = m.dvUsed(); } },
+    { burn: 'retro', rel: 'talon', until: (m, c) => m.dvUsed() - c.d0 >= p[11] },
+    { coast: (m) => dist(m, 'dock') >= p[12] },
+    { fn: (m) => { m.ship.vx += p[9]; m.ship.vy += p[10]; } },
+    { drop: true },
   ],
 };
 
@@ -385,6 +405,33 @@ const goTo = (pt, vmax, k, done, tol) => ({
     const ex = q.vx + dx * c - m.ship.vx, ey = q.vy + dy * c - m.ship.vy;
     if (Math.hypot(ex, ey) < (tol || 0.08)) return { thrust: false, dt: 0.05 };
     return { thrust: true, angle: Math.atan2(ey, ex) };
+  },
+});
+// Docking with real turns: work out the speed change that closes on the
+// point (its velocity plus a closing speed of at most vmax, k per k), turn
+// to it and burn it in one go, coast, and repeat when the error grows past
+// tol (a player's point-and-burn corrections).
+// With `about` (the body both orbit) the target's velocity is turned to
+// where the ship is, so two craft sharing an orbit read as matched.
+const dockTo = (pt, vmax, k, done, tol, about) => ({
+  control: (m, c) => {
+    if (done(m)) return { done: true };
+    const q = pt(m), dx = q.x - m.ship.x, dy = q.y - m.ship.y, d = Math.hypot(dx, dy);
+    const cl = Math.min(vmax, k * d) / Math.max(d, 1e-9);
+    let tvx = q.vx, tvy = q.vy;
+    if (about) {
+      const b = bodyPt(about)(m), a = Math.atan2(m.ship.y - b.y, m.ship.x - b.x) - Math.atan2(q.y - b.y, q.x - b.x);
+      const ux = q.vx - b.vx, uy = q.vy - b.vy;
+      tvx = b.vx + ux * Math.cos(a) - uy * Math.sin(a); tvy = b.vy + ux * Math.sin(a) + uy * Math.cos(a);
+    }
+    const ex = tvx + dx * cl - m.ship.vx, ey = tvy + dy * cl - m.ship.vy, e = Math.hypot(ex, ey);
+    if (c.burn) {
+      if (m.dvUsed() - c.d0 >= c.dv || (ex * Math.cos(c.ang) + ey * Math.sin(c.ang)) <= 0) c.burn = false;
+      else return { thrust: true, angle: c.ang };
+    }
+    if (e < (tol || 0.15)) return { thrust: false, angle: null, dt: 0.1 };
+    c.burn = true; c.ang = Math.atan2(ey, ex); c.dv = e; c.d0 = m.dvUsed();
+    return { thrust: true, angle: c.ang };
   },
 });
 const bodyPt = (id) => (m) => { m.sys.update(m.t); const i = m.sys.byId[id].index; return { x: m.sys.px[i], y: m.sys.py[i], vx: m.sys.vx[i], vy: m.sys.vy[i] }; };

@@ -198,7 +198,7 @@ const doneGoal = (gi) => (m) => m.goalIndex > gi;
 
 // 1 · Night Watch: Lamp and Vesper, the L2 hold taught gently.
 const NW = [
-  { id: 'lamp', name: 'Lamp', gm: 40000, radius: 45, color: C.sun, kind: 'star', radiation: { rate: 0.05, at: 550, dose: 3.9 } },
+  { id: 'lamp', name: 'Lamp', gm: 40000, radius: 45, color: C.sun, kind: 'star', radiation: { rate: 0.05, at: 550, dose: 4 } },
   { id: 'vesper', name: 'Vesper', gm: 1000, radius: 12, color: '#6f86b8', orbit: { parent: 'lamp', a: 550, phase: 0 } },
 ];
 const NW_K = l2Scale(NW, 'vesper');
@@ -219,6 +219,7 @@ const PH_N = Math.sqrt(40300 / 600 ** 3);
 const PH = [
   { id: 'pyre', name: 'Pyre', gm: 40000, radius: 50, color: C.sun2, kind: 'star', radiation: { rate: 0.3, at: 550, dose: 99 } },
   { id: 'wend', name: 'Wend', gm: 300, radius: 9, color: C.tan, orbit: { parent: 'pyre', a: 600, e: 0.4, argp: 0, phase: -PH_N * 30 } },
+  { id: 'sprig', name: 'Sprig', gm: 0, radius: 3, color: C.rock, orbit: { parent: 'wend', a: 30, phase: 0 } },
 ];
 const PH_K = l2Scale(PH, 'wend');
 
@@ -235,16 +236,16 @@ const levels = [
   {
     id: 'nightwatch',
     name: 'Night Watch',
-    intro: 'Vesper\'s L2 point is the marker in the dark cone behind it, keeping pace as Vesper goes round Lamp. Climb to it: burn prograde as you come round the day side so the top of your climb lands on the marker (the closest approach readout shows how near you will pass), then brake to match its speed. Nothing stays at L2 on its own, so keep station with small taps whenever your path starts to curl away. Then nudge sunward, fall back and brake into a low orbit.',
-    objective: 'Hold within 8 k of Vesper\'s L2 (moving with it to within 0.25 k/s) for 40 s, then orbit Vesper between 15 and 35 k from its centre, taking under 3.9 Sv of radiation.',
+    intro: 'Vesper\'s L2 point is the marker in the dark cone behind it, keeping pace as Vesper goes round Lamp. Climb to it: burn prograde as you come round the day side so the top of your climb lands on the marker (the closest approach readout shows how near you will pass), then brake to match its speed. Nothing stays at L2 on its own, so keep station with small taps whenever your path starts to curl away, and turn sparingly: the side thrusters are short. Then nudge sunward, fall back and brake into a low orbit.',
+    objective: 'Hold within 4 k of Vesper\'s L2 (moving with it to within 0.2 k/s) for 60 s, then orbit Vesper between 15 and 35 k from its centre, taking under 4 Sv of radiation, with 19.5 s of side-thruster propellant.',
     teaches: 'Keep station at L2',
     bodies: NW,
-    ship: ship({ start: { orbit: { body: 'vesper', r: 30, angle: Math.PI } }, heading: 'prograde', dv: 4.35, accel: 0.6 }),
+    ship: ship({ start: { orbit: { body: 'vesper', r: 30, angle: Math.PI } }, heading: 'prograde', dv: 4.47, accel: 0.6, rcs: { fuel: 19.5 } }),
     goals: [
-      { type: 'hold', lagrange: { body: 'vesper', lead: 0, scale: NW_K }, r: 3, relVel: 0.15, hold: 40, label: 'L2' },
+      { type: 'hold', lagrange: { body: 'vesper', lead: 0, scale: NW_K }, r: 4, relVel: 0.2, hold: 60, label: 'L2' },
       { type: 'orbit', body: 'vesper', rMin: 15, rMax: 35, label: 'Low orbit' },
     ],
-    par: 4.1, bounds: 3000, tMax: 500, predict: 150, view: { x: 640, y: 0, span: 320 },
+    par: 4.1, bounds: 3000, tMax: 400, predict: 150, view: { x: 640, y: 0, span: 320 },
   },
   {
     id: 'perihelion',
@@ -256,7 +257,7 @@ const levels = [
     ship: ship({ start: nearPoint(PH, 'wend', PH_K, 10, 0, 0, 0), heading: 'retrograde', dv: 9, accel: 0.8 }),
     goals: [
       { type: 'hold', lagrange: { body: 'wend', lead: 0, scale: PH_K }, r: 5, relVel: 0.3, hold: 30, label: 'L2' },
-      { type: 'orbit', body: 'wend', rMin: 10, rMax: 28, label: 'Low orbit' },
+      { type: 'rendezvous', body: 'sprig', dist: 8, relVel: 0.4, label: 'Sprig' },
     ],
     par: 4, bounds: 3000, tMax: 600, predict: 150, view: { x: 400, y: 0, span: 300 },
   },
@@ -298,7 +299,7 @@ const proofs = {
     // p: park aim error out/ahead (k), high point of the climb, low point
     // to round off to, tap aim error (rad), tap over/undershoot, closing speed of
     // the first burn (k/s), distance to start the taps (k), first burn aim, over.
-    p: [0, 0, 0, 0.072, 0, 0, 0.772, 14.777, 0, 0, 30.348, 3.036, 87.141], scale: [0, 0, 0, 0.1, 0, 0, 0.1, 3, 0, 0, 1, 1, 4], tol: [0, 0, 0, 0.04, 0.1, 0.15, 0.1, 2, 0.06, 0.04, 1.4, 2, 4.4], opts: { turn: true, turnRate: 0.4 },
+    p: [0, 0, 0, 0.072, 0, 0, 0.772, 14.777, 0, 0, 30.348, 3.036, 87.141], scale: [0, 0, 0, 0.1, 0, 0, 0.1, 3, 0, 0, 1, 1, 4], tol: [1.5, 1.5, 0, 0.04, 0.1, 0.15, 0.1, 2, 0.06, 0.04, 1.4, 2, 4.4], opts: { turn: true, turnRate: 0.4 },
     script: (p, AP) => [
       { wait: p[11] },
       { burn: 'pro', rel: 'vesper', until: (m) => AP.orb(m, 'vesper').ap >= p[12] },
@@ -310,16 +311,13 @@ const proofs = {
     ],
   },
   perihelion: {
-    // Close in on L2 and keep station through perihelion, then let go and
-    // brake into a low orbit once Wend has swung back out.
-    // p: closing speed, distance to start the taps, tap aim error, over,
-    // when to let go, nudge Δv, low orbit high point.
-    p: [0.4, 4, 0, 0, 120, 0.2, 22], scale: [0.1, 1, 0, 0, 10, 0.05, 2], tol: [0.1, 2, 0.1, 0.15, 3, 0.04, 1], opts: { turn: true, turnRate: 0.4 },
+    // Close in on L2 and keep station through perihelion, then drop in to
+    // meet Sprig as it comes round.
+    // p: closing speed, distance to start the taps, then the hop (HOP_KEYS).
+    p: [0.4, 4, 100, 3.14, 0.3, 10, 0, 0, 10, 0.3, 3, 0, 0], scale: [0.1, 1, ...HOP_SCALE], tol: [0.1, 2, ...HOP_TOL], opts: { turn: true, turnRate: 0.4 },
     script: (p, AP) => [
-      ...approach(0, p[0], p[1], {}, { aim: p[2], over: p[3] }, (m) => m.goalIndex > 0 && m.t >= p[4]),
-      ...held(AP, 'in', 'wend', (m) => m.dvUsed() >= m._dv0 + p[5]),
-      { coast: (m, c) => { const o = AP.orb(m, 'wend'); if (o.r < 45) c.low = true; return c.low && o.rising; } },
-      { burn: 'retro', rel: 'wend', until: (m) => AP.orb(m, 'wend').ap <= p[6] },
+      ...approach(0, p[0], p[1], {}, { aim: p[11], over: p[12] }, doneGoal(0)),
+      ...hop(AP, 0, 1, 'wend', hopQ(p, 2)),
     ],
   },
   sweeps: {

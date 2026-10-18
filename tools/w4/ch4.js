@@ -22,7 +22,7 @@ const pwEnergy = (m, id) => { const b = m.sys.byId[id]; const r = dist(m, id), v
 const HS_N = Math.sqrt(40000 * 900) / (870 * 900), HS_GATE_ANG = Math.atan2(-822, 366), HS_T = 353, HS_LAG = 10;
 // Slingshot Drop: Vigil Station's rate at 560 k, and where and when a good
 // capture tops out (it gets there SD_LAG s after you).
-const SD_N = Math.sqrt(40000 * 560) / (535 * 560), SD_ANG = -1.713, SD_T = 149, SD_LAG = 15;
+const SD_N = Math.sqrt(40000 * 460) / (435 * 460), SD_ANG = -1.81, SD_T = 125, SD_LAG = 10;
 const TOR_GM = 2000, GEO = 70, TOR_SPIN = Math.sqrt(TOR_GM / (GEO * GEO * GEO));
 
 const levels = [
@@ -74,15 +74,15 @@ const levels = [
     objective: 'Send the probe 1100 k from Vigil, then stay within 900 k of Vigil for 40 s, taking under 7 Sv yourself.',
     teaches: 'Release at the bottom, out of the beam',
     bodies: [
-      { id: 'vigil', name: 'Vigil', gm: 40000, radius: 10, pw: 25, color: NEUTRON, kind: 'pulsar', radiation: { rate: 0.3, at: 300, dose: 5.3, beam: { width: 0.3, period: 80, phase: 5.502 } } },
+      { id: 'vigil', name: 'Vigil', gm: 40000, radius: 10, pw: 25, color: NEUTRON, kind: 'pulsar', radiation: { rate: 0.3, at: 300, dose: 5.6, beam: { width: 0.3, period: 80, phase: 5.502 } } },
       // On the true circular orbit at 560 k, reaching the top of a good
       // capture SD_LAG s after you.
-      { id: 'watch2', name: 'Vigil Station', gm: 0, radius: 3, color: C.station, kind: 'station', orbit: { parent: 'vigil', a: 560, n: SD_N, phase: SD_ANG - SD_N * (SD_T + SD_LAG) } },
+      { id: 'watch2', name: 'Vigil Station', gm: 0, radius: 3, color: C.station, kind: 'station', orbit: { parent: 'vigil', a: 460, n: SD_N, phase: SD_ANG - SD_N * (SD_T + SD_LAG) } },
     ],
-    ship: ship({ start: { free: { x: -487.4, y: -461.6, vx: 9.076, vy: 2.194 } }, heading: Math.PI, dv: 6, accel: 3, cargo: [{ id: 'relay', name: 'Relay probe', mass: 0.2, dose: 1 }] }),
+    ship: ship({ start: { free: { x: -487.4, y: -461.6, vx: 9.076, vy: 2.194 } }, heading: Math.PI, dv: 6.05, accel: 3, cargo: [{ id: 'relay', name: 'Relay probe', mass: 0.2, dose: 1 }] }),
     goals: [
       { type: 'escape', body: 'vigil', craft: 'relay', r: 1100, label: 'Deep space' },
-      { type: 'rendezvous', body: 'watch2', dist: 12, relVel: 0.5 },
+      { type: 'rendezvous', body: 'watch2', dist: 10, relVel: 0.3 },
     ],
     par: 1, bounds: 5000, tMax: 600, predict: 300, view: { x: -200, y: -200, span: 2000 }, startCam: 'overview',
   },
@@ -145,17 +145,39 @@ const match = (id, until) => { const c = {}; return { burn: (m) => { const r = r
 } }; };
 // Close in on a body and match its velocity: steer the velocity toward the
 // body's own plus a slow approach (k per k of distance, at most vMax).
+// Aims for a point 6 k off the body (stations are solid).
 const meet = (id, k, vMax) => ({ control: (m, c) => {
   if (m.status !== 'flying' || m.goalIndex > (c.g0 == null ? (c.g0 = m.goalIndex) : c.g0)) return { done: true };
   const sys = m.sys; sys.update(m.t);
   const i = sys.byId[id].index, s = m.ship;
-  const dx = sys.px[i] - s.x, dy = sys.py[i] - s.y, d = Math.hypot(dx, dy) || 1;
+  let dx = sys.px[i] - s.x, dy = sys.py[i] - s.y, d = Math.hypot(dx, dy) || 1;
+  dx -= 6 * dx / d; dy -= 6 * dy / d; d = Math.hypot(dx, dy) || 1;
   const sp = Math.min(vMax, k * d);
   const ex = sys.vx[i] + sp * dx / d - s.vx, ey = sys.vy[i] + sp * dy / d - s.vy;
-  if (Math.hypot(ex, ey) < (c.burning ? 0.02 : 0.08)) { c.burning = false; return { thrust: false, angle: null, dt: 0.05 }; }
+  if (Math.hypot(ex, ey) < (c.burning ? 0.05 : 0.12)) { c.burning = false; return { thrust: false, angle: null, dt: 0.05 }; }
   c.burning = true;
   return { thrust: true, angle: Math.atan2(ey, ex), tol: 0.1 };
 } });
+// Close in by hand: burn until you drift toward the body (aiming p k off it)
+// at vClose, coast until within dBrake k (or the closest approach), then
+// brake to match it; any miss is cleaned up by meet() on what is left.
+const approach = (id, vClose, dBrake) => {
+  const c = {};
+  const aimV = (m) => {
+    const sys = m.sys; sys.update(m.t);
+    const i = sys.byId[id].index, s = m.ship;
+    let dx = sys.px[i] - s.x, dy = sys.py[i] - s.y; const d = Math.hypot(dx, dy) || 1;
+    dx -= 6 * dx / d; dy -= 6 * dy / d; const e = Math.hypot(dx, dy) || 1;
+    return { x: sys.vx[i] + vClose * dx / e - s.vx, y: sys.vy[i] + vClose * dy / e - s.vy };
+  };
+  return [
+    { fn: () => { c.dl = null; c.el = null; } },
+    { burn: (m) => { const e = aimV(m); return Math.atan2(e.y, e.x); }, until: (m) => { const e = Math.hypot(aimV(m).x, aimV(m).y), stop = e < 0.03 || (c.el != null && e > c.el + 0.005); c.el = c.el == null ? e : Math.min(c.el, e); return stop; } },
+    { coast: (m) => { const r = dist(m, id), done = r <= dBrake || (c.dl != null && r > c.dl); c.dl = r; return done; } },
+    match(id, 0.15),
+    meet(id, 0.03, 0.6),
+  ];
+};
 // Coast until a body is within d k, or at its closest.
 const closing = (id, d) => { const c = {}; return { coast: (m) => { const r = dist(m, id), done = r <= d || (c.dl != null && r > c.dl); c.dl = r; return done; } }; };
 // Coast until the current goal is done.
@@ -269,7 +291,8 @@ proofs.slingdrop = {
   // p[0] s, then brake at once until the dashed path's high point is p[1] k.
   // Near the top, wait for Vigil Station to close to p[2] k, burn to match
   // it until the relative speed is p[3], then close in.
-  p: [58.9, 585, 17, 0.4], scale: [0.3, 10, 3, 0.1], tol: [1.5, 22, 6, 0.1],
+  // Close in by hand: drift toward it at p[4] k/s, brake p[5] k out.
+  p: [58.4, 478, 22, 0.55, 0.45, 8], scale: [0.3, 10, 3, 0.1, 0.1, 3], tol: [1.5, 18, 6, 0.1, 0.1, 4],
   script: (p, AP) => [
     { coast: (m) => m.t >= p[0] },
     { drop: true },
@@ -277,7 +300,7 @@ proofs.slingdrop = {
     { coast: (m) => radv(m, 'vigil') <= 0.5 },
     closing('watch2', p[2]),
     match('watch2', p[3]),
-    meet('watch2', 0.03, 0.6),
+    ...approach('watch2', p[4], p[5]),
   ],
 };
 

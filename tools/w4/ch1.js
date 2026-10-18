@@ -191,8 +191,8 @@ const levels = [
   {
     id: 'patrolshift',
     name: 'Patrol Shift',
-    intro: 'Outpost Kestrel shares your orbit, well ahead of you, and you have to catch it. A lower, faster lap would catch it, but that close in Forge would cook you. The cool lane outside is patrolled by three guards circling the other way, each in a red keep-out zone. Raise your high point to about 850 k so one lap lasts long enough for Kestrel to come all the way round to you, leaving when your dashed path slips between the patrols both ways; on the way back down, tap to bring the closest approach to Kestrel down, and brake to match it when you meet.',
-    objective: 'Rendezvous with Outpost Kestrel (within 20 k, relative speed under 1 k/s) without entering a patrol zone, taking under 150 Sv of radiation.',
+    intro: 'Outpost Kestrel shares your orbit, well ahead of you, and you have to catch it and then move up to the cooler inner lane just below the patrols. A lower, faster lap would catch it, but that close in Forge would cook you. The cool lane outside is patrolled by three guards circling the other way, each in a red keep-out zone. Raise your high point to about 805 k up so one lap lasts long enough for Kestrel to come round to you, leaving when your dashed path slips between the patrols both ways; on the way back down, tap to bring the closest approach to Kestrel down and brake to match it. Then back off from the outpost and climb, cutting the engine on the high and low point readouts: the dose meter keeps running the whole time.',
+    objective: 'Rendezvous with Outpost Kestrel (within 15 k, relative speed under 0.6 k/s), then orbit Forge between 559 and 587 k up, never entering a patrol zone and taking under 219 Sv of radiation.',
     teaches: 'Phasing in the cool lane',
     bodies: [
       { id: 'forge', name: 'Forge', gm: 40000, radius: 45, color: '#ffb27a', kind: 'star', radiation: { rate: 1, at: 300, dose: 219 } },
@@ -201,30 +201,31 @@ const levels = [
       { id: 'pat2', name: 'Patrol 2', gm: 0, radius: 4, color: C.station, kind: 'station', keepOut: 40, orbit: { parent: 'forge', a: 700, dir: -1, phase: 1.8 + 2 * Math.PI / 3 } },
       { id: 'pat3', name: 'Patrol 3', gm: 0, radius: 4, color: C.station, kind: 'station', keepOut: 40, orbit: { parent: 'forge', a: 700, dir: -1, phase: 1.8 + 4 * Math.PI / 3 } },
     ],
-    ship: ship({ start: { orbit: { body: 'forge', r: 500, angle: 0 } }, heading: 'prograde', dv: 6.6, accel: 1 }),
+    ship: ship({ start: { orbit: { body: 'forge', r: 500, angle: 0 } }, heading: 'prograde', dv: 5.2, accel: 1 }),
     goals: [
       { type: 'rendezvous', body: 'outpost', dist: 15, relVel: 0.6 },
-      { type: 'orbit', body: 'forge', rMin: 595, rMax: 640, label: 'Inner lane' },
+      { type: 'orbit', body: 'forge', rMin: 604, rMax: 632, label: 'Inner lane' },
     ],
-    par: 5.6, bounds: 4000, tMax: 1400, predict: 400, view: { x: 0, y: 0, span: 2000 },
+    par: 4.8, bounds: 4000, tMax: 1400, predict: 400, view: { x: 0, y: 0, span: 2000 },
   },
   {
     id: 'solarsurvey',
     name: 'Solar Survey',
-    intro: 'You are on a lopsided orbit round Lumen, and its low point dips deep into the heat. Spread the three survey probes round the star: round off your orbit at the top, drop one (E), and fly a phasing lap before each of the next two. Once dropped, every probe soaks up radiation until the job is done, so the slow, cool phasing laps of Constellation take too long: dip your low point to about 230 k for quicker laps instead, and watch each probe\'s dose. Then climb straight out to your parking orbit before those low laps add up for you.',
-    objective: 'Spread the three probes at least 90° apart in orbits between 315 and 405 k up, then orbit Lumen between 600 and 1000 k up, with no probe over 235 Sv and you under 280 Sv.',
+    intro: 'You are on a lopsided orbit round Lumen, and its low point dips deep into the heat. Round off your orbit at the top first, then spread the three survey probes round the star: drop one (E), and fly a phasing lap before each of the next two. Once dropped, every probe soaks up radiation until the whole job is done, parking included, so the slow, cool phasing laps of Constellation take too long: dip your low point to about 160 k up for quicker laps instead, a little less deep on the second, and watch the probes\' dose. Then climb straight out to your parking orbit and round it off on the readouts before those low laps add up.',
+    objective: 'Orbit Lumen between 315 and 405 k up, spread the three probes at least 112° apart in orbits between 330 and 380 k up, then orbit Lumen between 766 and 810 k up, with no probe over 192 Sv and you under 242 Sv.',
     teaches: 'A constellation on dose budgets',
     bodies: [
-      { id: 'lumen', name: 'Lumen', gm: 40000, radius: 45, color: '#fff1b0', kind: 'star', radiation: { rate: 0.5, at: 300, dose: 280 } },
+      { id: 'lumen', name: 'Lumen', gm: 40000, radius: 45, color: '#fff1b0', kind: 'star', radiation: { rate: 0.5, at: 300, dose: 242 } },
     ],
-    ship: ship({ start: { conic: { body: 'lumen', pe: 210, e: 0.3115, nu: 2.5, angle: 0 } }, heading: 'prograde', dv: 15, accel: 1, cargo: [
-      { id: 'sv1', name: 'Survey 1', mass: 0.2, dose: 235 }, { id: 'sv2', name: 'Survey 2', mass: 0.2, dose: 235 }, { id: 'sv3', name: 'Survey 3', mass: 0.2, dose: 235 },
+    ship: ship({ start: { conic: { body: 'lumen', pe: 210, e: 0.3115, nu: 2.5, angle: 0 } }, heading: 'prograde', dv: 13.6, accel: 1, cargo: [
+      { id: 'sv1', name: 'Survey 1', mass: 0.2, dose: 192 }, { id: 'sv2', name: 'Survey 2', mass: 0.2, dose: 192 }, { id: 'sv3', name: 'Survey 3', mass: 0.2, dose: 192 },
     ] }),
     goals: [
-      { type: 'spread', body: 'lumen', crafts: ['sv1', 'sv2', 'sv3'], rMin: 360, rMax: 450, minSep: 90 * Math.PI / 180 },
-      { type: 'orbit', body: 'lumen', rMin: 645, rMax: 1045, label: 'Parking orbit' },
+      { type: 'orbit', body: 'lumen', rMin: 360, rMax: 450, label: 'Survey orbit' },
+      { type: 'spread', body: 'lumen', crafts: ['sv1', 'sv2', 'sv3'], rMin: 375, rMax: 425, minSep: 112 * Math.PI / 180 },
+      { type: 'orbit', body: 'lumen', rMin: 811, rMax: 855, label: 'Parking orbit' },
     ],
-    par: 10.5, bounds: 4000, tMax: 1000, predict: 400, view: { x: 0, y: 0, span: 2200 },
+    par: 12.8, bounds: 4000, tMax: 1000, predict: 400, view: { x: 0, y: 0, span: 2200 },
   },
 ];
 
@@ -285,7 +286,7 @@ const proofs = {
     ],
   },
   patrolshift: {
-    p: [10, 850, 300, 625, 610], scale: [3, 5, 50, 5, 5], tol: [2, 34, 30, 25, 24],
+    p: [10, 850, 300, 621, 614], scale: [3, 5, 50, 5, 5], tol: [2, 34, 30, 25, 24],
     script: (p, AP) => [
       { wait: Math.max(0, p[0]) },
       { burn: 'pro', rel: 'forge', until: (m) => AP.orb(m, 'forge').ap >= p[1] },
@@ -304,7 +305,7 @@ const proofs = {
     ],
   },
   solarsurvey: {
-    p: [396, 235, 235, 850, 800, 1.5], scale: [1, 3, 3, 20, 20, 1], tol: [16, 10, 10, 33, 30, 1.5],
+    p: [412, 202, 217, 838, 827, 5], scale: [1, 3, 3, 20, 20, 1], tol: [16, 8, 8, 34, 33, 1.5],
     script: (p, AP) => {
       const top = { coast: (m) => !AP.orb(m, 'lumen').rising };
       const lap = (q) => [
@@ -349,12 +350,13 @@ const fails = {
     } },
   ],
   patrolshift: [
-    ...[200, 260, 320, 380].map((pe) => ({ name: 'catch it on a fast lap in the hot inner lane (low point ' + pe + ' k)', steps: (AP) => [
+    ...[300, 340, 380, 420].map((pe) => ({ name: 'catch it on a fast lap in the hot inner lane (low point ' + pe + ' k)', steps: (AP) => [
       { burn: 'retro', rel: 'forge', until: (m) => AP.orb(m, 'forge').pe <= pe },
       trim('outpost', 'forge', 300, 15),
       nearest('outpost', 18),
       { burn: 'retro', rel: 'outpost', until: (m) => relSpeed(m, 'outpost') < 0.4 },
       meet('outpost', 1.5, 0.04),
+      ...proofs.patrolshift.script(proofs.patrolshift.p, AP).slice(-8),
     ] })),
     { name: 'climb into the cool lane at once', steps: (AP) => proofs.patrolshift.script([0].concat(proofs.patrolshift.p.slice(1)), AP) },
     { name: 'wait a lap for a clear look, then climb', steps: (AP) => proofs.patrolshift.script([proofs.patrolshift.p[0] + 351].concat(proofs.patrolshift.p.slice(1)), AP) },
