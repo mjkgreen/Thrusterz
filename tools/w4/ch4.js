@@ -76,15 +76,15 @@ const levels = [
     id: 'slingdrop',
     name: 'Slingshot Drop',
     intro: 'You are diving past the pulsar Vigil far too fast to stay, carrying a relay probe for deep space. The probe is shielded while it is aboard but takes only 1 Sv once you let it go, and at the bottom of the pass a beam crossing is far more than that: ride through the beam with the probe aboard and release it (E) just after. Then brake at once, deep down where it is cheap, until your dashed path tops out on Vigil Station\'s ring. The station comes up behind you at the top: match its speed and close in before the next sweeps add up, and watch your fuel.',
-    objective: 'Send the probe 1100 k from Vigil, then rendezvous with Vigil Station (within 10 k, relative speed under 0.3 k/s), taking under 5.6 Sv yourself.',
+    objective: 'Send the probe 1100 k from Vigil, then rendezvous with Vigil Station (within 10 k, relative speed under 0.3 k/s), taking under 5.63 Sv yourself.',
     teaches: 'Release at the bottom, out of the beam',
     bodies: [
-      { id: 'vigil', name: 'Vigil', gm: 40000, radius: 10, pw: 25, color: NEUTRON, kind: 'pulsar', radiation: { rate: 0.3, at: 300, dose: 5.6, beam: { width: 0.3, period: 80, phase: 5.502 } } },
+      { id: 'vigil', name: 'Vigil', gm: 40000, radius: 10, pw: 25, color: NEUTRON, kind: 'pulsar', radiation: { rate: 0.3, at: 300, dose: 5.63, beam: { width: 0.3, period: 80, phase: 5.502 } } },
       // On the true circular orbit at 560 k, reaching the top of a good
       // capture SD_LAG s after you.
       { id: 'watch2', name: 'Vigil Station', gm: 0, radius: 3, color: C.station, kind: 'station', orbit: { parent: 'vigil', a: 460, n: SD_N, phase: SD_ANG - SD_N * (SD_T + SD_LAG) } },
     ],
-    ship: ship({ start: { free: { x: -487.4, y: -461.6, vx: 9.076, vy: 2.194 } }, heading: Math.PI, dv: 6, accel: 3, cargo: [{ id: 'relay', name: 'Relay probe', mass: 0.2, dose: 1 }] }),
+    ship: ship({ start: { free: { x: -487.4, y: -461.6, vx: 9.076, vy: 2.194 } }, heading: Math.PI, dv: 6.04, accel: 3, cargo: [{ id: 'relay', name: 'Relay probe', mass: 0.2, dose: 1 }] }),
     goals: [
       { type: 'escape', body: 'vigil', craft: 'relay', r: 1100, label: 'Deep space' },
       { type: 'rendezvous', body: 'watch2', dist: 10, relVel: 0.3 },

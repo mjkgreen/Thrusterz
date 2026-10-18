@@ -4655,8 +4655,8 @@
     {
       "id": "sunburn",
       "name": "Sunburn",
-      "intro": "Ardent is a hot star, and its radiation is strongest close in: a quarter as strong at twice the distance. Watch the dose meter: your ship can take only 130 Sv in all, and down here it climbs by about 2 Sv a second. Burn prograde now to climb, and round off your orbit far out, where the glow on your dashed path fades.",
-      "objective": "Orbit Ardent between 600 and 1000 k up, taking under 130 Sv of radiation.",
+      "intro": "Ardent is a hot star, and its radiation is strongest close in: four times as strong at half the distance. Your ship can take 160 Sv in all, and down here the dose meter already climbs by about 1 Sv a second. First dip into the corona for a sample, then climb straight out and park far away, where the glow on your dashed path fades. Do it in one pass: brake to drop your low point, burn prograde hard at the bottom, and round off at the top on the high and low point readouts.",
+      "objective": "Dip below 100 k above Ardent, then orbit it between 700 and 760 k up, taking under 160 Sv of radiation.",
       "teaches": "Radiation falloff",
       "bodies": [
         {
@@ -4667,9 +4667,9 @@
           "color": "#ffcf5a",
           "kind": "star",
           "radiation": {
-            "rate": 1,
+            "rate": 0.6,
             "at": 300,
-            "dose": 130
+            "dose": 160
           }
         }
       ],
@@ -4677,16 +4677,16 @@
         "start": {
           "orbit": {
             "body": "ardent",
-            "r": 200,
+            "r": 240,
             "angle": 0
           }
         },
-        "heading": "prograde",
+        "heading": "retrograde",
         "stages": [
           {
             "dryMass": 1,
-            "fuel": 2.0041660239464334,
-            "thrust": 3.0041660239464334,
+            "fuel": 1.6912344723492625,
+            "thrust": 2.6912344723492625,
             "ve": 10
           }
         ],
@@ -4700,13 +4700,20 @@
       },
       "goals": [
         {
+          "type": "reach",
+          "body": "ardent",
+          "r": 145,
+          "label": "Corona sample"
+        },
+        {
           "type": "orbit",
           "body": "ardent",
-          "rMin": 645,
-          "rMax": 1045
+          "rMin": 745,
+          "rMax": 805,
+          "label": "Cool parking orbit"
         }
       ],
-      "par": 7.2,
+      "par": 9.2,
       "bounds": 4000,
       "tMax": 900,
       "predict": 400,
@@ -4719,8 +4726,8 @@
     {
       "id": "sendrelease",
       "name": "Send and Release",
-      "intro": "You are falling toward Pyra on a long ellipse, and the Sundrop probe has to land on Cinder, the scorched planet racing round close to the star. Your path already ends on Cinder, but only after a pass round Pyra: far too hot for the probe, and for you. Out here a small burn moves your path a lot: nudge it until it hits Cinder on the way in, release the probe (E), and burn at once to lift your own low point well clear of the glow, before riding along makes that climb hotter and dearer.",
-      "objective": "Land the probe on Cinder before it takes 80 Sv, then get 1200 k from Pyra, taking under 50 Sv yourself.",
+      "intro": "You are falling toward Pyra on a long ellipse, and the Sundrop probe has to land on Cinder, the scorched planet racing round close to the star. Your path already ends on Cinder, but only after a pass round Pyra: far too hot for the probe, and for you. Out here a small burn moves your path a lot: nudge it until it hits little Cinder on the way in, before the probe's dose mark, and release the probe (E). Then turn most of the way from prograde to straight out and burn at once, watching the low and high point readouts: your ship can take only 16 Sv, so you must stay far out while the probe falls.",
+      "objective": "Land the probe on Cinder before it takes 55 Sv, then orbit Pyra between 800 and 2000 k up, taking under 16 Sv yourself.",
       "teaches": "Cargo with its own dose limit",
       "bodies": [
         {
@@ -4733,14 +4740,14 @@
           "radiation": {
             "rate": 1,
             "at": 300,
-            "dose": 50
+            "dose": 16
           }
         },
         {
           "id": "cinder",
           "name": "Cinder",
-          "gm": 300,
-          "radius": 12,
+          "gm": 60,
+          "radius": 9,
           "color": "#d9694a",
           "orbit": {
             "parent": "pyra",
@@ -4763,8 +4770,8 @@
         "stages": [
           {
             "dryMass": 1,
-            "fuel": 1.5932032070402082,
-            "thrust": 2.893203207040208,
+            "fuel": 1.3178785197116196,
+            "thrust": 2.6178785197116197,
             "ve": 10
           }
         ],
@@ -4773,7 +4780,7 @@
             "id": "sundrop",
             "name": "Sundrop",
             "mass": 0.3,
-            "dose": 80
+            "dose": 55
           }
         ],
         "rcs": {
@@ -4790,12 +4797,14 @@
           "craft": "sundrop"
         },
         {
-          "type": "escape",
+          "type": "orbit",
           "body": "pyra",
-          "r": 1240
+          "rMin": 840,
+          "rMax": 2040,
+          "label": "Cool orbit"
         }
       ],
-      "par": 5.8,
+      "par": 6.1,
       "bounds": 4000,
       "tMax": 1000,
       "predict": 400,
@@ -4808,8 +4817,8 @@
     {
       "id": "hotbooster",
       "name": "Hot Booster",
-      "intro": "Fly through the sample point in Kiln's corona, then burn prograde hard as you pass: every second down there costs. Hearth is inhabited: a spent booster left on a path that crosses its orbit hits it sooner or later, and its red keep-out zone is closed to you. Burn the slow, heavy booster retrograde until it is empty and its path falls into Kiln, and drop it (the stage button) at once. Your own dashed path then runs through Hearth's zone, so lift your low point to the sample point with the Sunskipper right away, while you are far out and it is cheap.",
-      "objective": "Fly through the corona sample point, then get 1500 k from Kiln, taking under 110 Sv of radiation, staying out of Hearth's zone and leaving no booster on a path that crosses Hearth's orbit.",
+      "intro": "Fly through the sample point in Kiln's corona, then park far out. Hearth is inhabited: a spent booster left on a path that crosses its orbit hits it sooner or later, and its red keep-out zone is closed to you. Kiln Watch, on your own orbit, is guarded the same way. Burn the slow, heavy booster retrograde until it is empty so its path falls into Kiln, and drop it (the stage button) at once. Then lift your low point onto the sample point with the light Sunskipper, burn prograde as you pass it, where a little fuel throws your high point a long way, and round off at the top on the high and low point readouts.",
+      "objective": "Fly through the corona sample point, send the booster into Kiln, then orbit Kiln between 1145 and 1200 k up, taking under 118 Sv of radiation and staying out of Hearth's zone.",
       "teaches": "Stages for a fast dive",
       "bodies": [
         {
@@ -4822,13 +4831,13 @@
           "radiation": {
             "rate": 0.5,
             "at": 300,
-            "dose": 110
+            "dose": 118
           }
         },
         {
           "id": "hearth",
           "name": "Hearth",
-          "gm": 300,
+          "gm": 60,
           "radius": 16,
           "color": "#5fbf7f",
           "protect": true,
@@ -4869,16 +4878,16 @@
             "name": "Booster",
             "sprite": "booster",
             "dryMass": 1,
-            "fuel": 1.789002489372396,
-            "thrust": 0.6097463699728304,
+            "fuel": 1.5909359414752284,
+            "thrust": 0.5422392763210405,
             "ve": 10
           },
           {
             "name": "Sunskipper",
             "sprite": "satellite",
             "dryMass": 0.4,
-            "fuel": 0.8759733104464739,
-            "thrust": 1.9139599656697108,
+            "fuel": 0.6239925673317087,
+            "thrust": 1.5359888509975632,
             "ve": 10
           }
         ],
@@ -4895,16 +4904,24 @@
           "type": "reach",
           "x": -110,
           "y": 0,
-          "r": 20,
+          "r": 5,
           "label": "Corona sample"
         },
         {
-          "type": "escape",
+          "type": "hit",
           "body": "kiln",
-          "r": 1545
+          "craft": "booster",
+          "label": "Booster into Kiln"
+        },
+        {
+          "type": "orbit",
+          "body": "kiln",
+          "rMin": 1190,
+          "rMax": 1245,
+          "label": "Far parking orbit"
         }
       ],
-      "par": 12.5,
+      "par": 13.8,
       "bounds": 4000,
       "tMax": 700,
       "predict": 400,
@@ -4917,8 +4934,8 @@
     {
       "id": "retrorelay",
       "name": "Retrograde Relay",
-      "intro": "You are coming past Brand on a fast flyby, clockwise, the same way Relay Tern circles close in to the star. Down at the relay's height Brand burns at almost 2 Sv a second, so you can't afford to chase it there. Brake at your low point into a long lap far out, where the light is weak, and wait until Relay Tern is about a third of a lap ahead of you. Then drop your low point to its height: the ghost on your path shows where it will be when you get there, so tap to bring the closest approach down, and brake to match its speed as you meet.",
-      "objective": "Rendezvous with Relay Tern (within 20 k, relative speed under 1 k/s), taking under 180 Sv of radiation.",
+      "intro": "You are coming past Brand on a fast flyby, clockwise, the same way Relay Tern circles close in to the star. Down at the relay's height Brand burns at almost 2 Sv a second, and your ship can take 260 Sv in all, so don't chase it there. Brake at your low point into a long lap far out, where the light is weak, and wait until Relay Tern is about a third of a lap ahead of you. Then drop your low point to its height: the ghost on your path shows where it will be when you get there, so tap to bring the closest approach down and brake to match it. Once you have met it, climb straight to the cool orbit, burning prograde and a little away from the relay.",
+      "objective": "Get captured by Brand (high point under 1055 k up), rendezvous with Relay Tern (within 12 k, relative speed under 0.5 k/s), then orbit Brand between 371 and 394 k up, taking under 260 Sv of radiation.",
       "teaches": "Phase far out, meet close in",
       "bodies": [
         {
@@ -4931,7 +4948,7 @@
           "radiation": {
             "rate": 1,
             "at": 300,
-            "dose": 180
+            "dose": 260
           }
         },
         {
@@ -4964,8 +4981,8 @@
         "stages": [
           {
             "dryMass": 1,
-            "fuel": 2.3201169227365472,
-            "thrust": 4.980175384104821,
+            "fuel": 3.4816890703380645,
+            "thrust": 6.722533605507097,
             "ve": 10
           }
         ],
@@ -4979,13 +4996,27 @@
       },
       "goals": [
         {
+          "type": "orbit",
+          "body": "brand",
+          "rMin": 200,
+          "rMax": 1100,
+          "label": "Capture"
+        },
+        {
           "type": "rendezvous",
           "body": "tern",
-          "dist": 20,
-          "relVel": 1
+          "dist": 12,
+          "relVel": 0.5
+        },
+        {
+          "type": "orbit",
+          "body": "brand",
+          "rMin": 416,
+          "rMax": 439,
+          "label": "Cool orbit"
         }
       ],
-      "par": 8.4,
+      "par": 14,
       "bounds": 4000,
       "tMax": 1100,
       "predict": 400,
@@ -4999,8 +5030,8 @@
     {
       "id": "patrolshift",
       "name": "Patrol Shift",
-      "intro": "Outpost Kestrel shares your orbit, well ahead of you, and you have to catch it. A lower, faster lap would catch it, but that close in Forge would cook you. The cool lane outside is patrolled by three guards circling the other way, each in a red keep-out zone. Raise your high point to about 850 k so one lap lasts long enough for Kestrel to come all the way round to you, leaving when your dashed path slips between the patrols both ways; on the way back down, tap to bring the closest approach to Kestrel down, and brake to match it when you meet.",
-      "objective": "Rendezvous with Outpost Kestrel (within 20 k, relative speed under 1 k/s) without entering a patrol zone, taking under 150 Sv of radiation.",
+      "intro": "Outpost Kestrel shares your orbit, well ahead of you, and you have to catch it and then move up to the cooler inner lane just below the patrols. A lower, faster lap would catch it, but that close in Forge would cook you. The cool lane outside is patrolled by three guards circling the other way, each in a red keep-out zone. Raise your high point to about 805 k up so one lap lasts long enough for Kestrel to come round to you, leaving when your dashed path slips between the patrols both ways; on the way back down, tap to bring the closest approach to Kestrel down and brake to match it. Then back off from the outpost and climb, cutting the engine on the high and low point readouts: the dose meter keeps running the whole time.",
+      "objective": "Rendezvous with Outpost Kestrel (within 15 k, relative speed under 0.6 k/s), then orbit Forge between 559 and 587 k up, never entering a patrol zone and taking under 219 Sv of radiation.",
       "teaches": "Phasing in the cool lane",
       "bodies": [
         {
@@ -5013,7 +5044,7 @@
           "radiation": {
             "rate": 1,
             "at": 300,
-            "dose": 150
+            "dose": 219
           }
         },
         {
@@ -5036,7 +5067,7 @@
           "radius": 4,
           "color": "#e6e6f0",
           "kind": "station",
-          "keepOut": 50,
+          "keepOut": 40,
           "orbit": {
             "parent": "forge",
             "a": 700,
@@ -5051,7 +5082,7 @@
           "radius": 4,
           "color": "#e6e6f0",
           "kind": "station",
-          "keepOut": 50,
+          "keepOut": 40,
           "orbit": {
             "parent": "forge",
             "a": 700,
@@ -5066,7 +5097,7 @@
           "radius": 4,
           "color": "#e6e6f0",
           "kind": "station",
-          "keepOut": 50,
+          "keepOut": 40,
           "orbit": {
             "parent": "forge",
             "a": 700,
@@ -5087,8 +5118,8 @@
         "stages": [
           {
             "dryMass": 1,
-            "fuel": 0.49182469764127035,
-            "thrust": 1.4918246976412703,
+            "fuel": 0.6820276496988864,
+            "thrust": 1.6820276496988864,
             "ve": 10
           }
         ],
@@ -5104,13 +5135,20 @@
         {
           "type": "rendezvous",
           "body": "outpost",
-          "dist": 20,
-          "relVel": 1
+          "dist": 15,
+          "relVel": 0.6
+        },
+        {
+          "type": "orbit",
+          "body": "forge",
+          "rMin": 604,
+          "rMax": 632,
+          "label": "Inner lane"
         }
       ],
-      "par": 1.7,
+      "par": 4.8,
       "bounds": 4000,
-      "tMax": 1100,
+      "tMax": 1400,
       "predict": 400,
       "view": {
         "x": 0,
@@ -5121,8 +5159,8 @@
     {
       "id": "solarsurvey",
       "name": "Solar Survey",
-      "intro": "You are on a lopsided orbit round Lumen, and its low point dips deep into the heat. Spread the three survey probes round the star: round off your orbit at the top, drop one (E), and fly a phasing lap before each of the next two. Once dropped, every probe soaks up radiation until the job is done, so the slow, cool phasing laps of Constellation take too long: dip your low point to about 230 k for quicker laps instead, and watch each probe's dose. Then climb straight out to your parking orbit before those low laps add up for you.",
-      "objective": "Spread the three probes at least 90° apart in orbits between 315 and 405 k up, then orbit Lumen between 600 and 1000 k up, with no probe over 235 Sv and you under 280 Sv.",
+      "intro": "You are on a lopsided orbit round Lumen, and its low point dips deep into the heat. Round off your orbit at the top first, then spread the three survey probes round the star: drop one (E), and fly a phasing lap before each of the next two. Once dropped, every probe soaks up radiation until the whole job is done, parking included, so the slow, cool phasing laps of Constellation take too long: dip your low point to about 160 k up for quicker laps instead, a little less deep on the second, and watch the probes' dose. Then climb straight out to your parking orbit and round it off on the readouts before those low laps add up.",
+      "objective": "Orbit Lumen between 315 and 405 k up, spread the three probes at least 112° apart in orbits between 330 and 380 k up, then orbit Lumen between 766 and 810 k up, with no probe over 192 Sv and you under 242 Sv.",
       "teaches": "A constellation on dose budgets",
       "bodies": [
         {
@@ -5135,7 +5173,7 @@
           "radiation": {
             "rate": 0.5,
             "at": 300,
-            "dose": 280
+            "dose": 242
           }
         }
       ],
@@ -5153,8 +5191,8 @@
         "stages": [
           {
             "dryMass": 1,
-            "fuel": 5.570702512540904,
-            "thrust": 7.170702512540904,
+            "fuel": 4.6339092828723425,
+            "thrust": 6.233909282872343,
             "ve": 10
           }
         ],
@@ -5163,19 +5201,19 @@
             "id": "sv1",
             "name": "Survey 1",
             "mass": 0.2,
-            "dose": 235
+            "dose": 192
           },
           {
             "id": "sv2",
             "name": "Survey 2",
             "mass": 0.2,
-            "dose": 235
+            "dose": 192
           },
           {
             "id": "sv3",
             "name": "Survey 3",
             "mass": 0.2,
-            "dose": 235
+            "dose": 192
           }
         ],
         "rcs": {
@@ -5187,6 +5225,13 @@
       },
       "goals": [
         {
+          "type": "orbit",
+          "body": "lumen",
+          "rMin": 360,
+          "rMax": 450,
+          "label": "Survey orbit"
+        },
+        {
           "type": "spread",
           "body": "lumen",
           "crafts": [
@@ -5194,19 +5239,19 @@
             "sv2",
             "sv3"
           ],
-          "rMin": 360,
-          "rMax": 450,
-          "minSep": 1.5707963267948966
+          "rMin": 375,
+          "rMax": 425,
+          "minSep": 1.9547687622336491
         },
         {
           "type": "orbit",
           "body": "lumen",
-          "rMin": 645,
-          "rMax": 1045,
+          "rMin": 811,
+          "rMax": 855,
           "label": "Parking orbit"
         }
       ],
-      "par": 10.5,
+      "par": 12.8,
       "bounds": 4000,
       "tMax": 1000,
       "predict": 400,
@@ -5216,90 +5261,13 @@
         "span": 2200
       }
     },
-    // Chapter: Shadows
-    {
-      "id": "eclipse",
-      "name": "Eclipse",
-      "intro": "Pyra is a hot star, and Nyx orbits close enough to feel it: you can take only 22 Sv in all, and every sunlit half lap adds a few. Nyx's shadow, the dark cone on its far side, is the only place with no radiation. Burn prograde as you pass over the day side, closest to Pyra: your climb then swings out behind Nyx and through the dark cone. Watch the glow on your predicted path: burn from inside the shadow and the whole climb lights up.",
-      "objective": "Get 1050 k from Pyra, taking under 22 Sv of radiation.",
-      "teaches": "Shadows · leave from the night side",
-      "bodies": [
-        {
-          "id": "pyra",
-          "name": "Pyra",
-          "gm": 45000,
-          "radius": 50,
-          "color": "#ff8a5a",
-          "kind": "star",
-          "radiation": {
-            "rate": 0.8,
-            "at": 300,
-            "dose": 22
-          }
-        },
-        {
-          "id": "nyx",
-          "name": "Nyx",
-          "gm": 5000,
-          "radius": 40,
-          "color": "#a98be8",
-          "orbit": {
-            "parent": "pyra",
-            "a": 480,
-            "phase": 2.3
-          }
-        }
-      ],
-      "ship": {
-        "start": {
-          "orbit": {
-            "body": "nyx",
-            "r": 58,
-            "angle": 2.8,
-            "dir": -1
-          }
-        },
-        "heading": "prograde",
-        "stages": [
-          {
-            "dryMass": 1,
-            "fuel": 1.0137527074704766,
-            "thrust": 2.0137527074704766,
-            "ve": 10
-          }
-        ],
-        "cargo": [],
-        "rcs": {
-          "fuel": 60,
-          "accel": 1.2,
-          "maxRate": 1.6
-        },
-        "canRotate": true
-      },
-      "goals": [
-        {
-          "type": "escape",
-          "body": "pyra",
-          "r": 1100
-        }
-      ],
-      "par": 4.5,
-      "bounds": 4000,
-      "tMax": 600,
-      "predict": 300,
-      "view": {
-        "x": -300,
-        "y": 300,
-        "span": 1700
-      },
-      "startCam": "overview"
-    },
+    // Chapter: Shadows and Beams
     {
       "id": "shadedrop",
       "name": "Shade Drop",
-      "intro": "Lee Station rides in Veil's shadow, always on its night side, and it needs the relay you carry. Once you drop it (E) the relay is unshielded and can take only 1 Sv, so it must never see Brand's light. Burn on the day side so your climb rises into the dark cone (the glow on your path goes out there) and park at L2, beyond the station, where the shade is total. Then nudge toward the station until your path runs through it, and drop the relay: it falls in down the shadow.",
-      "objective": "Hold within 25 k of Veil's L2 for 8 s, then get the relay within 25 k of Lee Station, with the relay under 1 Sv and you under 13 Sv.",
-      "teaches": "Drop in the shade",
+      "intro": "Brand is a hot star and a wide disc, so Veil's shadow has a dark core, the umbra, where none of Brand shows and you take no dose, inside a lighter penumbra where part of the disc peeks round. Lee Station rides in that umbra and needs the relay you carry, but once you drop it (E) the relay can take only 1 Sv. Burn prograde on the day side so your climb rises into the dark cone (the glow on your path goes out there) and park at L2, beyond the station. Then nudge toward the station until your path runs through it and drop the relay: it falls in down the shadow.",
+      "objective": "Hold within 15 k of Veil's L2 for 8 s, then get the relay within 12 k of Lee Station, with the relay under 1 Sv and you under 11 Sv.",
+      "teaches": "Umbra and penumbra · drop in the shade",
       "bodies": [
         {
           "id": "brand",
@@ -5311,7 +5279,7 @@
           "radiation": {
             "rate": 0.6,
             "at": 300,
-            "dose": 13
+            "dose": 11
           }
         },
         {
@@ -5354,8 +5322,8 @@
         "stages": [
           {
             "dryMass": 1,
-            "fuel": 0.7388058411372194,
-            "thrust": 2.0388058411372194,
+            "fuel": 0.6200750320474352,
+            "thrust": 1.9200750320474353,
             "ve": 10
           }
         ],
@@ -5382,7 +5350,7 @@
             "lead": 0,
             "scale": 1.3985
           },
-          "r": 25,
+          "r": 15,
           "hold": 8,
           "relVel": 1,
           "label": "L2"
@@ -5391,11 +5359,11 @@
           "type": "reach",
           "body": "lee",
           "craft": "relay",
-          "r": 25,
+          "r": 12,
           "label": "Lee Station"
         }
       ],
-      "par": 3,
+      "par": 3.5,
       "bounds": 4000,
       "tMax": 600,
       "predict": 300,
@@ -5407,116 +5375,68 @@
       "startCam": "overview"
     },
     {
-      "id": "fencedshade",
-      "name": "Fenced Shade",
-      "intro": "You are drifting in Gloam's shadow, and Gloam is pulling you down toward it. Out in Sear's light your whole dose would be gone in about 15 seconds, and the dark cone narrows as you sink. Lower down, a fence of red keep-out zones blocks the shadow. Stop the fall before the fence and climb back up the middle of the cone to the Shelter at L2: Gloam's orbit swings your path sideways, so steer against it and keep the glow off your predicted path.",
-      "objective": "Dock with the Shelter (within 15 k, relative speed under 0.8 k/s) without entering a zone, taking under 6 Sv of radiation.",
-      "teaches": "Stay in the cone",
+      "id": "backwardmoon",
+      "name": "Backward Moon",
+      "intro": "You are drifting out of Mire's shadow and sinking toward it, and out in Ardent's light your 2.45 Sv lasts only a few seconds. Kesh, Mire's backward moon, comes round the wrong way and passes right under you in about ten seconds. Its umbra is a short dark spike pointing away from Ardent, narrowing as it goes, so tuck in close behind Kesh as it passes and move with it. Then let yourself down onto its night side, gently: every second you take doing either is fuel and dose you need for the other.",
+      "objective": "Stay within 24 k of Kesh, moving with it (under 0.39 k/s), for 3 s, then land on Kesh's night side slower than 0.85 k/s, taking under 2.45 Sv of radiation.",
+      "teaches": "An eclipse that passes · hide close behind",
       "bodies": [
         {
-          "id": "sear",
-          "name": "Sear",
+          "id": "ardent",
+          "name": "Ardent",
           "gm": 40000,
-          "radius": 50,
-          "color": "#ffcf5a",
+          "radius": 45,
+          "color": "#ff8a5a",
           "kind": "star",
           "radiation": {
-            "rate": 3,
+            "rate": 1.5,
             "at": 300,
-            "dose": 6
+            "dose": 2.45
           }
         },
         {
-          "id": "gloam",
-          "name": "Gloam",
-          "gm": 8000,
-          "radius": 38,
-          "color": "#5f8fa8",
+          "id": "mire",
+          "name": "Mire",
+          "gm": 6000,
+          "radius": 30,
+          "color": "#5fbf7f",
           "orbit": {
-            "parent": "sear",
-            "a": 600,
-            "phase": -0.5
+            "parent": "ardent",
+            "a": 520,
+            "phase": 0
           }
         },
         {
-          "id": "fence0",
-          "name": "Fence 1",
-          "gm": 0,
-          "radius": 3,
-          "color": "#ff8a8a",
-          "kind": "station",
-          "keepOut": 15,
+          "id": "kesh",
+          "name": "Kesh",
+          "gm": 30,
+          "radius": 16,
+          "color": "#b8bcc6",
+          "spin": 0.01808730659857616,
           "orbit": {
-            "parent": "sear",
-            "a": 615.6370684096273,
-            "n": 0.014907119849998597,
-            "phase": -0.5454970366127694,
-            "reflex": false
-          }
-        },
-        {
-          "id": "fence1",
-          "name": "Fence 2",
-          "gm": 0,
-          "radius": 3,
-          "color": "#ff8a8a",
-          "kind": "station",
-          "keepOut": 15,
-          "orbit": {
-            "parent": "sear",
-            "a": 615,
-            "n": 0.014907119849998597,
+            "parent": "mire",
+            "a": 110,
             "phase": -0.5,
-            "reflex": false
-          }
-        },
-        {
-          "id": "fence2",
-          "name": "Fence 3",
-          "gm": 0,
-          "radius": 3,
-          "color": "#ff8a8a",
-          "kind": "station",
-          "keepOut": 15,
-          "orbit": {
-            "parent": "sear",
-            "a": 615.6370684096273,
-            "n": 0.014907119849998597,
-            "phase": -0.45450296338723056,
-            "reflex": false
-          }
-        },
-        {
-          "id": "shelter",
-          "name": "Shelter",
-          "gm": 0,
-          "radius": 3,
-          "color": "#e6e6f0",
-          "kind": "station",
-          "orbit": {
-            "parent": "sear",
-            "a": 762.85,
-            "n": 0.014907119849998597,
-            "phase": -0.5,
-            "reflex": false
+            "dir": -1
           }
         }
       ],
       "ship": {
         "start": {
-          "free": {
-            "x": 630.3480849832417,
-            "y": -337.5237647306629,
-            "vx": 3.9784081387942747,
-            "vy": 9.971985096387328
+          "orbit": {
+            "body": "mire",
+            "r": 135,
+            "angle": 0,
+            "dir": -1,
+            "speed": 0.75
           }
         },
-        "heading": -0.5,
+        "heading": "prograde",
         "stages": [
           {
             "dryMass": 1,
-            "fuel": 0.7332530178673953,
-            "thrust": 1.7332530178673953,
+            "fuel": 1.8863709892679585,
+            "thrust": 5.772741978535917,
             "ve": 10
           }
         ],
@@ -5530,27 +5450,39 @@
       },
       "goals": [
         {
-          "type": "rendezvous",
-          "body": "shelter",
-          "dist": 15,
-          "relVel": 0.8
+          "type": "hold",
+          "body": "kesh",
+          "r": 24,
+          "relVel": 0.39,
+          "hold": 3,
+          "label": "Behind Kesh"
+        },
+        {
+          "type": "hit",
+          "body": "kesh",
+          "site": {
+            "angle": 0,
+            "width": 1.6
+          },
+          "maxSpeed": 0.85,
+          "label": "Kesh's night side"
         }
       ],
-      "par": 3.8,
+      "par": 9.9,
       "bounds": 4000,
-      "tMax": 400,
-      "predict": 200,
+      "tMax": 300,
+      "predict": 150,
       "view": {
-        "x": 570.4286652287423,
-        "y": -311.62660009273196,
-        "span": 600
+        "x": 450,
+        "y": 0,
+        "span": 420
       }
     },
     {
       "id": "umbrellafield",
       "name": "Umbrella Field",
-      "intro": "Corona's light is fierce all the way out, and the only shade is behind the big rocks circling it, the umbrellas. Touch one and your ship is lost, and a climb right now runs straight into them. Umbrella 1 circles just inside your orbit, faster than you, and its shadow is about to sweep over you: climb from under it and your path slips behind one umbrella after another. Watch your path, which glows wherever you would take dose, and don't linger: waiting here in the light costs dose too.",
-      "objective": "Orbit Corona between 715 and 815 k up, taking under 5 Sv of radiation.",
+      "intro": "Corona's light is fierce all the way out, and the only shade is behind the big rocks circling it, the umbrellas: each casts a dark umbra close behind it, fading into a lighter penumbra. Touch one and your ship is lost, and a climb right now runs straight into them. Umbrella 1 circles just inside your orbit, faster than you, and its shadow is about to sweep over you: climb from under it and your path slips behind one umbrella after another. Round off in the band at the top, then catch Parasol Post, just behind you there: the dose keeps adding up while you close in.",
+      "objective": "Orbit Corona between 770 and 840 k, then rendezvous with Parasol Post (within 15 k, relative speed under 0.5 k/s), taking under 4.8 Sv of radiation.",
       "teaches": "Rocks as shade",
       "bodies": [
         {
@@ -5563,7 +5495,7 @@
           "radiation": {
             "rate": 0.1,
             "at": 300,
-            "dose": 5
+            "dose": 4.8
           }
         },
         {
@@ -5643,6 +5575,19 @@
             "a": 600,
             "phase": 1.3265
           }
+        },
+        {
+          "id": "post",
+          "name": "Parasol Post",
+          "gm": 0,
+          "radius": 3,
+          "color": "#e6e6f0",
+          "kind": "station",
+          "orbit": {
+            "parent": "corona",
+            "a": 800,
+            "phase": 1.7072
+          }
         }
       ],
       "ship": {
@@ -5657,8 +5602,8 @@
         "stages": [
           {
             "dryMass": 1,
-            "fuel": 1.0137527074704766,
-            "thrust": 2.0137527074704766,
+            "fuel": 0.7860384307500734,
+            "thrust": 1.7860384307500734,
             "ve": 10
           }
         ],
@@ -5674,11 +5619,18 @@
         {
           "type": "orbit",
           "body": "corona",
-          "rMin": 760,
-          "rMax": 860
+          "rMin": 770,
+          "rMax": 840,
+          "label": "Cool band"
+        },
+        {
+          "type": "rendezvous",
+          "body": "post",
+          "dist": 15,
+          "relVel": 0.5
         }
       ],
-      "par": 4.8,
+      "par": 5.5,
       "bounds": 4000,
       "tMax": 900,
       "predict": 300,
@@ -5690,217 +5642,11 @@
       "startCam": "overview"
     },
     {
-      "id": "backwardmoon",
-      "name": "Backward Moon",
-      "intro": "You are drifting out of Mire's shadow and sinking toward Mire, and out in Ardent's light your 3 Sv lasts about seven seconds. Kesh, Mire's backward moon, is coming round the wrong way and passes right under you in about ten seconds, its shadow pointing straight out from Mire across your path. Fly to Kesh's night side as it passes (watch for the dark strip behind it) and match its speed to ride along in the shade. Sit still and it hits you; let it go by and its next pass comes far too late.",
-      "objective": "Stay within 35 k of Kesh, moving with it (under 1 k/s), for 6 s, taking under 3 Sv of radiation.",
-      "teaches": "A shadow that sweeps backward",
-      "bodies": [
-        {
-          "id": "ardent",
-          "name": "Ardent",
-          "gm": 40000,
-          "radius": 45,
-          "color": "#ff8a5a",
-          "kind": "star",
-          "radiation": {
-            "rate": 1.5,
-            "at": 300,
-            "dose": 3
-          }
-        },
-        {
-          "id": "mire",
-          "name": "Mire",
-          "gm": 6000,
-          "radius": 30,
-          "color": "#5fbf7f",
-          "orbit": {
-            "parent": "ardent",
-            "a": 520,
-            "phase": 0
-          }
-        },
-        {
-          "id": "kesh",
-          "name": "Kesh",
-          "gm": 150,
-          "radius": 16,
-          "color": "#b8bcc6",
-          "orbit": {
-            "parent": "mire",
-            "a": 110,
-            "phase": -0.5,
-            "dir": -1
-          }
-        }
-      ],
-      "ship": {
-        "start": {
-          "orbit": {
-            "body": "mire",
-            "r": 135,
-            "angle": 0,
-            "dir": -1,
-            "speed": 0.75
-          }
-        },
-        "heading": "prograde",
-        "stages": [
-          {
-            "dryMass": 1,
-            "fuel": 2.3201169227365472,
-            "thrust": 6.6402338454730945,
-            "ve": 10
-          }
-        ],
-        "cargo": [],
-        "rcs": {
-          "fuel": 60,
-          "accel": 1.2,
-          "maxRate": 1.6
-        },
-        "canRotate": true
-      },
-      "goals": [
-        {
-          "type": "hold",
-          "body": "kesh",
-          "r": 35,
-          "hold": 6,
-          "relVel": 1,
-          "label": "Kesh"
-        }
-      ],
-      "par": 8.5,
-      "bounds": 4000,
-      "tMax": 300,
-      "predict": 150,
-      "view": {
-        "x": 450,
-        "y": 0,
-        "span": 420
-      }
-    },
-    {
-      "id": "junkinthesun",
-      "name": "Junk in the Sun",
-      "intro": "Kiln Dock rides in Ash's shadow, and its amber zone is closed to everything, spent stages included. Ash is inhabited, so your booster may not come down there either: it has to fall into Forge. Leave the night side burning the booster prograde and watch your predicted path: keep burning until it swings back past Ash and dives into Forge, then a moment more, since dropping the booster pushes it back a little. Drop it (the stage button) and round off your orbit with the orbiter; burn far too hard and the booster is left on an orbit through the dock's zone, too gently and it comes down on Ash.",
-      "objective": "Send the booster into Forge and orbit Ash between 15 and 80 k up, with no debris hitting Ash or entering Kiln Dock's zone, taking under 14 Sv of radiation.",
-      "teaches": "Dispose of a stage in the star",
-      "bodies": [
-        {
-          "id": "forge",
-          "name": "Forge",
-          "gm": 40000,
-          "radius": 60,
-          "color": "#ffcf5a",
-          "kind": "star",
-          "radiation": {
-            "rate": 0.4,
-            "at": 300,
-            "dose": 14
-          }
-        },
-        {
-          "id": "ash",
-          "name": "Ash",
-          "gm": 6000,
-          "radius": 30,
-          "color": "#d9694a",
-          "protect": true,
-          "orbit": {
-            "parent": "forge",
-            "a": 500,
-            "phase": 0
-          }
-        },
-        {
-          "id": "dock",
-          "name": "Kiln Dock",
-          "gm": 0,
-          "radius": 3,
-          "color": "#e6e6f0",
-          "kind": "station",
-          "keepOut": 30,
-          "zone": "all",
-          "orbit": {
-            "parent": "ash",
-            "a": 160,
-            "n": 0.01918332609325088,
-            "phase": 0,
-            "reflex": false
-          }
-        }
-      ],
-      "ship": {
-        "start": {
-          "orbit": {
-            "body": "ash",
-            "r": 50,
-            "angle": 0
-          }
-        },
-        "heading": "prograde",
-        "stages": [
-          {
-            "id": "booster",
-            "name": "Booster",
-            "sprite": "booster",
-            "dryMass": 1,
-            "fuel": 0.9870313558792488,
-            "thrust": 2.9939077096144873,
-            "ve": 10
-          },
-          {
-            "name": "Orbiter",
-            "sprite": "satellite",
-            "dryMass": 0.5,
-            "fuel": 0.5068763537352383,
-            "thrust": 1.0068763537352383,
-            "ve": 10
-          }
-        ],
-        "cargo": [],
-        "rcs": {
-          "fuel": 60,
-          "accel": 1.2,
-          "maxRate": 1.6
-        },
-        "canRotate": true
-      },
-      "goals": [
-        {
-          "type": "hit",
-          "body": "forge",
-          "craft": "booster",
-          "deorbit": true
-        },
-        {
-          "type": "orbit",
-          "body": "ash",
-          "rMin": 45,
-          "rMax": 110
-        }
-      ],
-      "par": 7.6,
-      "bounds": 4000,
-      "tMax": 400,
-      "predict": 200,
-      "view": {
-        "x": 250,
-        "y": 0,
-        "span": 900
-      },
-      "startCam": "overview"
-    },
-    // Chapter: Beams
-    {
       "id": "beacon",
       "name": "Lighthouse",
-      "intro": "Pharos is a pulsar: it sweeps two narrow beams of radiation round like a lighthouse, and outside them there is none at all. You are climbing away from it slowly, on an orbit that falls back, and a beam is coming round behind you. One sweep this close is more than your ship can take, but far out a beam is weak. Burn prograde now and keep burning well past escape: the farther out you are when it catches you, the less it hurts. Watch the path ahead: it glows where the beam will catch you, fainter the farther out that is.",
-      "objective": "Get 1200 k from Pharos, taking under 10 Sv of radiation.",
-      "teaches": "Pulsars · beat the beam outward",
+      "intro": "Pharos is a pulsar: it sweeps two narrow beams of radiation round like a lighthouse, and outside them there is none at all. You are climbing away slowly on an orbit that falls back, and a beam is coming round behind you; you can take less than 2 Sv. A pulsar is a point, so Skerry's shadow is a sharp wedge that never ends, and the Lee Light buoy marks it. Burn hard now, a little outward of prograde, and trim your path through Lee Light: arrive as the beam does and the wedge hides you, burn too gently and the beam finds you before you get there.",
+      "objective": "Fly within 20 k of Lee Light, then get 1800 k from Pharos, taking under 1.8 Sv of radiation.",
+      "teaches": "Pulsars · hide in a sharp shadow",
       "bodies": [
         {
           "id": "pharos",
@@ -5912,12 +5658,39 @@
           "radiation": {
             "rate": 6.5,
             "at": 300,
-            "dose": 10,
+            "dose": 1.8,
             "beam": {
               "width": 0.3,
               "period": 150,
               "phase": 0
             }
+          }
+        },
+        {
+          "id": "skerry",
+          "name": "Skerry",
+          "gm": 100,
+          "radius": 25,
+          "color": "#b8bcc6",
+          "orbit": {
+            "parent": "pharos",
+            "a": 700,
+            "phase": 1.7
+          }
+        },
+        {
+          "id": "leelight",
+          "name": "Lee Light",
+          "gm": 0,
+          "radius": 3,
+          "color": "#e6e6f0",
+          "kind": "station",
+          "orbit": {
+            "parent": "pharos",
+            "a": 810,
+            "n": 0.009352195295828244,
+            "phase": 1.7,
+            "reflex": false
           }
         }
       ],
@@ -5935,8 +5708,8 @@
         "stages": [
           {
             "dryMass": 1,
-            "fuel": 1.0959355144943643,
-            "thrust": 2.0959355144943643,
+            "fuel": 1.181472265498201,
+            "thrust": 2.181472265498201,
             "ve": 10
           }
         ],
@@ -5950,27 +5723,34 @@
       },
       "goals": [
         {
+          "type": "reach",
+          "body": "leelight",
+          "r": 20,
+          "label": "Lee Light"
+        },
+        {
           "type": "escape",
           "body": "pharos",
-          "r": 1200
+          "r": 1800,
+          "label": "Deep space"
         }
       ],
-      "par": 5.2,
+      "par": 7.4,
       "bounds": 4000,
-      "tMax": 400,
+      "tMax": 500,
       "predict": 300,
       "view": {
-        "x": 0,
-        "y": 300,
-        "span": 1700
+        "x": -300,
+        "y": 400,
+        "span": 2200
       },
       "startCam": "overview"
     },
     {
       "id": "widdershins",
       "name": "Wrong Way Round",
-      "intro": "A beam from Vela is about to sweep over you, and it turns almost as fast as you go round: going with it, it would sit on you for most of a minute, but against its spin it is gone in seconds. Climbing first and turning round up high would be cheaper, and far too slow. Flip now and burn retrograde right through a stop until you are going round the other way, and keep burning until your path climbs to meet Widdershins Station, which orbits backwards. The path glows where a beam catches you: watch the glow shrink as you turn round. Then match the station's speed.",
-      "objective": "Rendezvous with Widdershins Station (within 20 k, relative speed under 0.8 k/s), taking under 7 Sv of radiation.",
+      "intro": "A beam from Vela is about to sweep over you, and it turns almost as fast as you go round: going with it, it would sit on you for most of a minute, but against its spin it is gone in seconds. Climbing first and turning round up high would be cheaper, and far too slow. Flip now and burn retrograde right through a stop until you are going round the other way, and keep burning until your path climbs to meet Widdershins Station, which orbits backwards. The path glows where a beam catches you: watch the glow shrink as you turn round. Hold the nose right on the retrograde marker: a few degrees off and you arrive late, under the next sweeps, or spend the little spare fuel chasing the station.",
+      "objective": "Orbit Vela the wrong way round (clockwise) between 150 and 700 k, then rendezvous with Widdershins Station (within 10 k, relative speed under 0.3 k/s), taking under 5.4 Sv of radiation.",
       "teaches": "Cross the beam against its spin",
       "bodies": [
         {
@@ -5983,7 +5763,7 @@
           "radiation": {
             "rate": 0.15,
             "at": 250,
-            "dose": 7,
+            "dose": 5.4,
             "beam": {
               "width": 0.3,
               "period": 317,
@@ -6001,7 +5781,7 @@
           "orbit": {
             "parent": "vela",
             "a": 500,
-            "phase": 1.879,
+            "phase": 1.86,
             "dir": -1
           }
         }
@@ -6018,313 +5798,8 @@
         "stages": [
           {
             "dryMass": 1,
-            "fuel": 2.6692966676192444,
-            "thrust": 3.6692966676192444,
-            "ve": 10
-          }
-        ],
-        "cargo": [],
-        "rcs": {
-          "fuel": 60,
-          "accel": 1.2,
-          "maxRate": 1.6
-        },
-        "canRotate": true
-      },
-      "goals": [
-        {
-          "type": "rendezvous",
-          "body": "widd",
-          "dist": 20,
-          "relVel": 0.8
-        }
-      ],
-      "par": 8.8,
-      "bounds": 3000,
-      "tMax": 900,
-      "predict": 300,
-      "view": {
-        "x": 0,
-        "y": 0,
-        "span": 1300
-      },
-      "startCam": "overview"
-    },
-    {
-      "id": "duckdrop",
-      "name": "Duck and Release",
-      "intro": "You are racing out past Cowl with a probe for deep space, and a beam from Vigil is about to sweep across your path. The probe takes radiation once it is out (E drops it), and it can't survive a sweep this close. Watch the beam on screen: let it pass, release the probe straight after it, and the probe is far out before the next one. Then brake hard and duck into Cowl's shadow at L2, the marker in the dark cone behind it, before that next sweep reaches you.",
-      "objective": "Hold at Cowl's L2 (within 20 k, moving with it to within 0.6 k/s) for 8 s, and get the probe 1200 k from Vigil, the ship taking under 16 Sv and the probe under 5 Sv.",
-      "teaches": "Release between sweeps · hide at L2",
-      "bodies": [
-        {
-          "id": "vigil",
-          "name": "Vigil",
-          "gm": 10000,
-          "radius": 10,
-          "color": "#e4dcff",
-          "kind": "pulsar",
-          "radiation": {
-            "rate": 1,
-            "at": 650,
-            "dose": 16,
-            "beam": {
-              "width": 0.3,
-              "period": 200,
-              "phase": 1.53
-            }
-          }
-        },
-        {
-          "id": "cowl",
-          "name": "Cowl",
-          "gm": 400,
-          "radius": 30,
-          "color": "#b8bcc6",
-          "orbit": {
-            "parent": "vigil",
-            "a": 700,
-            "phase": 1.84
-          }
-        }
-      ],
-      "ship": {
-        "start": {
-          "conic": {
-            "body": "vigil",
-            "pe": 250,
-            "e": 1.05,
-            "nu": 1.75,
-            "angle": 0
-          }
-        },
-        "heading": "prograde",
-        "stages": [
-          {
-            "dryMass": 1,
-            "fuel": 1.5932032070402082,
-            "thrust": 2.893203207040208,
-            "ve": 10
-          }
-        ],
-        "cargo": [
-          {
-            "id": "probe",
-            "name": "Probe",
-            "mass": 0.3,
-            "dose": 5
-          }
-        ],
-        "rcs": {
-          "fuel": 60,
-          "accel": 1.2,
-          "maxRate": 1.6
-        },
-        "canRotate": true
-      },
-      "goals": [
-        {
-          "type": "hold",
-          "lagrange": {
-            "body": "cowl",
-            "lead": 0,
-            "scale": 1.2528
-          },
-          "r": 20,
-          "relVel": 0.6,
-          "hold": 8,
-          "label": "L2"
-        },
-        {
-          "type": "escape",
-          "body": "vigil",
-          "craft": "probe",
-          "r": 1200,
-          "label": "Deep space"
-        }
-      ],
-      "par": 5.2,
-      "bounds": 4000,
-      "tMax": 400,
-      "predict": 250,
-      "view": {
-        "x": -300,
-        "y": 700,
-        "span": 1500
-      },
-      "startCam": "overview"
-    },
-    {
-      "id": "darkturn",
-      "name": "Turn in the Dark",
-      "intro": "Nox goes round Argus exactly as fast as the beam turns, so the beam never leaves it: its day side is always lit, and the only shade is the shadow cone behind it. You are coasting through that shadow near the top of your orbit, nose forward, and the side thrusters have only a few taps left. The glow on your path ahead shows where you come out of the shadow, and a slow turn round takes about 20 s: start now, with a tap or two (a spin you can't stop wastes the lot), while you are still in the dark. Then burn to kill most of your speed and fall straight down the shadow to the landing zone.",
-      "objective": "Land on Nox inside the night-side zone, taking under 10 Sv of radiation, with 0.8 s of side-thruster propellant.",
-      "teaches": "Turn in the shade · a beam that turns with you",
-      "bodies": [
-        {
-          "id": "argus",
-          "name": "Argus",
-          "gm": 40000,
-          "radius": 10,
-          "color": "#e4dcff",
-          "kind": "pulsar",
-          "radiation": {
-            "rate": 1,
-            "at": 1500,
-            "dose": 10,
-            "beam": {
-              "width": 0.6,
-              "period": 1740.164957010387,
-              "phase": 0
-            }
-          }
-        },
-        {
-          "id": "nox",
-          "name": "Nox",
-          "gm": 4000,
-          "radius": 60,
-          "color": "#a98be8",
-          "spin": 0.00361068373539376,
-          "orbit": {
-            "parent": "argus",
-            "a": 1500,
-            "phase": 0
-          }
-        }
-      ],
-      "ship": {
-        "start": {
-          "conic": {
-            "body": "nox",
-            "pe": 110,
-            "e": 0.4634146341463415,
-            "nu": 3.17,
-            "angle": 3.141592653589793
-          }
-        },
-        "heading": "prograde",
-        "stages": [
-          {
-            "dryMass": 1,
-            "fuel": 0.37712776433595696,
-            "thrust": 1.377127764335957,
-            "ve": 10
-          }
-        ],
-        "cargo": [],
-        "rcs": {
-          "fuel": 0.8,
-          "accel": 1.2,
-          "maxRate": 1.6
-        },
-        "canRotate": true
-      },
-      "goals": [
-        {
-          "type": "hit",
-          "body": "nox",
-          "site": {
-            "angle": 0,
-            "width": 1.2
-          },
-          "label": "Night side"
-        }
-      ],
-      "par": 2.1,
-      "bounds": 4000,
-      "tMax": 400,
-      "predict": 200,
-      "view": {
-        "x": 1500,
-        "y": 0,
-        "span": 900
-      }
-    },
-    {
-      "id": "beampatrol",
-      "name": "Beam Patrol",
-      "intro": "Sentry patrols guard the lane you are drifting along, each inside a red keep-out zone, and Sentry 1 is closing in from behind. Your way out is down to the 400 k band, where an orbit turns exactly with Lyre's beams: arrive between them and they never reach you, arrive in one and it sits on you. Dive now and you land in a beam, wait in the lane and the sentry gets you, and lower down the sweeps burn you. So brake just a touch to pull ahead of the sentry, then wait for the gap. A dive bottoms out half way round from where you start it: brake a little and the path preview shows that bottom, glowing if a beam will be waiting there. Go when it comes out dark.",
-      "objective": "Orbit Lyre between 380 and 420 k without entering a keep-out zone, taking under 10 Sv of radiation.",
-      "teaches": "Line up patrol gaps and beam gaps",
-      "bodies": [
-        {
-          "id": "lyre",
-          "name": "Lyre",
-          "gm": 20000,
-          "radius": 10,
-          "color": "#e4dcff",
-          "kind": "pulsar",
-          "radiation": {
-            "rate": 0.1,
-            "at": 400,
-            "dose": 10,
-            "beam": {
-              "width": 1.2,
-              "period": 355.4306350526693,
-              "phase": 1.6
-            }
-          }
-        },
-        {
-          "id": "sentry1",
-          "name": "Sentry 1",
-          "gm": 0,
-          "radius": 4,
-          "color": "#e6e6f0",
-          "kind": "station",
-          "keepOut": 45,
-          "orbit": {
-            "parent": "lyre",
-            "a": 600,
-            "phase": -0.1
-          }
-        },
-        {
-          "id": "sentry2",
-          "name": "Sentry 2",
-          "gm": 0,
-          "radius": 4,
-          "color": "#e6e6f0",
-          "kind": "station",
-          "keepOut": 45,
-          "orbit": {
-            "parent": "lyre",
-            "a": 600,
-            "phase": 1.9943951023931952
-          }
-        },
-        {
-          "id": "sentry3",
-          "name": "Sentry 3",
-          "gm": 0,
-          "radius": 4,
-          "color": "#e6e6f0",
-          "kind": "station",
-          "keepOut": 45,
-          "orbit": {
-            "parent": "lyre",
-            "a": 600,
-            "phase": 4.088790204786391
-          }
-        }
-      ],
-      "ship": {
-        "start": {
-          "conic": {
-            "body": "lyre",
-            "pe": 590,
-            "e": 0.03,
-            "nu": 0,
-            "angle": 0
-          }
-        },
-        "heading": "prograde",
-        "stages": [
-          {
-            "dryMass": 1,
-            "fuel": 0.24607673058738078,
-            "thrust": 1.2460767305873808,
+            "fuel": 1.6116964734231178,
+            "thrust": 2.611696473423118,
             "ve": 10
           }
         ],
@@ -6339,27 +5814,35 @@
       "goals": [
         {
           "type": "orbit",
-          "body": "lyre",
-          "rMin": 380,
-          "rMax": 420
+          "body": "vela",
+          "rMin": 150,
+          "rMax": 700,
+          "dir": -1,
+          "label": "Wrong way round"
+        },
+        {
+          "type": "rendezvous",
+          "body": "widd",
+          "dist": 10,
+          "relVel": 0.3
         }
       ],
-      "par": 1.45,
+      "par": 9.1,
       "bounds": 3000,
-      "tMax": 900,
+      "tMax": 500,
       "predict": 300,
       "view": {
         "x": 0,
         "y": 0,
-        "span": 1500
+        "span": 1300
       },
       "startCam": "overview"
     },
     {
       "id": "keeper",
       "name": "Keeper's Station",
-      "intro": "Keeper's Station rides the 500 k orbit, which turns exactly with Corvus's beams, so it sits between them forever, and so do you, on the far side. To catch up you must cross a beam: near the 500 k orbit it turns almost with you and lingers, but deep down you cross it fast (the path glows where it will catch you). Dive deep on the booster, round off down there and drop it (the stage button) where its orbit stays well clear of the station's: the readout says STAGE NOW → SAFE ORBIT when it is. Then climb on the upper stage when Keeper is about 50° ahead of you: the closest approach readout shows how near you will pass.",
-      "objective": "Rendezvous with Keeper's Station (within 20 k, relative speed under 0.8 k/s), taking under 13 Sv of radiation, with no spent stage on an orbit that crosses the station's.",
+      "intro": "Keeper's Station rides the 500 k orbit, which turns exactly with Corvus's beams, so it sits between them forever, and so do you, on the far side. To catch up you must cross a beam: near the 500 k orbit it turns almost with you and lingers, but deep down you cross it fast (the path glows where it will catch you). Dive into the deep lane on the booster, round off down there and drop it (the stage button) where its orbit stays well clear of the station's: the readout says STAGE NOW → SAFE ORBIT when it is. Then climb on the upper stage when Keeper is about 50° ahead of you, and match its speed with what little fuel is left.",
+      "objective": "Orbit Corvus between 280 and 340 k, then rendezvous with Keeper's Station (within 12 k, relative speed under 0.4 k/s), taking under 11 Sv of radiation, with no spent stage on an orbit that crosses the station's.",
       "teaches": "Phase through a beam · stage where it is safe",
       "bodies": [
         {
@@ -6372,7 +5855,7 @@
           "radiation": {
             "rate": 0.11,
             "at": 500,
-            "dose": 13,
+            "dose": 11,
             "beam": {
               "width": 0.3,
               "period": 702.4814731040725,
@@ -6410,16 +5893,16 @@
             "name": "Booster",
             "sprite": "booster",
             "dryMass": 1,
-            "fuel": 0.2617410899197566,
-            "thrust": 1.7702407500483184,
+            "fuel": 0.25059901716087574,
+            "thrust": 1.6948832613031577,
             "ve": 10
           },
           {
             "name": "Upper stage",
             "sprite": "satellite",
             "dryMass": 0.4,
-            "fuel": 0.1084996601285619,
-            "thrust": 0.30509979607713716,
+            "fuel": 0.044284244142282075,
+            "thrust": 0.2665705464853692,
             "ve": 10
           }
         ],
@@ -6433,13 +5916,20 @@
       },
       "goals": [
         {
+          "type": "orbit",
+          "body": "corvus",
+          "rMin": 280,
+          "rMax": 340,
+          "label": "Deep lane"
+        },
+        {
           "type": "rendezvous",
           "body": "keeper",
-          "dist": 20,
-          "relVel": 0.8
+          "dist": 12,
+          "relVel": 0.4
         }
       ],
-      "par": 2.3,
+      "par": 2.4,
       "bounds": 3000,
       "tMax": 950,
       "predict": 300,
@@ -6450,12 +5940,668 @@
       },
       "startCam": "overview"
     },
+    // Chapter: Shadow Lanes
+    {
+      "id": "nightwatch",
+      "name": "Night Watch",
+      "intro": "Vesper's L2 point is the marker in the dark cone behind it, keeping pace as Vesper goes round Lamp. Climb to it: burn prograde as you come round the day side so the top of your climb lands on the marker (the closest approach readout shows how near you will pass), then brake to match its speed. Nothing stays at L2 on its own, so keep station with small taps whenever your path starts to curl away, and turn sparingly: the side thrusters are short. Then nudge sunward, fall back and brake into a low orbit.",
+      "objective": "Hold within 4 k of Vesper's L2 (moving with it to within 0.2 k/s) for 60 s, then orbit Vesper between 15 and 35 k from its centre, taking under 4 Sv of radiation, with 19.5 s of side-thruster propellant.",
+      "teaches": "Keep station at L2",
+      "bodies": [
+        {
+          "id": "lamp",
+          "name": "Lamp",
+          "gm": 40000,
+          "radius": 45,
+          "color": "#ffcf5a",
+          "kind": "star",
+          "radiation": {
+            "rate": 0.05,
+            "at": 550,
+            "dose": 4
+          }
+        },
+        {
+          "id": "vesper",
+          "name": "Vesper",
+          "gm": 1000,
+          "radius": 12,
+          "color": "#6f86b8",
+          "orbit": {
+            "parent": "lamp",
+            "a": 550,
+            "phase": 0
+          }
+        }
+      ],
+      "ship": {
+        "start": {
+          "orbit": {
+            "body": "vesper",
+            "r": 30,
+            "angle": 3.141592653589793
+          }
+        },
+        "heading": "prograde",
+        "stages": [
+          {
+            "dryMass": 1,
+            "fuel": 0.5636142992864179,
+            "thrust": 0.9381685795718507,
+            "ve": 10
+          }
+        ],
+        "cargo": [],
+        "rcs": {
+          "fuel": 19.5,
+          "accel": 1.2,
+          "maxRate": 1.6
+        },
+        "canRotate": true
+      },
+      "goals": [
+        {
+          "type": "hold",
+          "lagrange": {
+            "body": "vesper",
+            "lead": 0,
+            "scale": 1.2147
+          },
+          "r": 4,
+          "relVel": 0.2,
+          "hold": 60,
+          "label": "L2"
+        },
+        {
+          "type": "orbit",
+          "body": "vesper",
+          "rMin": 15,
+          "rMax": 35,
+          "label": "Low orbit"
+        }
+      ],
+      "par": 4.1,
+      "bounds": 3000,
+      "tMax": 400,
+      "predict": 150,
+      "view": {
+        "x": 640,
+        "y": 0,
+        "span": 320
+      }
+    },
+    {
+      "id": "perihelion",
+      "name": "Perihelion",
+      "intro": "Wend is on an ellipse, and it is falling toward Pyre: in a minute it swings through perihelion, its closest pass, where the sunlight on your low orbit is fiercest. Climb into the dark behind it before then: burn prograde as you come round the day side so the top of your climb meets the L2 marker. Watch it: near perihelion the marker races in toward Wend and back out, and your corrections have to keep up. Then push off sunward and a little ahead (the glow on your path fades as you push), fall down the shadow and brake into a low orbit at the bottom: push too far ahead and the fall clips Wend.",
+      "objective": "Hold within 2 k of Wend's L2 (moving with it to within 0.1 k/s) for 40 s, then orbit Wend between 10 and 30 k from its centre, taking under 5.55 Sv of radiation, with 18.9 s of side-thruster propellant.",
+      "teaches": "Elliptical orbits · L2 at perihelion",
+      "bodies": [
+        {
+          "id": "pyre",
+          "name": "Pyre",
+          "gm": 40000,
+          "radius": 50,
+          "color": "#ff8a5a",
+          "kind": "star",
+          "radiation": {
+            "rate": 0.12,
+            "at": 550,
+            "dose": 5.55
+          }
+        },
+        {
+          "id": "wend",
+          "name": "Wend",
+          "gm": 300,
+          "radius": 9,
+          "color": "#d8b67a",
+          "orbit": {
+            "parent": "pyre",
+            "a": 600,
+            "e": 0.4,
+            "argp": 0,
+            "phase": -0.6146645426572124
+          }
+        }
+      ],
+      "ship": {
+        "start": {
+          "orbit": {
+            "body": "wend",
+            "r": 16,
+            "angle": 1.7
+          }
+        },
+        "heading": "prograde",
+        "stages": [
+          {
+            "dryMass": 1,
+            "fuel": 0.6736385017975295,
+            "thrust": 1.3389108014380238,
+            "ve": 10
+          }
+        ],
+        "cargo": [],
+        "rcs": {
+          "fuel": 18.9,
+          "accel": 1.2,
+          "maxRate": 1.6
+        },
+        "canRotate": true
+      },
+      "goals": [
+        {
+          "type": "hold",
+          "lagrange": {
+            "body": "wend",
+            "lead": 0,
+            "scale": 1.14143
+          },
+          "r": 2,
+          "relVel": 0.1,
+          "hold": 40,
+          "label": "L2"
+        },
+        {
+          "type": "orbit",
+          "body": "wend",
+          "rMin": 10,
+          "rMax": 30,
+          "label": "Low orbit"
+        }
+      ],
+      "par": 4.9,
+      "bounds": 3000,
+      "tMax": 450,
+      "predict": 150,
+      "view": {
+        "x": 400,
+        "y": 0,
+        "span": 300
+      }
+    },
+    {
+      "id": "closepass",
+      "name": "Close Pass",
+      "intro": "Tallow's orbit is an ellipse: most of the year it is far out, but at perihelion it swings in close outside Hale and moves almost level with it for a while. Climb from your low orbit to Hale's L2 (burn prograde as you pass the day side so the top of your climb meets the marker) and keep station in the dark while Tallow comes in. Hop across when its marker is near: push off outward, fix your aim with the closest approach marker, and brake to match Tallow's L2 as you arrive. Wait too long and it is already pulling away.",
+      "objective": "Hold within 6 k of Hale's L2 (moving with it to within 0.25 k/s) for 15 s, then within 8 k of Tallow's L2 (to within 0.3 k/s) for 10 s, taking under 13 Sv of radiation, with 24 s of side-thruster propellant.",
+      "teaches": "Elliptical orbits · hop between shadows",
+      "bodies": [
+        {
+          "id": "brazier",
+          "name": "Brazier",
+          "gm": 40000,
+          "radius": 50,
+          "color": "#ffcf5a",
+          "kind": "star",
+          "radiation": {
+            "rate": 0.06,
+            "at": 550,
+            "dose": 13
+          }
+        },
+        {
+          "id": "hale",
+          "name": "Hale",
+          "gm": 300,
+          "radius": 10,
+          "color": "#b8bcc6",
+          "orbit": {
+            "parent": "brazier",
+            "a": 480,
+            "phase": 0
+          }
+        },
+        {
+          "id": "wend",
+          "name": "Tallow",
+          "gm": 300,
+          "radius": 10,
+          "color": "#d8b67a",
+          "orbit": {
+            "parent": "brazier",
+            "a": 760,
+            "e": 0.16,
+            "argp": 3.74,
+            "phase": -2.1955202305960877,
+            "reflex": false
+          }
+        }
+      ],
+      "ship": {
+        "start": {
+          "orbit": {
+            "body": "hale",
+            "r": 17,
+            "angle": 1.7
+          }
+        },
+        "heading": "prograde",
+        "stages": [
+          {
+            "dryMass": 1,
+            "fuel": 0.9581497063588056,
+            "thrust": 1.5665197650870446,
+            "ve": 10
+          }
+        ],
+        "cargo": [],
+        "rcs": {
+          "fuel": 24,
+          "accel": 1.2,
+          "maxRate": 1.6
+        },
+        "canRotate": true
+      },
+      "goals": [
+        {
+          "type": "hold",
+          "lagrange": {
+            "body": "hale",
+            "lead": 0,
+            "scale": 1.14158
+          },
+          "r": 6,
+          "relVel": 0.25,
+          "hold": 15,
+          "label": "Hale L2"
+        },
+        {
+          "type": "hold",
+          "lagrange": {
+            "body": "wend",
+            "lead": 0,
+            "scale": 1.14204
+          },
+          "r": 8,
+          "relVel": 0.3,
+          "hold": 10,
+          "label": "Tallow L2"
+        }
+      ],
+      "par": 5.8,
+      "bounds": 3000,
+      "tMax": 600,
+      "predict": 250,
+      "view": {
+        "x": -200,
+        "y": 400,
+        "span": 1500
+      },
+      "startCam": "overview"
+    },
+    {
+      "id": "sweeps",
+      "name": "Between Sweeps",
+      "intro": "Corax is a pulsar: its two beams sweep round, and only a planet's shadow stops them, so Tarn's and Skerry's L2 points sit in dark lanes the beams never reach. Climb from your low orbit to Tarn's L2 (burn prograde as you pass the day side so the top of your climb meets the marker) and keep station there while Skerry comes round behind you. Then hop across: push off outward, fix your aim with the closest approach marker, and brake to match Skerry's L2 as you arrive. Out in the open the beams will catch you, and the glow on your path shows where: leave when it shows the fewest, faintest hits.",
+      "objective": "Hold within 6 k of Tarn's L2 (moving with it to within 0.25 k/s) for 15 s, then within 8 k of Skerry's L2 (to within 0.3 k/s) for 10 s, taking under 10 Sv of radiation, with 24 s of side-thruster propellant.",
+      "teaches": "Hop between shadows · between sweeps",
+      "bodies": [
+        {
+          "id": "corax",
+          "name": "Corax",
+          "gm": 40000,
+          "radius": 8,
+          "color": "#e4dcff",
+          "kind": "pulsar",
+          "radiation": {
+            "rate": 1,
+            "at": 500,
+            "dose": 10,
+            "beam": {
+              "width": 0.3,
+              "period": 70,
+              "phase": 0
+            }
+          }
+        },
+        {
+          "id": "tarn",
+          "name": "Tarn",
+          "gm": 300,
+          "radius": 10,
+          "color": "#4f8fe0",
+          "orbit": {
+            "parent": "corax",
+            "a": 480,
+            "phase": 0
+          }
+        },
+        {
+          "id": "skerry",
+          "name": "Skerry",
+          "gm": 300,
+          "radius": 10,
+          "color": "#9fe0f0",
+          "orbit": {
+            "parent": "corax",
+            "a": 640,
+            "phase": 0.9,
+            "reflex": false
+          }
+        }
+      ],
+      "ship": {
+        "start": {
+          "orbit": {
+            "body": "tarn",
+            "r": 17,
+            "angle": 1.7
+          }
+        },
+        "heading": "prograde",
+        "stages": [
+          {
+            "dryMass": 1,
+            "fuel": 0.7471746543074462,
+            "thrust": 1.397739723445957,
+            "ve": 10
+          }
+        ],
+        "cargo": [],
+        "rcs": {
+          "fuel": 24,
+          "accel": 1.2,
+          "maxRate": 1.6
+        },
+        "canRotate": true
+      },
+      "goals": [
+        {
+          "type": "hold",
+          "lagrange": {
+            "body": "tarn",
+            "lead": 0,
+            "scale": 1.14166
+          },
+          "r": 6,
+          "relVel": 0.25,
+          "hold": 15,
+          "label": "Tarn L2"
+        },
+        {
+          "type": "hold",
+          "lagrange": {
+            "body": "skerry",
+            "lead": 0,
+            "scale": 1.1414
+          },
+          "r": 8,
+          "relVel": 0.3,
+          "hold": 10,
+          "label": "Skerry L2"
+        }
+      ],
+      "par": 5,
+      "bounds": 3000,
+      "tMax": 450,
+      "predict": 250,
+      "view": {
+        "x": 300,
+        "y": 400,
+        "span": 1100
+      },
+      "startCam": "overview"
+    },
+    {
+      "id": "lanedown",
+      "name": "Down the Lane",
+      "intro": "Loam is on an ellipse that brings it in close outside Peat once a year, and its supply drop is due at the bottom of its shadow. Climb from your low orbit to Peat's L2 and keep station while Loam comes in, then hop across: push off outward, fix your aim with the closest approach marker and brake to match Loam's L2. Hold there, then push off sunward and a little ahead so you fall down the dark lane behind Loam (the glow on your path fades as you angle it), and brake into a low orbit at the bottom. Angle the push too far and the fall clips Loam.",
+      "objective": "Hold within 4 k of Peat's L2 (moving with it to within 0.15 k/s) for 25 s, then within 5 k of Loam's L2 (to within 0.2 k/s) for 10 s, then orbit Loam between 13 and 30 k from its centre, taking under 12.5 Sv of radiation, with 35.7 s of side-thruster propellant.",
+      "teaches": "Hop, then down the shadow",
+      "bodies": [
+        {
+          "id": "kiln",
+          "name": "Kiln",
+          "gm": 40000,
+          "radius": 50,
+          "color": "#ff8a5a",
+          "kind": "star",
+          "radiation": {
+            "rate": 0.06,
+            "at": 550,
+            "dose": 12.5
+          }
+        },
+        {
+          "id": "peat",
+          "name": "Peat",
+          "gm": 300,
+          "radius": 10,
+          "color": "#5fbf7f",
+          "orbit": {
+            "parent": "kiln",
+            "a": 480,
+            "phase": 2
+          }
+        },
+        {
+          "id": "loam",
+          "name": "Loam",
+          "gm": 300,
+          "radius": 10,
+          "color": "#d9694a",
+          "orbit": {
+            "parent": "kiln",
+            "a": 760,
+            "e": 0.16,
+            "argp": 5.74,
+            "phase": -2.1955202305960877,
+            "reflex": false
+          }
+        }
+      ],
+      "ship": {
+        "start": {
+          "orbit": {
+            "body": "peat",
+            "r": 17,
+            "angle": 3.7
+          }
+        },
+        "heading": "prograde",
+        "stages": [
+          {
+            "dryMass": 1,
+            "fuel": 1.3233265117943045,
+            "thrust": 1.8586612094354438,
+            "ve": 10
+          }
+        ],
+        "cargo": [],
+        "rcs": {
+          "fuel": 35.7,
+          "accel": 1.2,
+          "maxRate": 1.6
+        },
+        "canRotate": true
+      },
+      "goals": [
+        {
+          "type": "hold",
+          "lagrange": {
+            "body": "peat",
+            "lead": 0,
+            "scale": 1.14158
+          },
+          "r": 4,
+          "relVel": 0.15,
+          "hold": 25,
+          "label": "Peat L2"
+        },
+        {
+          "type": "hold",
+          "lagrange": {
+            "body": "loam",
+            "lead": 0,
+            "scale": 1.14204
+          },
+          "r": 5,
+          "relVel": 0.2,
+          "hold": 10,
+          "label": "Loam L2"
+        },
+        {
+          "type": "orbit",
+          "body": "loam",
+          "rMin": 13,
+          "rMax": 30,
+          "label": "Low orbit"
+        }
+      ],
+      "par": 8,
+      "bounds": 3000,
+      "tMax": 800,
+      "predict": 250,
+      "view": {
+        "x": 0,
+        "y": 0,
+        "span": 1600
+      },
+      "startCam": "overview"
+    },
+    {
+      "id": "lantern",
+      "name": "Lantern",
+      "intro": "Lantern Station rides in Moor's shadow, a little beyond its L2: a station on its own rail stays put, but you do not. Climb from your low orbit to Fen's L2 (burn prograde as you pass the day side so the top of your climb meets the marker) and keep station while Moor comes round behind you. Hop across between Mirk's sweeps: push off outward, fix your aim with the closest approach marker, brake to match Moor's L2 and hold there. Then let the drift carry you out to Lantern and match its speed, gently: the station is solid.",
+      "objective": "Hold within 4 k of Fen's L2 (moving with it to within 0.15 k/s) for 25 s, then within 3 k of Moor's L2 (to within 0.15 k/s) for 30 s, then rendezvous with Lantern Station (within 10 k, relative speed under 0.4 k/s), taking under 10.2 Sv of radiation, with 30.2 s of side-thruster propellant.",
+      "teaches": "Shadow to shadow · a station at L2",
+      "bodies": [
+        {
+          "id": "mirk",
+          "name": "Mirk",
+          "gm": 40000,
+          "radius": 8,
+          "color": "#d8e4ff",
+          "kind": "pulsar",
+          "radiation": {
+            "rate": 1,
+            "at": 500,
+            "dose": 10.2,
+            "beam": {
+              "width": 0.3,
+              "period": 70,
+              "phase": -1
+            }
+          }
+        },
+        {
+          "id": "fen",
+          "name": "Fen",
+          "gm": 300,
+          "radius": 10,
+          "color": "#a98be8",
+          "orbit": {
+            "parent": "mirk",
+            "a": 480,
+            "phase": -1
+          }
+        },
+        {
+          "id": "moor",
+          "name": "Moor",
+          "gm": 300,
+          "radius": 10,
+          "color": "#5fbf7f",
+          "orbit": {
+            "parent": "mirk",
+            "a": 640,
+            "phase": -0.09999999999999998,
+            "reflex": false
+          }
+        },
+        {
+          "id": "lantern",
+          "name": "Lantern Station",
+          "gm": 0,
+          "radius": 3,
+          "color": "#e6e6f0",
+          "kind": "station",
+          "orbit": {
+            "parent": "mirk",
+            "a": 760.496,
+            "phase": -0.09999999999999998,
+            "reflex": false,
+            "n": 0.012352647110032733
+          }
+        }
+      ],
+      "ship": {
+        "start": {
+          "orbit": {
+            "body": "fen",
+            "r": 14,
+            "angle": 0.7
+          }
+        },
+        "heading": "prograde",
+        "stages": [
+          {
+            "dryMass": 1,
+            "fuel": 1.0278984286853743,
+            "thrust": 1.6223187429482995,
+            "ve": 10
+          }
+        ],
+        "cargo": [],
+        "rcs": {
+          "fuel": 30.2,
+          "accel": 1.2,
+          "maxRate": 1.6
+        },
+        "canRotate": true
+      },
+      "goals": [
+        {
+          "type": "hold",
+          "lagrange": {
+            "body": "fen",
+            "lead": 0,
+            "scale": 1.14166
+          },
+          "r": 4,
+          "relVel": 0.15,
+          "hold": 25,
+          "label": "Fen L2"
+        },
+        {
+          "type": "hold",
+          "lagrange": {
+            "body": "moor",
+            "lead": 0,
+            "scale": 1.1414
+          },
+          "r": 3,
+          "relVel": 0.15,
+          "hold": 30,
+          "label": "Moor L2"
+        },
+        {
+          "type": "rendezvous",
+          "body": "lantern",
+          "dist": 10,
+          "relVel": 0.4,
+          "label": "Lantern Station"
+        }
+      ],
+      "par": 7.3,
+      "bounds": 3000,
+      "tMax": 600,
+      "predict": 250,
+      "view": {
+        "x": 0,
+        "y": 0,
+        "span": 1500
+      },
+      "startCam": "overview"
+    },
     // Chapter: Deep Gravity
     {
       "id": "heavystar",
       "name": "Heavy Star",
-      "intro": "Kern is a neutron star: no bigger than a moon, but so dense that close in it pulls far harder than any planet. Inside about 90 k no orbit is stable, and a pass that dips in there whips you round much further than half a turn. Brake a little at the top of your orbit and watch the dashed path swing round toward the gate as your low point drops. Ash crosses your orbit soon, so don't wait around.",
-      "objective": "Whip round Kern and fly through the gate.",
+      "intro": "Kern is a neutron star: no bigger than a moon, but so dense that close in it pulls far harder than any planet. Inside the dashed ring (about 90 k) no orbit is stable, and a pass that dips in there whips you round much further than half a turn. Brake a little at the top of your orbit and watch the dashed path swing round toward the gate as your low point drops; Ash crosses your orbit soon, so don't wait around. Kern Watch comes up behind you at the gate, much faster than you: burn toward its marker as it closes and match its speed.",
+      "objective": "Whirl round Kern through the gate, then rendezvous with Kern Watch (within 12 k, relative speed under 0.5 k/s).",
       "teaches": "Neutron stars · whirling round",
       "bodies": [
         {
@@ -6478,6 +6624,20 @@
             "a": 480,
             "phase": -2.35
           }
+        },
+        {
+          "id": "watch",
+          "name": "Kern Watch",
+          "gm": 0,
+          "radius": 3,
+          "color": "#e6e6f0",
+          "kind": "station",
+          "orbit": {
+            "parent": "kern",
+            "a": 900,
+            "n": 0.007662835249042145,
+            "phase": -3.933504144651005
+          }
         }
       ],
       "ship": {
@@ -6493,8 +6653,8 @@
         "stages": [
           {
             "dryMass": 1,
-            "fuel": 0.17351087099181028,
-            "thrust": 1.1735108709918103,
+            "fuel": 0.6820276496988864,
+            "thrust": 1.6820276496988864,
             "ve": 10
           }
         ],
@@ -6511,11 +6671,17 @@
           "type": "reach",
           "x": 366,
           "y": -822,
-          "r": 180,
+          "r": 45,
           "label": "the gate"
+        },
+        {
+          "type": "rendezvous",
+          "body": "watch",
+          "dist": 12,
+          "relVel": 0.5
         }
       ],
-      "par": 1,
+      "par": 4.4,
       "bounds": 4000,
       "tMax": 900,
       "predict": 400,
@@ -6528,22 +6694,22 @@
     {
       "id": "needledive",
       "name": "Needle Dive",
-      "intro": "You are parked in a geostationary orbit over Tor's far side, and the pulsar Spindle turns once in Tor's day, so its beams and its moon Wisp are in the same place on every lap: any lap will do. Leave as you swing round toward Spindle, a little before Tor's inner side, burning forward until the dashed path dives at Spindle, then trim its low point to between 70 and 85 k up. Watch the bottom of the path: dive too deep and it glows where you whirl round into a second beam, and it marks where you would cross Wisp's red zone. Burn prograde at the very bottom, where a little fuel goes a long way.",
-      "objective": "Pass within 100 k of Spindle, then get 1800 k away from it, taking under 8 Sv of radiation.",
-      "teaches": "Beams in step with your lap · dive between sweeps",
+      "intro": "You are parked in a geostationary orbit over Tor's far side, and the pulsar Spindle turns once in Tor's day, so its beams and its moon Wisp are in the same place on every lap: any lap will do. Leave a little before Tor's inner side, burning forward until the dashed path dives at Spindle. On the way down, brake until the plunge probe's release preview spirals into Spindle, and keep braking until that preview no longer glows: a slow plunge meets a beam at the bottom, a fast one beats it. Drop it (E), then burn prograde to lift your own low point back up, into the narrow band where your path neither glows with the deep beam nor marks Wisp's red zone, and burn prograde at the very bottom to get away.",
+      "objective": "Pass within 64.8 k of Spindle and drop the probe into it (the probe may take 1 Sv), then get 1800 k away, taking under 5 Sv yourself.",
+      "teaches": "Drop in, pull out · dive between sweeps",
       "bodies": [
         {
           "id": "spindle",
           "name": "Spindle",
           "gm": 40000,
-          "radius": 10,
+          "radius": 26,
           "pw": 25,
           "color": "#e4dcff",
           "kind": "pulsar",
           "radiation": {
             "rate": 0.3,
             "at": 300,
-            "dose": 8,
+            "dose": 5,
             "beam": {
               "width": 0.3,
               "period": 82.28334350977298,
@@ -6557,7 +6723,7 @@
           "gm": 20,
           "radius": 8,
           "color": "#9fe0f0",
-          "keepOut": 25,
+          "keepOut": 44,
           "orbit": {
             "parent": "spindle",
             "a": 213.4,
@@ -6591,12 +6757,19 @@
         "stages": [
           {
             "dryMass": 1,
-            "fuel": 1.1170000166126748,
-            "thrust": 4.23400003322535,
+            "fuel": 1.0757770551659418,
+            "thrust": 4.5515541103318835,
             "ve": 10
           }
         ],
-        "cargo": [],
+        "cargo": [
+          {
+            "id": "probe",
+            "name": "Plunge probe",
+            "mass": 0.2,
+            "dose": 1
+          }
+        ],
         "rcs": {
           "fuel": 60,
           "accel": 1.2,
@@ -6608,8 +6781,14 @@
         {
           "type": "reach",
           "body": "spindle",
-          "r": 100,
+          "r": 64.8,
           "label": "Needle's eye"
+        },
+        {
+          "type": "hit",
+          "body": "spindle",
+          "craft": "probe",
+          "label": "Probe into Spindle"
         },
         {
           "type": "escape",
@@ -6617,7 +6796,7 @@
           "r": 1800
         }
       ],
-      "par": 4.6,
+      "par": 6.1,
       "bounds": 6000,
       "tMax": 1100,
       "predict": 300,
@@ -6631,8 +6810,8 @@
     {
       "id": "slingdrop",
       "name": "Slingshot Drop",
-      "intro": "You are diving past the pulsar Vigil far too fast to stay, carrying a relay probe for deep space. The probe is shielded while it is aboard but takes only 1 Sv once you let it go, and at the bottom of the pass a beam crossing is far more than that: watch the beam sweep toward your path and ride through it with the probe aboard. Release it (E) just after, while you are still deep, then brake until your dashed path stays well inside the ring round Vigil, so Vigil holds on to you while the probe flies on.",
-      "objective": "Send the probe 1100 k from Vigil, then stay within 900 k of Vigil for 40 s, taking under 7 Sv yourself.",
+      "intro": "You are diving past the pulsar Vigil far too fast to stay, carrying a relay probe for deep space. The probe is shielded while it is aboard but takes only 1 Sv once you let it go, and at the bottom of the pass a beam crossing is far more than that: ride through the beam with the probe aboard and release it (E) just after. Then brake at once, deep down where it is cheap, until your dashed path tops out on Vigil Station's ring. The station comes up behind you at the top: match its speed and close in before the next sweeps add up, and watch your fuel.",
+      "objective": "Send the probe 1100 k from Vigil, then rendezvous with Vigil Station (within 10 k, relative speed under 0.3 k/s), taking under 5.63 Sv yourself.",
       "teaches": "Release at the bottom, out of the beam",
       "bodies": [
         {
@@ -6646,12 +6825,26 @@
           "radiation": {
             "rate": 0.3,
             "at": 300,
-            "dose": 7,
+            "dose": 5.63,
             "beam": {
               "width": 0.3,
               "period": 80,
               "phase": 5.502
             }
+          }
+        },
+        {
+          "id": "watch2",
+          "name": "Vigil Station",
+          "gm": 0,
+          "radius": 3,
+          "color": "#e6e6f0",
+          "kind": "station",
+          "orbit": {
+            "parent": "vigil",
+            "a": 460,
+            "n": 0.02143689214345549,
+            "phase": -4.703980439366491
           }
         }
       ],
@@ -6668,8 +6861,8 @@
         "stages": [
           {
             "dryMass": 1,
-            "fuel": 0.20821304519017234,
-            "thrust": 4.224639135570516,
+            "fuel": 0.9953062463974313,
+            "thrust": 6.585918739192294,
             "ve": 10
           }
         ],
@@ -6697,15 +6890,13 @@
           "label": "Deep space"
         },
         {
-          "type": "hold",
-          "body": "vigil",
-          "r": 900,
-          "hold": 40,
-          "relVel": 40,
-          "label": "Vigil"
+          "type": "rendezvous",
+          "body": "watch2",
+          "dist": 10,
+          "relVel": 0.3
         }
       ],
-      "par": 1,
+      "par": 5.8,
       "bounds": 5000,
       "tMax": 600,
       "predict": 300,
@@ -6719,8 +6910,8 @@
     {
       "id": "retrowhirl",
       "name": "Retro Whirl",
-      "intro": "Vesper Station circles Halo clockwise, the other way round from you, and flipping your orbit round on the spot would take far more than your tank. The pulsar Lumen spins once for each lap you make round Halo, so its beams point the same way on every lap. Leave a little before Halo's inner side, burning forward until the dashed path dives at Lumen, and trim its low point to about 70 k, just inside the dashed unstable ring: the whirl throws you back out toward Halo. On the climb, steer until the path swings round Halo's far side, nudge that pass to about 80 k up, and brake there into Vesper's direction.",
-      "objective": "Orbit Halo clockwise, the way Vesper goes, between 28 and 158 k up, taking under 9 Sv of radiation.",
+      "intro": "Vesper Station circles Halo clockwise, the other way round from you, and flipping your orbit round on the spot would take far more than your tank. The pulsar Lumen spins once for each lap you make round Halo, so its beams point the same way on every lap. Leave a little before Halo's inner side, burning forward until the dashed path dives at Lumen, and trim its low point to about 70 k, just inside the dashed unstable ring: the whirl throws you back out toward Halo. On the climb, steer until the path swings round Halo's far side about 100 k up, brake there into Vesper's direction, and meet Vesper as it comes up behind you. A sloppy whirl leaves Vesper far off, and chasing it round Halo is expensive.",
+      "objective": "Orbit Halo clockwise, the way Vesper goes, between 28 and 158 k up, then rendezvous with Vesper (within 12 k, relative speed under 0.5 k/s), taking under 6.9 Sv of radiation.",
       "teaches": "Whirl round to turn round",
       "bodies": [
         {
@@ -6734,7 +6925,7 @@
           "radiation": {
             "rate": 0.3,
             "at": 300,
-            "dose": 9,
+            "dose": 6.9,
             "beam": {
               "width": 0.3,
               "period": 65.8,
@@ -6763,8 +6954,8 @@
           "kind": "station",
           "orbit": {
             "parent": "halo",
-            "a": 75,
-            "phase": 0,
+            "a": 92,
+            "phase": -24.14317822301708,
             "dir": -1
           }
         }
@@ -6781,8 +6972,8 @@
         "stages": [
           {
             "dryMass": 1,
-            "fuel": 1.8576511180631639,
-            "thrust": 2.857651118063164,
+            "fuel": 1.9446795510655237,
+            "thrust": 2.9446795510655237,
             "ve": 10
           }
         ],
@@ -6801,11 +6992,17 @@
           "rMin": 50,
           "rMax": 180,
           "dir": -1
+        },
+        {
+          "type": "rendezvous",
+          "body": "vesper",
+          "dist": 12,
+          "relVel": 0.5
         }
       ],
-      "par": 7.2,
+      "par": 9.8,
       "bounds": 6000,
-      "tMax": 900,
+      "tMax": 1200,
       "predict": 400,
       "view": {
         "x": 300,
@@ -6817,9 +7014,9 @@
     {
       "id": "horizonfence",
       "name": "Horizon Fence",
-      "intro": "You are falling past the black hole Gorge on a line its fence posts were put there to stop: hold course and you fly into a red zone. The gate lies back the way you came, so you need a tighter line that whirls you round, inside the fence, not a wider one outside it. Turn your nose toward Gorge with the side thrusters (you have enough for one careful turn, with a little to spare) and nudge your pass in, but the hot disc round the hole is pouring out radiation, so the deeper you go the more you take.",
-      "objective": "Whirl round Gorge and fly through the gate on 2.4 s of side thrusters, taking under 4 Sv of radiation.",
-      "teaches": "Thread inside the fence",
+      "intro": "You are falling past the black hole Gorge on a line its fence posts were put there to stop: hold course and you fly into a red zone. Your horizon sonde has to fall in, and you have to whirl round inside the fence and out through the gate. Turn your nose toward Gorge (straight up the screen) with the side thrusters and burn until the sonde's release preview falls through the horizon, drop it (E), then turn back the other way and burn until your dashed path swings out through the gate. Every turn costs side-thruster propellant, and the hot disc round the hole doses you the deeper your line.",
+      "objective": "Drop the sonde through Gorge's horizon, then whirl round and fly through the gate (30 k), on 3.6 s of side thrusters, taking under 2.42 Sv of radiation.",
+      "teaches": "Drop in, thread inside the fence",
       "bodies": [
         {
           "id": "gorge",
@@ -6833,7 +7030,7 @@
           "radiation": {
             "rate": 0.03,
             "at": 300,
-            "dose": 4
+            "dose": 2.42
           }
         },
         {
@@ -6883,14 +7080,20 @@
         "stages": [
           {
             "dryMass": 1,
-            "fuel": 0.19721736312181015,
-            "thrust": 1.1972173631218102,
+            "fuel": 0.5560699406465477,
+            "thrust": 1.6060699406465477,
             "ve": 10
           }
         ],
-        "cargo": [],
+        "cargo": [
+          {
+            "id": "sonde",
+            "name": "Horizon sonde",
+            "mass": 0.05
+          }
+        ],
         "rcs": {
-          "fuel": 2.4,
+          "fuel": 3.6,
           "accel": 1.2,
           "maxRate": 1.6
         },
@@ -6898,14 +7101,20 @@
       },
       "goals": [
         {
+          "type": "hit",
+          "body": "gorge",
+          "craft": "sonde",
+          "label": "Sonde into Gorge"
+        },
+        {
           "type": "reach",
           "x": 1126,
           "y": 419,
-          "r": 160,
+          "r": 30,
           "label": "the gate"
         }
       ],
-      "par": 1.2,
+      "par": 4.1,
       "bounds": 5000,
       "tMax": 250,
       "predict": 250,
@@ -6919,9 +7128,9 @@
     {
       "id": "pulsarbinary",
       "name": "Binary",
-      "intro": "The black hole Abyss and the pulsar Tock circle each other, and you are caught between them: Tock's pull is already twisting your orbit round Abyss, and every lap here adds to your dose as its beams sweep past. Your tank cannot climb out of this well alone. Burn prograde at your low point to throw your high point out to Tock's orbit just as Tock swings by ahead of you, and it drags you along and flings you out of the system; on the wrong lap you meet Tock head on, or not at all. As you burn, watch the dashed path: stop once it bends round Tock and heads out.",
-      "objective": "Get 1500 k from Abyss, taking under 6 Sv of radiation.",
-      "teaches": "Slingshot off a moving pulsar",
+      "intro": "The black hole Abyss and the pulsar Tock circle each other, and you are caught between them: Tock's pull is already twisting your orbit round Abyss, and every lap here adds to your dose as its beams sweep past. Your tank cannot climb out of this well alone. Burn prograde at your low point to throw your high point out to Tock's orbit just ahead of Tock: it drags you along, 120° ahead of it, where you hang almost still beside the marker before it flings you out. As you burn, watch the dashed path: stop when it slows to a near halt at the marker. Burn too little or too much and you sweep past it.",
+      "objective": "Hang in Tock's wake (within 60 k of the marker, moving with it to within 0.8 k/s) for 10 s, then get 1500 k from Abyss, taking under 6 Sv of radiation.",
+      "teaches": "Ride a moving pulsar, then slingshot",
       "bodies": [
         {
           "id": "abyss",
@@ -6987,6 +7196,18 @@
       },
       "goals": [
         {
+          "type": "hold",
+          "lagrange": {
+            "body": "tock",
+            "lead": 2.12,
+            "scale": 0.975
+          },
+          "r": 60,
+          "relVel": 0.8,
+          "hold": 10,
+          "label": "Tock's wake"
+        },
+        {
           "type": "escape",
           "body": "abyss",
           "r": 1500
@@ -7007,9 +7228,9 @@
     {
       "id": "darkconst",
       "name": "Dark Constellation",
-      "intro": "Three relay satellites for Nyx, to be spread evenly round it, and each one soaks up Calor's heat from the moment it leaves your hold: a satellite can take only 22 Sv. The long phasing laps that work at Terra, a third slower each, leave Sat 1 out in the heat far too long. Phase the other way: round off about 95 k up, drop a satellite (E), and brake until your low point is about 20 k up, a lap a third shorter. Back at the high point, round off again and drop the next; the spacing readout should show about 120°.",
-      "objective": "Spread three satellites at least 100° apart in orbits between 70 and 120 k above Nyx, each taking under 22 Sv of radiation.",
-      "teaches": "Quick phasing laps · cargo dose",
+      "intro": "Four parts, one tank. First the Shade relay: it must sit at Nyx's L2, the point behind Nyx where its shadow always falls. Leave your parking orbit when the L2 marker is about a third of a turn behind you, burn until the closest approach marker touches it, stop there and drop the relay (E) with the engine off. Then a small brake drops you back towards Nyx. Each satellite soaks up Calor's heat from the moment it leaves your hold, so phase on quick laps: round off about 75 k up, drop Sat 1, brake until your low point is about 20 k up (a lap a third shorter), and round off at the high point to drop the next. Watch the spacing readout.",
+      "objective": "Hold the Shade relay within 10 k of Nyx's L2 (relative speed under 0.28 k/s) for 10 s, then spread three satellites at least 113° apart in orbits 60 to 92 k above Nyx, each taking under 10.5 Sv, and you under 30.6 Sv.",
+      "teaches": "L2 drop · quick phasing laps · cargo dose",
       "bodies": [
         {
           "id": "calor",
@@ -7021,14 +7242,14 @@
           "radiation": {
             "rate": 0.12,
             "at": 1200,
-            "dose": 60
+            "dose": 30.6
           }
         },
         {
           "id": "nyx",
           "name": "Nyx",
           "gm": 20000,
-          "radius": 70,
+          "radius": 40,
           "color": "#5a6b8c",
           "orbit": {
             "parent": "calor",
@@ -7049,29 +7270,34 @@
         "stages": [
           {
             "dryMass": 1,
-            "fuel": 4.270874668190792,
-            "thrust": 5.870874668190792,
+            "fuel": 13.808047785234221,
+            "thrust": 15.608047785234222,
             "ve": 10
           }
         ],
         "cargo": [
           {
+            "id": "relay",
+            "name": "Shade relay",
+            "mass": 0.2
+          },
+          {
             "id": "d1",
             "name": "Sat 1",
             "mass": 0.2,
-            "dose": 22
+            "dose": 10.5
           },
           {
             "id": "d2",
             "name": "Sat 2",
             "mass": 0.2,
-            "dose": 22
+            "dose": 10.5
           },
           {
             "id": "d3",
             "name": "Sat 3",
             "mass": 0.2,
-            "dose": 22
+            "dose": 10.5
           }
         ],
         "rcs": {
@@ -7083,6 +7309,33 @@
       },
       "goals": [
         {
+          "type": "hold",
+          "craft": "relay",
+          "lagrange": {
+            "body": "nyx",
+            "lead": 0,
+            "scale": 1.43808
+          },
+          "r": 10,
+          "relVel": 0.28,
+          "hold": 10,
+          "label": "Nyx L2"
+        },
+        {
+          "type": "orbit",
+          "craft": "d1",
+          "body": "nyx",
+          "rMin": 100,
+          "rMax": 132
+        },
+        {
+          "type": "orbit",
+          "craft": "d2",
+          "body": "nyx",
+          "rMin": 100,
+          "rMax": 132
+        },
+        {
           "type": "spread",
           "body": "nyx",
           "crafts": [
@@ -7090,26 +7343,26 @@
             "d2",
             "d3"
           ],
-          "rMin": 140,
-          "rMax": 190,
-          "minSep": 1.7453292519943295
+          "rMin": 100,
+          "rMax": 132,
+          "minSep": 1.9722220547535922
         }
       ],
-      "par": 9.3,
+      "par": 20.5,
       "bounds": 4000,
-      "tMax": 400,
-      "predict": 200,
+      "tMax": 810,
+      "predict": 400,
       "view": {
-        "x": 1000,
+        "x": 1300,
         "y": 0,
-        "span": 700
+        "span": 1000
       }
     },
     {
       "id": "stageddive",
       "name": "Staged Dive",
-      "intro": "Your orbit has sagged deep into Cinder's heat, and every lap crosses Watch Station's ring: a spent stage left on any orbit that reaches the ring hits the station sooner or later. So each stage has to go where it can't come back. Burn the dive stage retrograde until it runs dry: your path now ends inside Cinder, so drop it there. Then burn prograde until the low point readout shows 5 to 25 k up, and as you reach the low point burn the kick stage dry: you are escaping, so it flies away for good.",
-      "objective": "Get 2400 k from Cinder, taking under 14 Sv of radiation, with no spent stage left on an orbit that crosses Watch Station's.",
+      "intro": "Your orbit has sagged deep into Cinder's heat, and every lap crosses Watch Station's ring: a spent stage left on any orbit that reaches the ring hits the station sooner or later. So each stage has to go where it can't come back. Burn the dive stage retrograde until it runs dry: your path now ends inside Cinder, so drop it there. Then burn prograde until your low point just clears the surface, 1 to 3 k up: that skims the corona, and the kick stage has barely enough to escape, and only from that deep. As you reach the low point burn it dry and drop it: you are escaping, so it flies away for good. The capsule finishes the climb.",
+      "objective": "Deorbit the dive stage into Cinder, skim within 3 k of its surface, send the kick stage 550 k out and get the capsule 2350 k from Cinder, taking under 9.4 Sv, with no spent stage on an orbit that crosses Watch Station's.",
       "teaches": "Disposal dives · staging at the bottom",
       "bodies": [
         {
@@ -7122,7 +7375,7 @@
           "radiation": {
             "rate": 0.3,
             "at": 100,
-            "dose": 14
+            "dose": 9.4
           }
         },
         {
@@ -7154,27 +7407,29 @@
         "heading": "retrograde",
         "stages": [
           {
+            "id": "dive",
             "name": "Dive stage",
             "sprite": "booster",
             "dryMass": 1,
-            "fuel": 0.9970458716413176,
-            "thrust": 5.607363041632958,
+            "fuel": 0.826661728461879,
+            "thrust": 4.649126540666445,
             "ve": 10
           },
           {
+            "id": "kick",
             "name": "Kick stage",
             "sprite": "booster",
             "dryMass": 1,
-            "fuel": 1.0849643454997562,
-            "thrust": 4.0136349945792205,
+            "fuel": 0.5828766916688455,
+            "thrust": 3.0714155831402383,
             "ve": 10
           },
           {
             "name": "Capsule",
             "sprite": "satellite",
             "dryMass": 0.4,
-            "fuel": 0.190792317553057,
-            "thrust": 0.5907923175530571,
+            "fuel": 0.06473369709131323,
+            "thrust": 0.46473369709131324,
             "ve": 10
           }
         ],
@@ -7188,12 +7443,30 @@
       },
       "goals": [
         {
+          "type": "hit",
+          "body": "cinder",
+          "craft": "dive",
+          "deorbit": true
+        },
+        {
+          "type": "reach",
+          "body": "cinder",
+          "r": 53,
+          "label": "the corona (3 k up)"
+        },
+        {
+          "type": "escape",
+          "body": "cinder",
+          "craft": "kick",
+          "r": 550
+        },
+        {
           "type": "escape",
           "body": "cinder",
           "r": 2400
         }
       ],
-      "par": 8.2,
+      "par": 6.6,
       "bounds": 5000,
       "tMax": 600,
       "predict": 300,
@@ -7206,9 +7479,9 @@
     {
       "id": "sentrypulsar",
       "name": "Sentry Pulsar",
-      "intro": "You are riding Argus's dark lane: at this height you go round exactly as fast as its beams sweep, so they never touch you. Climb out and they start to catch up, and a sweep anywhere closer than Tyche is brutal: the path glows where it would hit. So wait here, in the dark, until Tyche is a little less than a quarter turn ahead of you and Kore's zone and the Sentries are clear of the half lap you will fly. Then burn until the closest approach marker touches Tyche (no KEEP OUT on your path) and brake into orbit when you get there.",
-      "objective": "Orbit Tyche between 16 and 76 k up, taking under 12 Sv of radiation, without entering a Sentry's or Kore's keep-out zone.",
-      "teaches": "The dark lane · launch windows",
+      "intro": "Out and back through Argus's patrols. You start in the dark lane, where you go round as fast as the beams sweep, so they never touch you. Wait there until Tyche is a little less than a quarter turn ahead and Kore and the Sentries are clear of your half lap, burn until the closest approach marker touches Tyche and brake into orbit. Tyche keeps one face to Argus: drop the lander on the night side zone (brake until your path ends in it, then lift your low point again). Out here every sweep costs you, so go home soon after: leave as you swing backwards round Tyche, trim your low point onto the lane on the way down and round off between the beams.",
+      "objective": "Orbit Tyche 16 to 73 k up, land the lander in Tyche's night side zone, then orbit Argus 228 to 244 k up for 10 s, taking under 19 Sv, without entering a Sentry's or Kore's keep-out zone.",
+      "teaches": "Out and back · the dark lane twice",
       "bodies": [
         {
           "id": "argus",
@@ -7218,11 +7491,11 @@
           "color": "#e4dcff",
           "kind": "pulsar",
           "radiation": {
-            "rate": 3,
+            "rate": 1,
             "at": 250,
-            "dose": 12,
+            "dose": 19,
             "beam": {
-              "width": 0.3,
+              "width": 0.9,
               "period": 120,
               "phase": 3.979
             }
@@ -7289,6 +7562,7 @@
           "gm": 800,
           "radius": 14,
           "color": "#9fe0f0",
+          "spin": 0.01045517573207057,
           "orbit": {
             "parent": "argus",
             "a": 720,
@@ -7308,12 +7582,19 @@
         "stages": [
           {
             "dryMass": 1,
-            "fuel": 1.1382762204968184,
-            "thrust": 2.1382762204968184,
+            "fuel": 3.929447714656376,
+            "thrust": 5.029447714656376,
             "ve": 10
           }
         ],
-        "cargo": [],
+        "cargo": [
+          {
+            "id": "probe",
+            "name": "Lander",
+            "mass": 0.1,
+            "dose": 1
+          }
+        ],
         "rcs": {
           "fuel": 60,
           "accel": 1.2,
@@ -7326,12 +7607,29 @@
           "type": "orbit",
           "body": "tyche",
           "rMin": 30,
-          "rMax": 90
+          "rMax": 87
+        },
+        {
+          "type": "hit",
+          "body": "tyche",
+          "craft": "probe",
+          "site": {
+            "angle": 3.795,
+            "width": 0.45
+          },
+          "label": "Night side"
+        },
+        {
+          "type": "orbit",
+          "body": "argus",
+          "rMin": 236,
+          "rMax": 252,
+          "confirm": 10
         }
       ],
-      "par": 5.4,
+      "par": 14.5,
       "bounds": 3000,
-      "tMax": 950,
+      "tMax": 880,
       "predict": 300,
       "view": {
         "x": 0,
@@ -7342,9 +7640,9 @@
     {
       "id": "pulsarsupply",
       "name": "Pulsar Supply Run",
-      "intro": "Supply Run again, this time around a pulsar. Orrin Base needs its supply pod, but Orrin goes round backwards, so it comes at you head-on and its keep-out zone closes fast. Climb until your path meets Orrin, and turn round on the way up (there is no time to turn after the drop, and side thruster fuel is short); a tap of the engine keeps the path on Orrin. The pod can take only 0.25 Sv, less than one sweep: watch Talon's beam and time the climb so a sweep passes you on the way up, drop the pod (E) just after it, and brake at once to bring your high point under the zone.",
-      "objective": "Land the supply pod on Orrin, then orbit Talon between 192 and 502 k up, without entering Orrin's keep-out zone.",
-      "teaches": "Drop between sweeps · turn before the drop",
+      "intro": "Supply Run, around a pulsar. Orrin goes round backwards, so it comes at you head-on and its keep-out zone closes fast. Climb until your path meets Orrin, turn round on the way up (side thruster fuel is short), drop the pod (E) just after a sweep passes, and brake at once to bring your high point under the zone. At the high point match Hollow Dock's orbit and close in gently. Then drop to Talon's dark lane, where the beams keep pace with you: leave the dock just after a sweep so you arrive between the beams, and round off at the low point.",
+      "objective": "Land the supply pod on Orrin, rendezvous with Hollow Dock (within 12 k, relative speed under 0.5 k/s), then orbit Talon 166 to 196 k up for 15 s, without entering Orrin's keep-out zone.",
+      "teaches": "Drop between sweeps · dock · the dark lane",
       "bodies": [
         {
           "id": "talon",
@@ -7375,7 +7673,21 @@
             "parent": "talon",
             "a": 560,
             "phase": 2.5,
-            "dir": -1
+            "dir": -1,
+            "reflex": false
+          }
+        },
+        {
+          "id": "dock",
+          "name": "Hollow Dock",
+          "gm": 0,
+          "radius": 4,
+          "color": "#e6e6f0",
+          "kind": "station",
+          "orbit": {
+            "parent": "talon",
+            "a": 470,
+            "phase": 2.84
           }
         }
       ],
@@ -7391,8 +7703,8 @@
         "stages": [
           {
             "dryMass": 1,
-            "fuel": 1.1654251430964369,
-            "thrust": 2.4654251430964367,
+            "fuel": 4.526195791439484,
+            "thrust": 5.826195791439484,
             "ve": 10
           }
         ],
@@ -7405,7 +7717,7 @@
           }
         ],
         "rcs": {
-          "fuel": 3.6,
+          "fuel": 12,
           "accel": 1.2,
           "maxRate": 1.6
         },
@@ -7418,15 +7730,22 @@
           "craft": "pod"
         },
         {
+          "type": "rendezvous",
+          "body": "dock",
+          "dist": 12,
+          "relVel": 0.5
+        },
+        {
           "type": "orbit",
           "body": "talon",
-          "rMin": 200,
-          "rMax": 510
+          "rMin": 174,
+          "rMax": 204,
+          "confirm": 15
         }
       ],
-      "par": 4.5,
+      "par": 13.5,
       "bounds": 3000,
-      "tMax": 400,
+      "tMax": 620,
       "predict": 300,
       "view": {
         "x": 0,
@@ -7437,9 +7756,9 @@
     {
       "id": "beamrescue",
       "name": "Rescue in the Beam",
-      "intro": "Wren is drifting dead just ahead of you, and Vesper's beams sweep this orbit every 50 s: each sweep costs nearly 3 Sv, and you can take only 10. Close in gently and match Wren's speed, but don't stay. Umbriel is up ahead: right after the match, nudge your path onto the L2 marker beyond it (watch the closest approach marker) and let Umbriel's pull fling you up there, then brake onto L2, in its shadow, the one place the beams never reach.",
-      "objective": "Rendezvous with Wren (within 20 k, relative speed under 1 k/s), then hold within 25 k of Umbriel's L2 for 10 s, taking under 10 Sv of radiation.",
-      "teaches": "Rendezvous between sweeps · shelter at L2",
+      "intro": "Wren is drifting dead just ahead of you, and Vesper's beams sweep this orbit every 50 s: each sweep near Wren is costly. Close in gently, match Wren's speed and don't stay. Nudge your path onto the L2 marker beyond Umbriel (watch the closest approach marker), brake onto it and stop dead: L2 is in Umbriel's shadow, but it doesn't hold you, so a sloppy stop drifts you out into the beams. When the hold is done, wait for a sweep to pass, then burn prograde and climb out of the system.",
+      "objective": "Rendezvous with Wren (within 15 k, relative speed under 0.6 k/s), hold within 10 k of Umbriel's L2 (relative speed under 0.21 k/s) for 20 s, then get 1600 k from Vesper, taking under 10.8 Sv.",
+      "teaches": "Rendezvous between sweeps · hold at L2 · out",
       "bodies": [
         {
           "id": "vesper",
@@ -7449,9 +7768,9 @@
           "color": "#e4dcff",
           "kind": "pulsar",
           "radiation": {
-            "rate": 0.6,
+            "rate": 0.8,
             "at": 400,
-            "dose": 10,
+            "dose": 10.8,
             "beam": {
               "width": 0.35,
               "period": 100,
@@ -7501,8 +7820,8 @@
         "stages": [
           {
             "dryMass": 1,
-            "fuel": 1.4596031111569499,
-            "thrust": 2.45960311115695,
+            "fuel": 1.6644562419294173,
+            "thrust": 2.6644562419294173,
             "ve": 10
           }
         ],
@@ -7518,8 +7837,8 @@
         {
           "type": "rendezvous",
           "body": "wren",
-          "dist": 20,
-          "relVel": 1
+          "dist": 15,
+          "relVel": 0.6
         },
         {
           "type": "hold",
@@ -7528,14 +7847,20 @@
             "lead": 0,
             "scale": 1.24721
           },
-          "r": 25,
-          "hold": 10,
+          "r": 10,
+          "relVel": 0.21,
+          "hold": 20,
           "label": "Umbriel L2"
+        },
+        {
+          "type": "escape",
+          "body": "vesper",
+          "r": 1608
         }
       ],
-      "par": 6.2,
+      "par": 9.4,
       "bounds": 3000,
-      "tMax": 450,
+      "tMax": 780,
       "predict": 300,
       "view": {
         "x": 0,
@@ -7546,15 +7871,15 @@
     {
       "id": "pulsartour",
       "name": "Pulsar Tour",
-      "intro": "The grand tour of Lumen. You are falling in far too deep, and a spent booster left on any orbit that reaches Beacon's ring hits it sooner or later. So use the booster now, while you are still on an escape path: push out and a little forward, halfway between prograde and straight out, until it runs dry. Your low point rises to the dark lane, about 235 k up, where you go round as fast as the beams sweep; drop the booster (the stage button) and it flies away for good. Just before the low point brake with the capsule until your path meets Ossa head-on (watch the closest approach marker), release Lark (E), and keep braking until your orbit is round, inside the band, with no glow on your path.",
-      "objective": "Land the Lark probe on Ossa, then orbit Lumen between 222 and 254 k up for 15 s, taking under 8 Sv of radiation, with no spent stage on an orbit that crosses Beacon's.",
+      "intro": "The grand tour of Lumen. You are falling in far too deep, and a spent booster left on any orbit that reaches Beacon's ring hits it sooner or later. So use the booster now, while you are still on an escape path: push out and a little forward, halfway between prograde and straight out, until it runs dry. Your low point rises to the dark lane, about 238 k up, where you go round as fast as the beams sweep; drop the booster (the stage button) and it flies away for good. Just before the low point brake with the capsule until your path meets Ossa head-on (watch the closest approach marker), release Lark (E), and keep braking until your orbit is round inside the narrow band, with no glow on your path.",
+      "objective": "Send the spent booster 900 k from Lumen, land the Lark probe on Ossa, then orbit Lumen 232 to 244 k up for 15 s, taking under 8 Sv, with no spent stage on an orbit that crosses Beacon's.",
       "teaches": "Everything at once",
       "bodies": [
         {
           "id": "lumen",
           "name": "Lumen",
           "gm": 40000,
-          "radius": 8,
+          "radius": 7.5,
           "color": "#e4dcff",
           "kind": "pulsar",
           "radiation": {
@@ -7611,19 +7936,20 @@
         "heading": "prograde",
         "stages": [
           {
+            "id": "booster",
             "name": "Booster",
             "sprite": "booster",
             "dryMass": 1,
-            "fuel": 1.1201002616415259,
-            "thrust": 5.186013914655687,
+            "fuel": 0.8765972137870255,
+            "thrust": 4.058605737298564,
             "ve": 10
           },
           {
             "name": "Capsule",
             "sprite": "satellite",
             "dryMass": 0.4,
-            "fuel": 1.601578000571547,
-            "thrust": 2.2015780005715473,
+            "fuel": 0.9055742339617786,
+            "thrust": 1.5055742339617786,
             "ve": 10
           }
         ],
@@ -7632,17 +7958,23 @@
             "id": "lark",
             "name": "Lark probe",
             "mass": 0.2,
-            "dose": 4
+            "dose": 2.3
           }
         ],
         "rcs": {
-          "fuel": 7.4,
+          "fuel": 5.6,
           "accel": 1.2,
           "maxRate": 1.6
         },
         "canRotate": true
       },
       "goals": [
+        {
+          "type": "escape",
+          "body": "lumen",
+          "craft": "booster",
+          "r": 907.5
+        },
         {
           "type": "hit",
           "body": "ossa",
@@ -7651,8 +7983,8 @@
         {
           "type": "orbit",
           "body": "lumen",
-          "rMin": 230,
-          "rMax": 262,
+          "rMin": 239.5,
+          "rMax": 251.5,
           "confirm": 15
         }
       ],

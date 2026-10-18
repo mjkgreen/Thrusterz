@@ -241,6 +241,23 @@ on mass, so dropping cargo makes the ship nimbler?
 
 ## World 4: Pulsar (built)
 
+**v3 (after the second playtest).** Every mission is multi-part (2 to 4
+goals sharing one tank, side-thruster budget and dose limit), so errors
+accumulate across the parts. Pulsar beams are sprinkled through chapters 2
+to 5 instead of having a chapter of their own. Chapter 3 is now **Shadow
+Lanes**: holding in a planet's L2 shadow, the game's first planets on
+elliptical orbits, and hopping between L2 points when planets line up.
+Every mission sits in the difficulty band of `tools/w4/robust.js`: an
+average player wins 10–35% of tries, a good one ≥ 40%, an expert ≥ 80%.
+Chapters: 1 Sunburn, 2 Shadows and Beams, 3 Shadow Lanes, 4 Deep Gravity,
+5 Grand Missions. Details in `tools/w4/README.md`.
+
+Engine follow-ups the chapter work found: a craft passing inside a strong-
+gravity body's `pw` but outside its radius is flung out instead of falling
+in; `orbit` goals use Newtonian low/high points near `pw` bodies; released
+cargo keeps taking dose after its goals are done; an L2 drift readout on
+the HUD; a sphere of influence from an elliptical planet's current distance.
+
 Radiation and deep gravity, one question: **how close dare you go?** The
 pulsar ties them together: a neutron star is a tiny, extremely dense body with
 a deep gravity well that also sweeps two radiation beams round like a
@@ -251,9 +268,13 @@ lighthouse, so every close pass trades a gravity boost against dose.
 - **Falloff:** `rate` Sv/s at distance `at`, falling with the square of the
   distance (a quarter as strong at twice the distance). Dive in fast or park
   far out; an ellipse spends little time at its hot low point.
-- **Shadows:** any planet, moon or rock on the line to the source blocks it
-  completely. The far side of a moon is a safe harbour; L2 sits in a planet's
-  shadow. Drawn as dark cones with teal edges.
+- **Shadows:** any planet, moon or rock between you and the source shades
+  you. A star is a disc (its radius, or `radiation.size`): behind a body
+  smaller than the star the umbra (no dose) narrows and ends at about
+  d·Rc/(Rs − Rc), inside a penumbra where the dose is the share of the disc
+  still showing. Pulsars are points with sharp, widening shadows. Drawn as
+  a dark umbra (teal edges) inside a lighter penumbra; the HUD says
+  "half-shadow" while you're still taking dose.
 - **Beams:** `beam: { width, period, phase }` makes a pulsar: radiation only
   in two opposite beams sweeping round. A timing puzzle on top of an orbit
   puzzle: go between sweeps, hide during them.
