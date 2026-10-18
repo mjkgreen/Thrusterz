@@ -23,6 +23,8 @@ const HS_N = Math.sqrt(40000 * 900) / (870 * 900), HS_GATE_ANG = Math.atan2(-822
 // Slingshot Drop: Vigil Station's rate at 560 k, and where and when a good
 // capture tops out (it gets there SD_LAG s after you).
 const SD_N = Math.sqrt(40000 * 460) / (435 * 460), SD_ANG = -1.81, SD_T = 125, SD_LAG = 10;
+// Retro Whirl: where and when a good return passes closest to Halo.
+const RW_ANG = 3.0, RW_MEET = 576;
 const TOR_GM = 2000, GEO = 70, TOR_SPIN = Math.sqrt(TOR_GM / (GEO * GEO * GEO));
 
 const levels = [
@@ -95,7 +97,8 @@ const levels = [
     bodies: [
       { id: 'lumen', name: 'Lumen', gm: 40000, radius: 10, pw: 25, color: NEUTRON, kind: 'pulsar', radiation: { rate: 0.3, at: 300, dose: 9, beam: { width: 0.3, period: 65.8, phase: 2.5 } } },
       { id: 'halo', name: 'Halo', gm: 1000, radius: 22, color: C.purple, orbit: { parent: 'lumen', a: 1000, phase: 0 } },
-      { id: 'vesper', name: 'Vesper Station', gm: 0, radius: 3, color: C.station, kind: 'station', orbit: { parent: 'halo', a: 75, phase: 0, dir: -1 } },
+      // Clockwise at 92 k, coming past the bottom of a good whirl's return just after you.
+      { id: 'vesper', name: 'Vesper Station', gm: 0, radius: 3, color: C.station, kind: 'station', orbit: { parent: 'halo', a: 92, phase: -RW_ANG - Math.sqrt(1000 / 92 ** 3) * RW_MEET, dir: -1 } },
     ],
     ship: ship({ start: { orbit: { body: 'halo', r: 48, angle: 0 } }, heading: 'prograde', dv: 10.5, accel: 1 }),
     goals: [
@@ -319,7 +322,8 @@ function encounter(m, id, skip, T) {
     const dt = Phys.coastDt(sys, s, t, 0.01, 1);
     Phys.rk4(sys, s, t, dt, 0, 0);
     t += dt;
-    if (Phys.collision(sys, s.x, s.y, t) >= 0) { if (t > m.t + skip) { sys.posAt(i, t, bp); const d = Math.hypot(s.x - bp[0], s.y - bp[1]); if (d < best) { best = d; sense = 0; ux = (s.x - bp[0]) / d; uy = (s.y - bp[1]) / d; } } break; }
+    const hit = Phys.collision(sys, s.x, s.y, t);
+    if (hit >= 0 && sys.bodies[hit].kind !== 'station') { if (t > m.t + skip) { sys.posAt(i, t, bp); const d = Math.hypot(s.x - bp[0], s.y - bp[1]); if (d < best) { best = d; sense = 0; ux = (s.x - bp[0]) / d; uy = (s.y - bp[1]) / d; } } break; }
     if (t < m.t + skip) continue;
     sys.posAt(i, t, bp);
     const dx = s.x - bp[0], dy = s.y - bp[1], d = Math.hypot(dx, dy);
@@ -346,8 +350,8 @@ proofs.retrowhirl = {
   // prograde) until the dashed path swings round Halo's far side; once
   // within 250 k of Halo, nudge the pass sideways until it is p[5] k from
   // Halo, and at that low point brake until the high point is p[6].
-  p: [1, -11, 68, 386, 0, 100, 140, 0.5, 20, 0.4, 8], scale: [0, 1, 2, 30, 0.3, 3, 5, 0.1, 3, 0.1, 3],
-  tol: [0, 2, 2.7, 30, 0.06, 4, 6, 0.06, 6, 0.1, 4],
+  p: [1, -11, 68, 386, 0, 100, 110, 20, 0.4, 8], scale: [0, 1, 2, 30, 0.3, 3, 5, 3, 0.1, 3],
+  tol: [0, 2, 2.7, 30, 0.06, 4, 6, 6, 0.1, 4],
   script: (p, AP) => [
     { wait: Math.max(0, RW_INNER + Math.round(p[0]) * RW_LAP + p[1]) },
     { burn: 'pro', rel: 'halo', until: (m) => closest(m, 'lumen', 400) <= 150 },
@@ -367,13 +371,11 @@ proofs.retrowhirl = {
     { coast: (m) => dist(m, 'halo') < 150 && radv(m, 'halo') > 0 },
     { burn: 'retro', rel: 'halo', until: (m) => { const o = AP.orb(m, 'halo'); return o.bound && o.ap <= p[6]; } },
     goalDone(1),
-    // Vesper p[7] rad ahead of you round Halo: brake until the low point
-    // touches its orbit, then close in by hand.
-    { coast: (m) => { const d = AP.wrap(AP.shipPhase(m, 'halo') - AP.phase(m, 'vesper', 'halo')); return d >= p[7] && d < p[7] + 0.3; } },
-    { burn: 'retro', rel: 'halo', until: (m) => AP.orb(m, 'halo').pe <= 76 },
-    closing('vesper', p[8]),
+    // Vesper comes past: wait till it is p[7] k off, match it to 0.3 k/s,
+    // then close in by hand (drift at p[8], brake p[9] k out).
+    closing('vesper', p[7]),
     match('vesper', 0.3),
-    ...approach('vesper', p[9], p[10]),
+    ...approach('vesper', p[8], p[9]),
   ],
 };
 

@@ -217,8 +217,8 @@ const CP_KH = l2Scale(CP, 'hale'), CP_KW = l2Scale(CP, 'wend');
 // pass by Pyre; its umbra is thin and the sunlight there is fierce.
 const PH_N = Math.sqrt(40300 / 600 ** 3);
 const PH = [
-  { id: 'pyre', name: 'Pyre', gm: 40000, radius: 50, color: C.sun2, kind: 'star', radiation: { rate: 0.3, at: 550, dose: 7.3 } },
-  { id: 'wend', name: 'Wend', gm: 300, radius: 9, color: C.tan, orbit: { parent: 'pyre', a: 600, e: 0.4, argp: 0, phase: -PH_N * 30 } },
+  { id: 'pyre', name: 'Pyre', gm: 40000, radius: 50, color: C.sun2, kind: 'star', radiation: { rate: 0.06, at: 550, dose: 99 } },
+  { id: 'wend', name: 'Wend', gm: 300, radius: 9, color: C.tan, orbit: { parent: 'pyre', a: 600, e: 0.4, argp: 0, phase: -PH_N * 70 } },
 ];
 const PH_K = l2Scale(PH, 'wend');
 
@@ -253,7 +253,7 @@ const levels = [
     objective: 'TBD',
     teaches: 'Elliptical orbits · L2 at perihelion',
     bodies: PH,
-    ship: ship({ start: nearPoint(PH, 'wend', PH_K, 10, 0, 0, 0), heading: 'retrograde', dv: 4.75, accel: 0.8, rcs: { fuel: 25.6 } }),
+    ship: ship({ start: { orbit: { body: 'wend', r: 22, angle: Math.PI } }, heading: 'prograde', dv: 9, accel: 0.8 }),
     goals: [
       { type: 'hold', lagrange: { body: 'wend', lead: 0, scale: PH_K }, r: 3, relVel: 0.15, hold: 30, label: 'L2' },
       { type: 'orbit', body: 'wend', rMin: 10, rMax: 30, label: 'Low orbit' },
@@ -310,16 +310,20 @@ const proofs = {
     ],
   },
   perihelion: {
-    // Close in on L2 and keep station through perihelion, then push sunward,
-    // fall down the shadow and brake into a low orbit at the bottom.
-    // p: closing speed, distance to start the taps, tap aim error, over,
-    // when to let go, push Δv, low orbit high point, push aim (off 'in').
-    p: [0.4, 4, 0, 0, 120, 1.0, 22, 0], scale: [0.1, 1, 0, 0, 5, 0.1, 1, 0.1], tol: [0.1, 2, 0.1, 0.15, 3, 0.04, 1, 0.06], opts: { turn: true, turnRate: 0.4 },
+    // Climb to L2 before perihelion, keep station through it, then push
+    // sunward, fall down the shadow and brake into a low orbit at the bottom.
+    // p: wait, high point of the climb, closing speed, distance to start the
+    // taps, tap aim error, over, when to let go, push Δv, low orbit high
+    // point, push aim (off 'in').
+    p: [3, 35, 0.6, 6, 0, 0, 150, 1.0, 22, 0], scale: [1, 3, 0.1, 2, 0, 0, 5, 0.1, 1, 0.1], tol: [2, 2, 0.1, 2, 0.1, 0.15, 3, 0.04, 1, 0.06], opts: { turn: true, turnRate: 0.4 },
     script: (p, AP) => [
-      ...approach(0, p[0], p[1], {}, { aim: p[2], over: p[3] }, (m) => m.goalIndex > 0 && m.t >= p[4]),
-      ...held(AP, (m) => AP.aim(m, 'in', 'wend') + p[7], null, (m) => m.dvUsed() >= m._dv0 + p[5]),
+      { wait: p[0] },
+      { burn: 'pro', rel: 'wend', until: (m) => AP.orb(m, 'wend').ap >= p[1] },
+      { coast: (m, c) => { const d = dGoal(m, 0), r = d < 15 || (c.dl != null && d > c.dl); c.dl = d; return r; } },
+      ...approach(0, p[2], p[3], {}, { aim: p[4], over: p[5] }, (m) => m.goalIndex > 0 && m.t >= p[6]),
+      ...held(AP, (m) => AP.aim(m, 'in', 'wend') + p[9], null, (m) => m.dvUsed() >= m._dv0 + p[7]),
       { coast: (m, c) => { const o = AP.orb(m, 'wend'); if (o.r < 40) c.low = true; return c.low && o.rising; } },
-      { burn: 'retro', rel: 'wend', until: (m) => AP.orb(m, 'wend').ap <= p[6] },
+      { burn: 'retro', rel: 'wend', until: (m) => AP.orb(m, 'wend').ap <= p[8] },
     ],
   },
   sweeps: {

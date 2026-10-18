@@ -139,7 +139,7 @@ const levels = [
     ship: ship({ start: { orbit: { body: 'talon', r: 300, angle: 0 } }, heading: 'prograde', dv: 12, accel: 1, rcs: { fuel: 12 }, cargo: [{ id: 'pod', name: 'Supply pod', mass: 0.3, dose: 0.25 }, { id: 'relay', name: 'Lane relay', mass: 0.1, dose: 0.5 }] }),
     goals: [
       { type: 'hit', body: 'orrin', craft: 'pod' },
-      { type: 'rendezvous', body: 'dock', dist: 12, relVel: 0.5 },
+      { type: 'rendezvous', body: 'dock', dist: 15, relVel: 0.5 },
       { type: 'orbit', craft: 'relay', body: 'talon', rMin: 172, rMax: 194, confirm: 10 },
     ],
     par: 8.5, bounds: 3000, tMax: 600, predict: 300, view: { x: 0, y: 0, span: 1500 },
@@ -414,9 +414,10 @@ const goTo = (pt, vmax, k, done, tol) => ({
 // tol (a player's point-and-burn corrections).
 // With `about` (the body both orbit) the target's velocity is turned to
 // where the ship is, so two craft sharing an orbit read as matched.
-const dockTo = (pt, vmax, k, done, tol, about) => ({
+const AP_orbPro = (m, id) => { const b = bodyPt(id)(m); return Math.atan2(m.ship.vy - b.vy, m.ship.vx - b.vx); };
+const dockTo = (pt, vmax, k, done, tol, about, once) => ({
   control: (m, c) => {
-    if (done(m)) return { done: true };
+    if (done(m) || c.fin) return { done: true };
     const q = pt(m), dx = q.x - m.ship.x, dy = q.y - m.ship.y, d = Math.hypot(dx, dy);
     const cl = Math.min(vmax, k * d) / Math.max(d, 1e-9);
     let tvx = q.vx, tvy = q.vy;
@@ -426,13 +427,18 @@ const dockTo = (pt, vmax, k, done, tol, about) => ({
       tvx = b.vx + ux * Math.cos(a) - uy * Math.sin(a); tvy = b.vy + ux * Math.sin(a) + uy * Math.cos(a);
     }
     const ex = tvx + dx * cl - m.ship.vx, ey = tvy + dy * cl - m.ship.vy, e = Math.hypot(ex, ey);
+    if (process.env.DBG) console.log("dock", m.t.toFixed(2), "e", e.toFixed(3), "rel", (Math.atan2(ey, ex) - (about ? AP_orbPro(m, about) : 0)).toFixed(2), "burn", !!c.burn, "ang", m.ship.angle.toFixed(2));
+    // In orbit the heading is kept relative to prograde, so a burn planned
+    // before a slow turn still points the same way when it starts.
+    const pro = about ? AP_orbPro(m, about) : 0;
     if (c.burn) {
-      if (m.dvUsed() - c.d0 >= c.dv || (ex * Math.cos(c.ang) + ey * Math.sin(c.ang)) <= 0) c.burn = false;
-      else return { thrust: true, angle: c.ang };
+      const ang = pro + c.rel;
+      if (m.dvUsed() - c.d0 >= c.dv || (ex * Math.cos(ang) + ey * Math.sin(ang)) <= 0) c.burn = false;
+      else return { thrust: true, angle: ang };
     }
-    if (e < (tol || 0.15)) return { thrust: false, angle: null, dt: 0.1 };
-    c.burn = true; c.ang = Math.atan2(ey, ex); c.dv = e; c.d0 = m.dvUsed();
-    return { thrust: true, angle: c.ang };
+    if (e < (tol || 0.15)) { if (once) c.fin = true; return { thrust: false, angle: null, dt: 0.1 }; }
+    c.burn = true; c.rel = Math.atan2(ey, ex) - pro; c.dv = e; c.d0 = m.dvUsed();
+    return { thrust: true, angle: pro + c.rel };
   },
 });
 // Catch up with a craft sharing your (nearly round) orbit about `about`:
@@ -448,8 +454,7 @@ const phaseTo = (pt, about, near, AP) => [
   { fn: (m, c) => { c.d0 = m.dvUsed(); } },
   { burn: (m) => { const o = AP.orb(m, about); return m._ph && m._ph.dv < 0 ? o.pro : o.pro + Math.PI; }, until: (m, c) => !m._ph || m.dvUsed() - c.d0 >= Math.abs(m._ph.dv) },
   { coast: (m, c) => !m._ph || m.t - c.t0 >= m._ph.T },
-  { fn: (m, c) => { c.d0 = m.dvUsed(); } },
-  { burn: (m) => { const o = AP.orb(m, about); return m._ph && m._ph.dv < 0 ? o.pro + Math.PI : o.pro; }, until: (m, c) => !m._ph || m.dvUsed() - c.d0 >= Math.abs(m._ph.dv) },
+  dockTo(pt, 0, 0, (m) => !m._ph || m.status !== 'flying', 0.1, about, true),
 ];
 const bodyPt = (id) => (m) => { m.sys.update(m.t); const i = m.sys.byId[id].index; return { x: m.sys.px[i], y: m.sys.py[i], vx: m.sys.vx[i], vy: m.sys.vy[i] }; };
 // Burn until the orbit about `id` is circular where you are now.
