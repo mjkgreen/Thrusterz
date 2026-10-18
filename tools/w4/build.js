@@ -9,8 +9,8 @@ const path = require('path');
 
 const CHAPTERS = [
   { file: 'ch1', name: 'Sunburn' },
-  { file: 'ch2', name: 'Shadows' },
-  { file: 'ch3', name: 'Beams' },
+  { file: 'ch2', name: 'Shadows and Beams' },
+  { file: 'ch3', name: 'Shadow Lanes' },
   { file: 'ch4', name: 'Deep Gravity' },
   { file: 'ch5', name: 'Grand Missions' },
 ];
