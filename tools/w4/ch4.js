@@ -350,7 +350,7 @@ proofs.retrowhirl = {
   // prograde) until the dashed path swings round Halo's far side; once
   // within 250 k of Halo, nudge the pass sideways until it is p[5] k from
   // Halo, and at that low point brake until the high point is p[6].
-  p: [1, -11, 68, 386, 0, 100, 110, 20, 0.4, 8], scale: [0, 1, 2, 30, 0.3, 3, 5, 3, 0.1, 3],
+  p: [1, -10.94, 68.46, 370, 0.244, 99.75, 113.6, 20.8, 0.43, 8.1], scale: [0, 1, 2, 30, 0.3, 3, 5, 3, 0.1, 3],
   tol: [0, 2, 2.7, 30, 0.06, 4, 6, 6, 0.1, 4],
   script: (p, AP) => [
     { wait: Math.max(0, RW_INNER + Math.round(p[0]) * RW_LAP + p[1]) },
