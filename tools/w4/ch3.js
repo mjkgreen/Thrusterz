@@ -73,23 +73,47 @@ const hold = (pred) => ({ control: (m, c) => pred(m, c) ? { done: true } : { thr
 
 // Keep station on goal gi's moving point the way a player does: aim at where
 // you think the marker is (off by `off` = [out, ahead] k in the planet's
-// frame), close in at up to vMax, and only fire when the drift is worth a
-// burn (dead band `db` k/s). Runs until pred (or the mission ends).
+// frame), wanting to close in at up to vMax; once the velocity is off by more
+// than the dead band `db` k/s, make one tap: turn to the error (off by `aim`
+// rad), and burn the error's size times (1 + `over`), then coast again.
+// Runs until pred (or the mission ends).
 const park = (gi, opt, pred) => {
-  const o = Object.assign({ k: 0.04, vMax: 0.6, db: 0.08, off: [0, 0] }, opt);
+  const o = Object.assign({ k: 0.04, vMax: 0.5, db: 0.1, off: [0, 0], aim: 0, over: 0 }, opt);
   return { control: (m, c) => {
     if (m.status !== 'flying' || (pred && pred(m, c))) return { done: true };
     const g = m.level.goals[gi], P = m.goalPoint(g), s = m.ship, sys = m.sys;
+    if (c.tap) {
+      if (m.dvUsed() - c.tap.dv0 < c.tap.dv && m.stageSpec && m.stageSpec.fuel > 1e-9) return { thrust: true, angle: c.tap.a, tol: 0.08 };
+      c.tap = null;
+    }
     let ux = 1, uy = 0;
     if (g.lagrange) { const b = sys.byId[g.lagrange.body], i = b.index, p = b.parent; const rx = sys.px[i] - sys.px[p], ry = sys.py[i] - sys.py[p], r = Math.hypot(rx, ry); ux = rx / r; uy = ry / r; }
+    else if (g.body) { const i = sys.byId[g.body].index, p = sys.bodies[i].parent; if (p != null) { const rx = sys.px[i] - sys.px[p], ry = sys.py[i] - sys.py[p], r = Math.hypot(rx, ry); ux = rx / r; uy = ry / r; } }
     const tx = P.x + o.off[0] * ux - o.off[1] * uy, ty = P.y + o.off[0] * uy + o.off[1] * ux;
     const dx = tx - s.x, dy = ty - s.y, d = Math.hypot(dx, dy) || 1;
     const sp = Math.min(o.vMax, o.k * d);
     const ex = P.vx + sp * dx / d - s.vx, ey = P.vy + sp * dy / d - s.vy, e = Math.hypot(ex, ey);
-    if (c.burning ? e < 0.02 : e < o.db) { c.burning = false; return { thrust: false, angle: null, dt: 0.1 }; }
-    c.burning = true;
-    return { thrust: true, angle: Math.atan2(ey, ex), tol: 0.1 };
+    if (e < o.db) return { thrust: false, angle: null, dt: 0.1 };
+    c.tap = { a: Math.atan2(ey, ex) + o.aim, dv: e * (1 + o.over), dv0: m.dvUsed() };
+    return { thrust: false, angle: c.tap.a, dt: 1 / 60 };
   } };
+};
+// The first move toward goal gi's marker, by eye: one burn to set off toward
+// it at closing speed vc (aim off by `aim`, burn off by `over`), coast until
+// within `near` k (or the gap stops closing), then keep station with taps.
+const approach = (gi, vc, near, err, popt, pred) => {
+  let a = null, dv = 0, dv0 = 0;
+  const e = Object.assign({ aim: 0, over: 0 }, err);
+  return [
+    { fn: (m) => {
+      const P = gp(m, gi), s = m.ship, dx = P.x - s.x, dy = P.y - s.y, d = Math.hypot(dx, dy) || 1;
+      const ex = P.vx + vc * dx / d - s.vx, ey = P.vy + vc * dy / d - s.vy;
+      a = Math.atan2(ey, ex) + e.aim; dv = Math.hypot(ex, ey) * (1 + e.over); dv0 = m.dvUsed();
+    } },
+    { burn: () => a, until: (m) => m.dvUsed() - dv0 >= dv },
+    { coast: (m, c) => { const d = dGoal(m, gi), r = d < near || (c.dl != null && d > c.dl + 0.05); c.dl = d; return r; } },
+    park(gi, popt, pred),
+  ];
 };
 // Close in on a body and match its velocity (as park, for a station).
 const meet = (id, k, vMax) => ({ control: (m, c) => {
@@ -108,6 +132,65 @@ const held = (AP, dir, rel, until) => {
   let a = null;
   return [{ fn: (m) => { a = null; m._dv0 = m.dvUsed(); } }, { burn: (m) => (a == null ? (a = AP.aim(m, dir, rel)) : a), until }];
 };
+// Closest approach of a coasting state to goal gi's point within H s:
+// { d, t } (as the closest approach marker shows it).
+function closest(m, gi, st, H) {
+  const g = m.level.goals[gi];
+  const p = Phys.predict(m.sys, st, m.t, H, { maxSteps: 4000, dtMax: 1 });
+  let best = { d: Infinity, t: m.t };
+  for (let i = 0; i < p.ts.length; i++) {
+    const q = m.goalPoint(g, p.ts[i]), d = Math.hypot(p.xs[i] - q.x, p.ys[i] - q.y);
+    if (d < best.d) best = { d, t: p.ts[i] };
+  }
+  m.sys.update(m.t);
+  return best;
+}
+// A mid-course correction the way a player makes one: nudge until the
+// closest approach marker reads near zero. Finds the nudge (a small Δv
+// vector) that zeroes the predicted miss, then burns it with the player's
+// errors (aim off by err.aim rad, size off by err.over).
+const fix = (gi, H, err) => {
+  let a = 0, dv = 0, dv0 = 0;
+  const e = Object.assign({ aim: 0, over: 0 }, err);
+  return [
+    { fn: (m) => {
+      const s = m.ship, miss = (ux, uy) => closest(m, gi, { x: s.x, y: s.y, vx: s.vx + ux, vy: s.vy + uy }, H).d;
+      let ux = 0, uy = 0, f = miss(0, 0);
+      for (let it = 0; it < 6; it++) {
+        const h = 0.02, fx = miss(ux + h, uy), fy = miss(ux, uy + h);
+        const gx = (fx - f) / h, gy = (fy - f) / h, g2 = gx * gx + gy * gy;
+        if (g2 < 1e-9) break;
+        // the miss distance is about linear in the nudge: step to its zero
+        let k = f / g2, nx = ux - k * gx, ny = uy - k * gy, nf = miss(nx, ny);
+        while (nf > f && k > 1e-4) { k /= 2; nx = ux - k * gx; ny = uy - k * gy; nf = miss(nx, ny); }
+        if (nf >= f) break;
+        ux = nx; uy = ny; f = nf;
+      }
+      a = Math.atan2(uy, ux) + e.aim; dv = Math.hypot(ux, uy) * (1 + e.over); dv0 = m.dvUsed();
+    } },
+    { burn: () => a, until: (m) => m.dvUsed() - dv0 >= dv },
+  ];
+};
+// A hop from one shadow to the next, as a player flies it: keep station on
+// goal g0's point until time T, push off (aim off prograde about `center`,
+// Δv), after tf s fix the aim on the closest approach marker, coast until
+// within `brake` k of goal g1's point (or the closest approach), then match
+// its speed and keep station there.
+// q: { T, dir, dv, tf, fa, fo, brake, vc, near, ta, to } (fa/fo: the fix's
+// aim and size errors, ta/to: the taps').
+const hop = (AP, g0, g1, center, q, pred) => [
+  park(g0, { aim: q.ta, over: q.to }, (m) => m.goalIndex > g0 && m.t >= q.T),
+  ...held(AP, q.dir, center, (m) => m.dvUsed() >= m._dv0 + q.dv),
+  { wait: q.tf },
+  ...fix(g1, 200, { aim: q.fa, over: q.fo }),
+  { coast: (m, c) => { const d = dGoal(m, g1), r = d < q.brake || (c.dl != null && d > c.dl); c.dl = d; return r; } },
+  ...approach(g1, q.vc, q.near, {}, { aim: q.ta, over: q.to }, pred),
+];
+// Proof parameters of a hop, in order, with honest tolerances.
+const HOP_KEYS = ['T', 'dir', 'dv', 'tf', 'fa', 'fo', 'brake', 'vc', 'near', 'ta', 'to'];
+const HOP_TOL = [2, 0.06, 0.1, 3, 0.06, 0.15, 4, 0.1, 2, 0.1, 0.15];
+const HOP_SCALE = [3, 0.1, 0.1, 3, 0, 0, 5, 0.1, 2, 0, 0];
+const hopQ = (p, k) => { const q = {}; HOP_KEYS.forEach((key, i) => { q[key] = p[(k || 0) + i]; }); return q; };
 // Has goal gi been completed?
 const doneGoal = (gi) => (m) => m.goalIndex > gi;
 
@@ -115,46 +198,164 @@ const doneGoal = (gi) => (m) => m.goalIndex > gi;
 
 // 1 · Night Watch: Lamp and Vesper, the L2 hold taught gently.
 const NW = [
-  { id: 'lamp', name: 'Lamp', gm: 40000, radius: 45, color: C.sun, kind: 'star', radiation: { rate: 0.1, at: 550, dose: 8 } },
-  { id: 'vesper', name: 'Vesper', gm: 1000, radius: 22, color: '#6f86b8', orbit: { parent: 'lamp', a: 550, phase: 0 } },
+  { id: 'lamp', name: 'Lamp', gm: 40000, radius: 45, color: C.sun, kind: 'star', radiation: { rate: 0.05, at: 550, dose: 3.9 } },
+  { id: 'vesper', name: 'Vesper', gm: 1000, radius: 12, color: '#6f86b8', orbit: { parent: 'lamp', a: 550, phase: 0 } },
 ];
 const NW_K = l2Scale(NW, 'vesper');
+
+// 2 · Close Pass: Hale on a circular orbit, Wend on an ellipse whose
+// perihelion swings it in toward Hale.
+const CP_N = Math.sqrt(40000 / 800 ** 3);
+const CP = [
+  { id: 'pyre', name: 'Pyre', gm: 40000, radius: 50, color: C.sun2, kind: 'star', radiation: { rate: 0.05, at: 550, dose: 99 } },
+  { id: 'hale', name: 'Hale', gm: 300, radius: 10, color: C.grey, orbit: { parent: 'pyre', a: 500, phase: 0 } },
+  { id: 'wend', name: 'Wend', gm: 400, radius: 12, color: C.tan, orbit: { parent: 'pyre', a: 800, e: 0.25, argp: 2.5, phase: -CP_N * 140, reflex: false } },
+];
+const CP_KH = l2Scale(CP, 'hale'), CP_KW = l2Scale(CP, 'wend');
+
+// 2 · Perihelion: Wend on an ellipse, a few seconds before its closest
+// pass by Pyre; its umbra is thin and the sunlight there is fierce.
+const PH_N = Math.sqrt(40300 / 600 ** 3);
+const PH = [
+  { id: 'pyre', name: 'Pyre', gm: 40000, radius: 50, color: C.sun2, kind: 'star', radiation: { rate: 0.3, at: 550, dose: 99 } },
+  { id: 'wend', name: 'Wend', gm: 300, radius: 9, color: C.tan, orbit: { parent: 'pyre', a: 600, e: 0.4, argp: 0, phase: -PH_N * 30 } },
+];
+const PH_K = l2Scale(PH, 'wend');
+
+// 3 · Between Sweeps: Corax, a pulsar, with Tarn and Skerry on circular
+// orbits; the hop crosses open space where the beams sweep.
+const BS = [
+  { id: 'corax', name: 'Corax', gm: 40000, radius: 8, color: '#e4dcff', kind: 'pulsar', radiation: { rate: 1, at: 500, dose: 99, beam: { width: 0.3, period: 70, phase: 0 } } },
+  { id: 'tarn', name: 'Tarn', gm: 300, radius: 10, color: C.blue, orbit: { parent: 'corax', a: 480, phase: 0 } },
+  { id: 'skerry', name: 'Skerry', gm: 300, radius: 10, color: C.ice, orbit: { parent: 'corax', a: 640, phase: 0.6, reflex: false } },
+];
+const BS_KT = l2Scale(BS, 'tarn'), BS_KS = l2Scale(BS, 'skerry');
 
 const levels = [
   {
     id: 'nightwatch',
     name: 'Night Watch',
-    intro: 'Behind Vesper, in the dark cone of its shadow, is its L2 point: the marker that keeps pace with Vesper as it goes round Lamp. You are coasting just beyond it, and nothing can stay out here on its own: you are already drifting away, and the drift grows. Brake back toward the marker, match its speed, and keep station with small taps whenever your path starts to curl away. Then let go and fall into a low orbit: Vesper pulls you down its night side, so round off at the bottom.',
-    objective: 'Hold within 8 k of Vesper\'s L2 (moving with it to within 0.25 k/s) for 40 s, then orbit Vesper between 30 and 50 k from its centre.',
+    intro: 'Vesper\'s L2 point is the marker in the dark cone behind it, keeping pace as Vesper goes round Lamp. Climb to it: burn prograde as you come round the day side so the top of your climb lands on the marker (the closest approach readout shows how near you will pass), then brake to match its speed. Nothing stays at L2 on its own, so keep station with small taps whenever your path starts to curl away. Then nudge sunward, fall back and brake into a low orbit.',
+    objective: 'Hold within 8 k of Vesper\'s L2 (moving with it to within 0.25 k/s) for 40 s, then orbit Vesper between 15 and 35 k from its centre, taking under 3.9 Sv of radiation.',
     teaches: 'Keep station at L2',
     bodies: NW,
-    ship: ship({ start: nearPoint(NW, 'vesper', NW_K, 25, 0, 0, 0), heading: 'retrograde', dv: 4, accel: 0.6 }),
+    ship: ship({ start: { orbit: { body: 'vesper', r: 30, angle: Math.PI } }, heading: 'prograde', dv: 4.35, accel: 0.6 }),
     goals: [
-      { type: 'hold', lagrange: { body: 'vesper', lead: 0, scale: NW_K }, r: 8, relVel: 0.25, hold: 40, label: 'L2' },
-      { type: 'orbit', body: 'vesper', rMin: 30, rMax: 50, label: 'Low orbit' },
+      { type: 'hold', lagrange: { body: 'vesper', lead: 0, scale: NW_K }, r: 3, relVel: 0.15, hold: 40, label: 'L2' },
+      { type: 'orbit', body: 'vesper', rMin: 15, rMax: 35, label: 'Low orbit' },
     ],
-    par: 1.2, bounds: 3000, tMax: 400, predict: 120, view: { x: 680, y: 0, span: 260 },
+    par: 4.1, bounds: 3000, tMax: 500, predict: 150, view: { x: 640, y: 0, span: 320 },
+  },
+  {
+    id: 'perihelion',
+    name: 'Perihelion',
+    intro: 'TBD',
+    objective: 'TBD',
+    teaches: 'Elliptical orbits · L2 at perihelion',
+    bodies: PH,
+    ship: ship({ start: nearPoint(PH, 'wend', PH_K, 10, 0, 0, 0), heading: 'retrograde', dv: 9, accel: 0.8 }),
+    goals: [
+      { type: 'hold', lagrange: { body: 'wend', lead: 0, scale: PH_K }, r: 5, relVel: 0.3, hold: 30, label: 'L2' },
+      { type: 'orbit', body: 'wend', rMin: 10, rMax: 28, label: 'Low orbit' },
+    ],
+    par: 4, bounds: 3000, tMax: 600, predict: 150, view: { x: 400, y: 0, span: 300 },
+  },
+  {
+    id: 'sweeps',
+    name: 'Between Sweeps',
+    intro: 'TBD',
+    objective: 'TBD',
+    teaches: 'Hop between shadows · between sweeps',
+    bodies: BS,
+    ship: ship({ start: nearPoint(BS, 'tarn', BS_KT, 12, 0, 0, 0), heading: 'prograde', dv: 9, accel: 0.8 }),
+    goals: [
+      { type: 'hold', lagrange: { body: 'tarn', lead: 0, scale: BS_KT }, r: 6, relVel: 0.25, hold: 15, label: 'Tarn L2' },
+      { type: 'hold', lagrange: { body: 'skerry', lead: 0, scale: BS_KS }, r: 8, relVel: 0.3, hold: 10, label: 'Skerry L2' },
+    ],
+    par: 4, bounds: 3000, tMax: 600, predict: 200, view: { x: 400, y: 300, span: 1000 }, startCam: 'overview',
+  },
+  {
+    id: 'closepass',
+    name: 'Close Pass',
+    intro: 'TBD',
+    objective: 'TBD',
+    teaches: 'Elliptical orbits · hop between shadows',
+    bodies: CP,
+    ship: ship({ start: nearPoint(CP, 'hale', CP_KH, 15, 0, 0, 0), heading: 'prograde', dv: 9, accel: 0.8 }),
+    goals: [
+      { type: 'hold', lagrange: { body: 'hale', lead: 0, scale: CP_KH }, r: 6, relVel: 0.25, hold: 15, label: 'Hale L2' },
+      { type: 'hold', lagrange: { body: 'wend', lead: 0, scale: CP_KW }, r: 8, relVel: 0.3, hold: 10, label: 'Wend L2' },
+    ],
+    par: 4, bounds: 3000, tMax: 600, predict: 200, view: { x: 400, y: 300, span: 1000 }, startCam: 'overview',
   },
 ];
 
 const proofs = {
   nightwatch: {
     // Close in on the marker and keep station (aiming a little off it), then
-    // nudge sunward to fall in and round off at the bottom.
-    // p: park aim error out/ahead (k), nudge (k/s), when to round off (k from centre).
-    p: [0, 0, 0.3, 40], scale: [0, 0, 0.05, 3], tol: [3, 3, 0.04, 2], opts: { turn: true, turnRate: 0.4 },
+    // climb to the parking orbit and round off at the top.
+    // p: park aim error out/ahead (k), aim off prograde (rad), Δv of the escape burn.
+    // p: park aim error out/ahead (k), high point of the climb, low point
+    // to round off to, tap aim error (rad), tap over/undershoot, closing speed of
+    // the first burn (k/s), distance to start the taps (k), first burn aim, over.
+    p: [0, 0, 0, 0.072, 0, 0, 0.772, 14.777, 0, 0, 30.348, 3.036, 87.141], scale: [0, 0, 0, 0.1, 0, 0, 0.1, 3, 0, 0, 1, 1, 4], tol: [0, 0, 0, 0.04, 0.1, 0.15, 0.1, 2, 0.06, 0.04, 1.4, 2, 4.4], opts: { turn: true, turnRate: 0.4 },
     script: (p, AP) => [
-      park(0, { off: [p[0], p[1]] }, doneGoal(0)),
-      ...held(AP, 'in', 'vesper', (m) => m.dvUsed() >= (m._dv0 || 0) + p[2]),
-      { coast: (m) => { const o = AP.orb(m, 'vesper'); return o.r < p[3] || (!o.rising && o.r < 60 && false); } },
-      { burn: 'retro', rel: 'vesper', until: (m) => AP.orb(m, 'vesper').ap <= 48 },
+      { wait: p[11] },
+      { burn: 'pro', rel: 'vesper', until: (m) => AP.orb(m, 'vesper').ap >= p[12] },
+      { coast: (m, c) => { const d = dGoal(m, 0), r = d < 25 || (c.dl != null && d > c.dl); c.dl = d; return r; } },
+      ...approach(0, p[6], p[7], { aim: p[8], over: p[9] }, { off: [p[0], p[1]], aim: p[4], over: p[5] }, doneGoal(0)),
+      ...held(AP, 'in', 'vesper', (m) => m.dvUsed() >= m._dv0 + p[3]),
+      { coast: (m) => AP.orb(m, 'vesper').rising },
+      { burn: 'retro', rel: 'vesper', until: (m) => AP.orb(m, 'vesper').ap <= p[10] },
     ],
   },
+  perihelion: {
+    // Close in on L2 and keep station through perihelion, then let go and
+    // brake into a low orbit once Wend has swung back out.
+    // p: closing speed, distance to start the taps, tap aim error, over,
+    // when to let go, nudge Δv, low orbit high point.
+    p: [0.4, 4, 0, 0, 120, 0.2, 22], scale: [0.1, 1, 0, 0, 10, 0.05, 2], tol: [0.1, 2, 0.1, 0.15, 3, 0.04, 1], opts: { turn: true, turnRate: 0.4 },
+    script: (p, AP) => [
+      ...approach(0, p[0], p[1], {}, { aim: p[2], over: p[3] }, (m) => m.goalIndex > 0 && m.t >= p[4]),
+      ...held(AP, 'in', 'wend', (m) => m.dvUsed() >= m._dv0 + p[5]),
+      { coast: (m, c) => { const o = AP.orb(m, 'wend'); if (o.r < 45) c.low = true; return c.low && o.rising; } },
+      { burn: 'retro', rel: 'wend', until: (m) => AP.orb(m, 'wend').ap <= p[6] },
+    ],
+  },
+  sweeps: {
+    // p: the hop (see HOP_KEYS).
+    p: [68.147, -1.603, 0.001, 0, 0, 0, 26.648, 0.221, 3.257, 0, 0], scale: HOP_SCALE, tol: HOP_TOL, opts: { turn: true, turnRate: 0.4 },
+    script: (p, AP) => hop(AP, 0, 1, 'corax', hopQ(p)),
+  },
+  closepass: {
+    // Keep station at Hale's L2 until Wend swings in, push off, fix the aim
+    // on the way with the closest approach marker, then brake as you reach
+    // Wend's L2 and keep station there.
+    // p: when to leave, aim off prograde (rad), Δv of the push, closing
+    // speed, distance to start the taps, tap aim error, tap over/undershoot,
+    // when to correct (s after the push), correction aim error, over,
+    // distance to brake at (k).
+    p: [78, -2.4, 1.35, 0.5, 6, 0, 0, 10, 0, 0, 25], scale: [3, 0.1, 0.1, 0.1, 2, 0, 0, 3, 0, 0, 5], tol: [2, 0.06, 0.1, 0.1, 2, 0.1, 0.15, 3, 0.06, 0.15, 4], opts: { turn: true, turnRate: 0.4 },
+    script: (p, AP) => [
+      park(0, { aim: p[5], over: p[6] }, (m) => m.goalIndex > 0 && m.t >= p[0]),
+      ...held(AP, p[1], 'pyre', (m) => m.dvUsed() >= m._dv0 + p[2]),
+      { wait: p[7] },
+      ...fix(1, 150, { aim: p[8], over: p[9] }),
+      { coast: (m, c) => { const d = dGoal(m, 1), r = d < p[10] || (c.dl != null && d > c.dl); c.dl = d; return r; } },
+      ...approach(1, p[3], p[4], {}, { aim: p[5], over: p[6] }),
+    ],
+  },
+
 };
 
 const fails = {
   nightwatch: [
     { name: 'coast and watch', steps: () => [] },
+    { name: 'climb from under the night side', opts: proofs.nightwatch.opts, steps: (AP) => { const p = proofs.nightwatch.p.slice(); p[11] += 16; return proofs.nightwatch.script(p, AP); } },
+    { name: 'match the marker once and let it ride', opts: proofs.nightwatch.opts, steps: (AP) => {
+      const p = proofs.nightwatch.p, s = proofs.nightwatch.script(p, AP);
+      return [s[0], s[1], s[2], s[3], s[4], s[5], park(0, { db: 99 }, doneGoal(0)), ...s.slice(7)];
+    } },
   ],
 };
 

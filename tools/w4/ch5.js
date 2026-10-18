@@ -25,8 +25,34 @@ const predLow = (m, id, dur) => {
     prev = r;
   }
   sys.update(m.t);
-  return p.hit >= 0 ? 0 : d;
+  return p.hit === i ? 0 : p.hit >= 0 ? Infinity : d;
 };
+
+// Closest the predicted path comes to body `id` (Infinity if it ends on
+// another body first).
+const predMin = (m, id, dur) => {
+  const sys = m.sys, s = m.ship, i = sys.byId[id].index, bp = [0, 0];
+  const p = globalThis.Phys.predict(sys, { x: s.x, y: s.y, vx: s.vx, vy: s.vy }, m.t, dur, {});
+  let d = Infinity;
+  for (let k = 0; k < p.ts.length; k++) { sys.posAt(i, p.ts[k], bp); d = Math.min(d, Math.hypot(p.xs[k] - bp[0], p.ys[k] - bp[1])); }
+  sys.update(m.t);
+  return p.hit === i ? 0 : p.hit >= 0 ? Infinity : d;
+};
+
+// A correction burn, prograde or retrograde about `id`, until the path's
+// lowest point about it is within `band` of `want` (a player nudging the
+// low point marker).
+const fixLow = (id, want, band, dur, AP) => ({
+  fixLow: true,
+  control: (m, c) => {
+    const d = predMin(m, id, dur);
+    if (Math.abs(d - want) <= band) return { done: true };
+    if (c.dir == null) c.dir = d > want ? -1 : 1;
+    if ((d - want) * c.dir > 0) return { done: true };
+    const o = AP.orb(m, id);
+    return { thrust: true, angle: c.dir > 0 ? o.pro : o.pro + Math.PI };
+  },
+});
 
 const levels = [
   {
@@ -36,20 +62,20 @@ const levels = [
     objective: 'Spread three satellites at least 116° apart in orbits between 77 and 103 k above Nyx, each taking under 17 Sv of radiation.',
     teaches: 'Quick phasing laps · cargo dose',
     bodies: [
-      { id: 'calor', name: 'Calor', gm: 100000, radius: 60, color: C.sun2, kind: 'star', radiation: { rate: 0.12, at: 1200, dose: 60 } },
-      { id: 'nyx', name: 'Nyx', gm: 20000, radius: 70, color: '#5a6b8c', orbit: { parent: 'calor', a: 1200, phase: 0 } },
+      { id: 'calor', name: 'Calor', gm: 100000, radius: 60, color: C.sun2, kind: 'star', radiation: { rate: 0.12, at: 1200, dose: 30.6 } },
+      { id: 'nyx', name: 'Nyx', gm: 20000, radius: 40, color: '#5a6b8c', orbit: { parent: 'calor', a: 1200, phase: 0 } },
     ],
-    ship: ship({ start: { orbit: { body: 'nyx', r: 110, angle: 0 } }, heading: 'prograde', dv: 24, accel: 1, cargo: [
+    ship: ship({ start: { orbit: { body: 'nyx', r: 110, angle: 0 } }, heading: 'prograde', dv: 21.6, accel: 1, cargo: [
       { id: 'relay', name: 'Shade relay', mass: 0.2 },
-      { id: 'd1', name: 'Sat 1', mass: 0.2, dose: 17 }, { id: 'd2', name: 'Sat 2', mass: 0.2, dose: 17 }, { id: 'd3', name: 'Sat 3', mass: 0.2, dose: 17 },
+      { id: 'd1', name: 'Sat 1', mass: 0.2, dose: 10.5 }, { id: 'd2', name: 'Sat 2', mass: 0.2, dose: 10.5 }, { id: 'd3', name: 'Sat 3', mass: 0.2, dose: 10.5 },
     ] }),
     goals: [
-      { type: 'hold', craft: 'relay', lagrange: { body: 'nyx', lead: 0, scale: 1.43808 }, r: 15, relVel: 0.5, hold: 10, label: 'Nyx L2' },
-      { type: 'orbit', craft: 'd1', body: 'nyx', rMin: 147, rMax: 173 },
-      { type: 'orbit', craft: 'd2', body: 'nyx', rMin: 147, rMax: 173 },
-      { type: 'spread', body: 'nyx', crafts: ['d1', 'd2', 'd3'], rMin: 147, rMax: 173, minSep: 116 * Math.PI / 180 },
+      { type: 'hold', craft: 'relay', lagrange: { body: 'nyx', lead: 0, scale: 1.43808 }, r: 10, relVel: 0.28, hold: 10, label: 'Nyx L2' },
+      { type: 'orbit', craft: 'd1', body: 'nyx', rMin: 100, rMax: 132 },
+      { type: 'orbit', craft: 'd2', body: 'nyx', rMin: 100, rMax: 132 },
+      { type: 'spread', body: 'nyx', crafts: ['d1', 'd2', 'd3'], rMin: 100, rMax: 132, minSep: 113 * Math.PI / 180 },
     ],
-    par: 21, bounds: 4000, tMax: 800, predict: 400, view: { x: 1300, y: 0, span: 1000 },
+    par: 20.5, bounds: 4000, tMax: 810, predict: 400, view: { x: 1300, y: 0, span: 1000 },
   },
   {
     id: 'stageddive',
@@ -62,11 +88,16 @@ const levels = [
       { id: 'watch', name: 'Watch Station', gm: 0, radius: 4, color: C.station, kind: 'station', protect: true, protectRadius: 15, orbit: { parent: 'cinder', a: 250, phase: 1 } },
     ],
     ship: ship({ start: { conic: { body: 'cinder', pe: 80, e: 0.698, nu: -2.6, angle: 0 } }, heading: 'retrograde', stack: [
-      { name: 'Dive stage', dv: 2.4, accel: 1.2 },
-      { name: 'Kick stage', dv: 3.35, accel: 1.5 },
+      { id: 'dive', name: 'Dive stage', dv: 2.4, accel: 1.2 },
+      { id: 'kick', name: 'Kick stage', dv: 3.35, accel: 1.5 },
       { name: 'Capsule', dv: 1.5, accel: 1, dry: 0.4, sprite: 'satellite' },
     ] }),
-    goals: [{ type: 'escape', body: 'cinder', r: 2400 }],
+    goals: [
+      { type: 'hit', body: 'cinder', craft: 'dive', deorbit: true },
+      { type: 'reach', body: 'cinder', r: 53, label: 'the corona (3 k up)' },
+      { type: 'escape', body: 'cinder', craft: 'kick', r: 600 },
+      { type: 'escape', body: 'cinder', r: 2400 },
+    ],
     par: 6.6, bounds: 5000, tMax: 600, predict: 300, view: { x: 0, y: 0, span: 900 },
   },
   {
@@ -76,16 +107,20 @@ const levels = [
     objective: 'Orbit Tyche between 16 and 76 k up, taking under 12 Sv of radiation, without entering a Sentry\'s or Kore\'s keep-out zone.',
     teaches: 'The dark lane · launch windows',
     bodies: [
-      { id: 'argus', name: 'Argus', gm: 40000, radius: 8, color: '#e4dcff', kind: 'pulsar', radiation: { rate: 3, at: 250, dose: 12, beam: { width: 0.3, period: 120, phase: 3.979 } } },
+      { id: 'argus', name: 'Argus', gm: 40000, radius: 8, color: '#e4dcff', kind: 'pulsar', radiation: { rate: 1, at: 250, dose: 19, beam: { width: 0.9, period: 120, phase: 3.979 } } },
       { id: 'sen1', name: 'Sentry 1', gm: 0, radius: 4, color: C.station, kind: 'station', keepOut: 35, orbit: { parent: 'argus', a: 430, phase: 4.379 } },
       { id: 'sen2', name: 'Sentry 2', gm: 0, radius: 4, color: C.station, kind: 'station', keepOut: 35, orbit: { parent: 'argus', a: 430, phase: 4.379 + 2.094 } },
       { id: 'sen3', name: 'Sentry 3', gm: 0, radius: 4, color: C.station, kind: 'station', keepOut: 35, orbit: { parent: 'argus', a: 430, phase: 4.379 + 4.189 } },
       { id: 'kore', name: 'Kore', gm: 300, radius: 12, color: C.red, keepOut: 55, orbit: { parent: 'argus', a: 570, phase: 3.147 } },
-      { id: 'tyche', name: 'Tyche', gm: 800, radius: 14, color: C.ice, orbit: { parent: 'argus', a: 720, phase: 3.795 } },
+      { id: 'tyche', name: 'Tyche', gm: 800, radius: 14, color: C.ice, spin: Math.sqrt(40800 / 720 ** 3), orbit: { parent: 'argus', a: 720, phase: 3.795 } },
     ],
-    ship: ship({ start: { orbit: { body: 'argus', r: 244.4, angle: 5.55 } }, heading: 'prograde', dv: 7.6, accel: 1 }),
-    goals: [{ type: 'orbit', body: 'tyche', rMin: 30, rMax: 90 }],
-    par: 5.4, bounds: 3000, tMax: 950, predict: 300, view: { x: 0, y: 0, span: 1700 },
+    ship: ship({ start: { orbit: { body: 'argus', r: 244.4, angle: 5.55 } }, heading: 'prograde', dv: 15.2, accel: 1, cargo: [{ id: 'probe', name: 'Lander', mass: 0.1, dose: 1 }] }),
+    goals: [
+      { type: 'orbit', body: 'tyche', rMin: 30, rMax: 87 },
+      { type: 'hit', body: 'tyche', craft: 'probe', site: { angle: 3.795, width: 0.45 }, label: 'Night side' },
+      { type: 'orbit', body: 'argus', rMin: 236, rMax: 252, confirm: 10 },
+    ],
+    par: 14.5, bounds: 3000, tMax: 880, predict: 300, view: { x: 0, y: 0, span: 1700 },
   },
   {
     id: 'pulsarsupply',
@@ -157,10 +192,12 @@ const proofs = {
     // p[7] and round off there (low point p[8]), drop Sat 1; then the quick
     // phasing laps (low points p[9], p[11]; round off at the high point to
     // p[10], p[12]) and drop the others.
-    p: [34.017, 10.95, 59.758, 1.186, 0, 0, 0.474, 159.202, 159.866, 91.159, 166.233, 85.573, 173.21], scale: [3, 3, 10, 0.2, 0, 0, 0.1, 3, 2, 4, 2, 4, 2], tol: [2, 8, 15, 0.2, 0.15, 0.15, 0.1, 6, 6, 4, 6, 4, 6],
+    p: [32.655, 12.369, 41.527, 1.956, 0, 0, 0.35, 118, 116, 60, 116, 60, 116], scale: [3, 3, 10, 0.2, 0, 0, 0.1, 3, 2, 4, 2, 4, 2], tol: [2, 8, 15, 0.2, 0.25, 0.25, 0.1, 6, 6, 4, 6, 4, 6],
     script: (p, AP) => [
       { wait: Math.max(0, p[0]) },
-      { burn: 'pro', rel: 'nyx', until: (m, c) => { if (AP.orb(m, 'nyx').ap < 350) return false; if (c.tc != null && m.t - c.tc < 0.1) return false; c.tc = m.t; return closest(m, 'goal', 0, 0, 250) <= p[1]; } },
+      { burn: 'pro', rel: 'nyx', until: (m, c) => { if (AP.orb(m, 'nyx').ap < 350) return false; if (c.tc != null && m.t - c.tc < 0.1) return false; c.tc = m.t; const d = closest(m, 'goal', 0, 0, 250); if (d > (c.dmin = Math.min(c.dmin || Infinity, d)) + 2) return true; return d <= p[1]; } },
+      { wait: 40 },
+      nudge('goal', 'nyx', 4, 250, AP),
       { coast: (m) => { const q = goalPt(m); return Math.hypot(q.x - m.ship.x, q.y - m.ship.y) < p[2]; } },
       goTo(goalPt, p[3], 0.04, (m) => { const q = goalPt(m); return Math.hypot(q.x - m.ship.x, q.y - m.ship.y) < 4 && Math.hypot(q.vx - m.ship.vx, q.vy - m.ship.vy) < 0.1; }),
       { fn: (m) => { m.ship.vx += p[4]; m.ship.vy += p[5]; } },
@@ -168,7 +205,7 @@ const proofs = {
       { fn: (m, c) => { c.d0 = m.dvUsed(); } },
       { burn: 'retro', rel: 'nyx', until: (m, c) => m.dvUsed() - c.d0 >= p[6] },
       { coast: (m) => { const o = AP.orb(m, 'nyx'); return o.r < 250 && o.rising; } },
-      { burn: 'retro', rel: 'nyx', until: (m) => AP.orb(m, 'nyx').ap <= p[7] },
+      { burn: 'retro', rel: 'nyx', until: (m) => { const o = AP.orb(m, 'nyx'); return o.ap <= Math.max(p[7], o.r + 1.5); } },
       { coast: (m) => !AP.orb(m, 'nyx').rising },
       { burn: 'pro', rel: 'nyx', until: (m) => { const o = AP.orb(m, 'nyx'); return o.pe >= Math.min(p[8], o.r - 1.5); } },
       { drop: true },
@@ -188,14 +225,14 @@ const proofs = {
 
 // The phasing lap World 2 taught: a third longer each time.
 const slowLaps = (AP) => {
-  const lap = (drop) => [
-    { burn: 'pro', rel: 'nyx', until: (m) => AP.orb(m, 'nyx').ap >= 226 },
-    { coast: (m, c) => m.t - c.t0 > 20 && !AP.orb(m, 'nyx').rising },
-    { coast: (m, c) => m.t - c.t0 > 20 && AP.orb(m, 'nyx').rising },
-    { burn: 'retro', rel: 'nyx', until: (m) => { const o = AP.orb(m, 'nyx'); return o.ap <= Math.max(167, o.r + 1.5); } },
+  const lap = () => [
+    { burn: 'pro', rel: 'nyx', until: (m) => AP.orb(m, 'nyx').ap >= 165 },
+    { coast: (m, c) => m.t - c.t0 > 10 && !AP.orb(m, 'nyx').rising },
+    { coast: (m, c) => m.t - c.t0 > 10 && AP.orb(m, 'nyx').rising },
+    { burn: 'retro', rel: 'nyx', until: (m) => { const o = AP.orb(m, 'nyx'); return o.ap <= Math.max(118, o.r + 1.5); } },
     { drop: true },
   ];
-  return [...proofs.darkconst.script(proofs.darkconst.p, AP).slice(0, 5), ...lap(), ...lap()];
+  return [...proofs.darkconst.script(proofs.darkconst.p, AP).slice(0, 15), ...lap(), ...lap()];
 };
 
 // Seconds to the low point about `id` (bound orbit, coming down; 0 otherwise).
@@ -271,7 +308,10 @@ proofs.sentrypulsar = {
   // Ride the dark lane until p[0], climb until the closest approach to Tyche
   // is under p[1] (as a player watches the marker); p[3] s later nudge it to
   // p[4]; brake there until the high point about Tyche is p[2].
-  p: [84, 45, 84, 30, 45], scale: [3, 8, 4, 5, 5], tol: [2, 12, 4, 5, 6],
+  // Lander: once in orbit, p[5] s after a sweep passes brake until the
+  // path ends on Tyche and p[6] more, drop it, and lift the low point back
+  // to p[7]. L2: fly onto it (closing speed at most p[8]).
+  p: [84, 45, 84, 30, 45, -1.25, 0.6, 50, 6, 244, 248], scale: [3, 8, 4, 5, 5, 0.1, 0.1, 3, 3, 3, 3], tol: [2, 12, 4, 5, 6, 0.15, 0.1, 3, 2, 8, 8],
   script: (p, AP) => [
     { wait: Math.max(0, p[0]) },
     { burn: 'pro', rel: 'argus', until: (m, c) => {
@@ -286,6 +326,22 @@ proofs.sentrypulsar = {
     nudge('tyche', 'argus', p[4], 250, AP),
     { coast: (m) => dist(m, 'tyche') < 150 && AP.orb(m, 'tyche').rising },
     { burn: 'retro', rel: 'tyche', until: (m) => { const o = AP.orb(m, 'tyche'); return o.bound && o.ap <= p[2]; } },
+    { coast: (m) => { if (m.goalIndex < 1) return false; const t = m.sys.byId.tyche, a = AP.wrap(AP.shipPhase(m, 'tyche') - (3.795 + t.spin * m.t)); return a >= p[5] && a < p[5] + 0.15; } },
+    { fn: (m) => { m._lift = AP.orb(m, 'tyche').dir; } },
+    { burn: 'retro', rel: 'tyche', until: (m) => AP.orb(m, 'tyche').pe < 14 },
+    { fn: (m, c) => { c.d0 = m.dvUsed(); } },
+    { burn: 'retro', rel: 'tyche', until: (m, c) => m.dvUsed() - c.d0 >= p[6] },
+    { drop: true },
+    { burn: (m) => { const o = AP.orb(m, 'tyche'); return o.theta + m._lift * Math.PI / 2; }, until: (m) => { const o = AP.orb(m, 'tyche'); return o.dir === m._lift && o.pe >= Math.min(p[7], o.r - 1.5); } },
+    // Home: p[8] s after the landing, brake (against Argus) until the
+    // path's low point is p[9]; at the low point brake until the high point
+    // is p[10].
+    { coast: (m, c) => { if (m.goalIndex < 2) return false; const o = AP.orb(m, 'tyche'), q = bodyPt('tyche')(m); if (c.tl == null && Math.cos(o.pro - Math.atan2(q.vy, q.vx)) < -0.95) c.tl = m.t; return c.tl != null && m.t - c.tl >= p[8]; } },
+    { burn: 'retro', rel: 'argus', until: (m, c) => { if (c.tc != null && m.t - c.tc < 0.05) return false; c.tc = m.t; return predMin(m, 'argus', 250) <= p[9]; } },
+    { coast: (m) => dist(m, 'tyche') > 150 },
+    fixLow('argus', p[9], 4, 250, AP),
+    { coast: (m) => { const o = AP.orb(m, 'argus'); return o.r < 300 && o.rising; } },
+    { burn: 'retro', rel: 'argus', until: (m) => { const o = AP.orb(m, 'argus'); return o.ap <= Math.max(p[10], o.r + 1.5); } },
   ],
 };
 
@@ -407,6 +463,8 @@ const fails = {
     { name: 'flip fast (holding the keys)', opts: { turn: true, turnRate: 1.2 }, steps: (AP) => proofs.pulsarsupply.script(proofs.pulsarsupply.p, AP) },
   ],
   sentrypulsar: [
+    { name: 'drop the lander on the day side', steps: (AP) => { const p = proofs.sentrypulsar.p.slice(); p[5] += Math.PI; return proofs.sentrypulsar.script(AP.wrap ? p.map((v, i) => i === 5 ? AP.wrap(v) : v) : p, AP); } },
+    { name: 'head home without trimming the low point', steps: (AP) => proofs.sentrypulsar.script(proofs.sentrypulsar.p, AP).filter((st) => !(st.control && st.fixLow)) },
     { name: 'climb to Tyche at once', steps: (AP) => proofs.sentrypulsar.script([0, ...proofs.sentrypulsar.p.slice(1)], AP) },
     { name: 'climb while Kore is in the way', steps: (AP) => proofs.sentrypulsar.script([68, ...proofs.sentrypulsar.p.slice(1)], AP) },
     { name: 'climb out of the dark lane and wait there', steps: (AP) => [
@@ -429,7 +487,9 @@ const fails = {
   ],
   darkconst: [
     { name: 'phase on long laps, a third slower', steps: slowLaps },
-    { name: 'drop all three at once', steps: (AP) => [...proofs.darkconst.script(proofs.darkconst.p, AP).slice(0, 5), { drop: true }, { drop: true }] },
+    { name: 'drop all three at once', steps: (AP) => [...proofs.darkconst.script(proofs.darkconst.p, AP).slice(0, 15), { drop: true }, { drop: true }] },
+    { name: 'drop the relay as you fly past L2', steps: (AP) => { const s = proofs.darkconst.script(proofs.darkconst.p, AP); return [...s.slice(0, 4), { coast: (m) => { const q = goalPt(m); return Math.hypot(q.x - m.ship.x, q.y - m.ship.y) < 10; } }, ...s.slice(7)]; } },
+    { name: 'skip L2, deploy the constellation first', steps: (AP) => proofs.darkconst.script(proofs.darkconst.p, AP).slice(7).filter((st, k) => k !== 0) },
   ],
 };
 

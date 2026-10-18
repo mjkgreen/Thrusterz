@@ -20,6 +20,9 @@ const pwEnergy = (m, id) => { const b = m.sys.byId[id]; const r = dist(m, id), v
 // Kern Watch: the strong-gravity circular rate at 900 k, and where and when
 // a good whirl meets the gate (it passes HS_LAG s later).
 const HS_N = Math.sqrt(40000 * 900) / (870 * 900), HS_GATE_ANG = Math.atan2(-822, 366), HS_T = 353, HS_LAG = 10;
+// Slingshot Drop: Vigil Station's rate at 560 k, and where and when a good
+// capture tops out (it gets there SD_LAG s after you).
+const SD_N = Math.sqrt(40000 * 560) / (535 * 560), SD_ANG = -1.713, SD_T = 149, SD_LAG = 15;
 const TOR_GM = 2000, GEO = 70, TOR_SPIN = Math.sqrt(TOR_GM / (GEO * GEO * GEO));
 
 const levels = [
@@ -50,16 +53,16 @@ const levels = [
     objective: 'Pass within 100 k of Spindle, then get 1800 k away from it, taking under 8 Sv of radiation.',
     teaches: 'Beams in step with your lap · dive between sweeps',
     bodies: [
-      { id: 'spindle', name: 'Spindle', gm: 40000, radius: 10, pw: 25, color: NEUTRON, kind: 'pulsar', radiation: { rate: 0.3, at: 300, dose: 8, beam: { width: 0.3, period: 2 * Math.PI / TOR_SPIN, phase: 3 } } },
+      { id: 'spindle', name: 'Spindle', gm: 40000, radius: 26, pw: 25, color: NEUTRON, kind: 'pulsar', radiation: { rate: 0.3, at: 300, dose: 5, beam: { width: 0.3, period: 2 * Math.PI / TOR_SPIN, phase: 3 } } },
       // Wisp goes round once backward for each lap you make round Tor, so it
       // too is in the same place every lap.
-      { id: 'wisp', name: 'Wisp', gm: 20, radius: 8, color: C.ice, keepOut: 25, orbit: { parent: 'spindle', a: 213.4, phase: 2.4, dir: -1 } },
+      { id: 'wisp', name: 'Wisp', gm: 20, radius: 8, color: C.ice, keepOut: 44, orbit: { parent: 'spindle', a: 213.4, phase: 2.4, dir: -1 } },
       { id: 'tor', name: 'Tor', gm: TOR_GM, radius: 28, spin: TOR_SPIN, color: C.tan, orbit: { parent: 'spindle', a: 1000, phase: 0 } },
     ],
-    ship: ship({ start: { orbit: { body: 'tor', r: GEO, angle: 0 } }, heading: 'prograde', dv: 7.5, accel: 2, cargo: [{ id: 'lander', name: 'Wisp lander', mass: 0.2 }] }),
+    ship: ship({ start: { orbit: { body: 'tor', r: GEO, angle: 0 } }, heading: 'prograde', dv: 6.4, accel: 2, cargo: [{ id: 'probe', name: 'Plunge probe', mass: 0.2, dose: 1 }] }),
     goals: [
-      { type: 'reach', body: 'spindle', r: 100, label: 'Needle\'s eye' },
-      { type: 'hit', body: 'wisp', craft: 'lander', label: 'Lander on Wisp' },
+      { type: 'reach', body: 'spindle', r: 64.8, label: 'Needle\'s eye' },
+      { type: 'hit', body: 'spindle', craft: 'probe', label: 'Probe into Spindle' },
       { type: 'escape', body: 'spindle', r: 1800 },
     ],
     par: 4.6, bounds: 6000, tMax: 1100, predict: 300, view: { x: 400, y: 0, span: 2600 }, startCam: 'overview',
@@ -71,12 +74,15 @@ const levels = [
     objective: 'Send the probe 1100 k from Vigil, then stay within 900 k of Vigil for 40 s, taking under 7 Sv yourself.',
     teaches: 'Release at the bottom, out of the beam',
     bodies: [
-      { id: 'vigil', name: 'Vigil', gm: 40000, radius: 10, pw: 25, color: NEUTRON, kind: 'pulsar', radiation: { rate: 0.3, at: 300, dose: 7, beam: { width: 0.3, period: 80, phase: 5.502 } } },
+      { id: 'vigil', name: 'Vigil', gm: 40000, radius: 10, pw: 25, color: NEUTRON, kind: 'pulsar', radiation: { rate: 0.3, at: 300, dose: 5.3, beam: { width: 0.3, period: 80, phase: 5.502 } } },
+      // On the true circular orbit at 560 k, reaching the top of a good
+      // capture SD_LAG s after you.
+      { id: 'watch2', name: 'Vigil Station', gm: 0, radius: 3, color: C.station, kind: 'station', orbit: { parent: 'vigil', a: 560, n: SD_N, phase: SD_ANG - SD_N * (SD_T + SD_LAG) } },
     ],
-    ship: ship({ start: { free: { x: -487.4, y: -461.6, vx: 9.076, vy: 2.194 } }, heading: Math.PI, dv: 1.6, accel: 3, cargo: [{ id: 'relay', name: 'Relay probe', mass: 0.2, dose: 1 }] }),
+    ship: ship({ start: { free: { x: -487.4, y: -461.6, vx: 9.076, vy: 2.194 } }, heading: Math.PI, dv: 6, accel: 3, cargo: [{ id: 'relay', name: 'Relay probe', mass: 0.2, dose: 1 }] }),
     goals: [
       { type: 'escape', body: 'vigil', craft: 'relay', r: 1100, label: 'Deep space' },
-      { type: 'hold', body: 'vigil', r: 900, hold: 40, relVel: 40, label: 'Vigil' },
+      { type: 'rendezvous', body: 'watch2', dist: 12, relVel: 0.5 },
     ],
     par: 1, bounds: 5000, tMax: 600, predict: 300, view: { x: -200, y: -200, span: 2000 }, startCam: 'overview',
   },
@@ -131,7 +137,12 @@ const levels = [
 const relVel = (m, id) => { m.sys.update(m.t); const i = m.sys.byId[id].index, s = m.ship; const x = m.sys.vx[i] - s.vx, y = m.sys.vy[i] - s.vy; return { x, y, v: Math.hypot(x, y) }; };
 // Burn to match a body's velocity (nose on the "target" marker) until the
 // relative speed is down to `until`.
-const match = (id, until) => ({ burn: (m) => { const r = relVel(m, id); return Math.atan2(r.y, r.x); }, until: (m) => relVel(m, id).v <= until });
+// (or until it stops falling).
+const match = (id, until) => { const c = {}; return { burn: (m) => { const r = relVel(m, id); return Math.atan2(r.y, r.x); }, until: (m) => {
+  const v = relVel(m, id).v, stop = v <= until || (c.vl != null && v > c.vl + 0.01);
+  c.vl = c.vl == null ? v : Math.min(c.vl, v);
+  return stop;
+} }; };
 // Close in on a body and match its velocity: steer the velocity toward the
 // body's own plus a slow approach (k per k of distance, at most vMax).
 const meet = (id, k, vMax) => ({ control: (m, c) => {
@@ -146,7 +157,7 @@ const meet = (id, k, vMax) => ({ control: (m, c) => {
   return { thrust: true, angle: Math.atan2(ey, ex), tol: 0.1 };
 } });
 // Coast until a body is within d k, or at its closest.
-const closing = (id, d) => ({ coast: (m, c) => { const r = dist(m, id), done = r <= d || (c.dl != null && r > c.dl); c.dl = r; return done; } });
+const closing = (id, d) => { const c = {}; return { coast: (m) => { const r = dist(m, id), done = r <= d || (c.dl != null && r > c.dl); c.dl = r; return done; } }; };
 // Coast until the current goal is done.
 const goalDone = (k) => ({ coast: (m) => m.goalIndex >= k });
 
@@ -169,10 +180,12 @@ const proofs = {
 };
 
 // Closest the coasting path comes to a body within T seconds (what the
-// dashed path shows a player), stopping at any impact. Cached briefly.
-function closest(m, id, T) {
-  const c = m._closest || (m._closest = {}), key = id + ':' + T;
-  if (c[key] && m.t - c[key].t < 0.02 && m.t >= c[key].t) return c[key].d;
+// dashed path shows a player), stopping at any impact (except, with
+// `through`, with that body itself: how near its middle the path aims).
+// Cached briefly.
+function closest(m, id, T, through) {
+  const c = m._closest || (m._closest = {}), key = id + ':' + T + ':' + !!through;
+  if (c[key] && m.t - c[key].t < 0.005 && m.t >= c[key].t) return c[key].d;
   const sys = m.sys, i = sys.byId[id].index, s = { x: m.ship.x, y: m.ship.y, vx: m.ship.vx, vy: m.ship.vy }, bp = [0, 0];
   let t = m.t, best = Infinity;
   while (t < m.t + T) {
@@ -181,7 +194,8 @@ function closest(m, id, T) {
     t += dt;
     sys.posAt(i, t, bp);
     best = Math.min(best, Math.hypot(s.x - bp[0], s.y - bp[1]));
-    if (Phys.collision(sys, s.x, s.y, t) >= 0) break;
+    const hit = Phys.collision(sys, s.x, s.y, t);
+    if (hit >= 0 && !(through && hit === i)) break;
   }
   sys.update(m.t);
   c[key] = { t: m.t, d: best };
@@ -216,19 +230,17 @@ const ND_INNER = 44.4, ND_LAP = 89.1;
 
 proofs.needledive = {
   // Leave on lap p[0] (offset p[1] s from the inner side): burn forward
-  // until the dashed path dives inside p[2] k, then on the way down trim the
-  // low point to p[3] (retro lowers it, prograde raises it), where the
-  // release preview hits Wisp. Drop the lander, then lift your own low point
-  // to p[4], clear of Wisp's zone. Just after the bottom (p[5] k out) burn
-  // prograde until free, and p[6] more.
-  p: [0, -17, 150, 75, 85, 90, 0.3], scale: [0, 1, 10, 1, 2, 10, 0.1],
-  tol: [0, 3, 6, 3, 3.4, 20, 0.1],
+  // until the dashed path dives inside p[2] k. On the way down brake on
+  // until the release preview falls into Spindle, and p[3] more; drop the
+  // probe, then burn prograde to lift your own low point to p[4]. Just after
+  // the bottom (p[5] k out) burn prograde until free, and p[6] more.
+  p: [0, -15, 150, 0.6, 62, 70, 0.2], scale: [0, 1, 10, 0.05, 2, 10, 0.1],
+  tol: [0, 3, 6, 0.1, 3.4, 20, 0.1],
   script: (p, AP) => [
     { wait: Math.max(0, ND_INNER + Math.round(p[0]) * ND_LAP + p[1]) },
     { burn: 'pro', rel: 'tor', until: (m) => closest(m, 'spindle', 400) <= p[2] },
     { coast: (m) => dist(m, 'spindle') < 800 },
-    { burn: 'retro', rel: 'spindle', until: (m) => closest(m, 'spindle', 300) <= p[3] },
-    { burn: 'pro', rel: 'spindle', until: (m) => closest(m, 'spindle', 300) >= p[3] },
+    burnPast('retro', 'spindle', (m) => closest(m, 'spindle', 300) <= 30, Math.max(0, p[3])),
     { drop: true },
     { burn: 'pro', rel: 'spindle', until: (m) => closest(m, 'spindle', 300) >= p[4] },
     { coast: (m) => radv(m, 'spindle') > 0 && dist(m, 'spindle') >= p[5] },
@@ -255,11 +267,17 @@ function farthest(m, id, T) {
 proofs.slingdrop = {
   // Coast through the beam at the bottom with the probe aboard, release it at
   // p[0] s, then brake at once until the dashed path's high point is p[1] k.
-  p: [58.5, 750], scale: [0.3, 30], tol: [1.5, 30],
+  // Near the top, wait for Vigil Station to close to p[2] k, burn to match
+  // it until the relative speed is p[3], then close in.
+  p: [58.9, 585, 17, 0.4], scale: [0.3, 10, 3, 0.1], tol: [1.5, 22, 6, 0.1],
   script: (p, AP) => [
     { coast: (m) => m.t >= p[0] },
     { drop: true },
     { burn: 'retro', rel: 'vigil', until: (m) => farthest(m, 'vigil', 200) <= p[1] },
+    { coast: (m) => radv(m, 'vigil') <= 0.5 },
+    closing('watch2', p[2]),
+    match('watch2', p[3]),
+    meet('watch2', 0.03, 0.6),
   ],
 };
 
