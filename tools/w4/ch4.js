@@ -84,10 +84,10 @@ const levels = [
       // capture SD_LAG s after you.
       { id: 'watch2', name: 'Vigil Station', gm: 0, radius: 3, color: C.station, kind: 'station', orbit: { parent: 'vigil', a: 460, n: SD_N, phase: SD_ANG - SD_N * (SD_T + SD_LAG) } },
     ],
-    ship: ship({ start: { free: { x: -487.4, y: -461.6, vx: 9.076, vy: 2.194 } }, heading: Math.PI, dv: 6.2, accel: 3, cargo: [{ id: 'relay', name: 'Relay probe', mass: 0.2, dose: 1 }] }),
+    ship: ship({ start: { free: { x: -487.4, y: -461.6, vx: 9.076, vy: 2.194 } }, heading: Math.PI, dv: 6, accel: 3, cargo: [{ id: 'relay', name: 'Relay probe', mass: 0.2, dose: 1 }] }),
     goals: [
       { type: 'escape', body: 'vigil', craft: 'relay', r: 1100, label: 'Deep space' },
-      { type: 'rendezvous', body: 'watch2', dist: 9, relVel: 0.3 },
+      { type: 'rendezvous', body: 'watch2', dist: 10, relVel: 0.3 },
     ],
     par: 5.8, bounds: 5000, tMax: 600, predict: 300, view: { x: -200, y: -200, span: 2000 }, startCam: 'overview',
   },
@@ -323,7 +323,7 @@ proofs.slingdrop = {
   // Near the top, wait for Vigil Station to close to p[2] k, burn to match
   // it until the relative speed is p[3], then close in.
   // Close in by hand: drift toward it at p[4] k/s, brake p[5] k out.
-  p: [58.4, 478, 22.5, 0.55, 0.45, 8], scale: [0.3, 10, 3, 0.1, 0.1, 3], tol: [1.5, 18, 6, 0.1, 0.1, 4],
+  p: [58.4, 479, 22.5, 0.55, 0.45, 8], scale: [0.3, 10, 3, 0.1, 0.1, 3], tol: [1.5, 18, 6, 0.1, 0.1, 4],
   script: (p, AP) => [
     { coast: (m) => m.t >= p[0] },
     { drop: true },
