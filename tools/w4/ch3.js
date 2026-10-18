@@ -106,7 +106,10 @@ const approach = (gi, vc, near, err, popt, pred) => {
   const e = Object.assign({ aim: 0, over: 0 }, err);
   return [
     { fn: (m) => {
-      const P = gp(m, gi), s = m.ship, dx = P.x - s.x, dy = P.y - s.y, d = Math.hypot(dx, dy) || 1;
+      const P = gp(m, gi), s = m.ship, off = (popt && popt.off) || [0, 0], sys = m.sys;
+      const g = m.level.goals[gi], bi = sys.byId[g.lagrange ? g.lagrange.body : g.body], pi = bi.parent;
+      if (pi != null && (off[0] || off[1])) { const rx = sys.px[bi.index] - sys.px[pi], ry = sys.py[bi.index] - sys.py[pi], r = Math.hypot(rx, ry); P.x += off[0] * rx / r - off[1] * ry / r; P.y += off[0] * ry / r + off[1] * rx / r; }
+      const dx = P.x - s.x, dy = P.y - s.y, d = Math.hypot(dx, dy) || 1;
       const ex = P.vx + vc * dx / d - s.vx, ey = P.vy + vc * dy / d - s.vy;
       a = Math.atan2(ey, ex) + e.aim; dv = Math.hypot(ex, ey) * (1 + e.over); dv0 = m.dvUsed();
     } },
@@ -151,13 +154,18 @@ function closest(m, gi, st, H) {
 // closest approach marker reads near zero. Finds the nudge (a small Δv
 // vector) that zeroes the predicted miss, then burns it with the player's
 // errors (aim off by err.aim rad, size off by err.over).
-const fix = (gi, H, err) => {
+const fix = (gi, H, err, look) => {
   let a = 0, dv = 0, dv0 = 0;
   const e = Object.assign({ aim: 0, over: 0 }, err);
   return [
     { fn: (m) => {
       const s = m.ship, miss = (ux, uy) => closest(m, gi, { x: s.x, y: s.y, vx: s.vx + ux, vy: s.vy + uy }, H).d;
       let ux = 0, uy = 0, f = miss(0, 0);
+      // look around first (a player tries a nudge or two each way)
+      if (look) for (const r of [0.25, 0.6]) for (let j = 0; j < 8; j++) {
+        const cx = r * Math.cos(j * Math.PI / 4), cy = r * Math.sin(j * Math.PI / 4), cf = miss(cx, cy);
+        if (cf < f) { ux = cx; uy = cy; f = cf; }
+      }
       for (let it = 0; it < 6; it++) {
         const h = 0.02, fx = miss(ux + h, uy), fy = miss(ux, uy + h);
         const gx = (fx - f) / h, gy = (fy - f) / h, g2 = gx * gx + gy * gy;
@@ -167,6 +175,9 @@ const fix = (gi, H, err) => {
         while (nf > f && k > 1e-4) { k /= 2; nx = ux - k * gx; ny = uy - k * gy; nf = miss(nx, ny); }
         if (nf >= f) break;
         ux = nx; uy = ny; f = nf;
+        // a nudge, not a new transfer: a player never burns more than this
+        const u = Math.hypot(ux, uy);
+        if (u > 1) { ux /= u; uy /= u; f = miss(ux, uy); }
       }
       a = Math.atan2(uy, ux) + e.aim; dv = Math.hypot(ux, uy) * (1 + e.over); dv0 = m.dvUsed();
       m._ca = closest(m, gi, { x: s.x, y: s.y, vx: s.vx + ux, vy: s.vy + uy }, H);
@@ -185,9 +196,9 @@ const hop = (AP, g0, g1, center, q, pred) => [
   park(g0, { aim: q.ta, over: q.to }, (m) => m.goalIndex > g0 && m.t >= q.T),
   ...held(AP, q.dir, center, (m) => m.dvUsed() >= m._dv0 + q.dv),
   { wait: q.tf },
-  ...fix(g1, 200, { aim: q.fa, over: q.fo }),
+  ...fix(g1, 200, { aim: q.fa, over: q.fo }, q.look),
   { coast: (m) => dGoal(m, g1) < q.brake || m.t >= m._ca.t },
-  ...approach(g1, q.vc, q.near, {}, { aim: q.ta, over: q.to }, pred),
+  ...approach(g1, q.vc, q.near, {}, { aim: q.ta, over: q.to, off: q.off || [0, 0] }, pred),
 ];
 // The climb from a low orbit about `body` to goal gi's L2 marker: wait,
 // burn prograde to a high point, coast to the closest approach, then the
@@ -220,8 +231,8 @@ const NW = [
 ];
 const NW_K = l2Scale(NW, 'vesper');
 
-// 2 · Close Pass: Hale on a circular orbit, Wend on an ellipse whose
-// perihelion swings it in toward Hale.
+// 3 · Close Pass: Hale on a circle, Tallow on an ellipse whose perihelion
+// swings it in just outside Hale.
 const CP_N = Math.sqrt(40000 / 760 ** 3);
 const CP = [
   { id: 'brazier', name: 'Brazier', gm: 40000, radius: 50, color: C.sun, kind: 'star', radiation: { rate: 0.06, at: 550, dose: 13 } },
@@ -230,7 +241,8 @@ const CP = [
 ];
 const CP_KH = l2Scale(CP, 'hale'), CP_KW = l2Scale(CP, 'wend');
 
-// 5 · Down the Lane: the same kind of pass at Kiln, then down into orbit.
+// 5 · Down the Lane: a pass like Close Pass at Kiln (the same orbits turned
+// round), then down Loam's shadow into a low orbit.
 const DL_R = 2.0;
 const DL = [
   { id: 'kiln', name: 'Kiln', gm: 40000, radius: 50, color: C.sun2, kind: 'star', radiation: { rate: 0.06, at: 550, dose: 12.5 } },
@@ -239,7 +251,7 @@ const DL = [
 ];
 const DL_KP = l2Scale(DL, 'peat'), DL_KL = l2Scale(DL, 'loam');
 
-// 2 · Perihelion: Wend on an ellipse, a few seconds before its closest
+// 2 · Perihelion: Wend on an ellipse, about a minute before its closest
 // pass by Pyre; its umbra is thin and the sunlight there is fierce.
 const PH_N = Math.sqrt(40300 / 600 ** 3);
 const PH = [
@@ -248,7 +260,7 @@ const PH = [
 ];
 const PH_K = l2Scale(PH, 'wend');
 
-// 3 · Between Sweeps: Corax, a pulsar, with Tarn and Skerry on circular
+// 4 · Between Sweeps: Corax, a pulsar, with Tarn and Skerry on circular
 // orbits; the hop crosses open space where the beams sweep.
 const BS = [
   { id: 'corax', name: 'Corax', gm: 40000, radius: 8, color: '#e4dcff', kind: 'pulsar', radiation: { rate: 1, at: 500, dose: 10, beam: { width: 0.3, period: 70, phase: 0 } } },
@@ -256,6 +268,18 @@ const BS = [
   { id: 'skerry', name: 'Skerry', gm: 300, radius: 10, color: C.ice, orbit: { parent: 'corax', a: 640, phase: 0.9, reflex: false } },
 ];
 const BS_KT = l2Scale(BS, 'tarn'), BS_KS = l2Scale(BS, 'skerry');
+
+// 6 · Lantern: Mirk, a pulsar, with Fen and Moor, and Lantern Station
+// riding in Moor's shadow beyond its L2 on its own rail (stable, unlike you).
+const LT_R = -1.0, LT_A = 640, LT_N = Math.sqrt(40000 / LT_A ** 3);
+const LT_ORB = { parent: 'mirk', a: LT_A, phase: 0.9 + LT_R, reflex: false };
+const LT0 = [
+  { id: 'mirk', name: 'Mirk', gm: 40000, radius: 8, color: '#d8e4ff', kind: 'pulsar', radiation: { rate: 1, at: 500, dose: 10.2, beam: { width: 0.3, period: 70, phase: LT_R } } },
+  { id: 'fen', name: 'Fen', gm: 300, radius: 10, color: C.purple, orbit: { parent: 'mirk', a: 480, phase: LT_R } },
+  { id: 'moor', name: 'Moor', gm: 300, radius: 10, color: C.green, orbit: LT_ORB },
+];
+const LT_KF = l2Scale(LT0, 'fen'), LT_KM = l2Scale(LT0, 'moor');
+const LT = [...LT0, { id: 'lantern', name: 'Lantern Station', gm: 0, radius: 3, color: C.station, kind: 'station', orbit: Object.assign({}, LT_ORB, { a: LT_A * LT_KM + 30, n: LT_N }) }];
 
 const levels = [
   {
@@ -287,6 +311,20 @@ const levels = [
     par: 4.9, bounds: 3000, tMax: 450, predict: 150, view: { x: 400, y: 0, span: 300 },
   },
   {
+    id: 'closepass',
+    name: 'Close Pass',
+    intro: 'Tallow\'s orbit is an ellipse: most of the year it is far out, but at perihelion it swings in close outside Hale and moves almost level with it for a while. Climb from your low orbit to Hale\'s L2 (burn prograde as you pass the day side so the top of your climb meets the marker) and keep station in the dark while Tallow comes in. Hop across when its marker is near: push off outward, fix your aim with the closest approach marker, and brake to match Tallow\'s L2 as you arrive. Wait too long and it is already pulling away.',
+    objective: 'Hold within 6 k of Hale\'s L2 (moving with it to within 0.25 k/s) for 15 s, then within 8 k of Tallow\'s L2 (to within 0.3 k/s) for 10 s, taking under 13 Sv of radiation, with 24 s of side-thruster propellant.',
+    teaches: 'Elliptical orbits · hop between shadows',
+    bodies: CP,
+    ship: ship({ start: { orbit: { body: 'hale', r: 17, angle: 1.7 } }, heading: 'prograde', dv: 6.72, accel: 0.8, rcs: { fuel: 24 } }),
+    goals: [
+      { type: 'hold', lagrange: { body: 'hale', lead: 0, scale: CP_KH }, r: 6, relVel: 0.25, hold: 15, label: 'Hale L2' },
+      { type: 'hold', lagrange: { body: 'wend', lead: 0, scale: CP_KW }, r: 8, relVel: 0.3, hold: 10, label: 'Tallow L2' },
+    ],
+    par: 5.8, bounds: 3000, tMax: 600, predict: 250, view: { x: -200, y: 400, span: 1500 }, startCam: 'overview',
+  },
+  {
     id: 'sweeps',
     name: 'Between Sweeps',
     intro: 'Corax is a pulsar: its two beams sweep round, and only a planet\'s shadow stops them, so Tarn\'s and Skerry\'s L2 points sit in dark lanes the beams never reach. Climb from your low orbit to Tarn\'s L2 (burn prograde as you pass the day side so the top of your climb meets the marker) and keep station there while Skerry comes round behind you. Then hop across: push off outward, fix your aim with the closest approach marker, and brake to match Skerry\'s L2 as you arrive. Out in the open the beams will catch you, and the glow on your path shows where: leave when it shows the fewest, faintest hits.',
@@ -303,31 +341,32 @@ const levels = [
   {
     id: 'lanedown',
     name: 'Down the Lane',
-    intro: 'TBD',
-    objective: 'TBD',
+    intro: 'Loam is on an ellipse that brings it in close outside Peat once a year, and its supply drop is due at the bottom of its shadow. Climb from your low orbit to Peat\'s L2 and keep station while Loam comes in, then hop across: push off outward, fix your aim with the closest approach marker and brake to match Loam\'s L2. Hold there, then push off sunward and a little ahead so you fall down the dark lane behind Loam (the glow on your path fades as you angle it), and brake into a low orbit at the bottom. Angle the push too far and the fall clips Loam.',
+    objective: 'Hold within 4 k of Peat\'s L2 (moving with it to within 0.15 k/s) for 25 s, then within 5 k of Loam\'s L2 (to within 0.2 k/s) for 10 s, then orbit Loam between 13 and 30 k from its centre, taking under 12.5 Sv of radiation, with 35.7 s of side-thruster propellant.',
     teaches: 'Hop, then down the shadow',
     bodies: DL,
-    ship: ship({ start: { orbit: { body: 'peat', r: 17, angle: 1.7 + DL_R } }, heading: 'prograde', dv: 8.4, accel: 0.8, rcs: { fuel: 35.7 } }),
+    ship: ship({ start: { orbit: { body: 'peat', r: 17, angle: 1.7 + DL_R } }, heading: 'prograde', dv: 8.43, accel: 0.8, rcs: { fuel: 35.7 } }),
     goals: [
-      { type: 'hold', lagrange: { body: 'peat', lead: 0, scale: DL_KP }, r: 6, relVel: 0.25, hold: 15, label: 'Peat L2' },
+      { type: 'hold', lagrange: { body: 'peat', lead: 0, scale: DL_KP }, r: 4, relVel: 0.15, hold: 25, label: 'Peat L2' },
       { type: 'hold', lagrange: { body: 'loam', lead: 0, scale: DL_KL }, r: 5, relVel: 0.2, hold: 10, label: 'Loam L2' },
       { type: 'orbit', body: 'loam', rMin: 13, rMax: 30, label: 'Low orbit' },
     ],
-    par: 8, bounds: 3000, tMax: 730, predict: 250, view: { x: 0, y: 0, span: 1600 }, startCam: 'overview',
+    par: 8, bounds: 3000, tMax: 800, predict: 250, view: { x: 0, y: 0, span: 1600 }, startCam: 'overview',
   },
   {
-    id: 'closepass',
-    name: 'Close Pass',
-    intro: 'Tallow\'s orbit is an ellipse: most of the year it is far out, but at perihelion it swings in close outside Hale and moves almost level with it for a while. Climb from your low orbit to Hale\'s L2 (burn prograde as you pass the day side so the top of your climb meets the marker) and keep station in the dark while Tallow comes in. Hop across when its marker is near: push off outward, fix your aim with the closest approach marker, and brake to match Tallow\'s L2 as you arrive. Wait too long and it is already pulling away.',
-    objective: 'Hold within 6 k of Hale\'s L2 (moving with it to within 0.25 k/s) for 15 s, then within 8 k of Tallow\'s L2 (to within 0.3 k/s) for 10 s, taking under 13 Sv of radiation, with 24 s of side-thruster propellant.',
-    teaches: 'Elliptical orbits · hop between shadows',
-    bodies: CP,
-    ship: ship({ start: { orbit: { body: 'hale', r: 17, angle: 1.7 } }, heading: 'prograde', dv: 6.72, accel: 0.8, rcs: { fuel: 24 } }),
+    id: 'lantern',
+    name: 'Lantern',
+    intro: 'Lantern Station rides in Moor\'s shadow, a little beyond its L2: a station on its own rail stays put, but you do not. Climb from your low orbit to Fen\'s L2 (burn prograde as you pass the day side so the top of your climb meets the marker) and keep station while Moor comes round behind you. Hop across between Mirk\'s sweeps: push off outward, fix your aim with the closest approach marker, brake to match Moor\'s L2 and hold there. Then let the drift carry you out to Lantern and match its speed, gently: the station is solid.',
+    objective: 'Hold within 4 k of Fen\'s L2 (moving with it to within 0.15 k/s) for 25 s, then within 3 k of Moor\'s L2 (to within 0.15 k/s) for 30 s, then rendezvous with Lantern Station (within 10 k, relative speed under 0.4 k/s), taking under 10.2 Sv of radiation, with 30.2 s of side-thruster propellant.',
+    teaches: 'Shadow to shadow · a station at L2',
+    bodies: LT,
+    ship: ship({ start: { orbit: { body: 'fen', r: 14, angle: 1.7 + LT_R } }, heading: 'prograde', dv: 7.07, accel: 0.8, rcs: { fuel: 30.2 } }),
     goals: [
-      { type: 'hold', lagrange: { body: 'hale', lead: 0, scale: CP_KH }, r: 6, relVel: 0.25, hold: 15, label: 'Hale L2' },
-      { type: 'hold', lagrange: { body: 'wend', lead: 0, scale: CP_KW }, r: 8, relVel: 0.3, hold: 10, label: 'Tallow L2' },
+      { type: 'hold', lagrange: { body: 'fen', lead: 0, scale: LT_KF }, r: 4, relVel: 0.15, hold: 25, label: 'Fen L2' },
+      { type: 'hold', lagrange: { body: 'moor', lead: 0, scale: LT_KM }, r: 3, relVel: 0.15, hold: 30, label: 'Moor L2' },
+      { type: 'rendezvous', body: 'lantern', dist: 10, relVel: 0.4, label: 'Lantern Station' },
     ],
-    par: 5.8, bounds: 3000, tMax: 600, predict: 250, view: { x: -200, y: 400, span: 1500 }, startCam: 'overview',
+    par: 7.3, bounds: 3000, tMax: 600, predict: 250, view: { x: 0, y: 0, span: 1500 }, startCam: 'overview',
   },
 ];
 
@@ -381,13 +420,25 @@ const proofs = {
     // shadow and brake into a low orbit at the bottom.
     // p: the climb (CLIMB_KEYS), the hop (HOP_KEYS), then when to let go,
     // push Δv, push aim (off 'in'), low orbit high point.
-    p: [7.845, 45.535, 0.768, 5.786, 0, 0, 109.967, -1.476, 0.087, 8.448, 0, 0, 29.262, 0.416, 10.404, 0, 0, 380, 1.0, 0.2, 22], scale: [...CLIMB_SCALE, ...HOP_SCALE, 5, 0.1, 0.03, 1], tol: [...CLIMB_TOL, ...HOP_TOL, 3, 0.1, 0.06, 1], opts: { turn: true, turnRate: 0.4 },
+    p: [7.845, 45.535, 0.768, 5.786, 0, 0, 109.967, -1.476, 0.087, 8.448, 0, 0, 29.262, 0.416, 10.404, 0, 0, 430, 1.0, 0.2, 22], scale: [...CLIMB_SCALE, ...HOP_SCALE, 5, 0.1, 0.03, 1], tol: [...CLIMB_TOL, ...HOP_TOL, 3, 0.1, 0.06, 1], opts: { turn: true, turnRate: 0.4 },
     script: (p, AP) => [
       ...climb(AP, 0, 'peat', climbQ(p, 0, p[15], p[16]), doneGoal(0)),
       ...hop(AP, 0, 1, 'kiln', hopQ(p, 6), (m) => m.goalIndex > 1 && m.t >= p[17]),
       ...held(AP, (m) => AP.aim(m, 'in', 'loam') + p[19], null, (m) => m.dvUsed() >= m._dv0 + p[18]),
       { coast: (m, c) => { const o = AP.orb(m, 'loam'); if (o.r < 40) c.low = true; return c.low && o.rising; } },
       { burn: 'retro', rel: 'loam', until: (m) => AP.orb(m, 'loam').ap <= p[20] },
+    ],
+  },
+  lantern: {
+    // Climb to Fen's L2 and keep station, hop across between sweeps to
+    // Moor's L2, hold, then close in on Lantern Station further out.
+    // p: the climb (CLIMB_KEYS), the hop (HOP_KEYS), then the closing speed
+    // and the distance to start the taps toward Lantern.
+    p: [5.691, 45.593, 0.74, 6.4, 0, 0, 119.178, -1.57, 0.031, 13.423, 0, 0, 24.172, 0.494, 7.302, 0, 0, 0.457, 2.645, 0, 0], scale: [...CLIMB_SCALE, ...HOP_SCALE, 0.1, 1, 0, 0], tol: [...CLIMB_TOL, ...HOP_TOL, 0.1, 2, 0.06, 0.04], opts: { turn: true, turnRate: 0.4 },
+    script: (p, AP) => [
+      ...climb(AP, 0, 'fen', climbQ(p, 0, p[15], p[16]), doneGoal(0)),
+      ...hop(AP, 0, 1, 'mirk', hopQ(p, 6), doneGoal(1)),
+      ...approach(2, p[17], p[18], { aim: p[19], over: p[20] }, { aim: p[15], over: p[16], off: [-8, 0] }),
     ],
   },
   closepass: {
@@ -426,6 +477,16 @@ const fails = {
     { name: 'coast and watch', steps: () => [] },
     { name: 'climb from under the night side', opts: proofs.closepass.opts, steps: (AP) => { const p = proofs.closepass.p.slice(); p[0] += 12.5; return proofs.closepass.script(p, AP); } },
     { name: 'wait until Tallow is level, then hop', opts: proofs.closepass.opts, steps: (AP) => { const p = proofs.closepass.p.slice(); p[6] += 30; return proofs.closepass.script(p, AP); } },
+  ],
+  lanedown: [
+    { name: 'coast and watch', steps: () => [] },
+    { name: 'climb from under the night side', opts: proofs.lanedown.opts, steps: (AP) => { const p = proofs.lanedown.p.slice(); p[0] += 12.5; return proofs.lanedown.script(p, AP); } },
+    { name: 'fall straight sunward from Loam\'s L2', opts: proofs.lanedown.opts, steps: (AP) => { const p = proofs.lanedown.p.slice(); p[19] = -0.05; return proofs.lanedown.script(p, AP); } },
+  ],
+  lantern: [
+    { name: 'coast and watch', steps: () => [] },
+    { name: 'climb from under the night side', opts: proofs.lantern.opts, steps: (AP) => { const p = proofs.lantern.p.slice(); p[0] += 9.5; return proofs.lantern.script(p, AP); } },
+    { name: 'wait for Moor to come level, then hop', opts: proofs.lantern.opts, steps: (AP) => { const p = proofs.lantern.p.slice(); p[6] += 35; return proofs.lantern.script(p, AP); } },
   ],
 };
 
