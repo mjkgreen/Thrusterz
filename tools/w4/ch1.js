@@ -134,7 +134,7 @@ const levels = [
   {
     id: 'sendrelease',
     name: 'Send and Release',
-    intro: 'You are falling toward Pyra on a long ellipse, and the Sundrop probe has to land on Cinder, the scorched planet racing round close to the star. Your path already ends on Cinder, but only after a pass round Pyra: far too hot for the probe, and for you. Out here a small burn moves your path a lot: nudge it until it hits little Cinder on the way in, before the probe\'s dose mark, and release the probe (E). Then turn half way between prograde and straight out and burn at once, watching the low and high point readouts: your ship can take only 16 Sv, so you must stay far out while the probe falls.',
+    intro: 'You are falling toward Pyra on a long ellipse, and the Sundrop probe has to land on Cinder, the scorched planet racing round close to the star. Your path already ends on Cinder, but only after a pass round Pyra: far too hot for the probe, and for you. Out here a small burn moves your path a lot: nudge it until it hits little Cinder on the way in, before the probe\'s dose mark, and release the probe (E). Then turn most of the way from prograde to straight out and burn at once, watching the low and high point readouts: your ship can take only 16 Sv, so you must stay far out while the probe falls.',
     objective: 'Land the probe on Cinder before it takes 55 Sv, then orbit Pyra between 800 and 2000 k up, taking under 16 Sv yourself.',
     teaches: 'Cargo with its own dose limit',
     bodies: [
@@ -168,25 +168,25 @@ const levels = [
       { type: 'hit', body: 'kiln', craft: 'booster', label: 'Booster into Kiln' },
       { type: 'orbit', body: 'kiln', rMin: 1190, rMax: 1245, label: 'Far parking orbit' },
     ],
-    par: 13.6, bounds: 4000, tMax: 700, predict: 400, view: { x: 0, y: 0, span: 1400 },
+    par: 13.8, bounds: 4000, tMax: 700, predict: 400, view: { x: 0, y: 0, span: 1400 },
   },
   {
     id: 'retrorelay',
     name: 'Retrograde Relay',
-    intro: 'You are coming past Brand on a fast flyby, clockwise, the same way Relay Tern circles close in to the star. Down at the relay\'s height Brand burns at almost 2 Sv a second, and your ship can take 258 Sv in all, so don\'t chase it there. Brake at your low point into a long lap far out, where the light is weak, and wait until Relay Tern is about a third of a lap ahead of you. Then drop your low point to its height: the ghost on your path shows where it will be when you get there, so tap to bring the closest approach down and brake to match it. Once you have met it, climb straight to the cool orbit, burning prograde and a little away from the relay.',
-    objective: 'Get captured by Brand (high point under 1055 k up), rendezvous with Relay Tern (within 12 k, relative speed under 0.5 k/s), then orbit Brand between 367 and 395 k up, taking under 258 Sv of radiation.',
+    intro: 'You are coming past Brand on a fast flyby, clockwise, the same way Relay Tern circles close in to the star. Down at the relay\'s height Brand burns at almost 2 Sv a second, and your ship can take 260 Sv in all, so don\'t chase it there. Brake at your low point into a long lap far out, where the light is weak, and wait until Relay Tern is about a third of a lap ahead of you. Then drop your low point to its height: the ghost on your path shows where it will be when you get there, so tap to bring the closest approach down and brake to match it. Once you have met it, climb straight to the cool orbit, burning prograde and a little away from the relay.',
+    objective: 'Get captured by Brand (high point under 1055 k up), rendezvous with Relay Tern (within 12 k, relative speed under 0.5 k/s), then orbit Brand between 371 and 394 k up, taking under 260 Sv of radiation.',
     teaches: 'Phase far out, meet close in',
     bodies: [
-      { id: 'brand', name: 'Brand', gm: 40000, radius: 45, color: C.sun2, kind: 'star', radiation: { rate: 1, at: 300, dose: 258 } },
+      { id: 'brand', name: 'Brand', gm: 40000, radius: 45, color: C.sun2, kind: 'star', radiation: { rate: 1, at: 300, dose: 260 } },
       { id: 'tern', name: 'Relay Tern', gm: 0, radius: 4, color: C.station, kind: 'station', orbit: { parent: 'brand', a: 220, dir: -1, phase: 6.1248 } },
     ],
     ship: ship({ start: { conic: { body: 'brand', pe: 600, e: 1.1, nu: -1.2, angle: 2.4, dir: -1 } }, heading: 'retrograde', dv: 15, accel: 1.5 }),
     goals: [
       { type: 'orbit', body: 'brand', rMin: 200, rMax: 1100, label: 'Capture' },
       { type: 'rendezvous', body: 'tern', dist: 12, relVel: 0.5 },
-      { type: 'orbit', body: 'brand', rMin: 412, rMax: 440, label: 'Cool orbit' },
+      { type: 'orbit', body: 'brand', rMin: 416, rMax: 439, label: 'Cool orbit' },
     ],
-    par: 13.6, bounds: 4000, tMax: 1100, predict: 400, view: { x: 0, y: 0, span: 2400 }, startCam: 'overview',
+    par: 14, bounds: 4000, tMax: 1100, predict: 400, view: { x: 0, y: 0, span: 2400 }, startCam: 'overview',
   },
   {
     id: 'patrolshift',
@@ -267,7 +267,7 @@ const proofs = {
     ],
   },
   retrorelay: {
-    p: [2, 1000, 2.3, 221, 431, 419], scale: [2, 30, 0.3, 5, 5, 5], tol: [2, 40, 0.11, 9, 17, 17],
+    p: [2, 1000, 2.3, 221, 430, 422], scale: [2, 30, 0.3, 5, 5, 5], tol: [2, 40, 0.11, 9, 17, 17],
     script: (p, AP) => [
       { coast: (m) => { const o = AP.orb(m, 'brand'); return o.r < o.pe + 5; } },
       { wait: Math.max(0, p[0]) },

@@ -98,8 +98,11 @@ const levels = [
       { id: 'vesper', name: 'Vesper Station', gm: 0, radius: 3, color: C.station, kind: 'station', orbit: { parent: 'halo', a: 75, phase: 0, dir: -1 } },
     ],
     ship: ship({ start: { orbit: { body: 'halo', r: 48, angle: 0 } }, heading: 'prograde', dv: 10.5, accel: 1 }),
-    goals: [{ type: 'orbit', body: 'halo', rMin: 50, rMax: 180, dir: -1 }],
-    par: 7.2, bounds: 6000, tMax: 900, predict: 400, view: { x: 300, y: 0, span: 2600 }, startCam: 'overview',
+    goals: [
+      { type: 'orbit', body: 'halo', rMin: 50, rMax: 180, dir: -1 },
+      { type: 'rendezvous', body: 'vesper', dist: 10, relVel: 0.4 },
+    ],
+    par: 7.2, bounds: 6000, tMax: 1200, predict: 400, view: { x: 300, y: 0, span: 2600 }, startCam: 'overview',
   },
   {
     id: 'horizonfence',
@@ -172,7 +175,7 @@ const approach = (id, vClose, dBrake) => {
   };
   return [
     { fn: () => { c.dl = null; c.el = null; } },
-    { burn: (m) => { const e = aimV(m); return Math.atan2(e.y, e.x); }, until: (m) => { const e = Math.hypot(aimV(m).x, aimV(m).y), stop = e < 0.03 || (c.el != null && e > c.el + 0.005); c.el = c.el == null ? e : Math.min(c.el, e); return stop; } },
+    { burn: (m) => { const e = aimV(m); return Math.atan2(e.y, e.x); }, until: (m) => { const e = Math.hypot(aimV(m).x, aimV(m).y), stop = e < 0.05 || (c.el != null && e > c.el + 0.01); c.el = c.el == null ? e : Math.min(c.el, e); return stop; }, max: 6 },
     { coast: (m) => { const r = dist(m, id), done = r <= dBrake || (c.dl != null && r > c.dl); c.dl = r; return done; } },
     match(id, 0.15),
     meet(id, 0.03, 0.6),
@@ -292,7 +295,7 @@ proofs.slingdrop = {
   // Near the top, wait for Vigil Station to close to p[2] k, burn to match
   // it until the relative speed is p[3], then close in.
   // Close in by hand: drift toward it at p[4] k/s, brake p[5] k out.
-  p: [58.4, 478, 22, 0.55, 0.45, 8], scale: [0.3, 10, 3, 0.1, 0.1, 3], tol: [1.5, 18, 6, 0.1, 0.1, 4],
+  p: [58.4, 478, 22.5, 0.55, 0.45, 8], scale: [0.3, 10, 3, 0.1, 0.1, 3], tol: [1.5, 18, 6, 0.1, 0.1, 4],
   script: (p, AP) => [
     { coast: (m) => m.t >= p[0] },
     { drop: true },
@@ -343,8 +346,8 @@ proofs.retrowhirl = {
   // prograde) until the dashed path swings round Halo's far side; once
   // within 250 k of Halo, nudge the pass sideways until it is p[5] k from
   // Halo, and at that low point brake until the high point is p[6].
-  p: [1, -11, 68, 386, 0, 100, 140], scale: [0, 1, 2, 30, 0.3, 3, 5],
-  tol: [0, 2, 2.7, 30, 0.06, 4, 6],
+  p: [1, -11, 68, 386, 0, 100, 140, 0.5, 20, 0.4, 8], scale: [0, 1, 2, 30, 0.3, 3, 5, 0.1, 3, 0.1, 3],
+  tol: [0, 2, 2.7, 30, 0.06, 4, 6, 0.06, 6, 0.1, 4],
   script: (p, AP) => [
     { wait: Math.max(0, RW_INNER + Math.round(p[0]) * RW_LAP + p[1]) },
     { burn: 'pro', rel: 'halo', until: (m) => closest(m, 'lumen', 400) <= 150 },
@@ -363,6 +366,14 @@ proofs.retrowhirl = {
     }, max: 20 },
     { coast: (m) => dist(m, 'halo') < 150 && radv(m, 'halo') > 0 },
     { burn: 'retro', rel: 'halo', until: (m) => { const o = AP.orb(m, 'halo'); return o.bound && o.ap <= p[6]; } },
+    goalDone(1),
+    // Vesper p[7] rad ahead of you round Halo: brake until the low point
+    // touches its orbit, then close in by hand.
+    { coast: (m) => { const d = AP.wrap(AP.shipPhase(m, 'halo') - AP.phase(m, 'vesper', 'halo')); return d >= p[7] && d < p[7] + 0.3; } },
+    { burn: 'retro', rel: 'halo', until: (m) => AP.orb(m, 'halo').pe <= 76 },
+    closing('vesper', p[8]),
+    match('vesper', 0.3),
+    ...approach('vesper', p[9], p[10]),
   ],
 };
 

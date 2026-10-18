@@ -134,13 +134,13 @@ const levels = [
     bodies: [
       { id: 'talon', name: 'Talon', gm: 40000, radius: 8, color: '#e4dcff', kind: 'pulsar', radiation: { rate: 0.2, at: 300, dose: 20, beam: { width: 0.3, period: 80, phase: 0 } } },
       { id: 'orrin', name: 'Orrin', gm: 600, radius: 14, color: C.tan, keepOut: 60, orbit: { parent: 'talon', a: 560, phase: 2.5, dir: -1 } },
-      { id: 'dock', name: 'Hollow Dock', gm: 0, radius: 4, color: C.station, kind: 'station', orbit: { parent: 'talon', a: TALON_LANE, phase: 4.37 } },
+      { id: 'dock', name: 'Hollow Dock', gm: 0, radius: 4, color: C.station, kind: 'station', orbit: { parent: 'talon', a: TALON_LANE, phase: 4.9 } },
     ],
     ship: ship({ start: { orbit: { body: 'talon', r: 300, angle: 0 } }, heading: 'prograde', dv: 12, accel: 1, rcs: { fuel: 12 }, cargo: [{ id: 'pod', name: 'Supply pod', mass: 0.3, dose: 0.25 }, { id: 'relay', name: 'Lane relay', mass: 0.1, dose: 0.5 }] }),
     goals: [
       { type: 'hit', body: 'orrin', craft: 'pod' },
       { type: 'rendezvous', body: 'dock', dist: 12, relVel: 0.5 },
-      { type: 'orbit', craft: 'relay', body: 'talon', rMin: 178, rMax: 196, confirm: 10 },
+      { type: 'orbit', craft: 'relay', body: 'talon', rMin: 172, rMax: 194, confirm: 10 },
     ],
     par: 8.5, bounds: 3000, tMax: 600, predict: 300, view: { x: 0, y: 0, span: 1500 },
   },
@@ -365,7 +365,7 @@ proofs.pulsarsupply = {
   // p[6] from Talon tap the engine until the path meets Orrin again; past
   // p[2], drop the pod p[5] s after a sweep goes by, and burn until the high
   // point is p[4].
-  p: [112, 0.15, 380, 2.847, 470, 1, 350, 186.6, 0.4, 0, 0, 0.14, 30], scale: [3, 0.05, 15, 0.2, 6, 1, 15, 3, 0.1, 0, 0, 0.05, 3], tol: [2, 0.1, 15, 0.06, 15, 1.5, 15, 6, 0.1, 0.25, 0.25, 0.1, 4], opts: { turn: true, turnRate: 0.2 },
+  p: [112, 0.15, 380, 2.847, 470, 1, 350, 186.6, 0.4, 0, 0, 0.1, 25], scale: [3, 0.05, 15, 0.2, 6, 1, 15, 3, 0.1, 0, 0, 0.05, 3], tol: [2, 0.1, 15, 0.06, 15, 1.5, 15, 6, 0.1, 0.25, 0.25, 0.1, 4], opts: { turn: true, turnRate: 0.2 },
   script: (p, AP) => [
     hold((m) => m.t >= p[0]),
     { burn: 'pro', rel: 'talon', until: (m) => { const o = AP.orb(m, 'talon'); return o.ap > 800 || (o.ap > 480 && closest(m, 'orrin', 0, 0, 200) <= 15); } },
@@ -384,7 +384,8 @@ proofs.pulsarsupply = {
     { burn: 'retro', rel: 'talon', until: (m) => AP.orb(m, 'talon').pe <= p[7] },
     { coast: (m) => AP.orb(m, 'talon').rising },
     { burn: 'retro', rel: 'talon', until: (m) => { const o = AP.orb(m, 'talon'); return o.ap <= Math.max(TALON_LANE + 2, o.r + 1.5); } },
-    dockTo(behind('dock', 8), p[8], 0.03, (m) => m.goalIndex > 1, 0.12),
+    ...phaseTo(behind('dock', 8), 'talon', 10, AP),
+    dockTo(behind('dock', 8), p[8], 0.03, (m) => m.goalIndex > 1, 0.12, 'talon'),
     // Relay: brake p[11] to dip a little lower (a faster lap), and once
     // p[12] k ahead of the dock drop the relay with a hand-flown speed error.
     { fn: (m, c) => { c.d0 = m.dvUsed(); } },
@@ -434,6 +435,22 @@ const dockTo = (pt, vmax, k, done, tol, about) => ({
     return { thrust: true, angle: c.ang };
   },
 });
+// Catch up with a craft sharing your (nearly round) orbit about `about`:
+// one phasing lap, a little lower to gain on it or higher to fall back
+// (speed change v·φ/(6π) for an angle φ), then the opposite burn, unless it
+// is already within `near` k.
+const phaseTo = (pt, about, near, AP) => [
+  { fn: (m) => {
+    const o = AP.orb(m, about), q = pt(m), b = bodyPt(about)(m);
+    const phi = AP.wrap(Math.atan2(q.y - b.y, q.x - b.x) - o.theta) * o.dir;
+    m._ph = Math.hypot(q.x - m.ship.x, q.y - m.ship.y) < near ? null : { dv: o.v * phi / (6 * Math.PI), T: o.period * (1 - phi / (2 * Math.PI)) };
+  } },
+  { fn: (m, c) => { c.d0 = m.dvUsed(); } },
+  { burn: (m) => { const o = AP.orb(m, about); return m._ph && m._ph.dv < 0 ? o.pro : o.pro + Math.PI; }, until: (m, c) => !m._ph || m.dvUsed() - c.d0 >= Math.abs(m._ph.dv) },
+  { coast: (m, c) => !m._ph || m.t - c.t0 >= m._ph.T },
+  { fn: (m, c) => { c.d0 = m.dvUsed(); } },
+  { burn: (m) => { const o = AP.orb(m, about); return m._ph && m._ph.dv < 0 ? o.pro + Math.PI : o.pro; }, until: (m, c) => !m._ph || m.dvUsed() - c.d0 >= Math.abs(m._ph.dv) },
+];
 const bodyPt = (id) => (m) => { m.sys.update(m.t); const i = m.sys.byId[id].index; return { x: m.sys.px[i], y: m.sys.py[i], vx: m.sys.vx[i], vy: m.sys.vy[i] }; };
 // Burn until the orbit about `id` is circular where you are now.
 const circularize = (id, gm) => ({

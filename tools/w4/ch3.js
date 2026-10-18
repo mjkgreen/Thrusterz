@@ -217,9 +217,8 @@ const CP_KH = l2Scale(CP, 'hale'), CP_KW = l2Scale(CP, 'wend');
 // pass by Pyre; its umbra is thin and the sunlight there is fierce.
 const PH_N = Math.sqrt(40300 / 600 ** 3);
 const PH = [
-  { id: 'pyre', name: 'Pyre', gm: 40000, radius: 50, color: C.sun2, kind: 'star', radiation: { rate: 0.3, at: 550, dose: 99 } },
+  { id: 'pyre', name: 'Pyre', gm: 40000, radius: 50, color: C.sun2, kind: 'star', radiation: { rate: 0.3, at: 550, dose: 7.3 } },
   { id: 'wend', name: 'Wend', gm: 300, radius: 9, color: C.tan, orbit: { parent: 'pyre', a: 600, e: 0.4, argp: 0, phase: -PH_N * 30 } },
-  { id: 'sprig', name: 'Sprig', gm: 0, radius: 3, color: C.rock, orbit: { parent: 'wend', a: 30, phase: 0 } },
 ];
 const PH_K = l2Scale(PH, 'wend');
 
@@ -254,10 +253,10 @@ const levels = [
     objective: 'TBD',
     teaches: 'Elliptical orbits · L2 at perihelion',
     bodies: PH,
-    ship: ship({ start: nearPoint(PH, 'wend', PH_K, 10, 0, 0, 0), heading: 'retrograde', dv: 9, accel: 0.8 }),
+    ship: ship({ start: nearPoint(PH, 'wend', PH_K, 10, 0, 0, 0), heading: 'retrograde', dv: 4.75, accel: 0.8, rcs: { fuel: 25.6 } }),
     goals: [
-      { type: 'hold', lagrange: { body: 'wend', lead: 0, scale: PH_K }, r: 5, relVel: 0.3, hold: 30, label: 'L2' },
-      { type: 'rendezvous', body: 'sprig', dist: 8, relVel: 0.4, label: 'Sprig' },
+      { type: 'hold', lagrange: { body: 'wend', lead: 0, scale: PH_K }, r: 3, relVel: 0.15, hold: 30, label: 'L2' },
+      { type: 'orbit', body: 'wend', rMin: 10, rMax: 30, label: 'Low orbit' },
     ],
     par: 4, bounds: 3000, tMax: 600, predict: 150, view: { x: 400, y: 0, span: 300 },
   },
@@ -311,13 +310,16 @@ const proofs = {
     ],
   },
   perihelion: {
-    // Close in on L2 and keep station through perihelion, then drop in to
-    // meet Sprig as it comes round.
-    // p: closing speed, distance to start the taps, then the hop (HOP_KEYS).
-    p: [0.4, 4, 100, 3.14, 0.3, 10, 0, 0, 10, 0.3, 3, 0, 0], scale: [0.1, 1, ...HOP_SCALE], tol: [0.1, 2, ...HOP_TOL], opts: { turn: true, turnRate: 0.4 },
+    // Close in on L2 and keep station through perihelion, then push sunward,
+    // fall down the shadow and brake into a low orbit at the bottom.
+    // p: closing speed, distance to start the taps, tap aim error, over,
+    // when to let go, push Δv, low orbit high point, push aim (off 'in').
+    p: [0.4, 4, 0, 0, 120, 1.0, 22, 0], scale: [0.1, 1, 0, 0, 5, 0.1, 1, 0.1], tol: [0.1, 2, 0.1, 0.15, 3, 0.04, 1, 0.06], opts: { turn: true, turnRate: 0.4 },
     script: (p, AP) => [
-      ...approach(0, p[0], p[1], {}, { aim: p[11], over: p[12] }, doneGoal(0)),
-      ...hop(AP, 0, 1, 'wend', hopQ(p, 2)),
+      ...approach(0, p[0], p[1], {}, { aim: p[2], over: p[3] }, (m) => m.goalIndex > 0 && m.t >= p[4]),
+      ...held(AP, (m) => AP.aim(m, 'in', 'wend') + p[7], null, (m) => m.dvUsed() >= m._dv0 + p[5]),
+      { coast: (m, c) => { const o = AP.orb(m, 'wend'); if (o.r < 40) c.low = true; return c.low && o.rising; } },
+      { burn: 'retro', rel: 'wend', until: (m) => AP.orb(m, 'wend').ap <= p[6] },
     ],
   },
   sweeps: {
