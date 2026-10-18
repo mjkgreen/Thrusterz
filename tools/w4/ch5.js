@@ -61,9 +61,9 @@ const levels = [
   {
     id: 'darkconst',
     name: 'Dark Constellation',
-    intro: 'Three relay satellites for Nyx, to be spread evenly round it, and each one soaks up Calor\'s heat from the moment it leaves your hold: a satellite can take only 17 Sv. The long phasing laps that work at Terra, a third slower each, leave Sat 1 out in the heat far too long. Phase the other way: round off about 95 k up, drop a satellite (E), and brake until your low point is about 18 k up, a lap a third shorter. Back at the high point, round off again and drop the next; the spacing readout should show close to 120°, and every orbit must be nearly round.',
-    objective: 'Spread three satellites at least 116° apart in orbits between 77 and 103 k above Nyx, each taking under 17 Sv of radiation.',
-    teaches: 'Quick phasing laps · cargo dose',
+    intro: 'Four parts, one tank. First the Shade relay: it must sit at Nyx\'s L2, the point behind Nyx where its shadow always falls. Leave your parking orbit when the L2 marker is about a third of a turn behind you, burn until the closest approach marker touches it, stop there and drop the relay (E) with the engine off. Then a small brake drops you back towards Nyx. Each satellite soaks up Calor\'s heat from the moment it leaves your hold, so phase on quick laps: round off about 75 k up, drop Sat 1, brake until your low point is about 20 k up (a lap a third shorter), and round off at the high point to drop the next. Watch the spacing readout.',
+    objective: 'Hold the Shade relay within 10 k of Nyx\'s L2 (relative speed under 0.28 k/s) for 10 s, then spread three satellites at least 113° apart in orbits 60 to 92 k above Nyx, each taking under 10.5 Sv, and you under 30.6 Sv.',
+    teaches: 'L2 drop · quick phasing laps · cargo dose',
     bodies: [
       { id: 'calor', name: 'Calor', gm: 100000, radius: 60, color: C.sun2, kind: 'star', radiation: { rate: 0.12, at: 1200, dose: 30.6 } },
       { id: 'nyx', name: 'Nyx', gm: 20000, radius: 40, color: '#5a6b8c', orbit: { parent: 'calor', a: 1200, phase: 0 } },
@@ -83,8 +83,8 @@ const levels = [
   {
     id: 'stageddive',
     name: 'Staged Dive',
-    intro: 'Your orbit has sagged deep into Cinder\'s heat, and every lap crosses Watch Station\'s ring: a spent stage left on any orbit that reaches the ring hits the station sooner or later. So each stage has to go where it can\'t come back. Burn the dive stage retrograde until it runs dry: your path now ends inside Cinder, so drop it there. Then burn prograde until your low point just clears the surface, about 1 to 2 k up: the kick stage has barely enough to escape, and only from that deep. As you reach the low point burn it dry, right at the bottom: you are escaping, so it flies away for good.',
-    objective: 'Get 2400 k from Cinder, taking under 9.4 Sv of radiation, with no spent stage left on an orbit that crosses Watch Station\'s.',
+    intro: 'Your orbit has sagged deep into Cinder\'s heat, and every lap crosses Watch Station\'s ring: a spent stage left on any orbit that reaches the ring hits the station sooner or later. So each stage has to go where it can\'t come back. Burn the dive stage retrograde until it runs dry: your path now ends inside Cinder, so drop it there. Then burn prograde until your low point just clears the surface, 1 to 3 k up: that skims the corona, and the kick stage has barely enough to escape, and only from that deep. As you reach the low point burn it dry and drop it: you are escaping, so it flies away for good. The capsule finishes the climb.',
+    objective: 'Deorbit the dive stage into Cinder, skim within 3 k of its surface, send the kick stage 550 k out and get the capsule 2350 k from Cinder, taking under 9.4 Sv, with no spent stage on an orbit that crosses Watch Station\'s.',
     teaches: 'Disposal dives · staging at the bottom',
     bodies: [
       { id: 'cinder', name: 'Cinder', gm: 40000, radius: 50, color: '#ffe2b8', kind: 'star', radiation: { rate: 0.3, at: 100, dose: 9.4 } },
@@ -98,7 +98,7 @@ const levels = [
     goals: [
       { type: 'hit', body: 'cinder', craft: 'dive', deorbit: true },
       { type: 'reach', body: 'cinder', r: 53, label: 'the corona (3 k up)' },
-      { type: 'escape', body: 'cinder', craft: 'kick', r: 600 },
+      { type: 'escape', body: 'cinder', craft: 'kick', r: 550 },
       { type: 'escape', body: 'cinder', r: 2400 },
     ],
     par: 6.6, bounds: 5000, tMax: 600, predict: 300, view: { x: 0, y: 0, span: 900 },
@@ -106,9 +106,9 @@ const levels = [
   {
     id: 'sentrypulsar',
     name: 'Sentry Pulsar',
-    intro: 'You are riding Argus\'s dark lane: at this height you go round exactly as fast as its beams sweep, so they never touch you. Climb out and they start to catch up, and a sweep anywhere closer than Tyche is brutal: the path glows where it would hit. So wait here, in the dark, until Tyche is a little less than a quarter turn ahead of you and Kore\'s zone and the Sentries are clear of the half lap you will fly. Then burn until the closest approach marker touches Tyche (no KEEP OUT on your path) and brake into orbit when you get there.',
-    objective: 'Orbit Tyche between 16 and 76 k up, taking under 12 Sv of radiation, without entering a Sentry\'s or Kore\'s keep-out zone.',
-    teaches: 'The dark lane · launch windows',
+    intro: 'Out and back through Argus\'s patrols. You start in the dark lane, where you go round as fast as the beams sweep, so they never touch you. Wait there until Tyche is a little less than a quarter turn ahead and Kore and the Sentries are clear of your half lap, burn until the closest approach marker touches Tyche and brake into orbit. Tyche keeps one face to Argus: drop the lander on the night side zone (brake until your path ends in it, then lift your low point again). Out here every sweep costs you, so go home soon after: leave as you swing backwards round Tyche, trim your low point onto the lane on the way down and round off between the beams.',
+    objective: 'Orbit Tyche 16 to 73 k up, land the lander in Tyche\'s night side zone, then orbit Argus 228 to 244 k up for 10 s, taking under 19 Sv, without entering a Sentry\'s or Kore\'s keep-out zone.',
+    teaches: 'Out and back · the dark lane twice',
     bodies: [
       { id: 'argus', name: 'Argus', gm: 40000, radius: 8, color: '#e4dcff', kind: 'pulsar', radiation: { rate: 1, at: 250, dose: 19, beam: { width: 0.9, period: 120, phase: 3.979 } } },
       { id: 'sen1', name: 'Sentry 1', gm: 0, radius: 4, color: C.station, kind: 'station', keepOut: 35, orbit: { parent: 'argus', a: 430, phase: 4.379 } },
@@ -128,58 +128,60 @@ const levels = [
   {
     id: 'pulsarsupply',
     name: 'Pulsar Supply Run',
-    intro: 'Supply Run again, this time around a pulsar. Orrin Base needs its supply pod, but Orrin goes round backwards, so it comes at you head-on and its keep-out zone closes fast. Climb until your path meets Orrin, and turn round on the way up (there is no time to turn after the drop, and side thruster fuel is short); a tap of the engine keeps the path on Orrin. The pod can take only 0.25 Sv, less than one sweep: watch Talon\'s beam and time the climb so a sweep passes you on the way up, drop the pod (E) just after it, and brake at once to bring your high point under the zone.',
-    objective: 'Land the supply pod on Orrin, then orbit Talon between 192 and 502 k up, without entering Orrin\'s keep-out zone.',
-    teaches: 'Drop between sweeps · turn before the drop',
+    intro: 'Supply Run, around a pulsar. Orrin goes round backwards, so it comes at you head-on and its keep-out zone closes fast. Climb until your path meets Orrin, turn round on the way up (side thruster fuel is short), drop the pod (E) just after a sweep passes, and brake at once to bring your high point under the zone. At the high point match Hollow Dock\'s orbit and close in gently. Then drop to Talon\'s dark lane, where the beams keep pace with you: leave the dock just after a sweep so you arrive between the beams, and round off at the low point.',
+    objective: 'Land the supply pod on Orrin, rendezvous with Hollow Dock (within 12 k, relative speed under 0.5 k/s), then orbit Talon 166 to 196 k up for 15 s, without entering Orrin\'s keep-out zone.',
+    teaches: 'Drop between sweeps · dock · the dark lane',
     bodies: [
       { id: 'talon', name: 'Talon', gm: 40000, radius: 8, color: '#e4dcff', kind: 'pulsar', radiation: { rate: 0.2, at: 300, dose: 20, beam: { width: 0.3, period: 80, phase: 0 } } },
       { id: 'orrin', name: 'Orrin', gm: 600, radius: 14, color: C.tan, keepOut: 60, orbit: { parent: 'talon', a: 560, phase: 2.5, dir: -1, reflex: false } },
       { id: 'dock', name: 'Hollow Dock', gm: 0, radius: 4, color: C.station, kind: 'station', orbit: { parent: 'talon', a: 470, phase: 2.84 } },
     ],
-    ship: ship({ start: { orbit: { body: 'talon', r: 300, angle: 0 } }, heading: 'prograde', dv: 12, accel: 1, rcs: { fuel: 12 }, cargo: [{ id: 'pod', name: 'Supply pod', mass: 0.3, dose: 0.25 }] }),
+    ship: ship({ start: { orbit: { body: 'talon', r: 300, angle: 0 } }, heading: 'prograde', dv: 15, accel: 1, rcs: { fuel: 12 }, cargo: [{ id: 'pod', name: 'Supply pod', mass: 0.3, dose: 0.25 }] }),
     goals: [
       { type: 'hit', body: 'orrin', craft: 'pod' },
       { type: 'rendezvous', body: 'dock', dist: 12, relVel: 0.5 },
-      { type: 'orbit', body: 'talon', rMin: 178, rMax: 196, confirm: 15 },
+      { type: 'orbit', body: 'talon', rMin: 174, rMax: 204, confirm: 15 },
     ],
-    par: 8.5, bounds: 3000, tMax: 600, predict: 300, view: { x: 0, y: 0, span: 1500 },
+    par: 13.5, bounds: 3000, tMax: 620, predict: 300, view: { x: 0, y: 0, span: 1500 },
   },
   {
     id: 'beamrescue',
     name: 'Rescue in the Beam',
-    intro: 'Wren is drifting dead just ahead of you, and Vesper\'s beams sweep this orbit every 50 s: each sweep costs nearly 3 Sv, and you can take only 10. Close in gently and match Wren\'s speed, but don\'t stay. Umbriel is up ahead: right after the match, nudge your path onto the L2 marker beyond it (watch the closest approach marker) and let Umbriel\'s pull fling you up there, then brake onto L2, in its shadow, the one place the beams never reach.',
-    objective: 'Rendezvous with Wren (within 20 k, relative speed under 1 k/s), then hold within 25 k of Umbriel\'s L2 for 10 s, taking under 10 Sv of radiation.',
-    teaches: 'Rendezvous between sweeps · shelter at L2',
+    intro: 'Wren is drifting dead just ahead of you, and Vesper\'s beams sweep this orbit every 50 s: each sweep near Wren is costly. Close in gently, match Wren\'s speed and don\'t stay. Nudge your path onto the L2 marker beyond Umbriel (watch the closest approach marker), brake onto it and stop dead: L2 is in Umbriel\'s shadow, but it doesn\'t hold you, so a sloppy stop drifts you out into the beams. When the hold is done, wait for a sweep to pass, then burn prograde and climb out of the system.',
+    objective: 'Rendezvous with Wren (within 15 k, relative speed under 0.6 k/s), hold within 10 k of Umbriel\'s L2 (relative speed under 0.21 k/s) for 20 s, then get 1600 k from Vesper, taking under 10.8 Sv.',
+    teaches: 'Rendezvous between sweeps · hold at L2 · out',
     bodies: [
-      { id: 'vesper', name: 'Vesper', gm: 40000, radius: 8, color: '#e4dcff', kind: 'pulsar', radiation: { rate: 0.6, at: 400, dose: 10, beam: { width: 0.35, period: 100, phase: 1.0 } } },
+      { id: 'vesper', name: 'Vesper', gm: 40000, radius: 8, color: '#e4dcff', kind: 'pulsar', radiation: { rate: 0.8, at: 400, dose: 10.8, beam: { width: 0.35, period: 100, phase: 1.0 } } },
       { id: 'umbriel', name: 'Umbriel', gm: 1500, radius: 30, color: '#7d8fa8', orbit: { parent: 'vesper', a: 650, phase: 2.2 } },
       { id: 'wren', name: 'Wren', gm: 0, radius: 3, color: C.station, kind: 'station', orbit: { parent: 'vesper', a: 420, e: 0.2, phase: 0.6, argp: 0 } },
     ],
-    ship: ship({ start: { conic: { body: 'vesper', pe: 330, e: 0.21, nu: 0.8, angle: 0 } }, heading: 'prograde', dv: 9, accel: 1 }),
+    ship: ship({ start: { conic: { body: 'vesper', pe: 330, e: 0.21, nu: 0.8, angle: 0 } }, heading: 'prograde', dv: 9.8, accel: 1 }),
     goals: [
-      { type: 'rendezvous', body: 'wren', dist: 20, relVel: 1 },
-      { type: 'hold', lagrange: { body: 'umbriel', lead: 0, scale: 1.24721 }, r: 25, hold: 10, label: 'Umbriel L2' },
+      { type: 'rendezvous', body: 'wren', dist: 15, relVel: 0.6 },
+      { type: 'hold', lagrange: { body: 'umbriel', lead: 0, scale: 1.24721 }, r: 10, relVel: 0.21, hold: 20, label: 'Umbriel L2' },
+      { type: 'escape', body: 'vesper', r: 1608 },
     ],
-    par: 6.2, bounds: 3000, tMax: 450, predict: 300, view: { x: 0, y: 0, span: 1800 },
+    par: 9.4, bounds: 3000, tMax: 780, predict: 300, view: { x: 0, y: 0, span: 1800 },
   },
   {
     id: 'pulsartour',
     name: 'Pulsar Tour',
-    intro: 'The grand tour of Lumen. You are falling in far too deep, and a spent booster left on any orbit that reaches Beacon\'s ring hits it sooner or later. So use the booster now, while you are still on an escape path: push out and a little forward, halfway between prograde and straight out, until it runs dry. Your low point rises to the dark lane, about 235 k up, where you go round as fast as the beams sweep; drop the booster (the stage button) and it flies away for good. Just before the low point brake with the capsule until your path meets Ossa head-on (watch the closest approach marker), release Lark (E), and keep braking until your orbit is round, inside the band, with no glow on your path.',
-    objective: 'Land the Lark probe on Ossa, then orbit Lumen between 222 and 254 k up for 15 s, taking under 8 Sv of radiation, with no spent stage on an orbit that crosses Beacon\'s.',
+    intro: 'The grand tour of Lumen. You are falling in far too deep, and a spent booster left on any orbit that reaches Beacon\'s ring hits it sooner or later. So use the booster now, while you are still on an escape path: push out and a little forward, halfway between prograde and straight out, until it runs dry. Your low point rises to the dark lane, about 238 k up, where you go round as fast as the beams sweep; drop the booster (the stage button) and it flies away for good. Just before the low point brake with the capsule until your path meets Ossa head-on (watch the closest approach marker), release Lark (E), and keep braking until your orbit is round inside the narrow band, with no glow on your path.',
+    objective: 'Send the spent booster 900 k from Lumen, land the Lark probe on Ossa, then orbit Lumen 232 to 244 k up for 15 s, taking under 8 Sv, with no spent stage on an orbit that crosses Beacon\'s.',
     teaches: 'Everything at once',
     bodies: [
-      { id: 'lumen', name: 'Lumen', gm: 40000, radius: 8, color: '#e4dcff', kind: 'pulsar', radiation: { rate: 1, at: 244, dose: 8, beam: { width: 0.3, period: 120, phase: 0 } } },
+      { id: 'lumen', name: 'Lumen', gm: 40000, radius: 7.5, color: '#e4dcff', kind: 'pulsar', radiation: { rate: 1, at: 244, dose: 8, beam: { width: 0.3, period: 120, phase: 0 } } },
       { id: 'beacon', name: 'Beacon', gm: 0, radius: 4, color: C.station, kind: 'station', protect: true, protectRadius: 15, orbit: { parent: 'lumen', a: 380, phase: 1 } },
       { id: 'ossa', name: 'Ossa', gm: 400, radius: 14, color: C.green, keepOut: 50, orbit: { parent: 'lumen', a: 520, phase: 2.55, dir: -1 } },
     ],
-    ship: ship({ start: { conic: { body: 'lumen', pe: 150, e: 1.15, nu: -1.9, angle: 0 } }, heading: 'prograde', rcs: { fuel: 7.4 }, stack: [
-      { name: 'Booster', dv: 3, accel: 1.2 },
-      { name: 'Capsule', dv: 13, accel: 1, dry: 0.4, sprite: 'satellite' },
-    ], cargo: [{ id: 'lark', name: 'Lark probe', mass: 0.2, dose: 4 }] }),
+    ship: ship({ start: { conic: { body: 'lumen', pe: 150, e: 1.15, nu: -1.9, angle: 0 } }, heading: 'prograde', rcs: { fuel: 5.6 }, stack: [
+      { id: 'booster', name: 'Booster', dv: 3, accel: 1.2 },
+      { name: 'Capsule', dv: 9.2, accel: 1, dry: 0.4, sprite: 'satellite' },
+    ], cargo: [{ id: 'lark', name: 'Lark probe', mass: 0.2, dose: 2.3 }] }),
     goals: [
+      { type: 'escape', body: 'lumen', craft: 'booster', r: 907.5 },
       { type: 'hit', body: 'ossa', craft: 'lark' },
-      { type: 'orbit', body: 'lumen', rMin: 230, rMax: 262, confirm: 15 },
+      { type: 'orbit', body: 'lumen', rMin: 239.5, rMax: 251.5, confirm: 15 },
     ],
     par: 11.4, bounds: 4000, tMax: 300, predict: 300, view: { x: 0, y: 0, span: 1600 }, startCam: 'overview',
   },
@@ -365,7 +367,7 @@ proofs.pulsarsupply = {
   // p[6] from Talon tap the engine until the path meets Orrin again; past
   // p[2], drop the pod p[5] s after a sweep goes by, and burn until the high
   // point is p[4].
-  p: [112, 0.15, 380, 2.847, 470, 1, 350, 186.6, 0.4, 0, 0, 20], scale: [3, 0.05, 15, 0.2, 6, 1, 15, 3, 0.1, 0, 0, 5], tol: [2, 0.1, 15, 0.06, 15, 1.5, 15, 6, 0.1, 0.15, 0.15, 2], opts: { turn: true, turnRate: 0.2 },
+  p: [112, 0.15, 380, 2.847, 470, 1, 350, 182, 0.4, 0, 0, 37], scale: [3, 0.05, 15, 0.2, 6, 1, 15, 3, 0.1, 0, 0, 5], tol: [2, 0.1, 15, 0.06, 15, 1.5, 15, 6, 0.1, 0.15, 0.15, 2], opts: { turn: true, turnRate: 0.2 },
   script: (p, AP) => [
     hold((m) => m.t >= p[0]),
     { burn: 'pro', rel: 'talon', until: (m) => { const o = AP.orb(m, 'talon'); return o.ap > 800 || (o.ap > 480 && closest(m, 'orrin', 0, 0, 200) <= 15); } },
@@ -379,15 +381,17 @@ proofs.pulsarsupply = {
     { burn: p[3], rel: 'talon', until: (m) => AP.orb(m, 'talon').ap <= p[4] },
     // Dock: at the high point match the dock's orbit and fly onto it
     // (closing speed at most p[8]); hand-flown speed error p[9], p[10].
-    // Lane: p[11] s after docking brake until the low point is p[7], and
+    // Lane: p[11] s after a sweep passes brake until the low point is p[7], and
     // round off there.
     { coast: (m) => m.goalIndex >= 1 && !AP.orb(m, 'talon').rising },
     dockTo(behind('dock', 8), p[8], 0.03, (m) => m.goalIndex > 1, 0.12, 'talon'),
+    { fn: (m, c) => { c.d0 = m.dvUsed(); } },
+    { burn: 'retro', rel: 'talon', until: (m, c) => m.dvUsed() - c.d0 >= 0.2 },
     { fn: (m) => { m.ship.vx += p[9]; m.ship.vy += p[10]; } },
-    { wait: Math.max(0, p[11]) },
+    { coast: (m, c) => { if (m.t - c.t0 < 5) return false; const k = sinceSweep(m, 'talon', AP); return k >= p[11] && k < p[11] + 1; } },
     { burn: 'retro', rel: 'talon', until: (m) => AP.orb(m, 'talon').pe <= p[7] },
-    { coast: (m) => AP.orb(m, 'talon').rising },
-    { burn: 'retro', rel: 'talon', until: (m) => { const o = AP.orb(m, 'talon'); return o.ap <= Math.max(TALON_LANE + 2, o.r + 1.5); } },
+    { coast: (m) => { const o = AP.orb(m, 'talon'); return o.r < 220 && (o.rising || o.r < o.pe + 1); } },
+    circularize('talon', 40000),
   ],
 };
 
@@ -467,6 +471,8 @@ const circularize = (id, gm) => ({
   },
 });
 const goalPt = (m) => m.goalPoint(m.currentGoal());
+// A point `up` k farther out than body `id` from `about` (to park beside it).
+const above = (id, about, up) => (m) => { const q = bodyPt(id)(m), b = bodyPt(about)(m), r = Math.hypot(q.x - b.x, q.y - b.y); return { x: q.x + up * (q.x - b.x) / r, y: q.y + up * (q.y - b.y) / r, vx: q.vx, vy: q.vy }; };
 // A point `back` behind a body along its path (to park beside it, not in it).
 const behind = (id, back) => (m) => { const q = bodyPt(id)(m), u = Math.hypot(q.vx, q.vy); return { x: q.x - back * q.vx / u, y: q.y - back * q.vy / u, vx: q.vx, vy: q.vy }; };
 
@@ -475,14 +481,21 @@ proofs.beamrescue = {
   // are the velocity error a hand-flown match leaves (k/s). p[3] s later
   // nudge the path onto the L2 marker (closest approach p[4]); from p[5]
   // out, fly onto L2 (closing speed at most p[6]).
-  p: [0.75, 0, 0, 5, 5, 60, 1.5], scale: [0.2, 0, 0, 3, 3, 10, 0.3], tol: [0.1, 0.3, 0.3, 2, 5, 15, 0.2],
+  p: [0.75, 0, 0, 5, 5, 60, 1.5, 1.5, 32, 0, 0], scale: [0.2, 0, 0, 3, 3, 10, 0.3, 0.1, 2, 0, 0], tol: [0.1, 0.3, 0.3, 2, 5, 15, 0.2, 0.1, 2, 0.25, 0.25],
   script: (p, AP) => [
     goTo(behind('wren', 8), p[0], 0.042, (m) => m.goalIndex > 0),
     { fn: (m) => { m.ship.vx += p[1]; m.ship.vy += p[2]; } },
     { wait: Math.max(0, p[3]) },
     nudge('goal', 'vesper', p[4], 300, AP),
     { coast: (m) => { const q = goalPt(m); return Math.hypot(q.x - m.ship.x, q.y - m.ship.y) < p[5]; } },
-    goTo(goalPt, p[6], 0.04, (m) => m.status !== 'flying'),
+    goTo(goalPt, p[6], 0.12, (m) => { const q = goalPt(m); return m.goalIndex > 1 || (Math.hypot(q.x - m.ship.x, q.y - m.ship.y) < 3 && Math.hypot(q.vx - m.ship.vx, q.vy - m.ship.vy) < 0.1); }),
+    // Let go on L2 with a hand-flown speed error (p[9], p[10]).
+    { fn: (m) => { m.ship.vx += p[9]; m.ship.vy += p[10]; } },
+    { coast: (m) => m.goalIndex > 1 || m.t > 700 },
+    // Out: p[8] s after a sweep passes, burn p[7] prograde and coast out.
+    { coast: (m) => { const k = sinceSweep(m, 'vesper', AP); return k >= p[8] && k < p[8] + 1; } },
+    { fn: (m, c) => { c.d0 = m.dvUsed(); } },
+    { burn: 'pro', rel: 'vesper', until: (m, c) => m.dvUsed() - c.d0 >= p[7] },
   ],
 };
 
@@ -520,10 +533,12 @@ const fails = {
   ],
   beamrescue: [
     { name: 'wait and see', steps: () => [] },
+    { name: 'park on L2 and let go roughly', steps: (AP) => { const p = proofs.beamrescue.p.slice(); p[9] = 0.3; p[10] = 0.3; return proofs.beamrescue.script(p, AP); } },
     { name: 'stay with Wren', steps: (AP) => [...proofs.beamrescue.script(proofs.beamrescue.p, AP).slice(0, 2), goTo(behind('wren', 8), 0.5, 0.05, () => false)] },
     { name: 'rush in, then rest before leaving', steps: (AP) => { const s = proofs.beamrescue.script(proofs.beamrescue.p, AP); return [goTo(behind('wren', 8), 3, 0.1, (m) => m.goalIndex > 0), hold((m, c) => m.t - c.t0 > 60), ...s.slice(2)]; } },
   ],
   pulsarsupply: [
+    { name: 'dive to the lane whenever: arrive in a beam', opts: { turn: true, turnRate: 0.2 }, steps: (AP) => { const p = proofs.pulsarsupply.p.slice(); p[11] = 25; return proofs.pulsarsupply.script(p, AP); } },
     { name: 'carry the pod in close', opts: { turn: true, turnRate: 0.2 }, steps: (AP) => { const s = proofs.pulsarsupply.script(proofs.pulsarsupply.p, AP); return [...s.slice(0, 7), { coast: (m) => dist(m, 'orrin') < 200 }, s[8], s[9]]; } },
     { name: 'climb at once', opts: { turn: true, turnRate: 0.2 }, steps: (AP) => { const p = proofs.pulsarsupply.p.slice(); p[0] = 0; return proofs.pulsarsupply.script(p, AP); } },
     { name: 'drop as a sweep comes round', opts: { turn: true, turnRate: 0.2 }, steps: (AP) => { const p = proofs.pulsarsupply.p.slice(); p[2] = 320; p[5] = 37; return proofs.pulsarsupply.script(p, AP); } },

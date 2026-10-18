@@ -24,7 +24,10 @@ const HS_N = Math.sqrt(40000 * 900) / (870 * 900), HS_GATE_ANG = Math.atan2(-822
 // capture tops out (it gets there SD_LAG s after you).
 const SD_N = Math.sqrt(40000 * 460) / (435 * 460), SD_ANG = -1.81, SD_T = 125, SD_LAG = 10;
 // Retro Whirl: where and when a good return passes closest to Halo.
-const RW_ANG = 3.0, RW_MEET = 576;
+const RW_ANG = 3.0, RW_MEET = 590;
+
+
+const HF_BACK = -Math.PI / 2;
 const TOR_GM = 2000, GEO = 70, TOR_SPIN = Math.sqrt(TOR_GM / (GEO * GEO * GEO));
 
 const levels = [
@@ -95,17 +98,17 @@ const levels = [
     objective: 'Orbit Halo clockwise, the way Vesper goes, between 28 and 158 k up, taking under 9 Sv of radiation.',
     teaches: 'Whirl round to turn round',
     bodies: [
-      { id: 'lumen', name: 'Lumen', gm: 40000, radius: 10, pw: 25, color: NEUTRON, kind: 'pulsar', radiation: { rate: 0.3, at: 300, dose: 9, beam: { width: 0.3, period: 65.8, phase: 2.5 } } },
+      { id: 'lumen', name: 'Lumen', gm: 40000, radius: 10, pw: 25, color: NEUTRON, kind: 'pulsar', radiation: { rate: 0.3, at: 300, dose: 6.9, beam: { width: 0.3, period: 65.8, phase: 2.5 } } },
       { id: 'halo', name: 'Halo', gm: 1000, radius: 22, color: C.purple, orbit: { parent: 'lumen', a: 1000, phase: 0 } },
       // Clockwise at 92 k, coming past the bottom of a good whirl's return just after you.
       { id: 'vesper', name: 'Vesper Station', gm: 0, radius: 3, color: C.station, kind: 'station', orbit: { parent: 'halo', a: 92, phase: -RW_ANG - Math.sqrt(1000 / 92 ** 3) * RW_MEET, dir: -1 } },
     ],
-    ship: ship({ start: { orbit: { body: 'halo', r: 48, angle: 0 } }, heading: 'prograde', dv: 10.5, accel: 1 }),
+    ship: ship({ start: { orbit: { body: 'halo', r: 48, angle: 0 } }, heading: 'prograde', dv: 10.8, accel: 1 }),
     goals: [
       { type: 'orbit', body: 'halo', rMin: 50, rMax: 180, dir: -1 },
-      { type: 'rendezvous', body: 'vesper', dist: 10, relVel: 0.4 },
+      { type: 'rendezvous', body: 'vesper', dist: 12, relVel: 0.5 },
     ],
-    par: 7.2, bounds: 6000, tMax: 1200, predict: 400, view: { x: 300, y: 0, span: 2600 }, startCam: 'overview',
+    par: 9.8, bounds: 6000, tMax: 1200, predict: 400, view: { x: 300, y: 0, span: 2600 }, startCam: 'overview',
   },
   {
     id: 'horizonfence',
@@ -114,13 +117,16 @@ const levels = [
     objective: 'Whirl round Gorge and fly through the gate on 2.4 s of side thrusters, taking under 4 Sv of radiation.',
     teaches: 'Thread inside the fence',
     bodies: [
-      { id: 'gorge', name: 'Gorge', gm: 100000, radius: 10, horizon: 40, pw: 40, color: '#1a1020', kind: 'blackhole', radiation: { rate: 0.03, at: 300, dose: 4 } },
+      { id: 'gorge', name: 'Gorge', gm: 100000, radius: 10, horizon: 40, pw: 40, color: '#1a1020', kind: 'blackhole', radiation: { rate: 0.03, at: 300, dose: 2.42 } },
       { id: 'posta', name: 'Fence Post A', gm: 0, radius: 3, color: C.station, kind: 'station', keepOut: 35, x: 250 * Math.cos(2.618), y: 250 * Math.sin(2.618) },
       { id: 'postb', name: 'Fence Post B', gm: 0, radius: 3, color: C.station, kind: 'station', keepOut: 35, x: -250, y: 0 },
       { id: 'postc', name: 'Fence Post C', gm: 0, radius: 3, color: C.station, kind: 'station', keepOut: 35, x: 250 * Math.cos(-2.618), y: 250 * Math.sin(-2.618) },
     ],
-    ship: ship({ start: { free: { x: 1017.4, y: -587.5, vx: -14.75, vy: 0.85 } }, heading: Math.PI, dv: 1.8, accel: 1, rcs: { fuel: 2.4 } }),
-    goals: [{ type: 'reach', x: 1126, y: 419, r: 160, label: 'the gate' }],
+    ship: ship({ start: { free: { x: 1017.4, y: -587.5, vx: -14.75, vy: 0.85 } }, heading: Math.PI, dv: 4.25, accel: 1, rcs: { fuel: 3.6 }, cargo: [{ id: 'sonde', name: 'Horizon sonde', mass: 0.2 }] }),
+    goals: [
+      { type: 'hit', body: 'gorge', craft: 'sonde', label: 'Sonde into Gorge' },
+      { type: 'reach', x: 1126, y: 419, r: 70, label: 'the gate' },
+    ],
     par: 1.2, bounds: 5000, tMax: 250, predict: 250, view: { x: 400, y: 0, span: 2200 }, startCam: 'overview',
   },
   {
@@ -167,7 +173,7 @@ const meet = (id, k, vMax) => ({ control: (m, c) => {
 // Close in by hand: burn until you drift toward the body (aiming p k off it)
 // at vClose, coast until within dBrake k (or the closest approach), then
 // brake to match it; any miss is cleaned up by meet() on what is left.
-const approach = (id, vClose, dBrake) => {
+const approach = (id, vClose, dBrake, k = 0.03, vMax = 0.6) => {
   const c = {};
   const aimV = (m) => {
     const sys = m.sys; sys.update(m.t);
@@ -181,7 +187,7 @@ const approach = (id, vClose, dBrake) => {
     { burn: (m) => { const e = aimV(m); return Math.atan2(e.y, e.x); }, until: (m) => { const e = Math.hypot(aimV(m).x, aimV(m).y), stop = e < 0.05 || (c.el != null && e > c.el + 0.01); c.el = c.el == null ? e : Math.min(c.el, e); return stop; }, max: 6 },
     { coast: (m) => { const r = dist(m, id), done = r <= dBrake || (c.dl != null && r > c.dl); c.dl = r; return done; } },
     match(id, 0.15),
-    meet(id, 0.03, 0.6),
+    meet(id, k, vMax),
   ];
 };
 // Coast until a body is within d k, or at its closest.
@@ -275,6 +281,21 @@ proofs.needledive = {
     burnPast('pro', 'spindle', (m) => pwEnergy(m, 'spindle') > 0, p[6]),
   ],
 };
+
+// Closest the coasting path comes to a fixed point within T s.
+function closestPt(m, X, Y, T) {
+  const sys = m.sys, s = { x: m.ship.x, y: m.ship.y, vx: m.ship.vx, vy: m.ship.vy };
+  let t = m.t, best = Math.hypot(s.x - X, s.y - Y);
+  while (t < m.t + T) {
+    const dt = Phys.coastDt(sys, s, t, 0.01, 1);
+    Phys.rk4(sys, s, t, dt, 0, 0);
+    t += dt;
+    best = Math.min(best, Math.hypot(s.x - X, s.y - Y));
+    if (Phys.collision(sys, s.x, s.y, t) >= 0) break;
+  }
+  sys.update(m.t);
+  return best;
+}
 
 // Farthest the coasting path gets from a body within T seconds (the high
 // point a player reads off the dashed path).
@@ -375,17 +396,21 @@ proofs.retrowhirl = {
     // then close in by hand (drift at p[8], brake p[9] k out).
     closing('vesper', p[7]),
     match('vesper', 0.3),
-    ...approach('vesper', p[8], p[9]),
+    ...approach('vesper', p[8], p[9], 0.08, 1.2),
   ],
 };
 
 proofs.horizonfence = {
   // Turn to face Gorge's side of your line (straight up the screen) and burn
-  // with p[0] of Δv: the pass drops inside the fence and whirls to the gate.
-  // (p[1]: how far off straight up the nose ends up.)
-  p: [1.15, 0], scale: [0.05, 0.02], tol: [0.1, 0.06], opts: { turn: true, turnRate: 0.4 },
+  // until the release preview falls through the horizon, and p[0] more; drop
+  // the sonde, turn back to prograde and burn until the dashed path passes
+  // within p[1] k of the gate's middle, and p[2] more.
+  p: [0.05, 30, 0.02], scale: [0.05, 10, 0.02], tol: [0.1, 100, 0.05], opts: { turn: true, turnRate: 0.4 },
   script: (p) => [
-    { burn: () => Math.PI / 2 + (p[1] || 0), until: (m) => m.dvUsed() >= p[0] },
+    burnPast(() => Math.PI / 2, null, (m) => closest(m, 'gorge', 250) <= 41, Math.max(0, p[0])),
+    { drop: true },
+    // (or once it starts to swing off again: you went past the middle)
+    (() => { let lo = Infinity; return burnPast(() => HF_BACK, null, (m) => { const d = closestPt(m, 1126, 419, 250); lo = Math.min(lo, d); return d <= Math.max(1, p[1]) || (lo < 40 && d > lo + 1); }, Math.max(0, p[2])); })(),
   ],
 };
 
