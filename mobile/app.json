@@ -2,7 +2,7 @@
   "expo": {
     "name": "Thrusterz",
     "slug": "thrusterz",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "orientation": "landscape",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
