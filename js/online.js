@@ -102,6 +102,7 @@
         const r = await api('PUT', 'progress', { progress: getLocal() });
         if (applyMerged) applyMerged(r.progress);
         await flushRuns();
+        await pushLook();
       });
       setStatus('synced');
     } catch (e) {
@@ -153,6 +154,18 @@
   }
 
   const board = (which, kind) => api('GET', 'board', null, Object.assign({ kind }, typeof which === 'string' ? { level: which } : which));
+
+  // The rocket look shown beside your name on the leaderboards. The game
+  // registers how to read it; it's pushed when it differs from the server's.
+  let getLook = null;
+  const bindLook = (read) => { getLook = read; };
+  async function pushLook() {
+    const look = getLook && getLook(), p = state.account && state.account.player;
+    if (!look || (p && JSON.stringify(p.look) === JSON.stringify(look))) return;
+    const r = await api('PATCH', 'player', { look });
+    saveAccount(Object.assign({}, state.account, { player: r.player }));
+  }
+  const setLook = () => (apiBase() == null ? Promise.resolve() : guard(async () => { await ensureAccount(); await pushLook(); }));
 
   async function rename(name) {
     return guard(async () => {
@@ -222,7 +235,7 @@
   }
 
   const Online = {
-    state, Store, start, bindProgress, saveProgressSoon, syncNow, submitRun, board, rename, restore, report, crash,
+    state, Store, start, bindProgress, bindLook, setLook, saveProgressSoon, syncNow, submitRun, board, rename, restore, report, crash,
     signInWithApple, appleAvailable, ensureAccount, deleteAccount,
     available: () => apiBase() != null,
     onChange: (f) => listeners.push(f),

@@ -91,6 +91,7 @@ function winningLog(wait = 0) {
   check('runs need an account', (await call('POST', 'runs', { log: win.log })).status === 401);
 
   const b = await call('POST', 'player'); await call('PATCH', 'player', { name: 'Second' }, b.body.token);
+  const tokB = () => b.body.token;
   // Player B dawdles for 3 s before starting: slower, so lower score too.
   const slow = winningLog(180).log;
   const subB = await call('POST', 'runs', { log: slow }, b.body.token);
@@ -118,6 +119,27 @@ function winningLog(wait = 0) {
   check('world time board shows it', wt.body.total === 1 && wt.body.me.rank === 1 && wt.body.top[0].value === wantTime, JSON.stringify(wt.body));
   check('unknown worlds are refused', (await call('GET', 'board', null, null, { world: 9 })).status === 404 && (await call('GET', 'board', null, null, { world: '__proto__' })).status === 404);
   check('world 2 board starts empty', (await call('GET', 'board', null, tokA, { world: 2, kind: 'score' })).body.total === 0);
+
+  // Skins: granted from verified stars only, shown on the boards once earned.
+  const look = (body, id) => (body.top.find(e => e.id === id) || {}).look;
+  const lookA = await call('PATCH', 'player', { look: { hull: 'checker', flame: 'crimson' } }, tokA);
+  check('a pilot can pick a look', lookA.status === 200 && lookA.body.player.look.hull === 'checker' && lookA.body.player.name === 'Ace Pilot', JSON.stringify(lookA.body));
+  let lb = await call('GET', 'board', null, tokA, { level: 'deorbit', kind: 'score' });
+  check('unearned skins show as the defaults', JSON.stringify(look(lb.body, a.body.player.id)) === JSON.stringify({ hull: 'classic', flame: 'standard' }), JSON.stringify(lb.body.top));
+  // Pretend A has three-starred every other world-1 mission (verified), then fly Deorbit again.
+  const vs = (await store.get('vstars:' + a.body.player.id)) || {};
+  for (const L of w1) if (L.id !== 'deorbit') vs[L.id] = 3;
+  await store.set('vstars:' + a.body.player.id, vs);
+  const grant = await call('POST', 'runs', { log: win.log }, tokA);
+  const three = win.m.stars() === 3;
+  check('clearing every mission in a world grants its hull', grant.body.skins.includes('checker') && grant.body.skins.includes('crimson') === three, JSON.stringify(grant.body.skins));
+  lb = await call('GET', 'board', null, tokB(), { level: 'deorbit', kind: 'score' });
+  check('earned skins show on the leaderboard', look(lb.body, a.body.player.id).hull === 'checker' && look(lb.body, a.body.player.id).flame === (three ? 'crimson' : 'standard'), JSON.stringify(look(lb.body, a.body.player.id)));
+  check('skins stay granted', (await call('GET', 'player', null, tokA)).body.player.skins.includes('checker'));
+  await call('PATCH', 'player', { look: { hull: 'chrome', flame: 'nope' } }, b.body.token);
+  lb = await call('GET', 'board', null, tokA, { level: 'deorbit', kind: 'score' });
+  check('a pilot cannot show skins they have not earned', JSON.stringify(look(lb.body, b.body.player.id)) === JSON.stringify({ hull: 'classic', flame: 'standard' }), JSON.stringify(look(lb.body, b.body.player.id)));
+  check('your own row carries your look', lb.body.me.look.hull === 'checker', JSON.stringify(lb.body.me));
 
   // Reporting a pilot name: once per reporter; three different reporters
   // reset it to the neutral default.

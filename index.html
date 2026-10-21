@@ -115,6 +115,7 @@
   <div id="world-info"></div>
   <div id="world-grid" class="level-grid"></div>
   <div class="menu-foot">
+    <button id="btn-hangar-menu" class="ghost">Hangar<span id="hangar-new" class="newtag hidden">New</span></button>
     <button id="btn-boards-menu" class="ghost online-only">Leaderboards</button>
     <button id="btn-help-menu" class="ghost">Controls</button>
     <button id="btn-settings-menu" class="ghost">Settings</button>
@@ -187,6 +188,20 @@
     <div id="board-report" class="report-bar hidden"><span>Report “<b id="board-report-name"></b>” as an offensive name?</span><span class="rb"><button id="btn-report-cancel" class="ghost">Cancel</button><button id="btn-report-go" class="danger">Report</button></span></div>
     <p class="small board-hint">Tap a pilot's name to report it.</p>
     <div class="buttons"><button id="btn-board-close" class="primary">Done</button></div>
+  </div>
+</div>
+
+<div id="hangar" class="screen hidden">
+  <div class="card hangar-card">
+    <div class="eyebrow">Hangar</div>
+    <h1>Your rocket</h1>
+    <canvas id="hangar-preview" aria-hidden="true"></canvas>
+    <p class="small">Clear every mission in a world to earn its hull. Three-star every mission to earn its flame. Your rocket flies with you and shows beside your name on the leaderboards.</p>
+    <div class="hg-h">Hulls</div>
+    <div id="hangar-hulls" class="skin-grid"></div>
+    <div class="hg-h">Flames</div>
+    <div id="hangar-flames" class="skin-grid"></div>
+    <div class="buttons"><button id="btn-hangar-close" class="primary">Done</button></div>
   </div>
 </div>
 
@@ -316,6 +331,7 @@
 <script src="js/levels.js"></script>
 <script src="js/replay.js"></script>
 <script src="js/sync.js"></script>
+<script src="js/skins.js"></script>
 <script src="js/online.js"></script>
 <script src="js/game.js"></script>
 </body>
