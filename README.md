@@ -77,12 +77,15 @@ you do it, and stops appearing after you've mastered it.
 - **Stars** — 3★ for finishing under the mission's par Δv without gyro assist,
   2★ under 1.4× par.
 - **Score** — up to 6,500 per mission for finishing, fuel efficiency against
-- **Skins** — clearing every mission in a world earns that world's hull;
-  three stars on every mission earns its flame (`js/skins.js`). Pick them in
-  the **Hangar** on the menu. Each world tab shows its two rewards and how
-  close you are. Your rocket shows beside your name on the leaderboards. The
-  server only shows skins it has granted from verified runs, so they can't be
-  faked. Skins are looks only and never change the physics.
+- **Skins** — a rocket has a hull, flame, trail and thruster puffs
+  (`js/skins.js`). Clearing every mission in a world earns its hull, three
+  stars on every mission earns its flame, and total-star milestones earn
+  trails and thruster puffs. Pick them in the **Hangar** on the menu. Your
+  rocket shows beside your name on the leaderboards, and the server only shows
+  skins it has granted, so they can't be faked. Skins are looks only.
+- **Shop** — optional one-off App Store purchases: extra skins, and opening a
+  world before you have its stars. Every mission stays free. See
+  [docs/SHOP.md](docs/SHOP.md); `?shopdev` on a local server buys for free.
   par, speed, and flying without gyro assist. Personal bests are saved locally.
 - **Stages** (World 2) — rockets are stacks of stages, each with its own
   tank and engine, and each stage's Δv counts everything above it. `E` /

@@ -631,3 +631,14 @@ html.short #hangar-preview { height: 70px; }
 #board-list li .nm { display: flex; align-items: center; gap: 8px; min-width: 0; }
 #board-list li .nmt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .lb-ship { width: 48px; height: 17px; flex-shrink: 0; }
+/* Shop */
+.shop-tile { cursor: default; }
+.shop-tile.bundle { border-color: rgba(255, 209, 102, 0.45); background: rgba(255, 209, 102, 0.06); }
+.shop-tile .buy { margin-top: 8px; align-self: stretch; padding: 7px 10px; border-radius: 9px; border: 1px solid rgba(124, 247, 212, 0.55); background: rgba(124, 247, 212, 0.14); color: var(--text); font: 700 14px var(--sans); cursor: pointer; }
+.shop-tile .buy:hover:not(:disabled) { background: rgba(124, 247, 212, 0.25); }
+.shop-tile .buy:disabled { cursor: default; border-color: var(--panel-border); background: transparent; color: var(--muted); }
+.shop-tile.on .buy:disabled { color: var(--accent); }
+.shop-world { display: flex; align-items: center; justify-content: center; width: 100%; height: 36px; margin-bottom: 4px; border-radius: 8px; font: 800 22px var(--mono); color: var(--text); background: rgba(255, 255, 255, 0.06); }
+.shop-world.w2 { color: #b4f06a; } .shop-world.w3 { color: #ffaa5a; } .shop-world.w4 { color: #c8a8ff; } .shop-world.wall { color: var(--gold); }
+.skin-tile.shop.locked .sk-state { color: var(--gold); }
+#world-info .wi-shop { display: inline-block; margin: 6px 0 0 12px; padding: 6px 12px; border-radius: 9px; border: 1px solid rgba(255, 209, 102, 0.5); background: rgba(255, 209, 102, 0.08); color: var(--gold); font: 700 13px var(--sans); cursor: pointer; }

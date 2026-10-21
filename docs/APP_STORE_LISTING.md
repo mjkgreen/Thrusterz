@@ -79,7 +79,7 @@ MADE FOR YOUR PHONE
 • Touch controls designed for landscape, plus keyboard support on iPad.
 • Plays offline. Progress is saved to the cloud and can be restored with a code or Sign in with Apple.
 • Music and sound effects with separate volume controls.
-• No ads and no in-app purchases.
+• No ads, no loot boxes, nothing pay-to-win. Every mission is free; optional one-off purchases add rocket skins or open a world early.
 
 Real physics, quick missions, and a satisfying "aha" every time. Strap in.
 ```

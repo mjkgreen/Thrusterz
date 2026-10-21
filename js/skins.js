@@ -1,12 +1,19 @@
-// Rocket skins: hulls and engine flames, earned by finishing worlds. Clearing
-// every mission in a world earns its hull; three stars on every mission earns
-// its flame. Shared by the game (drawing, the Hangar) and the server, which
-// grants skins from verified runs so the leaderboards only show earned ones.
-// Skins are looks only: nothing here touches the physics.
+// Rocket skins: hull, engine flame, trail and side-thruster (RCS) puffs.
+// Most are earned: clearing every mission in a world earns its hull, three
+// stars on every mission earns its flame, and total-star milestones earn
+// trails and thruster puffs. A few are sold in the Shop (see PRODUCTS).
+// Shared by the game (drawing, the Hangar, the Shop) and the server, which
+// grants skins from verified runs and verified purchases, so the
+// leaderboards only show real ones. Skins are looks only: nothing here
+// touches the physics.
 (function (root) {
   'use strict';
 
   const TAU = Math.PI * 2;
+
+  // How an item is earned: { world, need: 'clear' | 'three' } finishes a
+  // world; { stars: n } is n stars in total; { shop: true } is bought.
+  // No rule: standard issue.
 
   // Hulls. `fill` is the hull's top-to-bottom gradient; `pattern` is painted
   // over it, clipped to the hull. `shape: 'needle'` is a longer nose and
@@ -18,6 +25,10 @@
     { id: 'nebula', name: 'Nebula', world: 2, need: 'clear', fill: ['#f0c8ff', '#a45cf0', '#4b1f8f'], line: '#2e1260', fin: '#f78cff', finLine: '#7a2a90', nozzle: '#241046', pattern: 'stars', ink: '#ffffff' },
     { id: 'hazard', name: 'Hazard', world: 3, need: 'clear', fill: ['#ffe97a', '#ffcc33', '#c89400'], line: '#5a4300', fin: '#1e1e22', finLine: '#000000', nozzle: '#1e1e22', pattern: 'hazard', ink: '#1e1e22' },
     { id: 'chrome', name: 'Chrome Needle', world: 4, need: 'clear', shape: 'needle', fill: ['#ffffff', '#9aa6bd', '#eef2fa', '#5d6a85'], line: '#4a5570', fin: '#c8a8ff', finLine: '#5b3f99', nozzle: '#2a3150', pattern: 'pinstripe', ink: '#8cf0ff' },
+    // Shop
+    { id: 'retro', name: 'Retro Red', shop: true, fill: ['#ffffff', '#f4f1ea', '#cfc8b8'], line: '#7a2020', fin: '#d62828', finLine: '#7a1010', nozzle: '#3a3a3a', pattern: 'bands', ink: '#d62828' },
+    { id: 'stealth', name: 'Stealth', shop: true, fill: ['#4a4f5c', '#2a2e38', '#14161c'], line: '#0a0b0f', fin: '#22252e', finLine: '#000000', nozzle: '#0a0b0f', window: '#ff4040', pattern: 'pinstripe', ink: '#ff4040' },
+    { id: 'tiger', name: 'Tiger', shop: true, fill: ['#ffc070', '#ff8c1a', '#b85a00'], line: '#4a2400', fin: '#1a1410', finLine: '#000000', nozzle: '#1a1410', pattern: 'tiger', ink: '#1a1410' },
   ];
 
   // Flames: outer plume, pale core, and the exhaust particles' colour from
@@ -29,38 +40,106 @@
     { id: 'plasma', name: 'Plasma', world: 2, need: 'three', outer: [[255, 150, 255, 0.95], [190, 60, 255, 0.85], [110, 30, 255, 0]], core: [[255, 240, 255, 0.95], [255, 170, 255, 0]], hot: [255, 220, 255], cool: [170, 60, 255] },
     { id: 'boron', name: 'Boron Green', world: 3, need: 'three', outer: [[190, 255, 120, 0.95], [60, 220, 80, 0.85], [20, 160, 60, 0]], core: [[240, 255, 225, 0.95], [190, 255, 160, 0]], hot: [230, 255, 190], cool: [40, 200, 70] },
     { id: 'pulsar', name: 'Pulsar', world: 4, need: 'three', pulse: true, outer: [[140, 245, 255, 0.95], [120, 120, 255, 0.85], [200, 120, 255, 0]], core: [[255, 255, 255, 1], [190, 250, 255, 0]], hot: [235, 255, 255], cool: [170, 110, 255] },
+    // Shop
+    { id: 'sunset', name: 'Sunset', shop: true, outer: [[255, 170, 120, 0.95], [255, 80, 140, 0.85], [160, 60, 220, 0]], core: [[255, 240, 210, 0.95], [255, 190, 150, 0]], hot: [255, 220, 160], cool: [230, 60, 150] },
+    { id: 'ghost', name: 'Ghost', shop: true, outer: [[235, 240, 255, 0.7], [190, 200, 255, 0.45], [160, 170, 255, 0]], core: [[255, 255, 255, 0.95], [230, 235, 255, 0]], hot: [250, 250, 255], cool: [170, 180, 240] },
   ];
 
-  const HULL = Object.fromEntries(HULLS.map(h => [h.id, h]));
-  const FLAME = Object.fromEntries(FLAMES.map(f => [f.id, f]));
-  const DEFAULT = { hull: HULLS[0].id, flame: FLAMES[0].id };
-  const ALL = HULLS.concat(FLAMES);
-  const byId = (id) => HULL[id] || FLAME[id] || null;
+  // Trails: the line behind the ship showing where it has been. `fade`
+  // dims the older end; `rainbow` cycles colour along it; `glow` adds a
+  // soft wide stroke under it.
+  const TRAILS = [
+    { id: 'faint', name: 'Standard', color: [255, 190, 110], alpha: 0.35, width: 1.5 },
+    { id: 'comet', name: 'Comet', stars: 100, color: [120, 230, 255], alpha: 0.85, width: 2, fade: true, glow: true },
+    { id: 'aurora', name: 'Aurora', stars: 300, color: [140, 255, 200], alpha: 0.8, width: 2.2, fade: true, glow: true, rainbow: true },
+    { id: 'neon', name: 'Neon', shop: true, color: [255, 80, 200], alpha: 0.9, width: 1.8, glow: true },
+  ];
+
+  // Side-thruster puffs: `kind` 'puff' (small squares), 'spark' (longer,
+  // streaky) or 'ring' (little circles).
+  const RCSES = [
+    { id: 'puff', name: 'Standard', color: [220, 235, 255], kind: 'puff', life: 0.18, size: 1.6 },
+    { id: 'sparks', name: 'Gold Sparks', stars: 200, color: [255, 210, 90], kind: 'spark', life: 0.35, size: 1.8 },
+    { id: 'rings', name: 'Halo Rings', stars: 350, color: [140, 240, 255], kind: 'ring', life: 0.3, size: 2.2 },
+  ];
+
+  // Slots in a look, and the items each takes.
+  const SLOTS = { hull: HULLS, flame: FLAMES, trail: TRAILS, rcs: RCSES };
+  const TABLE = Object.fromEntries(Object.entries(SLOTS).map(([k, list]) => [k, Object.fromEntries(list.map(it => [it.id, it]))]));
+  const HULL = TABLE.hull, FLAME = TABLE.flame, TRAIL = TABLE.trail, RCS = TABLE.rcs;
+  const DEFAULT = Object.fromEntries(Object.entries(SLOTS).map(([k, list]) => [k, list[0].id]));
+  const ALL = [].concat(...Object.values(SLOTS));
+  const SLOT_OF = Object.fromEntries(Object.entries(SLOTS).flatMap(([k, list]) => list.map(it => [it.id, k])));
+  const byId = (id) => (SLOT_OF[id] ? TABLE[SLOT_OF[id]][id] : null);
+  const slotOf = (id) => SLOT_OF[id] || null;
+  const standard = (it) => it.world == null && it.stars == null && !it.shop;
+
+  // ------------------------------------------------------------- shop
+  // Products sold in the Shop (non-consumable App Store in-app purchases;
+  // the ids are the App Store Connect product ids). `skins`: skins it
+  // grants. `world`: opens that world now. `worlds: 'all'`: opens every
+  // world, future ones too. `price` is a fallback label; the store's own
+  // localized price is shown when the store is reachable.
+  const P = 'com.thrusterz.app.';
+  const SHOP_SKINS = ALL.filter(it => it.shop).map(it => it.id);
+  const PRODUCTS = [
+    { id: P + 'hull.retro', name: 'Retro Red hull', skins: ['retro'], price: '$0.99' },
+    { id: P + 'hull.stealth', name: 'Stealth hull', skins: ['stealth'], price: '$0.99' },
+    { id: P + 'hull.tiger', name: 'Tiger hull', skins: ['tiger'], price: '$0.99' },
+    { id: P + 'flame.sunset', name: 'Sunset flame', skins: ['sunset'], price: '$0.99' },
+    { id: P + 'flame.ghost', name: 'Ghost flame', skins: ['ghost'], price: '$0.99' },
+    { id: P + 'trail.neon', name: 'Neon trail', skins: ['neon'], price: '$0.99' },
+    { id: P + 'pack.hangar', name: 'Hangar Pack', desc: 'Every skin in the Shop', skins: SHOP_SKINS, price: '$3.99', bundle: true },
+    { id: P + 'world.2', name: 'Open World 2 now', world: 2, price: '$1.99' },
+    { id: P + 'world.3', name: 'Open World 3 now', world: 3, price: '$1.99' },
+    { id: P + 'world.4', name: 'Open World 4 now', world: 4, price: '$1.99' },
+    { id: P + 'world.all', name: 'Open every world', desc: 'Worlds 2, 3 and 4, and every world still to come', worlds: 'all', price: '$3.99', bundle: true },
+  ];
+  const PRODUCT = Object.fromEntries(PRODUCTS.map(p => [p.id, p]));
+  // What a set of owned product ids adds up to.
+  function entitlements(owns) {
+    const skins = new Set(), worlds = new Set();
+    let allWorlds = false;
+    for (const id of owns || []) {
+      const p = PRODUCT[id];
+      if (!p) continue;
+      for (const s of p.skins || []) skins.add(s);
+      if (p.world != null) worlds.add(p.world);
+      if (p.worlds === 'all') allWorlds = true;
+    }
+    return { skins: [...skins], worlds: [...worlds], allWorlds };
+  }
 
   // ------------------------------------------------------------- unlocks
   const worldOf = (L) => (L.world != null ? L.world : 1);
   // How far a pilot is towards an item: missions cleared (or three-starred)
-  // out of the world's missions. `stars` is { levelId: best stars }.
+  // out of the world's missions, or stars out of the milestone. `stars` is
+  // { levelId: best stars }.
   function progressOf(item, stars, levels) {
+    if (item.shop) return { have: 0, of: 0, done: false };
+    if (item.stars != null) {
+      const have = levels.reduce((a, l) => a + (l.test ? 0 : stars[l.id] || 0), 0);
+      return { have: Math.min(have, item.stars), of: item.stars, done: have >= item.stars };
+    }
     if (item.world == null) return { have: 0, of: 0, done: true };
     const ls = levels.filter(l => !l.test && worldOf(l) === item.world);
     const min = item.need === 'three' ? 3 : 1;
     const have = ls.filter(l => (stars[l.id] || 0) >= min).length;
     return { have, of: ls.length, done: ls.length > 0 && have === ls.length };
   }
-  // Every item these stars have earned (defaults included).
+  // Every item these stars have earned (standard issue included).
   function earned(stars, levels) {
     return ALL.filter(it => progressOf(it, stars || {}, levels).done).map(it => it.id);
   }
-  // A look made only of real items; anything unknown falls back to default.
+  // A look made only of real items; anything unknown falls back to standard.
   function cleanLook(look) {
     const l = look && typeof look === 'object' ? look : {};
-    return { hull: HULL[l.hull] ? l.hull : DEFAULT.hull, flame: FLAME[l.flame] ? l.flame : DEFAULT.flame };
+    return Object.fromEntries(Object.keys(SLOTS).map(k => [k, TABLE[k][l[k]] ? l[k] : DEFAULT[k]]));
   }
-  // The parts of a look its owner has actually earned.
+  // The parts of a look its owner has actually earned or bought.
   function shownLook(look, owned) {
-    const l = cleanLook(look), has = (id) => byId(id).world == null || (owned || []).includes(id);
-    return { hull: has(l.hull) ? l.hull : DEFAULT.hull, flame: has(l.flame) ? l.flame : DEFAULT.flame };
+    const l = cleanLook(look), has = (id) => standard(byId(id)) || (owned || []).includes(id);
+    return Object.fromEntries(Object.keys(SLOTS).map(k => [k, has(l[k]) ? l[k] : DEFAULT[k]]));
   }
 
   // ------------------------------------------------------------- drawing
@@ -98,6 +177,12 @@
       g.fillStyle = ink;
       for (const [x, y, r] of [[-L * 0.6, -W * 0.4, 0.45], [-L * 0.1, W * 0.45, 0.35], [L * 0.55, -W * 0.3, 0.3], [-L * 0.35, W * 0.1, 0.25], [L * 0.75, W * 0.35, 0.25]]) {
         g.beginPath(); g.arc(x, y, r, 0, TAU); g.fill();
+      }
+    } else if (hull.pattern === 'tiger') {
+      g.fillStyle = ink;
+      for (let x = tail + 1.2, i = 0; x < L * 0.9; x += 2.4, i++) {
+        const y = i % 2 ? W * 1.2 : -W * 1.2;
+        g.beginPath(); g.moveTo(x, y); g.lineTo(x + 2.4, y * 0.05); g.lineTo(x + 1.3, y); g.closePath(); g.fill();
       }
     } else if (hull.pattern === 'pinstripe') {
       g.strokeStyle = ink; g.lineWidth = 0.6;
@@ -146,7 +231,7 @@
     }
     // Porthole
     g.fillStyle = '#0b1338'; g.beginPath(); g.arc(L * 0.3, 0, 2.1, 0, TAU); g.fill();
-    g.fillStyle = '#2fb8d8'; g.beginPath(); g.arc(L * 0.3, 0, 1.45, 0, TAU); g.fill();
+    g.fillStyle = hull.window || '#2fb8d8'; g.beginPath(); g.arc(L * 0.3, 0, 1.45, 0, TAU); g.fill();
     g.fillStyle = 'rgba(220,250,255,0.9)'; g.beginPath(); g.arc(L * 0.3 + 0.5, -0.5, 0.5, 0, TAU); g.fill();
     g.lineWidth = 1;
   }
@@ -177,6 +262,44 @@
     return `rgba(${mix(0)},${mix(1)},${mix(2)},${alpha})`;
   }
 
+  // The trail through screen points pts ([x, y] or null for a gap), oldest
+  // first. Drawn in chunks so it can fade and change colour along its length.
+  function drawTrail(g, pts, trail, t) {
+    trail = trail || TRAILS[0];
+    const n = pts.length, CH = trail.fade || trail.rainbow ? 24 : 1;
+    if (n < 2) return;
+    const c = trail.color;
+    // Rainbow trails shift hue along their length and slowly over time.
+    const colorAt = (u, a) => (trail.rainbow ? `hsla(${Math.round(u * 300 + (t || 0) * 40) % 360},90%,72%,${a})` : `rgba(${c[0]},${c[1]},${c[2]},${a})`);
+    for (const pass of trail.glow ? [0, 1] : [1]) {
+      for (let ch = 0; ch < CH; ch++) {
+        const i0 = Math.floor(ch * (n - 1) / CH), i1 = Math.floor((ch + 1) * (n - 1) / CH);
+        if (i1 <= i0) continue;
+        const u = (ch + 1) / CH, a = trail.alpha * (trail.fade ? 0.15 + 0.85 * u : 1);
+        g.strokeStyle = colorAt(u, pass ? a : a * 0.25);
+        g.lineWidth = pass ? trail.width : trail.width * 4;
+        g.beginPath();
+        let open = false;
+        for (let i = i0; i <= i1; i++) {
+          const p = pts[i];
+          if (!p) { open = false; continue; }
+          if (open) g.lineTo(p[0], p[1]); else { g.moveTo(p[0], p[1]); open = true; }
+        }
+        g.stroke();
+      }
+    }
+    g.lineWidth = 1;
+  }
+
+  // One side-thruster particle at screen (x, y), k from 1 (new) to 0.
+  function drawRcsParticle(g, x, y, k, rcs) {
+    const c = rcs.color;
+    g.fillStyle = g.strokeStyle = `rgba(${c[0]},${c[1]},${c[2]},${k * 0.9})`;
+    if (rcs.kind === 'ring') { g.lineWidth = 1; g.beginPath(); g.arc(x, y, rcs.size * (1.6 - k), 0, TAU); g.stroke(); }
+    else if (rcs.kind === 'spark') { const s = rcs.size * (0.6 + k); g.fillRect(x - s / 2, y - s / 2, s, s); }
+    else g.fillRect(x - rcs.size / 2, y - rcs.size / 2, rcs.size, rcs.size);
+  }
+
   // A rocket picture on a small canvas (Hangar tiles, leaderboard rows):
   // the hull pointing right with its flame lit. The canvas's CSS size sets
   // the picture's size.
@@ -186,7 +309,7 @@
     const w = canvas.clientWidth || canvas.width, h = canvas.clientHeight || canvas.height;
     if (canvas.width !== Math.round(w * dpr)) { canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr); }
     const g = canvas.getContext('2d'), l = cleanLook(look), hull = HULL[l.hull], flame = FLAME[l.flame];
-    const L = 9, flameOn = opts.flame !== false;
+    const L = 9, show = opts.show || 'flame', flameOn = show === 'flame' && opts.flame !== false;
     // The picture spans from the flame's tip to the nose.
     const left = -L - (flameOn ? 22 : 4), right = L + (hull.shape === 'needle' ? 8 : 4), tall = 2 * (3.4 + 4.6);
     const s = Math.min(w / (right - left), h / tall) * 0.95;
@@ -194,10 +317,31 @@
     g.clearRect(0, 0, w, h);
     g.translate(w / 2 - (left + right) / 2 * s, h / 2); g.scale(s, s);
     if (flameOn) drawFlame(g, L, opts.f != null ? opts.f : 0.9, flame, opts.t);
+    if (show === 'trail') {
+      // A gently curving path up to the tail.
+      const pts = [];
+      for (let i = 0; i <= 40; i++) { const x = -L - 22 + i * 0.5; pts.push([x, Math.sin((x + L) * 0.25) * 1.6 * (1 - i / 40)]); }
+      g.save(); g.scale(1 / s, 1 / s);
+      drawTrail(g, pts.map(([x, y]) => [x * s, y * s]), TRAIL[l.trail], opts.t);
+      g.restore();
+    }
     drawRocket(g, L, false, hull);
+    if (show === 'rcs') {
+      const r = RCS[l.rcs];
+      g.save(); g.scale(1 / s, 1 / s);
+      // Nose and tail firing opposite ways, as when turning.
+      for (const sgn of [1, -1]) {
+        for (const [d, k] of [[4.2, 1], [5.6, 0.75], [7, 0.5]]) drawRcsParticle(g, sgn * (5 + d * 0.4) * s, -sgn * d * s, k, Object.assign({}, r, { size: r.size * s * 0.7 }));
+      }
+      g.restore();
+    }
   }
 
-  const Skins = { HULLS, FLAMES, HULL, FLAME, ALL, DEFAULT, byId, progressOf, earned, cleanLook, shownLook, drawRocket, drawFlame, sparkColor, drawIcon };
+  const Skins = {
+    HULLS, FLAMES, TRAILS, RCSES, SLOTS, HULL, FLAME, TRAIL, RCS, ALL, DEFAULT, PRODUCTS, PRODUCT,
+    byId, slotOf, standard, entitlements, progressOf, earned, cleanLook, shownLook,
+    drawRocket, drawFlame, drawTrail, drawRcsParticle, sparkColor, drawIcon,
+  };
   if (typeof module !== 'undefined' && module.exports) module.exports = Skins;
   else root.Skins = Skins;
 })(typeof window !== 'undefined' ? window : globalThis);

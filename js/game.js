@@ -92,25 +92,30 @@
   const progress = loadProgress();
 
   // ---------------------------------------------------------------- skins
-  // The rocket's look (js/skins.js): a hull and a flame, earned by clearing
-  // and three-starring worlds. Kept on this device and on the pilot's
-  // account, which shows it on the leaderboards. Null until a pilot picks one.
+  // The rocket's look (js/skins.js): hull, flame, trail and thruster puffs,
+  // earned by finishing worlds and collecting stars, or bought in the Shop.
+  // Kept on this device and on the pilot's account, which shows it on the
+  // leaderboards. Null until a pilot picks one.
   const LOOK = 'thrusterz.look', SEEN = 'thrusterz.skinsSeen';
   let look = Online.Store.get(LOOK);
   let ownedCache = null;
-  // Skins earned here, plus any the server has granted this account.
+  // What the Shop has sold this pilot (on the account, or bought on this
+  // device and not yet confirmed by the server).
+  const bought = () => Skins.entitlements(Online.ownedProducts());
+  // Skins earned here, bought, or granted to this account by the server.
   function owned() {
     if (!ownedCache) {
       const a = Online.state.account, server = (a && a.player && a.player.skins) || [];
-      ownedCache = new Set(Skins.earned(progress.stars, LEVELS).concat(server.filter(id => Skins.byId(id))));
+      ownedCache = new Set(Skins.earned(progress.stars, LEVELS).concat(bought().skins, server.filter(id => Skins.byId(id))));
     }
     return ownedCache;
   }
   const myLook = () => Skins.shownLook(look, [...owned()]);
-  const newSkins = () => { const seen = Online.Store.get(SEEN) || []; return [...owned()].filter(id => Skins.byId(id).world != null && !seen.includes(id)); };
+  const newSkins = () => { const seen = Online.Store.get(SEEN) || []; return [...owned()].filter(id => !Skins.standard(Skins.byId(id)) && !seen.includes(id)); };
+  const SLOT_NAME = { hull: 'hull', flame: 'flame', trail: 'trail', rcs: 'thrusters' };
   function equip(id) {
     const it = Skins.byId(id), l = Skins.cleanLook(look || myLook());
-    l[Skins.HULL[id] ? 'hull' : 'flame'] = id;
+    l[Skins.slotOf(id)] = id;
     look = l; Online.Store.set(LOOK, look);
     Online.setLook().catch(() => { /* pushed on the next sync */ });
     return it;
@@ -219,7 +224,7 @@
     if (level.startCam === 'overview') { overview(true); state.cam.x = state.cam.tx; state.cam.y = state.cam.ty; state.cam.zoom = state.cam.tzoom; }
     setupHud();
     show('hud');
-    hide('menu'); hide('briefing'); hide('result'); hide('pause'); hide('help'); hide('board'); hide('profile'); hide('hangar');
+    hide('menu'); hide('briefing'); hide('result'); hide('pause'); hide('help'); hide('board'); hide('profile'); hide('hangar'); hide('shop');
     state.screen = 'flight';
     $('coach').classList.remove('show');
   }
@@ -881,14 +886,14 @@
     }
   }
   function spawnRcs(dir) {
-    const s = state.mission.ship, z = state.cam.zoom;
+    const s = state.mission.ship, z = state.cam.zoom, r = Skins.RCS[myLook().rcs];
     for (const side of [1, -1]) {
       const fwd = side; // nose and tail fire opposite ways
       const ox = Math.cos(s.angle) * 6 * fwd / z, oy = Math.sin(s.angle) * 6 * fwd / z;
       const a = s.angle + Math.PI / 2 * -dir * fwd;
       state.particles.push({
         x: s.x + ox, y: s.y + oy, vx: Math.cos(a) * 50 / z, vy: Math.sin(a) * 50 / z,
-        life: 0.18, age: 0, size: 1.6, kind: 'rcs',
+        life: r.life, age: 0, size: r.size, kind: 'rcs',
       });
     }
   }
@@ -1188,20 +1193,15 @@
     });
   }
 
+  // Where the ship has been, in the pilot's trail skin.
   function drawTrail(disp) {
     const tr = state.trail;
     if (tr.length < 2) return;
-    ctx.lineWidth = 1.5;
-    ctx.strokeStyle = 'rgba(255,190,110,0.35)';
-    ctx.beginPath();
-    tr.forEach((p, i) => {
-      const [sx, sy] = disp(p.x, p.y, p.t);
-      if (i && !p.gap) ctx.lineTo(sx, sy); else ctx.moveTo(sx, sy);
-    });
+    const pts = [];
+    for (const p of tr) { if (p.gap) pts.push(null); pts.push(disp(p.x, p.y, p.t)); }
     const s = state.mission.ship;
-    const [sx, sy] = w2s(s.x, s.y);
-    ctx.lineTo(sx, sy);
-    ctx.stroke();
+    pts.push(w2s(s.x, s.y));
+    Skins.drawTrail(ctx, pts, Skins.TRAIL[myLook().trail], performance.now() / 1000);
   }
 
   function drawPrediction(disp) {
@@ -1665,14 +1665,13 @@
   }
 
   function drawParticles() {
-    const flameSkin = Skins.FLAME[myLook().flame];
+    const flameSkin = Skins.FLAME[myLook().flame], rcsSkin = Skins.RCS[myLook().rcs];
     for (const p of state.particles) {
       const [sx, sy] = w2s(p.x, p.y);
       const k = 1 - p.age / p.life;
+      if (p.kind === 'rcs') { Skins.drawRcsParticle(ctx, sx, sy, k, rcsSkin); continue; }
       if (p.kind === 'fire') {
         ctx.fillStyle = Skins.sparkColor(flameSkin, k, k * 0.8);
-      } else if (p.kind === 'rcs') {
-        ctx.fillStyle = `rgba(220,235,255,${k * 0.9})`;
       } else {
         ctx.fillStyle = hexA(p.color, k);
       }
@@ -2351,9 +2350,11 @@
   const worldStars = (n) => worldLevels(n).reduce((a, l) => a + (progress.stars[l.id] || 0), 0);
   function worldOpen(n) {
     const w = WORLDS.find(x => x.n === n);
-    if (!w || !w.unlock || UNLOCK_ALL) return true;
+    if (!w || !w.unlock || UNLOCK_ALL || worldBought(n)) return true;
     return worldOpen(n - 1) && worldStars(n - 1) >= w.unlock;
   }
+  // Bought early in the Shop (the stars still count, and still open it).
+  function worldBought(n) { const b = bought(); return b.allWorlds || b.worlds.includes(n); }
   function levelOpen(i) { return LEVELS[i].test || worldOpen(worldOf(LEVELS[i])); }
 
   function defaultTab() {
@@ -2370,7 +2371,7 @@
   function showMenu() {
     state.screen = 'menu';
     state.flow = false;
-    hide('hud'); hide('briefing'); hide('result'); hide('pause'); hide('help'); hide('board'); hide('profile'); hide('hangar');
+    hide('hud'); hide('briefing'); hide('result'); hide('pause'); hide('help'); hide('board'); hide('profile'); hide('hangar'); hide('shop');
     show('menu');
     const hasTests = LEVELS.some(l => l.test);
     if (state.menuTab == null || (state.menuTab !== TEST_TAB && !WORLDS.some(w => w.n === state.menuTab))) state.menuTab = progress.tab != null ? progress.tab : defaultTab();
@@ -2427,7 +2428,8 @@
       const w = WORLDS.find(x => x.n === t), have = worldStars(t - 1);
       info.innerHTML = `<span class="lock">🔒 Earn ${w.unlock} ★ in ${worldName(t - 1)} to open ${w.name}</span>`
         + `<div class="unlockbar"><div style="width:${Math.min(100, 100 * have / w.unlock)}%"></div></div>`
-        + `<span class="k">${have} / ${w.unlock} ★ · ${Math.max(0, w.unlock - have)} to go</span>`;
+        + `<span class="k">${have} / ${w.unlock} ★ · ${Math.max(0, w.unlock - have)} to go</span>`
+        + (Skins.PRODUCTS.some(p => p.world === t) ? '<button class="wi-shop">Open it now in the Shop</button>' : '');
     }
     if (t !== TEST_TAB) info.appendChild(worldRewards(t));
     if (t !== TEST_TAB) {
@@ -2436,6 +2438,8 @@
       b.onclick = () => showBoard({ world: t }, 'menu');
       info.prepend(b);
     }
+    const wiShop = info.querySelector('.wi-shop');
+    if (wiShop) wiShop.onclick = () => showShop('menu', Skins.PRODUCTS.find(p => p.world === t).id);
     grid.classList.toggle('locked', !open);
     const nextUp = open ? list.find(([L]) => !progress.stars[L.id]) : null;
     for (const [L, i] of list) {
@@ -2463,17 +2467,18 @@
       const b = document.createElement('button');
       b.className = 'reward' + (got ? ' got' : '');
       b.innerHTML = `<canvas class="rw-icon"></canvas><span class="rw-txt"><span class="rw-name"></span><span class="rw-req">${got ? '✓ Earned' : (it.need === 'three' ? '★★★ every mission' : 'Clear every mission') + ` · ${pr.have}/${pr.of}`}</span></span>`;
-      b.querySelector('.rw-name').textContent = it.name + (Skins.HULL[it.id] ? ' hull' : ' flame');
+      b.querySelector('.rw-name').textContent = it.name + ' ' + SLOT_NAME[Skins.slotOf(it.id)];
       b.onclick = () => showHangar('menu');
       row.appendChild(b);
       requestAnimationFrame(() => skinIcon(b.querySelector('canvas'), it.id));
     }
     return row;
   }
-  // A small picture of a skin: a hull with your flame, or your hull with a flame.
+  // A small picture of a skin on your rocket: hulls and flames with the
+  // flame lit, trails behind it, thruster puffs firing.
   function skinIcon(canvas, id) {
-    const l = myLook();
-    Skins.drawIcon(canvas, Skins.HULL[id] ? { hull: id, flame: l.flame } : { hull: l.hull, flame: id });
+    const slot = Skins.slotOf(id), l = Object.assign(myLook(), { [slot]: id });
+    Skins.drawIcon(canvas, l, { show: slot === 'trail' || slot === 'rcs' ? slot : 'flame' });
   }
 
   // Missions are numbered within their world: "World 2 · Mission 5 of 30".
@@ -2548,7 +2553,7 @@
       const it = Skins.byId(id), el = document.createElement('button');
       el.className = 'unlocked skin-earned';
       el.innerHTML = `<canvas class="rw-icon" data-skin="${id}"></canvas><span></span>`;
-      el.querySelector('span').textContent = `New ${Skins.HULL[id] ? 'hull' : 'flame'}: ${it.name}! Tap to equip it in the Hangar.`;
+      el.querySelector('span').textContent = `New ${SLOT_NAME[Skins.slotOf(id)]}: ${it.name}! Tap to equip it in the Hangar.`;
       el.onclick = () => showHangar('result');
       $('res-msg').appendChild(el);
       requestAnimationFrame(() => skinIcon(el.querySelector('canvas'), id));
@@ -2816,9 +2821,10 @@
   // Hangar: every hull and flame, how to earn the ones you haven't, and
   // which you're flying. Tap an earned one to equip it, a locked one to
   // preview it.
-  let hangarReturn = null, hangarPreview = null, hangarRaf = 0;
+  let hangarReturn = null, hangarPreview = null, hangarShow = 'flame', hangarRaf = 0;
   function showHangar(from) {
-    hangarReturn = from; hangarPreview = null;
+    if (from !== 'shop') hangarReturn = from;
+    hangarPreview = null;
     hide(from); show('hangar');
     renderHangar();
     Online.Store.set(SEEN, [...owned()]);
@@ -2826,35 +2832,45 @@
     cancelAnimationFrame(hangarRaf);
     const spin = () => {
       if ($('hangar').classList.contains('hidden')) return;
-      Skins.drawIcon($('hangar-preview'), hangarPreview || myLook(), { f: 0.75 + Math.random() * 0.3, t: performance.now() / 1000 });
+      Skins.drawIcon($('hangar-preview'), hangarPreview || myLook(), { show: hangarShow, f: 0.75 + Math.random() * 0.3, t: performance.now() / 1000 });
       hangarRaf = requestAnimationFrame(spin);
     };
     spin();
   }
+  const SLOT_TITLES = { hull: 'Hulls', flame: 'Flames', trail: 'Trails', rcs: 'Thrusters' };
+  // How an item is earned, in words.
+  function howToEarn(it) {
+    if (it.shop) return 'In the Shop';
+    if (it.stars != null) return `Collect ${it.stars} ★`;
+    if (it.world == null) return 'Standard issue';
+    return (it.need === 'three' ? '★★★ every mission in ' : 'Clear every mission in ') + worldName(it.world);
+  }
   function renderHangar() {
-    const fresh = new Set(newSkins()), cur = myLook();
-    for (const [list, items] of [['hangar-hulls', Skins.HULLS], ['hangar-flames', Skins.FLAMES]]) {
-      const grid = $(list);
-      grid.innerHTML = '';
+    const fresh = new Set(newSkins()), cur = myLook(), wrap = $('hangar-slots');
+    wrap.innerHTML = '';
+    for (const [slot, items] of Object.entries(Skins.SLOTS)) {
+      const h = document.createElement('div'); h.className = 'hg-h'; h.textContent = SLOT_TITLES[slot];
+      const grid = document.createElement('div'); grid.className = 'skin-grid';
+      wrap.append(h, grid);
       for (const it of items) {
-        const got = owned().has(it.id), on = cur.hull === it.id || cur.flame === it.id;
+        const got = owned().has(it.id), on = cur[slot] === it.id;
         const pr = Skins.progressOf(it, progress.stars, LEVELS);
         const t = document.createElement('button');
-        t.className = 'skin-tile' + (got ? '' : ' locked') + (on ? ' on' : '');
-        const req = it.world == null ? 'Standard issue'
-          : (it.need === 'three' ? '★★★ every mission in ' : 'Clear every mission in ') + worldName(it.world);
+        t.className = 'skin-tile' + (got ? '' : ' locked') + (on ? ' on' : '') + (it.shop ? ' shop' : '');
+        const req = howToEarn(it);
         t.innerHTML = `<canvas class="sk-icon"></canvas><span class="sk-name"></span>`
-          + `<span class="sk-req">${got && it.world != null ? '✓ ' : ''}${req}</span>`
+          + `<span class="sk-req">${got && !Skins.standard(it) ? '✓ ' : ''}${got && it.shop ? 'Bought' : req}</span>`
           + (got ? `<span class="sk-state">${on ? 'Equipped' : 'Tap to equip'}</span>`
+            : it.shop ? '<span class="sk-state">🛒 See the Shop</span>'
             : `<span class="sk-state">🔒 ${pr.have} / ${pr.of}</span><span class="sk-bar"><span style="width:${pr.of ? 100 * pr.have / pr.of : 0}%"></span></span>`)
           + (fresh.has(it.id) ? '<span class="newtag">New</span>' : '');
         t.querySelector('.sk-name').textContent = it.name;
         t.onclick = () => {
-          if (got) { equip(it.id); hangarPreview = null; renderHangar(); }
-          else {
-            const l = myLook(); l[Skins.HULL[it.id] ? 'hull' : 'flame'] = it.id; hangarPreview = l;
-            toast(`${it.name}: ${req.charAt(0).toLowerCase() + req.slice(1)} to earn it`, 2.2);
-          }
+          hangarShow = slot === 'trail' || slot === 'rcs' ? slot : 'flame';
+          if (got) { equip(it.id); hangarPreview = null; renderHangar(); return; }
+          hangarPreview = Object.assign(myLook(), { [slot]: it.id });
+          if (it.shop) showShop('hangar');
+          else toast(`${it.name}: ${req.charAt(0).toLowerCase() + req.slice(1)} to earn it`, 2.2);
         };
         grid.appendChild(t);
         requestAnimationFrame(() => skinIcon(t.querySelector('canvas'), it.id));
@@ -2866,6 +2882,83 @@
     hide('hangar');
     if (hangarReturn === 'result') { show('result'); for (const c of document.querySelectorAll('#res-msg canvas[data-skin]')) skinIcon(c, c.dataset.skin); }
     else showMenu();
+  };
+
+  // Shop: skins and early world openings, bought once each through the App
+  // Store (js/online.js; the server verifies every purchase). Everything in
+  // the game can still be earned by flying: worlds open with stars, and the
+  // skins sold here are extras, never the ones earned in play.
+  let shopReturn = null, shopPrices = {}, shopBusy = null;
+  function showShop(from, focus) {
+    if (from !== 'hangar' || !shopReturn) shopReturn = from;
+    if (from === 'hangar') hide('hangar');
+    else hide(from);
+    show('shop');
+    $('shop-status').className = 'small'; $('shop-status').textContent = '';
+    renderShop();
+    if (focus) { const el = document.querySelector(`#shop [data-product="${focus}"]`); if (el) el.scrollIntoView({ block: 'center' }); }
+    const ids = Skins.PRODUCTS.map(p => p.id);
+    Online.prices(ids).then((p) => { shopPrices = p; if (!$('shop').classList.contains('hidden')) renderShop(); }).catch(() => {});
+  }
+  function renderShop() {
+    const mine = new Set(Online.ownedProducts()), can = Online.shopAvailable();
+    $('btn-shop-restore').style.display = Online.iapAvailable() ? '' : 'none';
+    $('shop-note').textContent = can ? '' : Bridge.inApp ? 'Purchases aren\'t available on this device.' : 'Purchases are made in the Thrusterz app for iPhone and iPad. Anything you buy there shows up here once you restore your account.';
+    for (const [list, kind] of [['shop-skins', 'skins'], ['shop-worlds', 'worlds']]) {
+      const grid = $(list);
+      grid.innerHTML = '';
+      for (const pr of Skins.PRODUCTS.filter(p => (kind === 'skins') === !!p.skins)) {
+        const have = mine.has(pr.id), alreadyOpen = pr.world != null && worldOpen(pr.world) && !have;
+        const t = document.createElement('div');
+        t.className = 'skin-tile shop-tile' + (have ? ' on' : '') + (pr.bundle ? ' bundle' : '');
+        t.dataset.product = pr.id;
+        const sub = pr.desc || (pr.skins ? `A ${SLOT_NAME[Skins.slotOf(pr.skins[0])]} for your rocket` : `Every mission in ${worldName(pr.world)}, without waiting for the stars`);
+        t.innerHTML = (pr.skins ? '<canvas class="sk-icon"></canvas>' : `<span class="shop-world w${pr.world != null ? pr.world : 'all'}">${pr.world != null ? pr.world : '∞'}</span>`)
+          + '<span class="sk-name"></span><span class="sk-req"></span>'
+          + `<button class="buy">${have ? '✓ Owned' : alreadyOpen ? '✓ Open' : shopBusy === pr.id ? '…' : (shopPrices[pr.id] || pr.price)}</button>`;
+        t.querySelector('.sk-name').textContent = pr.name;
+        t.querySelector('.sk-req').textContent = sub;
+        const btn = t.querySelector('.buy');
+        btn.disabled = have || alreadyOpen || !can || !!shopBusy;
+        btn.onclick = () => buyProduct(pr);
+        grid.appendChild(t);
+        if (pr.skins) requestAnimationFrame(() => skinIcon(t.querySelector('canvas'), pr.skins[0]));
+      }
+    }
+  }
+  async function buyProduct(pr) {
+    const st = $('shop-status');
+    shopBusy = pr.id; renderShop();
+    st.className = 'small'; st.textContent = '';
+    try {
+      const wasOpen = WORLDS.map(w => worldOpen(w.n));
+      await Online.buy(pr.id);
+      ownedCache = null;
+      const opened = WORLDS.find((w, k) => !wasOpen[k] && worldOpen(w.n));
+      if (opened) { progress.tab = opened.n; saveProgress(); }
+      toast(pr.skins ? `Thanks! ${pr.name} is in your Hangar.` : opened ? `Thanks! ${worldName(opened.n)} · ${opened.name} is open.` : 'Thanks!', 2.5);
+      if (Bridge.inApp) Bridge.haptic('success');
+    } catch (e) {
+      if (!/cancel/i.test(e.message)) { st.className = 'small warn'; st.textContent = e.offline ? 'You\'re offline. Try again when you\'re connected.' : e.message; }
+    }
+    shopBusy = null; renderShop();
+  }
+  $('btn-shop-menu').onclick = () => showShop('menu');
+  $('btn-shop-hangar').onclick = () => showShop('hangar');
+  $('btn-shop-restore').onclick = async () => {
+    const st = $('shop-status'), btn = $('btn-shop-restore');
+    btn.disabled = true; st.className = 'small'; st.textContent = 'Restoring…';
+    try {
+      const n = await Online.restorePurchases();
+      ownedCache = null;
+      st.textContent = n ? `✓ Restored ${n} purchase${n === 1 ? '' : 's'}.` : 'No purchases to restore on this Apple ID.';
+    } catch (e) { st.className = 'small warn'; st.textContent = e.message; }
+    btn.disabled = false; renderShop();
+  };
+  $('btn-shop-close').onclick = () => {
+    hide('shop');
+    if (shopReturn === 'hangar') { showHangar('shop'); shopReturn = null; }
+    else { shopReturn = null; showMenu(); }
   };
 
   // Pilot profile: name, Sign in with Apple, restore code.

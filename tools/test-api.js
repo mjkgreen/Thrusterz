@@ -37,6 +37,39 @@ function winningLog(wait = 0) {
   return null;
 }
 
+// A stand-in for Apple's certificates: root -> intermediate -> leaf, with the
+// App Store OIDs (unless oids: false). Reuses another set's root if given.
+const { execFileSync } = require('child_process');
+function makeTestPki(opts = {}) {
+  const dir = require('fs').mkdtempSync(require('path').join(require('os').tmpdir(), 'pki-'));
+  const ssl = (...a) => execFileSync('openssl', a, { cwd: dir, stdio: 'pipe' });
+  const fs = require('fs'), at = (f) => require('path').join(dir, f);
+  if (opts.root) { fs.writeFileSync(at('root.key'), opts.root.rootKey); fs.writeFileSync(at('root.pem'), opts.root.rootPem); }
+  else {
+    ssl('ecparam', '-name', 'prime256v1', '-genkey', '-noout', '-out', 'root.key');
+    ssl('req', '-x509', '-new', '-key', 'root.key', '-subj', '/CN=Test Root', '-days', '30', '-out', 'root.pem', '-addext', 'basicConstraints=critical,CA:TRUE', '-addext', 'keyUsage=critical,keyCertSign,cRLSign');
+  }
+  const issue = (name, ca, ext) => {
+    ssl('ecparam', '-name', 'prime256v1', '-genkey', '-noout', '-out', name + '.key');
+    ssl('req', '-new', '-key', name + '.key', '-subj', '/CN=Test ' + name, '-out', name + '.csr');
+    fs.writeFileSync(at(name + '.ext'), ext);
+    ssl('x509', '-req', '-in', name + '.csr', '-CA', ca + '.pem', '-CAkey', ca + '.key', '-CAcreateserial', '-days', '30', '-out', name + '.pem', '-extfile', name + '.ext');
+  };
+  issue('mid', 'root', 'basicConstraints=critical,CA:TRUE\n' + (opts.oids === false ? '' : '1.2.840.113635.100.6.2.1=ASN1:NULL\n'));
+  issue('leaf', 'mid', 'basicConstraints=critical,CA:FALSE\n' + (opts.oids === false ? '' : '1.2.840.113635.100.6.11.1=ASN1:NULL\n'));
+  const der = (f) => new crypto.X509Certificate(fs.readFileSync(at(f))).raw;
+  return {
+    x5c: ['leaf.pem', 'mid.pem', 'root.pem'].map(f => der(f).toString('base64')),
+    leafKey: fs.readFileSync(at('leaf.key')), rootKey: fs.readFileSync(at('root.key')), rootPem: fs.readFileSync(at('root.pem')),
+    rootSha: crypto.createHash('sha256').update(der('root.pem')).digest('hex'),
+  };
+}
+function signedTxn(payload, pki) {
+  const enc = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
+  const data = enc({ alg: 'ES256', x5c: pki.x5c }) + '.' + enc(payload);
+  return data + '.' + crypto.sign('sha256', Buffer.from(data), { key: pki.leafKey, dsaEncoding: 'ieee-p1363' }).toString('base64url');
+}
+
 (async () => {
   const server = require('./dev-server.js');
   await new Promise(r => server.listen(0, r));
@@ -125,7 +158,8 @@ function winningLog(wait = 0) {
   const lookA = await call('PATCH', 'player', { look: { hull: 'checker', flame: 'crimson' } }, tokA);
   check('a pilot can pick a look', lookA.status === 200 && lookA.body.player.look.hull === 'checker' && lookA.body.player.name === 'Ace Pilot', JSON.stringify(lookA.body));
   let lb = await call('GET', 'board', null, tokA, { level: 'deorbit', kind: 'score' });
-  check('unearned skins show as the defaults', JSON.stringify(look(lb.body, a.body.player.id)) === JSON.stringify({ hull: 'classic', flame: 'standard' }), JSON.stringify(lb.body.top));
+  const Skins = require('../js/skins.js');
+  check('unearned skins show as the defaults', JSON.stringify(look(lb.body, a.body.player.id)) === JSON.stringify(Skins.DEFAULT), JSON.stringify(lb.body.top));
   // Pretend A has three-starred every other world-1 mission (verified), then fly Deorbit again.
   const vs = (await store.get('vstars:' + a.body.player.id)) || {};
   for (const L of w1) if (L.id !== 'deorbit') vs[L.id] = 3;
@@ -138,8 +172,31 @@ function winningLog(wait = 0) {
   check('skins stay granted', (await call('GET', 'player', null, tokA)).body.player.skins.includes('checker'));
   await call('PATCH', 'player', { look: { hull: 'chrome', flame: 'nope' } }, b.body.token);
   lb = await call('GET', 'board', null, tokA, { level: 'deorbit', kind: 'score' });
-  check('a pilot cannot show skins they have not earned', JSON.stringify(look(lb.body, b.body.player.id)) === JSON.stringify({ hull: 'classic', flame: 'standard' }), JSON.stringify(look(lb.body, b.body.player.id)));
+  check('a pilot cannot show skins they have not earned', JSON.stringify(look(lb.body, b.body.player.id)) === JSON.stringify(Skins.DEFAULT), JSON.stringify(look(lb.body, b.body.player.id)));
   check('your own row carries your look', lb.body.me.look.hull === 'checker', JSON.stringify(lb.body.me));
+
+  // Shop: signed App Store transactions, checked against a pinned root. The
+  // test makes its own root, intermediate and leaf (with Apple's OIDs).
+  const pki = makeTestPki();
+  process.env.APPLE_ROOT_SHA256 = pki.rootSha;
+  const txn = (fields, chain = pki) => signedTxn(Object.assign({ bundleId: 'com.thrusterz.app', productId: 'com.thrusterz.app.hull.tiger', transactionId: '2000001', originalTransactionId: '2000001', type: 'Non-Consumable', signedDate: Date.now() }, fields), chain);
+  check('purchases need an account', (await call('POST', 'purchase', { transactions: [txn({})] })).status === 401);
+  const buy = await call('POST', 'purchase', { transactions: [txn({})] }, b.body.token);
+  check('a signed purchase is verified and owned', buy.status === 200 && buy.body.player.owns.includes('com.thrusterz.app.hull.tiger') && buy.body.player.skins.includes('tiger'), JSON.stringify(buy.body));
+  await call('PATCH', 'player', { look: { hull: 'tiger' } }, b.body.token);
+  lb = await call('GET', 'board', null, tokA, { level: 'deorbit', kind: 'score' });
+  check('a bought skin shows on the leaderboard', look(lb.body, b.body.player.id).hull === 'tiger', JSON.stringify(look(lb.body, b.body.player.id)));
+  const forgedTxn = txn({}).split('.'); forgedTxn[1] = Buffer.from(JSON.stringify({ bundleId: 'com.thrusterz.app', productId: 'com.thrusterz.app.world.all', signedDate: Date.now() })).toString('base64url');
+  check('an edited transaction is refused', (await call('POST', 'purchase', { transactions: [forgedTxn.join('.')] }, b.body.token)).status === 422);
+  check('a purchase for another app is refused', (await call('POST', 'purchase', { transactions: [txn({ bundleId: 'com.other.app' })] }, b.body.token)).status === 422);
+  check('a refunded purchase is refused', (await call('POST', 'purchase', { transactions: [txn({ revocationDate: Date.now() })] }, b.body.token)).status === 422);
+  check('an unknown product is refused', (await call('POST', 'purchase', { transactions: [txn({ productId: 'com.thrusterz.app.free.money' })] }, b.body.token)).status === 422);
+  const other = makeTestPki();
+  check('a chain not ending at the pinned root is refused', (await call('POST', 'purchase', { transactions: [txn({}, other)] }, b.body.token)).status === 422);
+  check('certificates without the App Store OIDs are refused', (await call('POST', 'purchase', { transactions: [txn({}, makeTestPki({ oids: false, root: pki }))] }, b.body.token)).status === 422);
+  const dev = await call('POST', 'purchase', { dev: 'com.thrusterz.app.world.all' }, b.body.token);
+  check('test purchases work on a local server', dev.status === 200 && dev.body.player.owns.includes('com.thrusterz.app.world.all'));
+  check('test purchases of unknown products are refused', (await call('POST', 'purchase', { dev: 'nope' }, b.body.token)).status === 404);
 
   // Reporting a pilot name: once per reporter; three different reporters
   // reset it to the neutral default.

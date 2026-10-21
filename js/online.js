@@ -35,11 +35,16 @@
 
   const ACCOUNT = 'thrusterz.account.v1';
   const QUEUE = 'thrusterz.runs.v1';
+  const IAP = 'thrusterz.iap.v1';
   const listeners = [];
   const state = {
     account: Store.get(ACCOUNT),   // { player, token }
     status: apiBase() == null ? 'unavailable' : 'idle', // idle | syncing | synced | offline | unavailable
     queue: Store.get(QUEUE) || [],
+    // Purchases the store has completed that the server hasn't confirmed
+    // yet: { productId, jws, transactionId }. They count at once on this
+    // device, and are claimed on the account when the server is reachable.
+    pendingIap: Store.get(IAP) || [],
     lastError: '',
   };
   const emit = () => listeners.forEach(f => { try { f(state); } catch (e) { /* ignore */ } });
@@ -102,6 +107,7 @@
         const r = await api('PUT', 'progress', { progress: getLocal() });
         if (applyMerged) applyMerged(r.progress);
         await flushRuns();
+        if (state.pendingIap.length) await claimPurchases(state.pendingIap);
         await pushLook();
       });
       setStatus('synced');
@@ -167,6 +173,70 @@
   }
   const setLook = () => (apiBase() == null ? Promise.resolve() : guard(async () => { await ensureAccount(); await pushLook(); }));
 
+  // ------------------------------------------------------------ shop
+  // In the app, purchases go through the App Store (the shell's StoreKit
+  // bridge); the server verifies each signed transaction. On a local dev
+  // server, ?shopdev buys for free, to try the Shop out.
+  const iapAvailable = () => native() && !!Bridge.iap;
+  const devShop = () => !native() && /[?&]shopdev/.test(location.search);
+  const shopAvailable = () => iapAvailable() || devShop();
+  const savePending = () => { Store.set(IAP, state.pendingIap); emit(); };
+  function addPending(t) {
+    if (!t || !t.jws || state.pendingIap.some(x => x.transactionId === t.transactionId)) return;
+    state.pendingIap.push({ productId: t.productId, jws: t.jws, transactionId: t.transactionId });
+    savePending();
+  }
+  // Hand transactions to the server. Confirmed ones are finished with the
+  // store (so it stops replaying them); ones the server rejects are dropped.
+  async function claimPurchases(list) {
+    if (!list.length) return null;
+    await ensureAccount();
+    let r = null, rejected = false;
+    try { r = await api('POST', 'purchase', { transactions: list.map(t => t.jws) }); }
+    catch (e) { if (e.status !== 422) throw e; rejected = true; }
+    if (r) saveAccount(Object.assign({}, state.account, { player: r.player }));
+    const owns = new Set((r && r.player.owns) || []);
+    for (const t of list) {
+      if (owns.has(t.productId)) Bridge.send('iapFinish', { transactionId: t.transactionId });
+      if (owns.has(t.productId) || rejected) state.pendingIap = state.pendingIap.filter(x => x.transactionId !== t.transactionId);
+    }
+    savePending();
+    return r;
+  }
+  // Products the account owns or has bought on this device.
+  function ownedProducts() {
+    const p = state.account && state.account.player;
+    return [...new Set(((p && p.owns) || []).concat(state.pendingIap.map(t => t.productId)))];
+  }
+  // Localized prices from the App Store: { productId: '$0.99' }.
+  async function prices(ids) {
+    if (!iapAvailable()) return {};
+    const list = await Bridge.call('iapProducts', { skus: ids });
+    return Object.fromEntries((list || []).map(x => [x.id, x.displayPrice]));
+  }
+  async function buy(productId) {
+    if (devShop()) {
+      return guard(async () => {
+        await ensureAccount();
+        const r = await api('POST', 'purchase', { dev: productId });
+        saveAccount(Object.assign({}, state.account, { player: r.player }));
+      });
+    }
+    const t = await Bridge.call('iapBuy', { sku: productId });
+    addPending(t);
+    try { await guard(() => claimPurchases([t])); } catch (e) { /* counted here; claimed on the next sync */ }
+  }
+  // Restore purchases (a new device, or after reinstalling).
+  async function restorePurchases() {
+    const list = await Bridge.call('iapRestore');
+    for (const t of list || []) addPending(t);
+    await guard(() => claimPurchases(state.pendingIap.slice()));
+    return (list || []).length;
+  }
+  // The store replays transactions it hasn't seen finished (a purchase that
+  // completed while the game was closed, say). The shell passes them here.
+  root.__iapUpdate = (t) => { addPending(t); if (apiBase() != null) guard(() => claimPurchases([t])).catch(() => {}); };
+
   async function rename(name) {
     return guard(async () => {
       await ensureAccount();
@@ -227,6 +297,7 @@
   // At startup: pull the native copies (they survive WebView storage being
   // cleared), then sync with the server in the background.
   async function start() {
+    if (iapAvailable()) Bridge.send('iapReady');
     const acct = await Store.getNative(ACCOUNT);
     if (acct && acct.token && !(state.account && state.account.token)) saveAccount(acct);
     const q = await Store.getNative(QUEUE);
@@ -237,6 +308,7 @@
   const Online = {
     state, Store, start, bindProgress, bindLook, setLook, saveProgressSoon, syncNow, submitRun, board, rename, restore, report, crash,
     signInWithApple, appleAvailable, ensureAccount, deleteAccount,
+    shopAvailable, iapAvailable, ownedProducts, prices, buy, restorePurchases,
     available: () => apiBase() != null,
     onChange: (f) => listeners.push(f),
     native,

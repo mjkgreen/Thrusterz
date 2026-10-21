@@ -102,8 +102,8 @@ just run the build and submit commands again.
 - **Privacy policy URL:** `https://thrusterz.com/privacy.html`.
 - **Support URL:** `https://thrusterz.com/support.html`.
 - **App Privacy:** data collected = *User ID*, *Gameplay Content*, *Other
-  User Content* (the pilot name), all linked to the user; and *Crash Data*,
-  not linked. All for App Functionality, none used for tracking. (Matches
+  User Content* (the pilot name), *Purchase History* (Shop items owned), all
+  linked to the user; and *Crash Data*, not linked. All for App Functionality, none used for tracking. (Matches
   the privacy manifest.)
 - **Review notes:** "No login required; an anonymous account is created
   automatically. Sign in with Apple is optional (Pilot screen). Account
@@ -111,7 +111,9 @@ just run the build and submit commands again.
   words, any name on a leaderboard can be reported by tapping it (it's hidden
   for the reporter at once, and reset after several reports), and players can
   reach us at the support URL. The whole game is bundled and plays offline;
-  it uses Sign in with Apple, haptics and native storage."
+  it uses Sign in with Apple, haptics and native storage. The Shop (menu →
+  Shop) sells non-consumable cosmetic skins and early access to worlds that
+  also open free with stars; Restore purchases is in the Shop."
 - Export compliance is already answered in the app (`ITSAppUsesNonExemptEncryption = NO`).
 
 Then **Add for Review → Submit**.
