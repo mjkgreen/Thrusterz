@@ -24,6 +24,7 @@
     { id: 'checker', name: 'Checkerboard', desc: 'Black and white checks, like 1940s test rockets painted so the cameras could see them roll.', world: 1, need: 'clear', fill: ['#ffffff', '#f2f4f8', '#c9cfdc'], line: '#3a3f4c', fin: '#262a33', finLine: '#0e1015', nozzle: '#262a33', pattern: 'checker', ink: '#262a33' },
     { id: 'nebula', name: 'Nebula', desc: 'Deep violet, dusted with stars.', world: 2, need: 'clear', fill: ['#f0c8ff', '#a45cf0', '#4b1f8f'], line: '#2e1260', fin: '#f78cff', finLine: '#7a2a90', nozzle: '#241046', pattern: 'stars', ink: '#ffffff' },
     { id: 'hazard', name: 'Hazard', desc: 'Caution yellow with black stripes, built for the no-fly zones.', world: 3, need: 'clear', fill: ['#ffe97a', '#ffcc33', '#c89400'], line: '#5a4300', fin: '#1e1e22', finLine: '#000000', nozzle: '#1e1e22', pattern: 'hazard', ink: '#1e1e22' },
+    { id: 'apollo', name: 'Apollo', desc: 'The Moon rocket: tall and white, black roll markings, and the escape tower on its nose.', stars: 250, shape: 'needle', tower: true, fill: ['#ffffff', '#f1f3f7', '#c4cad6'], line: '#4a4f5c', fin: '#1c1e24', finLine: '#000000', nozzle: '#2a2d36', cap: '#f1f3f7', capLine: '#4a4f5c', pattern: 'saturn', ink: '#1c1e24' },
     { id: 'chrome', name: 'Chrome Needle', desc: 'A longer nose, bigger swept fins and a mirror finish.', world: 4, need: 'clear', shape: 'needle', fill: ['#ffffff', '#9aa6bd', '#eef2fa', '#5d6a85'], line: '#4a5570', fin: '#c8a8ff', finLine: '#5b3f99', nozzle: '#2a3150', pattern: 'pinstripe', ink: '#8cf0ff' },
     // Shop
     { id: 'retro', name: 'Retro Red', desc: 'Red and cream, straight off a 1950s pulp magazine cover.', shop: true, fill: ['#ffffff', '#f4f1ea', '#cfc8b8'], line: '#7a2020', fin: '#d62828', finLine: '#7a1010', nozzle: '#3a3a3a', pattern: 'bands', ink: '#d62828' },
@@ -74,16 +75,20 @@
   // antennas) or 'tube' (a telescope tube with panels).
   const SATS = [
     { id: 'foil', name: 'Gold Foil', desc: 'A foil-wrapped box with two blue solar panels.', shape: 'box', body: '#e8c45a', bodyLine: '#8a6a1a', panel: '#4f7fd8', panelLine: '#9fc0ff' },
-    { id: 'silver', name: 'Silver Foil', desc: 'Silver insulation and dark, high-efficiency panels.', stars: 150, shape: 'box', body: '#d5dbe6', bodyLine: '#6f7a90', panel: '#243052', panelLine: '#7d8fb8' },
+    { id: 'sputnik', name: 'Sputnik', desc: 'A polished ball trailing four long antennas, like the very first satellite in 1957.', stars: 150, shape: 'sphere', body: '#e6e9ef', bodyLine: '#7b8496', panel: '#c9ced8', panelLine: '#c9ced8' },
     // Shop
-    { id: 'sputnik', name: 'Sputnik', desc: 'A polished ball with four swept-back antennas, like the first satellite of all.', shop: true, shape: 'sphere', body: '#e6e9ef', bodyLine: '#7b8496', panel: '#c9ced8', panelLine: '#c9ced8' },
-    { id: 'observatory', name: 'Observatory', desc: 'A space telescope: a silver tube with its aperture door open.', shop: true, shape: 'tube', body: '#d9dee8', bodyLine: '#6a7488', panel: '#3a5fb0', panelLine: '#9fc0ff' },
+    { id: 'silver', name: 'Silver Foil', desc: 'Silver insulation and dark, high-efficiency panels.', shop: true, shape: 'box', body: '#d5dbe6', bodyLine: '#6f7a90', panel: '#243052', panelLine: '#7d8fb8' },
+    // Shop
+    { id: 'hubble', name: 'Hubble', desc: 'The space telescope: a silver tube with its aperture door open and two solar wings.', shop: true, shape: 'tube', body: '#d9dee8', bodyLine: '#6a7488', panel: '#3a5fb0', panelLine: '#9fc0ff' },
+    { id: 'iss', name: 'ISS', desc: 'The International Space Station: a long truss, white modules and eight golden solar wings.', shop: true, shape: 'iss', body: '#eef1f6', bodyLine: '#7b8496', panel: '#c8862a', panelLine: '#f0c070' },
+    { id: 'jwst', name: 'James Webb', desc: 'A gold honeycomb mirror riding on a tennis-court-sized sunshield.', shop: true, shape: 'jwst', body: '#e8b830', bodyLine: '#8a6a10', panel: '#c9b8e8', panelLine: '#8a78b8' },
+    { id: 'voyager', name: 'Voyager', desc: 'A big white dish and long booms, built for the outer planets and still going.', shop: true, shape: 'voyager', body: '#f2f2ee', bodyLine: '#6a6e78', panel: '#8a8f9a', panelLine: '#c9ced8' },
     { id: 'goldsat', name: 'Gold Standard', desc: 'Gold body, gold panels, gold everything.', gold: true, shop: true, shape: 'box', body: '#ffd34d', bodyLine: '#7a5600', panel: '#e6b422', panelLine: '#fff0a0' },
   ];
 
   // Slots in a look, and the items each takes: standard issue first, then
-  // the ones earned by flying, then the Shop's, then gold.
-  const rank = (it) => (it.gold ? 3 : it.shop ? 2 : it.world != null || it.stars != null ? 1 : 0);
+  // the ones earned by flying (worlds, then stars), then the Shop's, then gold.
+  const rank = (it) => (it.gold ? 3 : it.shop ? 2 : it.stars != null ? 1.5 : it.world != null ? 1 : 0);
   for (const list of [HULLS, FLAMES, TRAILS, RCSES, SATS]) list.sort((a, b) => rank(a) - rank(b)); // stable: keeps the order within each group
   const SLOTS = { hull: HULLS, flame: FLAMES, trail: TRAILS, rcs: RCSES, sat: SATS };
   const TABLE = Object.fromEntries(Object.entries(SLOTS).map(([k, list]) => [k, Object.fromEntries(list.map(it => [it.id, it]))]));
@@ -116,9 +121,12 @@
     { id: P + 'trail.neon', name: 'Neon trail', skins: ['neon'], price: '$0.99' },
     { id: P + 'rcs.rings', name: 'Halo Rings thrusters', skins: ['rings'], price: '$0.99' },
     { id: P + 'rcs.neondust', name: 'Neon Dust thrusters', skins: ['neondust'], price: '$0.99' },
-    { id: P + 'sat.sputnik', name: 'Sputnik satellite', skins: ['sputnik'], price: '$0.99' },
-    { id: P + 'sat.observatory', name: 'Observatory satellite', skins: ['observatory'], price: '$0.99' },
-    { id: P + 'pack.hangar', name: 'Hangar Pack', desc: 'Every skin in the Shop', skins: SHOP_SKINS, price: '$4.99', bundle: true },
+    { id: P + 'sat.silver', name: 'Silver Foil satellite', skins: ['silver'], price: '$0.99' },
+    { id: P + 'sat.hubble', name: 'Hubble satellite', skins: ['hubble'], price: '$0.99' },
+    { id: P + 'sat.iss', name: 'ISS satellite', skins: ['iss'], price: '$1.99' },
+    { id: P + 'sat.jwst', name: 'James Webb satellite', skins: ['jwst'], price: '$1.99' },
+    { id: P + 'sat.voyager', name: 'Voyager satellite', skins: ['voyager'], price: '$0.99' },
+    { id: P + 'pack.hangar', name: 'Hangar Pack', desc: 'Every skin in the Shop except gold', skins: SHOP_SKINS, price: '$14.99', bundle: true },
     { id: P + 'gold.hull', name: 'Solid Gold hull', skins: ['gold'], price: '$4.99', gold: true },
     { id: P + 'gold.flame', name: 'Gold Rush flame', skins: ['goldflame'], price: '$2.99', gold: true },
     { id: P + 'gold.trail', name: 'Gold Leaf trail', skins: ['goldtrail'], price: '$2.99', gold: true },
@@ -219,6 +227,13 @@
         const y = i % 2 ? W * 1.2 : -W * 1.2;
         g.beginPath(); g.moveTo(x, y); g.lineTo(x + 2.4, y * 0.05); g.lineTo(x + 1.3, y); g.closePath(); g.fill();
       }
+    } else if (hull.pattern === 'saturn') {
+      // Saturn V roll markings: black quarters at the base, a black band
+      // between the stages.
+      g.fillStyle = ink;
+      g.fillRect(tail, -W * 1.2, 3, W * 1.2);
+      g.fillRect(tail + 3, 0, 3, W * 1.2);
+      g.fillRect(L * 0.05, -W * 1.2, 1.2, W * 2.4);
     } else if (hull.pattern === 'pinstripe') {
       g.strokeStyle = ink; g.lineWidth = 0.6;
       g.beginPath(); g.moveTo(tail, 0); g.lineTo(nose, 0); g.stroke();
@@ -274,6 +289,12 @@
       g.lineWidth = 1;
       return;
     }
+    // Launch escape tower: a thin mast with a small motor ahead of the nose.
+    if (hull.tower) {
+      g.strokeStyle = hull.ink; g.lineWidth = 1;
+      g.beginPath(); g.moveTo(d.nose - 0.5, 0); g.lineTo(d.nose + 3, 0); g.stroke();
+      g.fillStyle = '#c0392b'; g.fillRect(d.nose + 2.4, -1, 2.8, 2);
+    }
     // Porthole
     g.fillStyle = '#0b1338'; g.beginPath(); g.arc(L * 0.3, 0, 2.1, 0, TAU); g.fill();
     g.fillStyle = hull.window || '#2fb8d8'; g.beginPath(); g.arc(L * 0.3, 0, 1.45, 0, TAU); g.fill();
@@ -300,6 +321,37 @@
       gr.addColorStop(0, '#ffffff'); gr.addColorStop(0.5, sat.body); gr.addColorStop(1, sat.bodyLine);
       g.fillStyle = gr; g.strokeStyle = sat.bodyLine; g.lineWidth = 0.8;
       g.beginPath(); g.arc(0, 0, 4.2, 0, TAU); g.fill(); g.stroke();
+    } else if (sat.shape === 'iss') {
+      // Truss across, four pairs of golden wings, modules along the middle.
+      g.strokeStyle = sat.bodyLine; g.lineWidth = 0.9;
+      g.beginPath(); g.moveTo(0, -14); g.lineTo(0, 14); g.stroke();
+      g.fillStyle = sat.panel; g.strokeStyle = sat.panelLine; g.lineWidth = 0.4;
+      for (const y of [-14, -9.5, 5.5, 10]) for (const x of [-6.5, 1.5]) { g.fillRect(x, y, 5, 4); g.strokeRect(x, y, 5, 4); }
+      g.fillStyle = sat.body; g.strokeStyle = sat.bodyLine; g.lineWidth = 0.7;
+      g.beginPath(); g.rect(-7, -1.4, 14, 2.8); g.fill(); g.stroke();
+      g.beginPath(); g.rect(-2, -3.6, 3, 7.2); g.fill(); g.stroke();
+    } else if (sat.shape === 'jwst') {
+      // Layered sunshield (a long diamond) under a gold hexagonal mirror.
+      g.fillStyle = sat.panel; g.strokeStyle = sat.panelLine; g.lineWidth = 0.6;
+      for (const k of [1, 0.8, 0.6]) {
+        g.beginPath(); g.moveTo(-8 * k, 0); g.lineTo(0, -12 * k); g.lineTo(8 * k, 0); g.lineTo(0, 12 * k); g.closePath(); g.fill(); g.stroke();
+      }
+      g.fillStyle = sat.body; g.strokeStyle = sat.bodyLine; g.lineWidth = 0.5;
+      const hex = (cx, cy, r) => { g.beginPath(); for (let i = 0; i < 6; i++) { const a = i * Math.PI / 3; g.lineTo(cx + r * Math.cos(a), cy + r * Math.sin(a)); } g.closePath(); g.fill(); g.stroke(); };
+      hex(1, 0, 1.5);
+      for (let i = 0; i < 6; i++) { const a = Math.PI / 6 + i * Math.PI / 3; hex(1 + 2.6 * Math.cos(a), 2.6 * Math.sin(a), 1.5); }
+      g.strokeStyle = sat.bodyLine; g.lineWidth = 0.4; g.beginPath(); g.moveTo(1, 0); g.lineTo(5.5, 0); g.stroke();
+    } else if (sat.shape === 'voyager') {
+      // Booms first, then the bus and the big dish facing forward.
+      g.strokeStyle = sat.panelLine; g.lineWidth = 0.6;
+      g.beginPath(); g.moveTo(0, 0); g.lineTo(-6, 11); g.moveTo(0, 0); g.lineTo(-4, -13); g.stroke();
+      g.fillStyle = sat.panel; g.beginPath(); g.arc(-6, 11, 1.4, 0, TAU); g.fill();
+      g.fillRect(-3, -2.4, 4, 4.8);
+      const gr = g.createRadialGradient(3.5, 0, 0.5, 3.5, 0, 6);
+      gr.addColorStop(0, '#ffffff'); gr.addColorStop(1, sat.body);
+      g.fillStyle = gr; g.strokeStyle = sat.bodyLine; g.lineWidth = 0.7;
+      g.beginPath(); g.ellipse(2.5, 0, 2, 6, 0, 0, TAU); g.fill(); g.stroke();
+      g.beginPath(); g.moveTo(2.5, 0); g.lineTo(6, 0); g.stroke();
     } else if (sat.shape === 'tube') {
       panels(4.2);
       const gr = g.createLinearGradient(0, -3.6, 0, 3.6);
@@ -394,7 +446,7 @@
     const L = 9, show = opts.show || 'flame', flameOn = show === 'flame' && opts.flame !== false;
     if (show === 'sat') {
       // Just the satellite, upright so its panels spread sideways.
-      const s = Math.min(w / 30, h / 17) * 0.95;
+      const s = Math.min(w / 32, h / 18) * 0.95;
       g.setTransform(dpr, 0, 0, dpr, 0, 0);
       g.clearRect(0, 0, w, h);
       g.translate(w / 2, h / 2); g.scale(s, s); g.rotate(-Math.PI / 2 + Math.sin((opts.t || 0) * 0.8) * 0.15);
@@ -402,7 +454,7 @@
       return;
     }
     // The picture spans from the flame's tip to the nose.
-    const left = -L - (flameOn ? 22 : 4), right = L + (hull.shape === 'needle' ? 8 : 4), tall = 2 * (3.4 + 4.6);
+    const left = -L - (flameOn ? 22 : 4), right = L + (hull.shape === 'needle' ? 8 : 4) + (hull.tower ? 5 : 0), tall = 2 * (3.4 + 4.6);
     const s = Math.min(w / (right - left), h / tall) * 0.95;
     g.setTransform(dpr, 0, 0, dpr, 0, 0);
     g.clearRect(0, 0, w, h);

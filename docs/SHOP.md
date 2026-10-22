@@ -12,11 +12,11 @@ A rocket's look has five slots. Each item is earned, bought, or standard issue.
 
 | Slot | Earned | Shop | Gold |
 | --- | --- | --- | --- |
-| Hull | Clear every mission in a world: Checkerboard (1), Nebula (2), Hazard (3), Chrome Needle (4) | Cadet, Retro Red, Stealth, Tiger | Solid Gold |
+| Hull | Clear every mission in a world: Checkerboard (1), Nebula (2), Hazard (3), Chrome Needle (4); 250 ★ Apollo | Cadet, Retro Red, Stealth, Tiger | Solid Gold |
 | Flame | Three stars on every mission in a world: Strontium Red (1), Plasma (2), Boron Green (3), Pulsar (4) | Cold Blue, Sunset, Ghost | Gold Rush |
 | Trail | 100 ★ Comet, 300 ★ Aurora | Neon | Gold Leaf |
 | Thrusters (RCS puffs) | 200 ★ Ember Sparks | Halo Rings, Neon Dust | Gold Dust |
-| Satellite (the craft you fly after delivering one) | 150 ★ Silver Foil | Sputnik, Observatory | Gold Standard |
+| Satellite (the craft you fly after delivering one) | 150 ★ Sputnik | Silver Foil, Hubble, ISS, James Webb, Voyager | Gold Standard |
 
 Earned skins are never sold, so they stay a sign of skill. Training earns
 no skins; rewards start with the real worlds. Shop skins are
@@ -51,9 +51,12 @@ Non-consumable App Store purchases, ids in `Skins.PRODUCTS`:
 | `com.thrusterz.app.trail.neon` | Neon trail | $0.99 |
 | `com.thrusterz.app.rcs.rings` | Halo Rings thrusters | $0.99 |
 | `com.thrusterz.app.rcs.neondust` | Neon Dust thrusters | $0.99 |
-| `com.thrusterz.app.sat.sputnik` | Sputnik satellite | $0.99 |
-| `com.thrusterz.app.sat.observatory` | Observatory satellite | $0.99 |
-| `com.thrusterz.app.pack.hangar` | Hangar Pack: every Shop skin except gold | $4.99 |
+| `com.thrusterz.app.sat.silver` | Silver Foil satellite | $0.99 |
+| `com.thrusterz.app.sat.hubble` | Hubble satellite | $0.99 |
+| `com.thrusterz.app.sat.iss` | ISS satellite | $1.99 |
+| `com.thrusterz.app.sat.jwst` | James Webb satellite | $1.99 |
+| `com.thrusterz.app.sat.voyager` | Voyager satellite | $0.99 |
+| `com.thrusterz.app.pack.hangar` | Hangar Pack: every Shop skin except gold | $14.99 |
 | `com.thrusterz.app.gold.hull` | Solid Gold hull | $4.99 |
 | `com.thrusterz.app.gold.flame` | Gold Rush flame | $2.99 |
 | `com.thrusterz.app.gold.trail` | Gold Leaf trail | $2.99 |
@@ -125,7 +128,8 @@ server only allows this on its in-memory store, never on a real deployment.
   granted to the pilot account in the same way.
 - **Android:** `expo-iap` covers Google Play too. It needs Play Console products
   and server-side Play purchase verification.
-- **More Shop content:** themed packs (Apollo, Neon, Pulsar), seasonal skins. Each is one entry in `js/skins.js` and one product.
+- **More Shop content:** more real spacecraft (Space Shuttle, Vostok, Mir,
+  Cassini, a lunar lander), themed packs, seasonal skins. Each is one entry in `js/skins.js` and one product.
 - **Ads (optional, later):** rewarded only (try a Shop skin for three
   missions, or open the next world a few stars early), plus a "Remove ads"
   product. Never during a flight or after a crash. Needs App Tracking
