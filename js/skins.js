@@ -24,12 +24,13 @@
     { id: 'checker', name: 'Checkerboard', desc: 'Black and white checks, like 1940s test rockets painted so the cameras could see them roll.', world: 1, need: 'clear', fill: ['#ffffff', '#f2f4f8', '#c9cfdc'], line: '#3a3f4c', fin: '#262a33', finLine: '#0e1015', nozzle: '#262a33', pattern: 'checker', ink: '#262a33' },
     { id: 'nebula', name: 'Nebula', desc: 'Deep violet, dusted with stars.', world: 2, need: 'clear', fill: ['#f0c8ff', '#a45cf0', '#4b1f8f'], line: '#2e1260', fin: '#f78cff', finLine: '#7a2a90', nozzle: '#241046', pattern: 'stars', ink: '#ffffff' },
     { id: 'hazard', name: 'Hazard', desc: 'Caution yellow with black stripes, built for the no-fly zones.', world: 3, need: 'clear', fill: ['#ffe97a', '#ffcc33', '#c89400'], line: '#5a4300', fin: '#1e1e22', finLine: '#000000', nozzle: '#1e1e22', pattern: 'hazard', ink: '#1e1e22' },
-    { id: 'apollo', name: 'Apollo', desc: 'The Moon rocket: tall and white, black roll markings, and the escape tower on its nose.', stars: 250, shape: 'needle', tower: true, fill: ['#ffffff', '#f1f3f7', '#c4cad6'], line: '#4a4f5c', fin: '#1c1e24', finLine: '#000000', nozzle: '#2a2d36', cap: '#f1f3f7', capLine: '#4a4f5c', pattern: 'saturn', ink: '#1c1e24' },
+    { id: 'saturnv', name: 'Saturn V', desc: 'The Moon rocket: three white stages with black roll markings, the Apollo spacecraft on top and its red escape tower.', stars: 250, custom: 'saturn', nose: 19, engines: [-1.6, 0, 1.6], line: '#4a4f5c', fin: '#1c1e24', cap: '#e8c45a', capLine: '#8a6a1a' },
     { id: 'chrome', name: 'Chrome Needle', desc: 'A longer nose, bigger swept fins and a mirror finish.', world: 4, need: 'clear', shape: 'needle', fill: ['#ffffff', '#9aa6bd', '#eef2fa', '#5d6a85'], line: '#4a5570', fin: '#c8a8ff', finLine: '#5b3f99', nozzle: '#2a3150', pattern: 'pinstripe', ink: '#8cf0ff' },
     // Shop
     { id: 'retro', name: 'Retro Red', desc: 'Red and cream, straight off a 1950s pulp magazine cover.', shop: true, fill: ['#ffffff', '#f4f1ea', '#cfc8b8'], line: '#7a2020', fin: '#d62828', finLine: '#7a1010', nozzle: '#3a3a3a', pattern: 'bands', ink: '#d62828' },
     { id: 'stealth', name: 'Stealth', desc: 'Matte black with a red visor and a red pinstripe.', shop: true, fill: ['#4a4f5c', '#2a2e38', '#14161c'], line: '#0a0b0f', fin: '#22252e', finLine: '#000000', nozzle: '#0a0b0f', window: '#ff4040', pattern: 'pinstripe', ink: '#ff4040' },
     { id: 'gold', name: 'Solid Gold', gold: true, shop: true, desc: 'Polished gold from nose to nozzle. It flies exactly the same; everyone will know you paid for it.', fill: ['#fff6c8', '#ffd34d', '#fff0a0', '#b8860b'], line: '#6e4e00', fin: '#e6b422', finLine: '#6e4e00', nozzle: '#5a4000', window: '#fff3b0', pattern: 'pinstripe', ink: '#fffbe6' },
+    { id: 'shuttle', name: 'Space Shuttle', desc: 'The orbiter riding its orange fuel tank between two white boosters. The payload rides in the bay.', shop: true, custom: 'shuttle', nose: 11.5, engines: [-3.8, 0, 3.8], line: '#5a5f6a', fin: '#2a2d36', cap: '#e8c45a', capLine: '#8a6a1a' },
     { id: 'tiger', name: 'Tiger', desc: 'Burnt orange with black tiger stripes.', shop: true, fill: ['#ffc070', '#ff8c1a', '#b85a00'], line: '#4a2400', fin: '#1a1410', finLine: '#000000', nozzle: '#1a1410', pattern: 'tiger', ink: '#1a1410' },
   ];
 
@@ -115,6 +116,7 @@
     { id: P + 'hull.retro', name: 'Retro Red hull', skins: ['retro'], price: '$0.99' },
     { id: P + 'hull.stealth', name: 'Stealth hull', skins: ['stealth'], price: '$0.99' },
     { id: P + 'hull.tiger', name: 'Tiger hull', skins: ['tiger'], price: '$0.99' },
+    { id: P + 'hull.shuttle', name: 'Space Shuttle hull', skins: ['shuttle'], price: '$1.99' },
     { id: P + 'flame.blue', name: 'Cold Blue flame', skins: ['blue'], price: '$0.99' },
     { id: P + 'flame.sunset', name: 'Sunset flame', skins: ['sunset'], price: '$0.99' },
     { id: P + 'flame.ghost', name: 'Ghost flame', skins: ['ghost'], price: '$0.99' },
@@ -227,19 +229,81 @@
         const y = i % 2 ? W * 1.2 : -W * 1.2;
         g.beginPath(); g.moveTo(x, y); g.lineTo(x + 2.4, y * 0.05); g.lineTo(x + 1.3, y); g.closePath(); g.fill();
       }
-    } else if (hull.pattern === 'saturn') {
-      // Saturn V roll markings: black quarters at the base, a black band
-      // between the stages.
-      g.fillStyle = ink;
-      g.fillRect(tail, -W * 1.2, 3, W * 1.2);
-      g.fillRect(tail + 3, 0, 3, W * 1.2);
-      g.fillRect(L * 0.05, -W * 1.2, 1.2, W * 2.4);
     } else if (hull.pattern === 'pinstripe') {
       g.strokeStyle = ink; g.lineWidth = 0.6;
       g.beginPath(); g.moveTo(tail, 0); g.lineTo(nose, 0); g.stroke();
     }
     g.restore();
   }
+
+  // ------------------------------------------------- real-rocket shapes
+  // A cylinder along x from x0 to x1 at height y, radius r, shaded top to
+  // bottom, with a pointed nose `nose` long (0: flat).
+  function cylinder(g, x0, x1, y, r, colors, line, nose) {
+    const gr = g.createLinearGradient(0, y - r, 0, y + r);
+    gr.addColorStop(0, colors[0]); gr.addColorStop(0.5, colors[1]); gr.addColorStop(1, colors[2]);
+    g.fillStyle = gr; g.strokeStyle = line; g.lineWidth = 0.6;
+    g.beginPath(); g.moveTo(x0, y - r); g.lineTo(x1, y - r);
+    if (nose) g.quadraticCurveTo(x1 + nose * 0.7, y - r * 0.8, x1 + nose, y); else g.lineTo(x1, y + r);
+    if (nose) g.quadraticCurveTo(x1 + nose * 0.7, y + r * 0.8, x1, y + r);
+    g.lineTo(x0, y + r); g.closePath(); g.fill(); g.stroke();
+  }
+  // A taper from radius r0 at x0 to r1 at x1.
+  function frustum(g, x0, r0, x1, r1, fill, line) {
+    g.fillStyle = fill; g.strokeStyle = line; g.lineWidth = 0.6;
+    g.beginPath(); g.moveTo(x0, -r0); g.lineTo(x1, -r1); g.lineTo(x1, r1); g.lineTo(x0, r0); g.closePath(); g.fill(); g.stroke();
+  }
+  const WHITE = ['#ffffff', '#eef1f6', '#b9c0ce'];
+  const CUSTOM = {
+    // Saturn V: S-IC with fins and roll markings, S-II, S-IVB, then the
+    // Apollo spacecraft and escape tower. With a payload aboard, the
+    // adapter under the spacecraft is gold.
+    saturn(g, L, payload, hull) {
+      const t = -L + 1, ink = '#16181d';
+      g.fillStyle = ink;
+      for (const sgn of [-1, 1]) { g.beginPath(); g.moveTo(t + 2.5, sgn * 2.6); g.lineTo(t - 0.4, sgn * 4.4); g.lineTo(t, sgn * 2.6); g.closePath(); g.fill(); }
+      g.fillStyle = '#2a2d36'; for (const y of [-1.6, 0, 1.6]) g.fillRect(t - 1.4, y - 0.5, 1.4, 1);
+      cylinder(g, t, t + 7, 0, 2.6, WHITE, hull.line, 0);
+      g.fillStyle = ink; g.fillRect(t + 0.3, -2.6, 2.2, 2.6); g.fillRect(t + 2.5, 0, 2.2, 2.6); g.fillRect(t + 6.3, -2.6, 0.7, 5.2);
+      cylinder(g, t + 7, t + 13.6, 0, 2.6, WHITE, hull.line, 0);
+      frustum(g, t + 13.6, 2.6, t + 15, 2, '#f1f3f7', hull.line);
+      cylinder(g, t + 15, t + 18.4, 0, 2, WHITE, hull.line, 0);
+      g.fillStyle = ink; g.fillRect(t + 16.6, -2, 1.8, 2);
+      frustum(g, t + 18.4, 2, t + 20.4, 1.6, payload ? hull.cap : '#d5dae4', payload ? hull.capLine : hull.line);
+      frustum(g, t + 20.4, 1.6, t + 22.8, 0.35, '#c9ced8', hull.line);
+      g.strokeStyle = ink; g.lineWidth = 0.7; g.beginPath(); g.moveTo(t + 22.6, 0); g.lineTo(t + 25.4, 0); g.stroke();
+      g.fillStyle = '#c0392b'; g.fillRect(t + 24.6, -0.75, 2.2, 1.5);
+      g.lineWidth = 1;
+    },
+    // Space Shuttle, seen from above: two boosters and the orange tank
+    // under the orbiter. The payload rides in the bay (gold when loaded).
+    shuttle(g, L, payload, hull) {
+      const t = -L + 1, ink = '#1b1d22';
+      g.fillStyle = '#2a2d36';
+      for (const y of [-3.8, 3.8]) g.fillRect(t - 1.4, y - 0.6, 1.4, 1.2);
+      for (const y of [-3.8, 3.8]) cylinder(g, t - 0.2, t + 14, y, 1.1, WHITE, hull.line, 2);
+      cylinder(g, t + 0.6, t + 16, 0, 2.3, ['#f0a050', '#d9772b', '#8a4510'], '#6a3208', 3.2);
+      // Orbiter: wings, fuselage, black nose and leading edges.
+      g.fillStyle = '#f4f5f8'; g.strokeStyle = hull.line; g.lineWidth = 0.6;
+      g.beginPath();
+      g.moveTo(t + 14.6, 0);
+      g.quadraticCurveTo(t + 14.2, -1.5, t + 12.4, -1.6);
+      g.lineTo(t + 9.4, -1.7); g.lineTo(t + 2.4, -6.2); g.lineTo(t + 0.4, -6.2); g.lineTo(t + 0.4, -1.8); g.lineTo(t - 0.4, -1.6);
+      g.lineTo(t - 0.4, 1.6); g.lineTo(t + 0.4, 1.8); g.lineTo(t + 0.4, 6.2); g.lineTo(t + 2.4, 6.2); g.lineTo(t + 9.4, 1.7);
+      g.lineTo(t + 12.4, 1.6); g.quadraticCurveTo(t + 14.2, 1.5, t + 14.6, 0);
+      g.closePath(); g.fill(); g.stroke();
+      g.strokeStyle = ink; g.lineWidth = 0.9;
+      g.beginPath(); g.moveTo(t + 9.4, -1.7); g.lineTo(t + 2.4, -6.2); g.moveTo(t + 9.4, 1.7); g.lineTo(t + 2.4, 6.2); g.stroke();
+      g.fillStyle = ink; g.beginPath(); g.ellipse(t + 14, 0, 0.7, 1.1, 0, 0, TAU); g.fill();
+      g.fillRect(t + 12.2, -0.9, 0.6, 0.6); g.fillRect(t + 12.2, 0.3, 0.6, 0.6);
+      // Payload bay doors, and the tail fin seen edge-on.
+      g.fillStyle = payload ? hull.cap : '#e3e6ec'; g.strokeStyle = payload ? hull.capLine : '#9aa0ad'; g.lineWidth = 0.4;
+      g.beginPath(); g.rect(t + 3.4, -1.15, 7.6, 2.3); g.fill(); g.stroke();
+      g.beginPath(); g.moveTo(t + 7.2, -1.15); g.lineTo(t + 7.2, 1.15); g.stroke();
+      g.fillStyle = '#9aa0ad'; g.fillRect(t - 0.2, -0.35, 3.4, 0.7);
+      g.lineWidth = 1;
+    },
+  };
 
   // Is a #rrggbb colour dark (so a seam on it should be light)?
   function dark(hex) {
@@ -251,6 +315,7 @@
   // (the same for every skin: it tells you there's something to drop).
   function drawRocket(g, L, payload, hull) {
     hull = hull || HULLS[0];
+    if (hull.custom) { CUSTOM[hull.custom](g, L, payload, hull); return; }
     const needle = hull.shape === 'needle', W = needle ? 3 : 3.4, tail = -L + 1;
     // Fins (behind the hull)
     g.fillStyle = hull.fin; g.strokeStyle = hull.finLine || hull.line; g.lineWidth = 0.8;
@@ -288,12 +353,6 @@
       g.beginPath(); g.moveTo(L * 0.15, -W); g.lineTo(L * 0.15, W); g.stroke();
       g.lineWidth = 1;
       return;
-    }
-    // Launch escape tower: a thin mast with a small motor ahead of the nose.
-    if (hull.tower) {
-      g.strokeStyle = hull.ink; g.lineWidth = 1;
-      g.beginPath(); g.moveTo(d.nose - 0.5, 0); g.lineTo(d.nose + 3, 0); g.stroke();
-      g.fillStyle = '#c0392b'; g.fillRect(d.nose + 2.4, -1, 2.8, 2);
     }
     // Porthole
     g.fillStyle = '#0b1338'; g.beginPath(); g.arc(L * 0.3, 0, 2.1, 0, TAU); g.fill();
@@ -376,8 +435,13 @@
 
   // The main engine's flame behind the nozzle; f is its size (throttle with
   // flicker), t the time in seconds (for pulsing flames).
-  function drawFlame(g, L, f, flame, t) {
+  function drawFlame(g, L, f, flame, t, hull) {
     flame = flame || FLAMES[0];
+    // Rockets with several engines get a slimmer flame from each.
+    if (hull && hull.engines) {
+      for (const y of hull.engines) { g.save(); g.translate(0, y); g.scale(1, 0.55); drawFlame(g, L, f * 0.85, flame, t); g.restore(); }
+      return;
+    }
     if (flame.pulse) f *= 0.8 + 0.45 * throb(t || 0);
     const x0 = -L - 0.5, len = 24 * f, o = flame.outer, c = flame.core;
     const gr = g.createLinearGradient(x0, 0, x0 - len, 0);
@@ -454,12 +518,12 @@
       return;
     }
     // The picture spans from the flame's tip to the nose.
-    const left = -L - (flameOn ? 22 : 4), right = L + (hull.shape === 'needle' ? 8 : 4) + (hull.tower ? 5 : 0), tall = 2 * (3.4 + 4.6);
+    const left = -L - (flameOn ? 22 : 4), right = hull.nose != null ? hull.nose + 0.5 : L + (hull.shape === 'needle' ? 8 : 4), tall = 2 * (3.4 + 4.6);
     const s = Math.min(w / (right - left), h / tall) * 0.95;
     g.setTransform(dpr, 0, 0, dpr, 0, 0);
     g.clearRect(0, 0, w, h);
     g.translate(w / 2 - (left + right) / 2 * s, h / 2); g.scale(s, s);
-    if (flameOn) drawFlame(g, L, opts.f != null ? opts.f : 0.9, flame, opts.t);
+    if (flameOn) drawFlame(g, L, opts.f != null ? opts.f : 0.9, flame, opts.t, hull);
     if (show === 'trail') {
       // A gently curving path up to the tail.
       const pts = [];

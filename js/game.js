@@ -1780,7 +1780,7 @@
       ctx.beginPath(); ctx.moveTo(x0, -1.6); ctx.lineTo(x0 - len, -0.4); ctx.lineTo(x0 - len, 0.4); ctx.lineTo(x0, 1.6); ctx.fill();
     } else if (m.thrusting) {
       // Two-tone flame like the icon, in the pilot's chosen colours.
-      Skins.drawFlame(ctx, L, (0.75 + Math.random() * 0.45) * state.throttle, Skins.FLAME[myLook().flame], performance.now() / 1000);
+      Skins.drawFlame(ctx, L, (0.75 + Math.random() * 0.45) * state.throttle, Skins.FLAME[myLook().flame], performance.now() / 1000, sat ? null : Skins.HULL[myLook().hull]);
     }
     if (sat) drawSatelliteBody(); else drawRocketBody(L, m.canDeploy() || (m.landed && m.stages.length > 1));
     ctx.restore();

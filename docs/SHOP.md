@@ -12,7 +12,7 @@ A rocket's look has five slots. Each item is earned, bought, or standard issue.
 
 | Slot | Earned | Shop | Gold |
 | --- | --- | --- | --- |
-| Hull | Clear every mission in a world: Checkerboard (1), Nebula (2), Hazard (3), Chrome Needle (4); 250 ★ Apollo | Cadet, Retro Red, Stealth, Tiger | Solid Gold |
+| Hull | Clear every mission in a world: Checkerboard (1), Nebula (2), Hazard (3), Chrome Needle (4); 250 ★ Saturn V | Cadet, Retro Red, Stealth, Tiger, Space Shuttle | Solid Gold |
 | Flame | Three stars on every mission in a world: Strontium Red (1), Plasma (2), Boron Green (3), Pulsar (4) | Cold Blue, Sunset, Ghost | Gold Rush |
 | Trail | 100 ★ Comet, 300 ★ Aurora | Neon | Gold Leaf |
 | Thrusters (RCS puffs) | 200 ★ Ember Sparks | Halo Rings, Neon Dust | Gold Dust |
@@ -45,6 +45,7 @@ Non-consumable App Store purchases, ids in `Skins.PRODUCTS`:
 | `com.thrusterz.app.hull.retro` | Retro Red hull | $0.99 |
 | `com.thrusterz.app.hull.stealth` | Stealth hull | $0.99 |
 | `com.thrusterz.app.hull.tiger` | Tiger hull | $0.99 |
+| `com.thrusterz.app.hull.shuttle` | Space Shuttle hull | $1.99 |
 | `com.thrusterz.app.flame.blue` | Cold Blue flame | $0.99 |
 | `com.thrusterz.app.flame.sunset` | Sunset flame | $0.99 |
 | `com.thrusterz.app.flame.ghost` | Ghost flame | $0.99 |
@@ -128,7 +129,7 @@ server only allows this on its in-memory store, never on a real deployment.
   granted to the pilot account in the same way.
 - **Android:** `expo-iap` covers Google Play too. It needs Play Console products
   and server-side Play purchase verification.
-- **More Shop content:** more real spacecraft (Space Shuttle, Vostok, Mir,
+- **More Shop content:** more real spacecraft (Vostok, Mir, a heavy-lift triple-core rocket,
   Cassini, a lunar lander), themed packs, seasonal skins. Each is one entry in `js/skins.js` and one product.
 - **Ads (optional, later):** rewarded only (try a Shop skin for three
   missions, or open the next world a few stars early), plus a "Remove ads"
