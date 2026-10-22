@@ -633,8 +633,9 @@ html.short #hangar-preview { height: 70px; }
 .lb-ship { width: 48px; height: 17px; flex-shrink: 0; }
 /* Shop */
 .shop-tile { cursor: default; }
+.shop-tile .sk-req { margin-bottom: 10px; }
 .shop-tile.bundle { border-color: rgba(255, 209, 102, 0.45); background: rgba(255, 209, 102, 0.06); }
-.shop-tile .buy { margin-top: 8px; align-self: stretch; padding: 7px 10px; border-radius: 9px; border: 1px solid rgba(124, 247, 212, 0.55); background: rgba(124, 247, 212, 0.14); color: var(--text); font: 700 14px var(--sans); cursor: pointer; }
+.shop-tile .buy { margin-top: auto; padding-top: 7px; align-self: stretch; padding: 7px 10px; border-radius: 9px; border: 1px solid rgba(124, 247, 212, 0.55); background: rgba(124, 247, 212, 0.14); color: var(--text); font: 700 14px var(--sans); cursor: pointer; }
 .shop-tile .buy:hover:not(:disabled) { background: rgba(124, 247, 212, 0.25); }
 .shop-tile .buy:disabled { cursor: default; border-color: var(--panel-border); background: transparent; color: var(--muted); }
 .shop-tile.on .buy:disabled { color: var(--accent); }

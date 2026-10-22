@@ -2476,10 +2476,26 @@
   }
   // A small picture of a skin on your rocket: hulls and flames with the
   // flame lit, trails behind it, thruster puffs firing.
-  function skinIcon(canvas, id) {
+  function skinIcon(canvas, id, t) {
     const slot = Skins.slotOf(id), l = Object.assign(myLook(), { [slot]: id });
-    Skins.drawIcon(canvas, l, { show: slot === 'trail' || slot === 'rcs' ? slot : 'flame' });
+    canvas.dataset.skin = id;
+    Skins.drawIcon(canvas, l, { show: slot === 'trail' || slot === 'rcs' ? slot : 'flame', t, f: t == null ? null : 0.8 + 0.2 * Math.sin(t * 23 + id.length) });
   }
+  // While the Hangar or Shop is open, its pictures move: flames flicker and
+  // pulse, trails flow, thruster puffs fire. About 30 frames a second.
+  let iconRaf = 0, iconLast = 0;
+  function animateIcons(now) {
+    const scr = ['hangar', 'shop'].find(id => !$(id).classList.contains('hidden'));
+    if (!scr) { iconRaf = 0; return; }
+    if (now - iconLast > 33) {
+      iconLast = now;
+      const t = now / 1000;
+      if (scr === 'hangar') Skins.drawIcon($('hangar-preview'), hangarPreview || myLook(), { show: hangarShow, f: 0.75 + Math.random() * 0.3, t });
+      for (const c of $(scr).querySelectorAll('canvas[data-skin]')) skinIcon(c, c.dataset.skin, t);
+    }
+    iconRaf = requestAnimationFrame(animateIcons);
+  }
+  const startIcons = () => { if (!iconRaf) iconRaf = requestAnimationFrame(animateIcons); };
 
   // Missions are numbered within their world: "World 2 · Mission 5 of 30".
   const worldOf = (L) => L.world != null ? L.world : 1;
@@ -2821,7 +2837,7 @@
   // Hangar: every hull and flame, how to earn the ones you haven't, and
   // which you're flying. Tap an earned one to equip it, a locked one to
   // preview it.
-  let hangarReturn = null, hangarPreview = null, hangarShow = 'flame', hangarRaf = 0;
+  let hangarReturn = null, hangarPreview = null, hangarShow = 'flame';
   function showHangar(from) {
     if (from !== 'shop') hangarReturn = from;
     hangarPreview = null;
@@ -2829,13 +2845,7 @@
     renderHangar();
     Online.Store.set(SEEN, [...owned()]);
     $('hangar-new').classList.add('hidden');
-    cancelAnimationFrame(hangarRaf);
-    const spin = () => {
-      if ($('hangar').classList.contains('hidden')) return;
-      Skins.drawIcon($('hangar-preview'), hangarPreview || myLook(), { show: hangarShow, f: 0.75 + Math.random() * 0.3, t: performance.now() / 1000 });
-      hangarRaf = requestAnimationFrame(spin);
-    };
-    spin();
+    startIcons();
   }
   const SLOT_TITLES = { hull: 'Hulls', flame: 'Flames', trail: 'Trails', rcs: 'Thrusters' };
   // How an item is earned, in words.
@@ -2865,6 +2875,7 @@
             : `<span class="sk-state">🔒 ${pr.have} / ${pr.of}</span><span class="sk-bar"><span style="width:${pr.of ? 100 * pr.have / pr.of : 0}%"></span></span>`)
           + (fresh.has(it.id) ? '<span class="newtag">New</span>' : '');
         t.querySelector('.sk-name').textContent = it.name;
+        t.title = it.desc;
         t.onclick = () => {
           hangarShow = slot === 'trail' || slot === 'rcs' ? slot : 'flame';
           if (got) { equip(it.id); hangarPreview = null; renderHangar(); return; }
@@ -2896,6 +2907,7 @@
     show('shop');
     $('shop-status').className = 'small'; $('shop-status').textContent = '';
     renderShop();
+    startIcons();
     if (focus) { const el = document.querySelector(`#shop [data-product="${focus}"]`); if (el) el.scrollIntoView({ block: 'center' }); }
     const ids = Skins.PRODUCTS.map(p => p.id);
     Online.prices(ids).then((p) => { shopPrices = p; if (!$('shop').classList.contains('hidden')) renderShop(); }).catch(() => {});
@@ -2912,7 +2924,7 @@
         const t = document.createElement('div');
         t.className = 'skin-tile shop-tile' + (have ? ' on' : '') + (pr.bundle ? ' bundle' : '');
         t.dataset.product = pr.id;
-        const sub = pr.desc || (pr.skins ? (Skins.slotOf(pr.skins[0]) === 'rcs' ? 'Thruster puffs for your rocket' : `A ${SLOT_NAME[Skins.slotOf(pr.skins[0])]} for your rocket`) : `Every mission in ${worldName(pr.world)}, without waiting for the stars`);
+        const sub = pr.desc || (pr.skins ? Skins.byId(pr.skins[0]).desc : `Every mission in ${worldName(pr.world)}, without waiting for the stars`);
         t.innerHTML = (pr.skins ? '<canvas class="sk-icon"></canvas>' : `<span class="shop-world w${pr.world != null ? pr.world : 'all'}">${pr.world != null ? pr.world : '∞'}</span>`)
           + '<span class="sk-name"></span><span class="sk-req"></span>'
           + `<button class="buy">${have ? '✓ Owned' : alreadyOpen ? '✓ Open' : shopBusy === pr.id ? '…' : (shopPrices[pr.id] || pr.price)}</button>`;

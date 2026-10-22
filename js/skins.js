@@ -19,50 +19,50 @@
   // over it, clipped to the hull. `shape: 'needle'` is a longer nose and
   // bigger fins.
   const HULLS = [
-    { id: 'classic', name: 'Classic', fill: ['#ffffff', '#eef2fa', '#b9c4dc'], line: '#7f8aa8', fin: '#d9e0ee', nozzle: '#3a4a72' },
-    { id: 'cadet', name: 'Cadet', shop: true, fill: ['#ffffff', '#eef2fa', '#b9c4dc'], line: '#7f8aa8', fin: '#ff8a3d', finLine: '#a8501a', nozzle: '#3a4a72', pattern: 'bands', ink: '#ff8a3d' },
-    { id: 'checker', name: 'Checkerboard', world: 1, need: 'clear', fill: ['#ffffff', '#f2f4f8', '#c9cfdc'], line: '#3a3f4c', fin: '#262a33', finLine: '#0e1015', nozzle: '#262a33', pattern: 'checker', ink: '#262a33' },
-    { id: 'nebula', name: 'Nebula', world: 2, need: 'clear', fill: ['#f0c8ff', '#a45cf0', '#4b1f8f'], line: '#2e1260', fin: '#f78cff', finLine: '#7a2a90', nozzle: '#241046', pattern: 'stars', ink: '#ffffff' },
-    { id: 'hazard', name: 'Hazard', world: 3, need: 'clear', fill: ['#ffe97a', '#ffcc33', '#c89400'], line: '#5a4300', fin: '#1e1e22', finLine: '#000000', nozzle: '#1e1e22', pattern: 'hazard', ink: '#1e1e22' },
-    { id: 'chrome', name: 'Chrome Needle', world: 4, need: 'clear', shape: 'needle', fill: ['#ffffff', '#9aa6bd', '#eef2fa', '#5d6a85'], line: '#4a5570', fin: '#c8a8ff', finLine: '#5b3f99', nozzle: '#2a3150', pattern: 'pinstripe', ink: '#8cf0ff' },
+    { id: 'classic', name: 'Classic', desc: 'The white rocket every pilot starts with.', fill: ['#ffffff', '#eef2fa', '#b9c4dc'], line: '#7f8aa8', fin: '#d9e0ee', nozzle: '#3a4a72' },
+    { id: 'cadet', name: 'Cadet', desc: 'Flight-school white with safety-orange bands and fins.', shop: true, fill: ['#ffffff', '#eef2fa', '#b9c4dc'], line: '#7f8aa8', fin: '#ff8a3d', finLine: '#a8501a', nozzle: '#3a4a72', pattern: 'bands', ink: '#ff8a3d' },
+    { id: 'checker', name: 'Checkerboard', desc: 'Black and white checks, like 1940s test rockets painted so the cameras could see them roll.', world: 1, need: 'clear', fill: ['#ffffff', '#f2f4f8', '#c9cfdc'], line: '#3a3f4c', fin: '#262a33', finLine: '#0e1015', nozzle: '#262a33', pattern: 'checker', ink: '#262a33' },
+    { id: 'nebula', name: 'Nebula', desc: 'Deep violet, dusted with stars.', world: 2, need: 'clear', fill: ['#f0c8ff', '#a45cf0', '#4b1f8f'], line: '#2e1260', fin: '#f78cff', finLine: '#7a2a90', nozzle: '#241046', pattern: 'stars', ink: '#ffffff' },
+    { id: 'hazard', name: 'Hazard', desc: 'Caution yellow with black stripes, built for the no-fly zones.', world: 3, need: 'clear', fill: ['#ffe97a', '#ffcc33', '#c89400'], line: '#5a4300', fin: '#1e1e22', finLine: '#000000', nozzle: '#1e1e22', pattern: 'hazard', ink: '#1e1e22' },
+    { id: 'chrome', name: 'Chrome Needle', desc: 'A longer nose, bigger swept fins and a mirror finish.', world: 4, need: 'clear', shape: 'needle', fill: ['#ffffff', '#9aa6bd', '#eef2fa', '#5d6a85'], line: '#4a5570', fin: '#c8a8ff', finLine: '#5b3f99', nozzle: '#2a3150', pattern: 'pinstripe', ink: '#8cf0ff' },
     // Shop
-    { id: 'retro', name: 'Retro Red', shop: true, fill: ['#ffffff', '#f4f1ea', '#cfc8b8'], line: '#7a2020', fin: '#d62828', finLine: '#7a1010', nozzle: '#3a3a3a', pattern: 'bands', ink: '#d62828' },
-    { id: 'stealth', name: 'Stealth', shop: true, fill: ['#4a4f5c', '#2a2e38', '#14161c'], line: '#0a0b0f', fin: '#22252e', finLine: '#000000', nozzle: '#0a0b0f', window: '#ff4040', pattern: 'pinstripe', ink: '#ff4040' },
-    { id: 'tiger', name: 'Tiger', shop: true, fill: ['#ffc070', '#ff8c1a', '#b85a00'], line: '#4a2400', fin: '#1a1410', finLine: '#000000', nozzle: '#1a1410', pattern: 'tiger', ink: '#1a1410' },
+    { id: 'retro', name: 'Retro Red', desc: 'Red and cream, straight off a 1950s pulp magazine cover.', shop: true, fill: ['#ffffff', '#f4f1ea', '#cfc8b8'], line: '#7a2020', fin: '#d62828', finLine: '#7a1010', nozzle: '#3a3a3a', pattern: 'bands', ink: '#d62828' },
+    { id: 'stealth', name: 'Stealth', desc: 'Matte black with a red visor and a red pinstripe.', shop: true, fill: ['#4a4f5c', '#2a2e38', '#14161c'], line: '#0a0b0f', fin: '#22252e', finLine: '#000000', nozzle: '#0a0b0f', window: '#ff4040', pattern: 'pinstripe', ink: '#ff4040' },
+    { id: 'tiger', name: 'Tiger', desc: 'Burnt orange with black tiger stripes.', shop: true, fill: ['#ffc070', '#ff8c1a', '#b85a00'], line: '#4a2400', fin: '#1a1410', finLine: '#000000', nozzle: '#1a1410', pattern: 'tiger', ink: '#1a1410' },
   ];
 
   // Flames: outer plume, pale core, and the exhaust particles' colour from
   // `hot` (just out of the nozzle) to `cool` (fading). `pulse` throbs.
   const FLAMES = [
-    { id: 'standard', name: 'Standard', outer: [[255, 200, 70, 0.95], [255, 122, 26, 0.85], [255, 90, 20, 0]], core: [[255, 248, 200, 0.95], [255, 230, 140, 0]], hot: [255, 250, 60], cool: [255, 150, 0] },
-    { id: 'blue', name: 'Cold Blue', shop: true, outer: [[140, 210, 255, 0.95], [50, 120, 255, 0.85], [30, 60, 255, 0]], core: [[235, 250, 255, 0.95], [170, 220, 255, 0]], hot: [210, 240, 255], cool: [60, 120, 255] },
-    { id: 'crimson', name: 'Strontium Red', world: 1, need: 'three', outer: [[255, 110, 110, 0.95], [220, 20, 50, 0.85], [160, 0, 40, 0]], core: [[255, 225, 225, 0.95], [255, 140, 150, 0]], hot: [255, 200, 200], cool: [210, 20, 50] },
-    { id: 'plasma', name: 'Plasma', world: 2, need: 'three', outer: [[255, 150, 255, 0.95], [190, 60, 255, 0.85], [110, 30, 255, 0]], core: [[255, 240, 255, 0.95], [255, 170, 255, 0]], hot: [255, 220, 255], cool: [170, 60, 255] },
-    { id: 'boron', name: 'Boron Green', world: 3, need: 'three', outer: [[190, 255, 120, 0.95], [60, 220, 80, 0.85], [20, 160, 60, 0]], core: [[240, 255, 225, 0.95], [190, 255, 160, 0]], hot: [230, 255, 190], cool: [40, 200, 70] },
-    { id: 'pulsar', name: 'Pulsar', world: 4, need: 'three', pulse: true, outer: [[140, 245, 255, 0.95], [120, 120, 255, 0.85], [200, 120, 255, 0]], core: [[255, 255, 255, 1], [190, 250, 255, 0]], hot: [235, 255, 255], cool: [170, 110, 255] },
+    { id: 'standard', name: 'Standard', desc: 'Orange and gold: the classic burn.', outer: [[255, 200, 70, 0.95], [255, 122, 26, 0.85], [255, 90, 20, 0]], core: [[255, 248, 200, 0.95], [255, 230, 140, 0]], hot: [255, 250, 60], cool: [255, 150, 0] },
+    { id: 'blue', name: 'Cold Blue', desc: 'A clean blue burn, like a methane engine.', shop: true, outer: [[140, 210, 255, 0.95], [50, 120, 255, 0.85], [30, 60, 255, 0]], core: [[235, 250, 255, 0.95], [170, 220, 255, 0]], hot: [210, 240, 255], cool: [60, 120, 255] },
+    { id: 'crimson', name: 'Strontium Red', desc: 'Deep red, the colour strontium burns in a flame test.', world: 1, need: 'three', outer: [[255, 110, 110, 0.95], [220, 20, 50, 0.85], [160, 0, 40, 0]], core: [[255, 225, 225, 0.95], [255, 140, 150, 0]], hot: [255, 200, 200], cool: [210, 20, 50] },
+    { id: 'plasma', name: 'Plasma', desc: 'A hot magenta plume.', world: 2, need: 'three', outer: [[255, 150, 255, 0.95], [190, 60, 255, 0.85], [110, 30, 255, 0]], core: [[255, 240, 255, 0.95], [255, 170, 255, 0]], hot: [255, 220, 255], cool: [170, 60, 255] },
+    { id: 'boron', name: 'Boron Green', desc: 'Bright green, the colour boron burns in a flame test.', world: 3, need: 'three', outer: [[190, 255, 120, 0.95], [60, 220, 80, 0.85], [20, 160, 60, 0]], core: [[240, 255, 225, 0.95], [190, 255, 160, 0]], hot: [230, 255, 190], cool: [40, 200, 70] },
+    { id: 'pulsar', name: 'Pulsar', desc: 'White-hot and pulsing, like the star it\'s named for.', world: 4, need: 'three', pulse: true, outer: [[140, 245, 255, 0.95], [120, 120, 255, 0.85], [200, 120, 255, 0]], core: [[255, 255, 255, 1], [190, 250, 255, 0]], hot: [235, 255, 255], cool: [170, 110, 255] },
     // Shop
-    { id: 'sunset', name: 'Sunset', shop: true, outer: [[255, 170, 120, 0.95], [255, 80, 140, 0.85], [160, 60, 220, 0]], core: [[255, 240, 210, 0.95], [255, 190, 150, 0]], hot: [255, 220, 160], cool: [230, 60, 150] },
-    { id: 'ghost', name: 'Ghost', shop: true, outer: [[235, 240, 255, 0.7], [190, 200, 255, 0.45], [160, 170, 255, 0]], core: [[255, 255, 255, 0.95], [230, 235, 255, 0]], hot: [250, 250, 255], cool: [170, 180, 240] },
+    { id: 'sunset', name: 'Sunset', desc: 'Peach at the nozzle, fading through pink to violet.', shop: true, outer: [[255, 170, 120, 0.95], [255, 80, 140, 0.85], [160, 60, 220, 0]], core: [[255, 240, 210, 0.95], [255, 190, 150, 0]], hot: [255, 220, 160], cool: [230, 60, 150] },
+    { id: 'ghost', name: 'Ghost', desc: 'Pale and see-through, as if it\'s barely there.', shop: true, outer: [[235, 240, 255, 0.7], [190, 200, 255, 0.45], [160, 170, 255, 0]], core: [[255, 255, 255, 0.95], [230, 235, 255, 0]], hot: [250, 250, 255], cool: [170, 180, 240] },
   ];
 
   // Trails: the line behind the ship showing where it has been. `fade`
   // dims the older end; `rainbow` cycles colour along it; `glow` adds a
   // soft wide stroke under it.
   const TRAILS = [
-    { id: 'faint', name: 'Standard', color: [255, 190, 110], alpha: 0.35, width: 1.5 },
-    { id: 'comet', name: 'Comet', stars: 100, color: [120, 230, 255], alpha: 0.85, width: 2, fade: true, glow: true },
-    { id: 'aurora', name: 'Aurora', stars: 300, color: [140, 255, 200], alpha: 0.8, width: 2.2, fade: true, glow: true, rainbow: true },
-    { id: 'neon', name: 'Neon', shop: true, color: [255, 80, 200], alpha: 0.9, width: 1.8, glow: true },
+    { id: 'faint', name: 'Standard', desc: 'A faint amber line.', color: [255, 190, 110], alpha: 0.35, width: 1.5 },
+    { id: 'comet', name: 'Comet', desc: 'A bright cyan tail that glows, then fades behind you.', stars: 100, color: [120, 230, 255], alpha: 0.85, width: 2, fade: true, glow: true },
+    { id: 'aurora', name: 'Aurora', desc: 'Shifts through every colour along your path.', stars: 300, color: [140, 255, 200], alpha: 0.8, width: 2.2, fade: true, glow: true, rainbow: true },
+    { id: 'neon', name: 'Neon', desc: 'A hot pink line with a neon glow.', shop: true, color: [255, 80, 200], alpha: 0.9, width: 1.8, glow: true },
   ];
 
   // Side-thruster puffs: `kind` 'puff' (small squares), 'spark' (longer,
   // streaky) or 'ring' (little circles).
   const RCSES = [
-    { id: 'puff', name: 'Standard', color: [220, 235, 255], kind: 'puff', life: 0.18, size: 1.6 },
-    { id: 'sparks', name: 'Gold Sparks', stars: 200, color: [255, 210, 90], kind: 'spark', life: 0.35, size: 1.8 },
+    { id: 'puff', name: 'Standard', desc: 'Small white puffs.', color: [220, 235, 255], kind: 'puff', life: 0.18, size: 1.6 },
+    { id: 'sparks', name: 'Gold Sparks', desc: 'Gold sparks that hang in the air a little longer.', stars: 200, color: [255, 210, 90], kind: 'spark', life: 0.35, size: 1.8 },
     // Shop
-    { id: 'rings', name: 'Halo Rings', shop: true, color: [140, 240, 255], kind: 'ring', life: 0.3, size: 2.2 },
-    { id: 'neondust', name: 'Neon Dust', shop: true, color: [255, 90, 210], kind: 'spark', life: 0.4, size: 1.6 },
+    { id: 'rings', name: 'Halo Rings', desc: 'Little cyan rings that spread out as they fade.', shop: true, color: [140, 240, 255], kind: 'ring', life: 0.3, size: 2.2 },
+    { id: 'neondust', name: 'Neon Dust', desc: 'Pink sparks to match the Neon trail.', shop: true, color: [255, 90, 210], kind: 'spark', life: 0.4, size: 1.6 },
   ];
 
   // Slots in a look, and the items each takes.
@@ -326,7 +326,8 @@
     if (show === 'trail') {
       // A gently curving path up to the tail.
       const pts = [];
-      for (let i = 0; i <= 40; i++) { const x = -L - 22 + i * 0.5; pts.push([x, Math.sin((x + L) * 0.25) * 1.6 * (1 - i / 40)]); }
+      const ph = (opts.t || 0) * 3;
+      for (let i = 0; i <= 40; i++) { const x = -L - 22 + i * 0.5; pts.push([x, Math.sin((x + L) * 0.25 + ph) * 1.6 * (1 - i / 40)]); }
       g.save(); g.scale(1 / s, 1 / s);
       drawTrail(g, pts.map(([x, y]) => [x * s, y * s]), TRAIL[l.trail], opts.t);
       g.restore();
@@ -335,9 +336,14 @@
     if (show === 'rcs') {
       const r = RCS[l.rcs];
       g.save(); g.scale(1 / s, 1 / s);
-      // Nose and tail firing opposite ways, as when turning.
+      // Nose and tail firing opposite ways, as when turning: puffs stream
+      // out and fade (moving when the picture is animated).
+      const ph = ((opts.t || 0) * 2) % 1;
       for (const sgn of [1, -1]) {
-        for (const [d, k] of [[4.2, 1], [5.6, 0.75], [7, 0.5]]) drawRcsParticle(g, sgn * (5 + d * 0.4) * s, -sgn * d * s, k, Object.assign({}, r, { size: r.size * s * 0.7 }));
+        for (let i = 0; i < 3; i++) {
+          const u = (i + ph) / 3, d = 3.6 + u * 4.2;
+          drawRcsParticle(g, sgn * (5 + d * 0.4) * s, -sgn * d * s, 1 - u * 0.8, Object.assign({}, r, { size: r.size * s * 0.7 }));
+        }
       }
       g.restore();
     }
