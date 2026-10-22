@@ -12,12 +12,13 @@ A rocket's look has four slots. Each item is earned, bought, or standard issue.
 
 | Slot | Earned | Shop |
 | --- | --- | --- |
-| Hull | Clear every mission in a world: Cadet (Training), Checkerboard (1), Nebula (2), Hazard (3), Chrome Needle (4) | Retro Red, Stealth, Tiger |
-| Flame | Three stars on every mission in a world: Cold Blue (Training), Strontium Red (1), Plasma (2), Boron Green (3), Pulsar (4) | Sunset, Ghost |
+| Hull | Clear every mission in a world: Checkerboard (1), Nebula (2), Hazard (3), Chrome Needle (4) | Cadet, Retro Red, Stealth, Tiger |
+| Flame | Three stars on every mission in a world: Strontium Red (1), Plasma (2), Boron Green (3), Pulsar (4) | Cold Blue, Sunset, Ghost |
 | Trail | 100 ★ Comet, 300 ★ Aurora | Neon |
-| Thrusters (RCS puffs) | 200 ★ Gold Sparks, 350 ★ Halo Rings | none yet |
+| Thrusters (RCS puffs) | 200 ★ Gold Sparks | Halo Rings, Neon Dust |
 
-Earned skins are never sold, so they stay a sign of skill. Shop skins are
+Earned skins are never sold, so they stay a sign of skill. Training earns
+no skins; rewards start with the real worlds. Shop skins are
 extras, never better versions of earned ones.
 
 What players see:
@@ -35,13 +36,17 @@ Non-consumable App Store purchases, ids in `Skins.PRODUCTS`:
 
 | Product id | What | Price |
 | --- | --- | --- |
+| `com.thrusterz.app.hull.cadet` | Cadet hull | $0.99 |
 | `com.thrusterz.app.hull.retro` | Retro Red hull | $0.99 |
 | `com.thrusterz.app.hull.stealth` | Stealth hull | $0.99 |
 | `com.thrusterz.app.hull.tiger` | Tiger hull | $0.99 |
+| `com.thrusterz.app.flame.blue` | Cold Blue flame | $0.99 |
 | `com.thrusterz.app.flame.sunset` | Sunset flame | $0.99 |
 | `com.thrusterz.app.flame.ghost` | Ghost flame | $0.99 |
 | `com.thrusterz.app.trail.neon` | Neon trail | $0.99 |
-| `com.thrusterz.app.pack.hangar` | Hangar Pack: every Shop skin | $3.99 |
+| `com.thrusterz.app.rcs.rings` | Halo Rings thrusters | $0.99 |
+| `com.thrusterz.app.rcs.neondust` | Neon Dust thrusters | $0.99 |
+| `com.thrusterz.app.pack.hangar` | Hangar Pack: every Shop skin | $4.99 |
 | `com.thrusterz.app.world.2` / `.3` / `.4` | Open that world now | $1.99 |
 | `com.thrusterz.app.world.all` | Open every world, future ones too | $3.99 |
 
@@ -107,8 +112,7 @@ server only allows this on its in-memory store, never on a real deployment.
   granted to the pilot account in the same way.
 - **Android:** `expo-iap` covers Google Play too. It needs Play Console products
   and server-side Play purchase verification.
-- **More Shop content:** themed packs (Apollo, Neon, Pulsar), Shop RCS puffs,
-  seasonal skins. Each is one entry in `js/skins.js` and one product.
+- **More Shop content:** themed packs (Apollo, Neon, Pulsar), seasonal skins. Each is one entry in `js/skins.js` and one product.
 - **Ads (optional, later):** rewarded only (try a Shop skin for three
   missions, or open the next world a few stars early), plus a "Remove ads"
   product. Never during a flight or after a crash. Needs App Tracking

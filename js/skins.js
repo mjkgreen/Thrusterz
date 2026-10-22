@@ -20,7 +20,7 @@
   // bigger fins.
   const HULLS = [
     { id: 'classic', name: 'Classic', fill: ['#ffffff', '#eef2fa', '#b9c4dc'], line: '#7f8aa8', fin: '#d9e0ee', nozzle: '#3a4a72' },
-    { id: 'cadet', name: 'Cadet', world: 0, need: 'clear', fill: ['#ffffff', '#eef2fa', '#b9c4dc'], line: '#7f8aa8', fin: '#ff8a3d', finLine: '#a8501a', nozzle: '#3a4a72', pattern: 'bands', ink: '#ff8a3d' },
+    { id: 'cadet', name: 'Cadet', shop: true, fill: ['#ffffff', '#eef2fa', '#b9c4dc'], line: '#7f8aa8', fin: '#ff8a3d', finLine: '#a8501a', nozzle: '#3a4a72', pattern: 'bands', ink: '#ff8a3d' },
     { id: 'checker', name: 'Checkerboard', world: 1, need: 'clear', fill: ['#ffffff', '#f2f4f8', '#c9cfdc'], line: '#3a3f4c', fin: '#262a33', finLine: '#0e1015', nozzle: '#262a33', pattern: 'checker', ink: '#262a33' },
     { id: 'nebula', name: 'Nebula', world: 2, need: 'clear', fill: ['#f0c8ff', '#a45cf0', '#4b1f8f'], line: '#2e1260', fin: '#f78cff', finLine: '#7a2a90', nozzle: '#241046', pattern: 'stars', ink: '#ffffff' },
     { id: 'hazard', name: 'Hazard', world: 3, need: 'clear', fill: ['#ffe97a', '#ffcc33', '#c89400'], line: '#5a4300', fin: '#1e1e22', finLine: '#000000', nozzle: '#1e1e22', pattern: 'hazard', ink: '#1e1e22' },
@@ -35,7 +35,7 @@
   // `hot` (just out of the nozzle) to `cool` (fading). `pulse` throbs.
   const FLAMES = [
     { id: 'standard', name: 'Standard', outer: [[255, 200, 70, 0.95], [255, 122, 26, 0.85], [255, 90, 20, 0]], core: [[255, 248, 200, 0.95], [255, 230, 140, 0]], hot: [255, 250, 60], cool: [255, 150, 0] },
-    { id: 'blue', name: 'Cold Blue', world: 0, need: 'three', outer: [[140, 210, 255, 0.95], [50, 120, 255, 0.85], [30, 60, 255, 0]], core: [[235, 250, 255, 0.95], [170, 220, 255, 0]], hot: [210, 240, 255], cool: [60, 120, 255] },
+    { id: 'blue', name: 'Cold Blue', shop: true, outer: [[140, 210, 255, 0.95], [50, 120, 255, 0.85], [30, 60, 255, 0]], core: [[235, 250, 255, 0.95], [170, 220, 255, 0]], hot: [210, 240, 255], cool: [60, 120, 255] },
     { id: 'crimson', name: 'Strontium Red', world: 1, need: 'three', outer: [[255, 110, 110, 0.95], [220, 20, 50, 0.85], [160, 0, 40, 0]], core: [[255, 225, 225, 0.95], [255, 140, 150, 0]], hot: [255, 200, 200], cool: [210, 20, 50] },
     { id: 'plasma', name: 'Plasma', world: 2, need: 'three', outer: [[255, 150, 255, 0.95], [190, 60, 255, 0.85], [110, 30, 255, 0]], core: [[255, 240, 255, 0.95], [255, 170, 255, 0]], hot: [255, 220, 255], cool: [170, 60, 255] },
     { id: 'boron', name: 'Boron Green', world: 3, need: 'three', outer: [[190, 255, 120, 0.95], [60, 220, 80, 0.85], [20, 160, 60, 0]], core: [[240, 255, 225, 0.95], [190, 255, 160, 0]], hot: [230, 255, 190], cool: [40, 200, 70] },
@@ -60,7 +60,9 @@
   const RCSES = [
     { id: 'puff', name: 'Standard', color: [220, 235, 255], kind: 'puff', life: 0.18, size: 1.6 },
     { id: 'sparks', name: 'Gold Sparks', stars: 200, color: [255, 210, 90], kind: 'spark', life: 0.35, size: 1.8 },
-    { id: 'rings', name: 'Halo Rings', stars: 350, color: [140, 240, 255], kind: 'ring', life: 0.3, size: 2.2 },
+    // Shop
+    { id: 'rings', name: 'Halo Rings', shop: true, color: [140, 240, 255], kind: 'ring', life: 0.3, size: 2.2 },
+    { id: 'neondust', name: 'Neon Dust', shop: true, color: [255, 90, 210], kind: 'spark', life: 0.4, size: 1.6 },
   ];
 
   // Slots in a look, and the items each takes.
@@ -83,13 +85,17 @@
   const P = 'com.thrusterz.app.';
   const SHOP_SKINS = ALL.filter(it => it.shop).map(it => it.id);
   const PRODUCTS = [
+    { id: P + 'hull.cadet', name: 'Cadet hull', skins: ['cadet'], price: '$0.99' },
     { id: P + 'hull.retro', name: 'Retro Red hull', skins: ['retro'], price: '$0.99' },
     { id: P + 'hull.stealth', name: 'Stealth hull', skins: ['stealth'], price: '$0.99' },
     { id: P + 'hull.tiger', name: 'Tiger hull', skins: ['tiger'], price: '$0.99' },
+    { id: P + 'flame.blue', name: 'Cold Blue flame', skins: ['blue'], price: '$0.99' },
     { id: P + 'flame.sunset', name: 'Sunset flame', skins: ['sunset'], price: '$0.99' },
     { id: P + 'flame.ghost', name: 'Ghost flame', skins: ['ghost'], price: '$0.99' },
     { id: P + 'trail.neon', name: 'Neon trail', skins: ['neon'], price: '$0.99' },
-    { id: P + 'pack.hangar', name: 'Hangar Pack', desc: 'Every skin in the Shop', skins: SHOP_SKINS, price: '$3.99', bundle: true },
+    { id: P + 'rcs.rings', name: 'Halo Rings thrusters', skins: ['rings'], price: '$0.99' },
+    { id: P + 'rcs.neondust', name: 'Neon Dust thrusters', skins: ['neondust'], price: '$0.99' },
+    { id: P + 'pack.hangar', name: 'Hangar Pack', desc: 'Every skin in the Shop', skins: SHOP_SKINS, price: '$4.99', bundle: true },
     { id: P + 'world.2', name: 'Open World 2 now', world: 2, price: '$1.99' },
     { id: P + 'world.3', name: 'Open World 3 now', world: 3, price: '$1.99' },
     { id: P + 'world.4', name: 'Open World 4 now', world: 4, price: '$1.99' },

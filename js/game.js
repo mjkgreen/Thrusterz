@@ -2431,7 +2431,7 @@
         + `<span class="k">${have} / ${w.unlock} ★ · ${Math.max(0, w.unlock - have)} to go</span>`
         + (Skins.PRODUCTS.some(p => p.world === t) ? '<button class="wi-shop">Open it now in the Shop</button>' : '');
     }
-    if (t !== TEST_TAB) info.appendChild(worldRewards(t));
+    if (t !== TEST_TAB && Skins.ALL.some(x => x.world === t)) info.appendChild(worldRewards(t));
     if (t !== TEST_TAB) {
       const b = document.createElement('button');
       b.className = 'wi-board online-only'; b.textContent = '🏆 World leaderboard';
@@ -2912,7 +2912,7 @@
         const t = document.createElement('div');
         t.className = 'skin-tile shop-tile' + (have ? ' on' : '') + (pr.bundle ? ' bundle' : '');
         t.dataset.product = pr.id;
-        const sub = pr.desc || (pr.skins ? `A ${SLOT_NAME[Skins.slotOf(pr.skins[0])]} for your rocket` : `Every mission in ${worldName(pr.world)}, without waiting for the stars`);
+        const sub = pr.desc || (pr.skins ? (Skins.slotOf(pr.skins[0]) === 'rcs' ? 'Thruster puffs for your rocket' : `A ${SLOT_NAME[Skins.slotOf(pr.skins[0])]} for your rocket`) : `Every mission in ${worldName(pr.world)}, without waiting for the stars`);
         t.innerHTML = (pr.skins ? '<canvas class="sk-icon"></canvas>' : `<span class="shop-world w${pr.world != null ? pr.world : 'all'}">${pr.world != null ? pr.world : '∞'}</span>`)
           + '<span class="sk-name"></span><span class="sk-req"></span>'
           + `<button class="buy">${have ? '✓ Owned' : alreadyOpen ? '✓ Open' : shopBusy === pr.id ? '…' : (shopPrices[pr.id] || pr.price)}</button>`;
