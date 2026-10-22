@@ -19,7 +19,7 @@
   // over it, clipped to the hull. `shape: 'needle'` is a longer nose and
   // bigger fins.
   const HULLS = [
-    { id: 'classic', name: 'Classic', desc: 'The white rocket every pilot starts with.', fill: ['#ffffff', '#eef2fa', '#b9c4dc'], line: '#7f8aa8', fin: '#d9e0ee', nozzle: '#3a4a72' },
+    { id: 'classic', name: 'Classic', desc: 'The white rocket every pilot starts with.', cap: '#e8c45a', capLine: '#8a6a1a', fill: ['#ffffff', '#eef2fa', '#b9c4dc'], line: '#7f8aa8', fin: '#d9e0ee', nozzle: '#3a4a72' },
     { id: 'cadet', name: 'Cadet', desc: 'Flight-school white with safety-orange bands and fins.', shop: true, fill: ['#ffffff', '#eef2fa', '#b9c4dc'], line: '#7f8aa8', fin: '#ff8a3d', finLine: '#a8501a', nozzle: '#3a4a72', pattern: 'bands', ink: '#ff8a3d' },
     { id: 'checker', name: 'Checkerboard', desc: 'Black and white checks, like 1940s test rockets painted so the cameras could see them roll.', world: 1, need: 'clear', fill: ['#ffffff', '#f2f4f8', '#c9cfdc'], line: '#3a3f4c', fin: '#262a33', finLine: '#0e1015', nozzle: '#262a33', pattern: 'checker', ink: '#262a33' },
     { id: 'nebula', name: 'Nebula', desc: 'Deep violet, dusted with stars.', world: 2, need: 'clear', fill: ['#f0c8ff', '#a45cf0', '#4b1f8f'], line: '#2e1260', fin: '#f78cff', finLine: '#7a2a90', nozzle: '#241046', pattern: 'stars', ink: '#ffffff' },
@@ -69,13 +69,25 @@
     { id: 'neondust', name: 'Neon Dust', desc: 'Pink sparks to match the Neon trail.', shop: true, color: [255, 90, 210], kind: 'spark', life: 0.4, size: 1.6 },
   ];
 
+  // Satellites (the craft you fly once a rocket has delivered one). `shape`:
+  // 'box' (body with two solar panels), 'sphere' (a ball trailing four long
+  // antennas) or 'tube' (a telescope tube with panels).
+  const SATS = [
+    { id: 'foil', name: 'Gold Foil', desc: 'A foil-wrapped box with two blue solar panels.', shape: 'box', body: '#e8c45a', bodyLine: '#8a6a1a', panel: '#4f7fd8', panelLine: '#9fc0ff' },
+    { id: 'silver', name: 'Silver Foil', desc: 'Silver insulation and dark, high-efficiency panels.', stars: 150, shape: 'box', body: '#d5dbe6', bodyLine: '#6f7a90', panel: '#243052', panelLine: '#7d8fb8' },
+    // Shop
+    { id: 'sputnik', name: 'Sputnik', desc: 'A polished ball with four swept-back antennas, like the first satellite of all.', shop: true, shape: 'sphere', body: '#e6e9ef', bodyLine: '#7b8496', panel: '#c9ced8', panelLine: '#c9ced8' },
+    { id: 'observatory', name: 'Observatory', desc: 'A space telescope: a silver tube with its aperture door open.', shop: true, shape: 'tube', body: '#d9dee8', bodyLine: '#6a7488', panel: '#3a5fb0', panelLine: '#9fc0ff' },
+    { id: 'goldsat', name: 'Gold Standard', desc: 'Gold body, gold panels, gold everything.', gold: true, shop: true, shape: 'box', body: '#ffd34d', bodyLine: '#7a5600', panel: '#e6b422', panelLine: '#fff0a0' },
+  ];
+
   // Slots in a look, and the items each takes: standard issue first, then
   // the ones earned by flying, then the Shop's, then gold.
   const rank = (it) => (it.gold ? 3 : it.shop ? 2 : it.world != null || it.stars != null ? 1 : 0);
-  for (const list of [HULLS, FLAMES, TRAILS, RCSES]) list.sort((a, b) => rank(a) - rank(b)); // stable: keeps the order within each group
-  const SLOTS = { hull: HULLS, flame: FLAMES, trail: TRAILS, rcs: RCSES };
+  for (const list of [HULLS, FLAMES, TRAILS, RCSES, SATS]) list.sort((a, b) => rank(a) - rank(b)); // stable: keeps the order within each group
+  const SLOTS = { hull: HULLS, flame: FLAMES, trail: TRAILS, rcs: RCSES, sat: SATS };
   const TABLE = Object.fromEntries(Object.entries(SLOTS).map(([k, list]) => [k, Object.fromEntries(list.map(it => [it.id, it]))]));
-  const HULL = TABLE.hull, FLAME = TABLE.flame, TRAIL = TABLE.trail, RCS = TABLE.rcs;
+  const HULL = TABLE.hull, FLAME = TABLE.flame, TRAIL = TABLE.trail, RCS = TABLE.rcs, SAT = TABLE.sat;
   const DEFAULT = Object.fromEntries(Object.entries(SLOTS).map(([k, list]) => [k, list[0].id]));
   const ALL = [].concat(...Object.values(SLOTS));
   const SLOT_OF = Object.fromEntries(Object.entries(SLOTS).flatMap(([k, list]) => list.map(it => [it.id, k])));
@@ -104,12 +116,15 @@
     { id: P + 'trail.neon', name: 'Neon trail', skins: ['neon'], price: '$0.99' },
     { id: P + 'rcs.rings', name: 'Halo Rings thrusters', skins: ['rings'], price: '$0.99' },
     { id: P + 'rcs.neondust', name: 'Neon Dust thrusters', skins: ['neondust'], price: '$0.99' },
+    { id: P + 'sat.sputnik', name: 'Sputnik satellite', skins: ['sputnik'], price: '$0.99' },
+    { id: P + 'sat.observatory', name: 'Observatory satellite', skins: ['observatory'], price: '$0.99' },
     { id: P + 'pack.hangar', name: 'Hangar Pack', desc: 'Every skin in the Shop', skins: SHOP_SKINS, price: '$4.99', bundle: true },
     { id: P + 'gold.hull', name: 'Solid Gold hull', skins: ['gold'], price: '$4.99', gold: true },
     { id: P + 'gold.flame', name: 'Gold Rush flame', skins: ['goldflame'], price: '$2.99', gold: true },
     { id: P + 'gold.trail', name: 'Gold Leaf trail', skins: ['goldtrail'], price: '$2.99', gold: true },
     { id: P + 'gold.rcs', name: 'Gold Dust thrusters', skins: ['golddust'], price: '$2.99', gold: true },
-    { id: P + 'pack.gold', name: 'Gold Set', desc: 'The gold hull, flame, trail and thrusters together. Not part of the Hangar Pack.', skins: GOLD_SKINS, price: '$9.99', gold: true, bundle: true },
+    { id: P + 'gold.sat', name: 'Gold Standard satellite', skins: ['goldsat'], price: '$2.99', gold: true },
+    { id: P + 'pack.gold', name: 'Gold Set', desc: 'The gold hull, flame, trail, thrusters and satellite together. Not part of the Hangar Pack.', skins: GOLD_SKINS, price: '$11.99', gold: true, bundle: true },
     { id: P + 'world.2', name: 'Open World 2 now', world: 2, price: '$1.99' },
     { id: P + 'world.3', name: 'Open World 3 now', world: 3, price: '$1.99' },
     { id: P + 'world.4', name: 'Open World 4 now', world: 4, price: '$1.99' },
@@ -211,6 +226,12 @@
     g.restore();
   }
 
+  // Is a #rrggbb colour dark (so a seam on it should be light)?
+  function dark(hex) {
+    const n = parseInt(String(hex).slice(1, 7), 16);
+    return 0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255) < 110;
+  }
+
   // The rocket body. `payload`: the nose is the gold fairing holding cargo
   // (the same for every skin: it tells you there's something to drop).
   function drawRocket(g, L, payload, hull) {
@@ -240,12 +261,16 @@
     g.fillStyle = hull.nozzle;
     g.fillRect(tail - 1.6, -W * 0.62, 1.8, W * 1.24);
     if (payload) {
-      g.fillStyle = '#e8c45a'; g.strokeStyle = '#8a6a1a';
+      // The fairing over the payload, in the hull's accent colour (gold on
+      // the classic rocket), with a seam so it reads as a separate cap.
+      const cap = hull.cap || hull.fin, nose = d.nose;
+      g.fillStyle = cap; g.strokeStyle = hull.capLine || hull.finLine || hull.line;
       g.beginPath();
-      g.moveTo(L + 4, 0); g.bezierCurveTo(L + 1, -W * 0.9, L * 0.45, -W * 1.06, L * 0.15, -W * 1.04);
-      g.lineTo(L * 0.15, W * 1.04); g.bezierCurveTo(L * 0.45, W * 1.06, L + 1, W * 0.9, L + 4, 0);
+      g.moveTo(nose, 0); g.bezierCurveTo(nose - 3, -W * 0.85, L * 0.45, -W * 1.06, L * 0.15, -W * 1.04);
+      g.lineTo(L * 0.15, W * 1.04); g.bezierCurveTo(L * 0.45, W * 1.06, nose - 3, W * 0.85, nose, 0);
       g.fill(); g.stroke();
-      g.strokeStyle = 'rgba(0,0,0,0.35)'; g.beginPath(); g.moveTo(L * 0.15, -W); g.lineTo(L * 0.15, W); g.stroke();
+      g.strokeStyle = dark(cap) ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.35)';
+      g.beginPath(); g.moveTo(L * 0.15, -W); g.lineTo(L * 0.15, W); g.stroke();
       g.lineWidth = 1;
       return;
     }
@@ -253,6 +278,43 @@
     g.fillStyle = '#0b1338'; g.beginPath(); g.arc(L * 0.3, 0, 2.1, 0, TAU); g.fill();
     g.fillStyle = hull.window || '#2fb8d8'; g.beginPath(); g.arc(L * 0.3, 0, 1.45, 0, TAU); g.fill();
     g.fillStyle = 'rgba(220,250,255,0.9)'; g.beginPath(); g.arc(L * 0.3 + 0.5, -0.5, 0.5, 0, TAU); g.fill();
+    g.lineWidth = 1;
+  }
+
+  // A satellite, facing +x (its antenna or aperture forward).
+  function drawSatellite(g, sat) {
+    sat = sat || SATS[0];
+    const panels = (y0) => {
+      g.fillStyle = sat.panel; g.strokeStyle = sat.panelLine; g.lineWidth = 0.8;
+      for (const y of [y0, -y0 - 8]) {
+        g.fillRect(-2.5, y, 5, 8); g.strokeRect(-2.5, y, 5, 8);
+        g.lineWidth = 0.4; g.beginPath(); g.moveTo(-2.5, y + 4); g.lineTo(2.5, y + 4); g.moveTo(0, y); g.lineTo(0, y + 8); g.stroke(); g.lineWidth = 0.8;
+      }
+    };
+    if (sat.shape === 'sphere') {
+      g.strokeStyle = sat.panelLine; g.lineWidth = 0.7;
+      g.beginPath();
+      for (const y of [-1.6, -0.6, 0.6, 1.6]) { g.moveTo(-1, y); g.lineTo(-13, y * 4.5); }
+      g.stroke();
+      const gr = g.createRadialGradient(1.2, -1.4, 0.5, 0, 0, 4.4);
+      gr.addColorStop(0, '#ffffff'); gr.addColorStop(0.5, sat.body); gr.addColorStop(1, sat.bodyLine);
+      g.fillStyle = gr; g.strokeStyle = sat.bodyLine; g.lineWidth = 0.8;
+      g.beginPath(); g.arc(0, 0, 4.2, 0, TAU); g.fill(); g.stroke();
+    } else if (sat.shape === 'tube') {
+      panels(4.2);
+      const gr = g.createLinearGradient(0, -3.6, 0, 3.6);
+      gr.addColorStop(0, '#ffffff'); gr.addColorStop(0.5, sat.body); gr.addColorStop(1, sat.bodyLine);
+      g.fillStyle = gr; g.strokeStyle = sat.bodyLine; g.lineWidth = 0.9;
+      g.beginPath(); g.rect(-6, -3.4, 11, 6.8); g.fill(); g.stroke();
+      g.fillStyle = '#10131c'; g.fillRect(4.6, -2.8, 1.4, 5.6);
+      g.strokeStyle = sat.bodyLine; g.beginPath(); g.moveTo(5, -3.4); g.lineTo(8, -5.6); g.stroke();
+    } else {
+      panels(5);
+      g.fillStyle = sat.body; g.strokeStyle = sat.bodyLine; g.lineWidth = 1;
+      g.beginPath(); g.rect(-4, -4.5, 8, 9); g.fill(); g.stroke();
+      g.fillStyle = '#c9ced8'; g.beginPath(); g.moveTo(-4, -2); g.lineTo(-6.5, -3); g.lineTo(-6.5, 3); g.lineTo(-4, 2); g.fill();
+      g.strokeStyle = '#e9edf7'; g.beginPath(); g.moveTo(4, 0); g.lineTo(7, 0); g.stroke();
+    }
     g.lineWidth = 1;
   }
 
@@ -330,6 +392,15 @@
     if (canvas.width !== Math.round(w * dpr)) { canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr); }
     const g = canvas.getContext('2d'), l = cleanLook(look), hull = HULL[l.hull], flame = FLAME[l.flame];
     const L = 9, show = opts.show || 'flame', flameOn = show === 'flame' && opts.flame !== false;
+    if (show === 'sat') {
+      // Just the satellite, upright so its panels spread sideways.
+      const s = Math.min(w / 30, h / 17) * 0.95;
+      g.setTransform(dpr, 0, 0, dpr, 0, 0);
+      g.clearRect(0, 0, w, h);
+      g.translate(w / 2, h / 2); g.scale(s, s); g.rotate(-Math.PI / 2 + Math.sin((opts.t || 0) * 0.8) * 0.15);
+      drawSatellite(g, SAT[l.sat]);
+      return;
+    }
     // The picture spans from the flame's tip to the nose.
     const left = -L - (flameOn ? 22 : 4), right = L + (hull.shape === 'needle' ? 8 : 4), tall = 2 * (3.4 + 4.6);
     const s = Math.min(w / (right - left), h / tall) * 0.95;
@@ -364,9 +435,9 @@
   }
 
   const Skins = {
-    HULLS, FLAMES, TRAILS, RCSES, SLOTS, HULL, FLAME, TRAIL, RCS, ALL, DEFAULT, PRODUCTS, PRODUCT,
+    HULLS, FLAMES, TRAILS, RCSES, SATS, SLOTS, HULL, FLAME, TRAIL, RCS, SAT, ALL, DEFAULT, PRODUCTS, PRODUCT,
     byId, slotOf, standard, entitlements, progressOf, earned, cleanLook, shownLook,
-    drawRocket, drawFlame, drawTrail, drawRcsParticle, sparkColor, drawIcon,
+    drawRocket, drawFlame, drawTrail, drawSatellite, drawRcsParticle, sparkColor, drawIcon,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = Skins;
   else root.Skins = Skins;

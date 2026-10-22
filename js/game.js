@@ -112,7 +112,7 @@
   }
   const myLook = () => Skins.shownLook(look, [...owned()]);
   const newSkins = () => { const seen = Online.Store.get(SEEN) || []; return [...owned()].filter(id => !Skins.standard(Skins.byId(id)) && !seen.includes(id)); };
-  const SLOT_NAME = { hull: 'hull', flame: 'flame', trail: 'trail', rcs: 'thrusters' };
+  const SLOT_NAME = { hull: 'hull', flame: 'flame', trail: 'trail', rcs: 'thrusters', sat: 'satellite' };
   function equip(id) {
     const it = Skins.byId(id), l = Skins.cleanLook(look || myLook());
     l[Skins.slotOf(id)] = id;
@@ -1812,19 +1812,11 @@
     ctx.fill(); ctx.stroke(); ctx.lineWidth = 1;
   }
 
-  // Satellite: a gold-foil box with two solar panels and a small nozzle.
-  function drawSatelliteBody() {
-    ctx.fillStyle = '#4f7fd8'; ctx.strokeStyle = '#9fc0ff'; ctx.lineWidth = 0.8;
-    ctx.fillRect(-2.5, -13, 5, 8); ctx.strokeRect(-2.5, -13, 5, 8);
-    ctx.fillRect(-2.5, 5, 5, 8); ctx.strokeRect(-2.5, 5, 5, 8);
-    ctx.fillStyle = '#e8c45a'; ctx.strokeStyle = '#8a6a1a'; ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.rect(-4, -4.5, 8, 9); ctx.fill(); ctx.stroke();
-    ctx.fillStyle = '#c9ced8'; ctx.beginPath(); ctx.moveTo(-4, -2); ctx.lineTo(-6.5, -3); ctx.lineTo(-6.5, 3); ctx.lineTo(-4, 2); ctx.fill();
-    ctx.strokeStyle = '#e9edf7'; ctx.beginPath(); ctx.moveTo(4, 0); ctx.lineTo(7, 0); ctx.stroke();
-  }
+  // The satellite in the pilot's chosen satellite skin.
+  function drawSatelliteBody() { Skins.drawSatellite(ctx, Skins.SAT[myLook().sat]); }
 
   // The rocket in the pilot's chosen hull (see js/skins.js). With a payload
-  // aboard, the nose is the gold fairing.
+  // aboard, the nose is a fairing in the hull's colours.
   function drawRocketBody(L, payload) { Skins.drawRocket(ctx, L, payload, Skins.HULL[myLook().hull]); }
 
   // Prograde / retrograde / target markers around the ship.
@@ -2482,7 +2474,7 @@
     for (const x of ids) l[Skins.slotOf(x)] = x;
     const slot = ids.length > 1 ? 'hull' : Skins.slotOf(id);
     canvas.dataset.skin = id;
-    Skins.drawIcon(canvas, l, { show: slot === 'trail' || slot === 'rcs' ? slot : 'flame', t, f: t == null ? null : 0.8 + 0.2 * Math.sin(t * 23 + id.length) });
+    Skins.drawIcon(canvas, l, { show: ['trail', 'rcs', 'sat'].includes(slot) ? slot : 'flame', t, f: t == null ? null : 0.8 + 0.2 * Math.sin(t * 23 + id.length) });
   }
   // While the Hangar or Shop is open, its pictures move: flames flicker and
   // pulse, trails flow, thruster puffs fire. About 30 frames a second.
@@ -2850,7 +2842,7 @@
     $('hangar-new').classList.add('hidden');
     startIcons();
   }
-  const SLOT_TITLES = { hull: 'Hulls', flame: 'Flames', trail: 'Trails', rcs: 'Thrusters' };
+  const SLOT_TITLES = { hull: 'Hulls', flame: 'Flames', trail: 'Trails', rcs: 'Thrusters', sat: 'Satellites' };
   // How an item is earned, in words.
   function howToEarn(it) {
     if (it.shop) return 'In the Shop';
@@ -2880,7 +2872,7 @@
         t.querySelector('.sk-name').textContent = it.name;
         t.title = it.desc;
         t.onclick = () => {
-          hangarShow = slot === 'trail' || slot === 'rcs' ? slot : 'flame';
+          hangarShow = ['trail', 'rcs', 'sat'].includes(slot) ? slot : 'flame';
           if (got) { equip(it.id); hangarPreview = null; renderHangar(); return; }
           hangarPreview = Object.assign(myLook(), { [slot]: it.id });
           if (it.shop) showShop('hangar');

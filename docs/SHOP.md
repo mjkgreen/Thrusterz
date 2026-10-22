@@ -8,7 +8,7 @@ changes how a rocket flies, and every mission can be reached for free.
 
 ### Skins (`js/skins.js`)
 
-A rocket's look has four slots. Each item is earned, bought, or standard issue.
+A rocket's look has five slots. Each item is earned, bought, or standard issue.
 
 | Slot | Earned | Shop | Gold |
 | --- | --- | --- | --- |
@@ -16,13 +16,15 @@ A rocket's look has four slots. Each item is earned, bought, or standard issue.
 | Flame | Three stars on every mission in a world: Strontium Red (1), Plasma (2), Boron Green (3), Pulsar (4) | Cold Blue, Sunset, Ghost | Gold Rush |
 | Trail | 100 ★ Comet, 300 ★ Aurora | Neon | Gold Leaf |
 | Thrusters (RCS puffs) | 200 ★ Ember Sparks | Halo Rings, Neon Dust | Gold Dust |
+| Satellite (the craft you fly after delivering one) | 150 ★ Silver Foil | Sputnik, Observatory | Gold Standard |
 
 Earned skins are never sold, so they stay a sign of skill. Training earns
 no skins; rewards start with the real worlds. Shop skins are
 extras, never better versions of earned ones. Gold skins are the same
 rockets in gold, priced higher purely for showing off, and are never in the
 Hangar Pack. The Hangar lists each slot as standard issue, then earned, then
-Shop, then gold.
+Shop, then gold. A rocket carrying a payload wears a fairing in its hull's
+accent colour (gold on the Classic hull).
 
 What players see:
 
@@ -49,12 +51,15 @@ Non-consumable App Store purchases, ids in `Skins.PRODUCTS`:
 | `com.thrusterz.app.trail.neon` | Neon trail | $0.99 |
 | `com.thrusterz.app.rcs.rings` | Halo Rings thrusters | $0.99 |
 | `com.thrusterz.app.rcs.neondust` | Neon Dust thrusters | $0.99 |
-| `com.thrusterz.app.pack.hangar` | Hangar Pack: every Shop skin | $4.99 |
+| `com.thrusterz.app.sat.sputnik` | Sputnik satellite | $0.99 |
+| `com.thrusterz.app.sat.observatory` | Observatory satellite | $0.99 |
+| `com.thrusterz.app.pack.hangar` | Hangar Pack: every Shop skin except gold | $4.99 |
 | `com.thrusterz.app.gold.hull` | Solid Gold hull | $4.99 |
 | `com.thrusterz.app.gold.flame` | Gold Rush flame | $2.99 |
 | `com.thrusterz.app.gold.trail` | Gold Leaf trail | $2.99 |
 | `com.thrusterz.app.gold.rcs` | Gold Dust thrusters | $2.99 |
-| `com.thrusterz.app.pack.gold` | Gold Set: all four gold skins (not in the Hangar Pack) | $9.99 |
+| `com.thrusterz.app.gold.sat` | Gold Standard satellite | $2.99 |
+| `com.thrusterz.app.pack.gold` | Gold Set: all five gold skins (not in the Hangar Pack) | $11.99 |
 | `com.thrusterz.app.world.2` / `.3` / `.4` | Open that world now | $1.99 |
 | `com.thrusterz.app.world.all` | Open every world, future ones too | $3.99 |
 
