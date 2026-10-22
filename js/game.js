@@ -2476,8 +2476,11 @@
   }
   // A small picture of a skin on your rocket: hulls and flames with the
   // flame lit, trails behind it, thruster puffs firing.
+  // `id` may list several skins ("gold,goldflame") to show a set together.
   function skinIcon(canvas, id, t) {
-    const slot = Skins.slotOf(id), l = Object.assign(myLook(), { [slot]: id });
+    const ids = id.split(','), l = myLook();
+    for (const x of ids) l[Skins.slotOf(x)] = x;
+    const slot = ids.length > 1 ? 'hull' : Skins.slotOf(id);
     canvas.dataset.skin = id;
     Skins.drawIcon(canvas, l, { show: slot === 'trail' || slot === 'rcs' ? slot : 'flame', t, f: t == null ? null : 0.8 + 0.2 * Math.sin(t * 23 + id.length) });
   }
@@ -2866,7 +2869,7 @@
         const got = owned().has(it.id), on = cur[slot] === it.id;
         const pr = Skins.progressOf(it, progress.stars, LEVELS);
         const t = document.createElement('button');
-        t.className = 'skin-tile' + (got ? '' : ' locked') + (on ? ' on' : '') + (it.shop ? ' shop' : '');
+        t.className = 'skin-tile' + (got ? '' : ' locked') + (on ? ' on' : '') + (it.shop ? ' shop' : '') + (it.gold ? ' gold-skin' : '');
         const req = howToEarn(it);
         t.innerHTML = `<canvas class="sk-icon"></canvas><span class="sk-name"></span>`
           + `<span class="sk-req">${got && !Skins.standard(it) ? '✓ ' : ''}${got && it.shop ? 'Bought' : req}</span>`
@@ -2916,13 +2919,14 @@
     const mine = new Set(Online.ownedProducts()), can = Online.shopAvailable();
     $('btn-shop-restore').style.display = Online.iapAvailable() ? '' : 'none';
     $('shop-note').textContent = can ? '' : Bridge.inApp ? 'Purchases aren\'t available on this device.' : 'Purchases are made in the Thrusterz app for iPhone and iPad. Anything you buy there shows up here once you restore your account.';
-    for (const [list, kind] of [['shop-skins', 'skins'], ['shop-worlds', 'worlds']]) {
-      const grid = $(list);
+    const kindOf = (p) => (p.gold ? 'gold' : p.skins ? 'skins' : 'worlds');
+    for (const kind of ['skins', 'gold', 'worlds']) {
+      const grid = $('shop-' + kind);
       grid.innerHTML = '';
-      for (const pr of Skins.PRODUCTS.filter(p => (kind === 'skins') === !!p.skins)) {
+      for (const pr of Skins.PRODUCTS.filter(p => kindOf(p) === kind)) {
         const have = mine.has(pr.id), alreadyOpen = pr.world != null && worldOpen(pr.world) && !have;
         const t = document.createElement('div');
-        t.className = 'skin-tile shop-tile' + (have ? ' on' : '') + (pr.bundle ? ' bundle' : '');
+        t.className = 'skin-tile shop-tile' + (have ? ' on' : '') + (pr.bundle ? ' bundle' : '') + (pr.gold ? ' gold' : '');
         t.dataset.product = pr.id;
         const sub = pr.desc || (pr.skins ? Skins.byId(pr.skins[0]).desc : `Every mission in ${worldName(pr.world)}, without waiting for the stars`);
         t.innerHTML = (pr.skins ? '<canvas class="sk-icon"></canvas>' : `<span class="shop-world w${pr.world != null ? pr.world : 'all'}">${pr.world != null ? pr.world : '∞'}</span>`)
@@ -2934,7 +2938,8 @@
         btn.disabled = have || alreadyOpen || !can || !!shopBusy;
         btn.onclick = () => buyProduct(pr);
         grid.appendChild(t);
-        if (pr.skins) requestAnimationFrame(() => skinIcon(t.querySelector('canvas'), pr.skins[0]));
+        // A gold set shows all its pieces together; other bundles their first skin.
+        if (pr.skins) requestAnimationFrame(() => skinIcon(t.querySelector('canvas'), pr.gold && pr.bundle ? pr.skins.join(',') : pr.skins[0]));
       }
     }
   }

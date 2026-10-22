@@ -28,6 +28,7 @@
     // Shop
     { id: 'retro', name: 'Retro Red', desc: 'Red and cream, straight off a 1950s pulp magazine cover.', shop: true, fill: ['#ffffff', '#f4f1ea', '#cfc8b8'], line: '#7a2020', fin: '#d62828', finLine: '#7a1010', nozzle: '#3a3a3a', pattern: 'bands', ink: '#d62828' },
     { id: 'stealth', name: 'Stealth', desc: 'Matte black with a red visor and a red pinstripe.', shop: true, fill: ['#4a4f5c', '#2a2e38', '#14161c'], line: '#0a0b0f', fin: '#22252e', finLine: '#000000', nozzle: '#0a0b0f', window: '#ff4040', pattern: 'pinstripe', ink: '#ff4040' },
+    { id: 'gold', name: 'Solid Gold', gold: true, shop: true, desc: 'Polished gold from nose to nozzle. It flies exactly the same; everyone will know you paid for it.', fill: ['#fff6c8', '#ffd34d', '#fff0a0', '#b8860b'], line: '#6e4e00', fin: '#e6b422', finLine: '#6e4e00', nozzle: '#5a4000', window: '#fff3b0', pattern: 'pinstripe', ink: '#fffbe6' },
     { id: 'tiger', name: 'Tiger', desc: 'Burnt orange with black tiger stripes.', shop: true, fill: ['#ffc070', '#ff8c1a', '#b85a00'], line: '#4a2400', fin: '#1a1410', finLine: '#000000', nozzle: '#1a1410', pattern: 'tiger', ink: '#1a1410' },
   ];
 
@@ -42,6 +43,7 @@
     { id: 'pulsar', name: 'Pulsar', desc: 'White-hot and pulsing, like the star it\'s named for.', world: 4, need: 'three', pulse: true, outer: [[140, 245, 255, 0.95], [120, 120, 255, 0.85], [200, 120, 255, 0]], core: [[255, 255, 255, 1], [190, 250, 255, 0]], hot: [235, 255, 255], cool: [170, 110, 255] },
     // Shop
     { id: 'sunset', name: 'Sunset', desc: 'Peach at the nozzle, fading through pink to violet.', shop: true, outer: [[255, 170, 120, 0.95], [255, 80, 140, 0.85], [160, 60, 220, 0]], core: [[255, 240, 210, 0.95], [255, 190, 150, 0]], hot: [255, 220, 160], cool: [230, 60, 150] },
+    { id: 'goldflame', name: 'Gold Rush', gold: true, shop: true, desc: 'A molten-gold plume with a white-hot core.', outer: [[255, 236, 140, 0.98], [240, 180, 30, 0.9], [200, 130, 0, 0]], core: [[255, 255, 235, 1], [255, 230, 150, 0]], hot: [255, 250, 200], cool: [235, 170, 20] },
     { id: 'ghost', name: 'Ghost', desc: 'Pale and see-through, as if it\'s barely there.', shop: true, outer: [[235, 240, 255, 0.7], [190, 200, 255, 0.45], [160, 170, 255, 0]], core: [[255, 255, 255, 0.95], [230, 235, 255, 0]], hot: [250, 250, 255], cool: [170, 180, 240] },
   ];
 
@@ -52,6 +54,7 @@
     { id: 'faint', name: 'Standard', desc: 'A faint amber line.', color: [255, 190, 110], alpha: 0.35, width: 1.5 },
     { id: 'comet', name: 'Comet', desc: 'A bright cyan tail that glows, then fades behind you.', stars: 100, color: [120, 230, 255], alpha: 0.85, width: 2, fade: true, glow: true },
     { id: 'aurora', name: 'Aurora', desc: 'Shifts through every colour along your path.', stars: 300, color: [140, 255, 200], alpha: 0.8, width: 2.2, fade: true, glow: true, rainbow: true },
+    { id: 'goldtrail', name: 'Gold Leaf', gold: true, shop: true, desc: 'A glowing gold line, so everyone can see where you have been.', color: [255, 205, 70], alpha: 0.95, width: 2.2, fade: true, glow: true },
     { id: 'neon', name: 'Neon', desc: 'A hot pink line with a neon glow.', shop: true, color: [255, 80, 200], alpha: 0.9, width: 1.8, glow: true },
   ];
 
@@ -59,13 +62,17 @@
   // streaky) or 'ring' (little circles).
   const RCSES = [
     { id: 'puff', name: 'Standard', desc: 'Small white puffs.', color: [220, 235, 255], kind: 'puff', life: 0.18, size: 1.6 },
-    { id: 'sparks', name: 'Gold Sparks', desc: 'Gold sparks that hang in the air a little longer.', stars: 200, color: [255, 210, 90], kind: 'spark', life: 0.35, size: 1.8 },
+    { id: 'sparks', name: 'Ember Sparks', desc: 'Orange sparks that hang in the air a little longer.', stars: 200, color: [255, 150, 60], kind: 'spark', life: 0.35, size: 1.8 },
     // Shop
     { id: 'rings', name: 'Halo Rings', desc: 'Little cyan rings that spread out as they fade.', shop: true, color: [140, 240, 255], kind: 'ring', life: 0.3, size: 2.2 },
+    { id: 'golddust', name: 'Gold Dust', gold: true, shop: true, desc: 'Every turn scatters gold dust.', color: [255, 215, 80], kind: 'spark', life: 0.45, size: 2 },
     { id: 'neondust', name: 'Neon Dust', desc: 'Pink sparks to match the Neon trail.', shop: true, color: [255, 90, 210], kind: 'spark', life: 0.4, size: 1.6 },
   ];
 
-  // Slots in a look, and the items each takes.
+  // Slots in a look, and the items each takes: standard issue first, then
+  // the ones earned by flying, then the Shop's, then gold.
+  const rank = (it) => (it.gold ? 3 : it.shop ? 2 : it.world != null || it.stars != null ? 1 : 0);
+  for (const list of [HULLS, FLAMES, TRAILS, RCSES]) list.sort((a, b) => rank(a) - rank(b)); // stable: keeps the order within each group
   const SLOTS = { hull: HULLS, flame: FLAMES, trail: TRAILS, rcs: RCSES };
   const TABLE = Object.fromEntries(Object.entries(SLOTS).map(([k, list]) => [k, Object.fromEntries(list.map(it => [it.id, it]))]));
   const HULL = TABLE.hull, FLAME = TABLE.flame, TRAIL = TABLE.trail, RCS = TABLE.rcs;
@@ -83,7 +90,9 @@
   // world, future ones too. `price` is a fallback label; the store's own
   // localized price is shown when the store is reachable.
   const P = 'com.thrusterz.app.';
-  const SHOP_SKINS = ALL.filter(it => it.shop).map(it => it.id);
+  // The Hangar Pack is every Shop skin except gold; gold is only sold on its own.
+  const SHOP_SKINS = ALL.filter(it => it.shop && !it.gold).map(it => it.id);
+  const GOLD_SKINS = ALL.filter(it => it.gold).map(it => it.id);
   const PRODUCTS = [
     { id: P + 'hull.cadet', name: 'Cadet hull', skins: ['cadet'], price: '$0.99' },
     { id: P + 'hull.retro', name: 'Retro Red hull', skins: ['retro'], price: '$0.99' },
@@ -96,6 +105,11 @@
     { id: P + 'rcs.rings', name: 'Halo Rings thrusters', skins: ['rings'], price: '$0.99' },
     { id: P + 'rcs.neondust', name: 'Neon Dust thrusters', skins: ['neondust'], price: '$0.99' },
     { id: P + 'pack.hangar', name: 'Hangar Pack', desc: 'Every skin in the Shop', skins: SHOP_SKINS, price: '$4.99', bundle: true },
+    { id: P + 'gold.hull', name: 'Solid Gold hull', skins: ['gold'], price: '$4.99', gold: true },
+    { id: P + 'gold.flame', name: 'Gold Rush flame', skins: ['goldflame'], price: '$2.99', gold: true },
+    { id: P + 'gold.trail', name: 'Gold Leaf trail', skins: ['goldtrail'], price: '$2.99', gold: true },
+    { id: P + 'gold.rcs', name: 'Gold Dust thrusters', skins: ['golddust'], price: '$2.99', gold: true },
+    { id: P + 'pack.gold', name: 'Gold Set', desc: 'The gold hull, flame, trail and thrusters together. Not part of the Hangar Pack.', skins: GOLD_SKINS, price: '$9.99', gold: true, bundle: true },
     { id: P + 'world.2', name: 'Open World 2 now', world: 2, price: '$1.99' },
     { id: P + 'world.3', name: 'Open World 3 now', world: 3, price: '$1.99' },
     { id: P + 'world.4', name: 'Open World 4 now', world: 4, price: '$1.99' },

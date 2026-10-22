@@ -643,3 +643,8 @@ html.short #hangar-preview { height: 70px; }
 .shop-world.w2 { color: #b4f06a; } .shop-world.w3 { color: #ffaa5a; } .shop-world.w4 { color: #c8a8ff; } .shop-world.wall { color: var(--gold); }
 .skin-tile.shop.locked .sk-state { color: var(--gold); }
 #world-info .wi-shop { display: inline-block; margin: 6px 0 0 12px; padding: 6px 12px; border-radius: 9px; border: 1px solid rgba(255, 209, 102, 0.5); background: rgba(255, 209, 102, 0.08); color: var(--gold); font: 700 13px var(--sans); cursor: pointer; }
+.hg-h.gold-h { color: var(--gold); }
+.shop-tile.gold { border-color: rgba(255, 209, 102, 0.55); background: linear-gradient(160deg, rgba(255, 215, 110, 0.12), rgba(255, 255, 255, 0.02) 60%); }
+.shop-tile.gold .sk-name { color: var(--gold); }
+.shop-tile.gold .buy:not(:disabled) { border-color: rgba(255, 209, 102, 0.7); background: rgba(255, 209, 102, 0.16); }
+.skin-tile.gold-skin .sk-name { color: var(--gold); }
