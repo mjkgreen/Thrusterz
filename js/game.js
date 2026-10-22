@@ -3112,6 +3112,7 @@
     if (!q.has('welcome') && (stars > 0 || Online.Store.get(WELCOMED) || navigator.webdriver)) return;
     hide('menu'); show('welcome');
     $('wl-ask').classList.remove('hidden'); $('wl-done').classList.add('hidden');
+    $('btn-wl-apple').style.display = Online.appleAvailable() ? '' : 'none';
     setTimeout(() => $('wl-name').focus(), 50);
   }
   function endWelcome() { Online.Store.set(WELCOMED, true); hide('welcome'); showMenu(); }
@@ -3130,6 +3131,30 @@
     }
     btn.disabled = false;
   };
+  // A returning pilot can bring their account back from the first screen:
+  // Sign in with Apple (in the app) or their restore code.
+  async function welcomeBack(btn, fn) {
+    const st = $('wl-status');
+    btn.disabled = true; st.className = 'small'; st.textContent = 'Finding your pilot…';
+    try {
+      const p = await fn();
+      Online.Store.set(WELCOMED, true);
+      st.textContent = '';
+      toast(`Welcome back, ${p.name}. Your stars are back.`, 2.5);
+      endWelcome();
+    } catch (e) {
+      st.className = 'small warn';
+      st.textContent = e.offline ? 'You\'re offline. You can restore later under Pilot.' : e.message;
+    }
+    btn.disabled = false;
+  }
+  $('btn-wl-apple').onclick = () => welcomeBack($('btn-wl-apple'), () => Online.signInWithApple());
+  $('btn-wl-restore').onclick = () => welcomeBack($('btn-wl-restore'), async () => {
+    const code = $('wl-restore').value.trim();
+    if (!code) throw new Error('Enter your restore code first');
+    return Online.restore(code);
+  });
+  $('wl-restore').addEventListener('keydown', (e) => { if (e.key === 'Enter') { $('btn-wl-restore').click(); $('wl-restore').blur(); } e.stopPropagation(); });
   $('wl-name').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('btn-wl-save').click(); e.stopPropagation(); });
   for (const [input, btn] of [['pf-name-input', 'btn-pf-rename'], ['pf-restore-input', 'btn-pf-restore']]) {
     $(input).addEventListener('keydown', (e) => { if (e.key === 'Enter') { $(btn).click(); $(input).blur(); } e.stopPropagation(); });

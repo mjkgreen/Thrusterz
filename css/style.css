@@ -648,3 +648,6 @@ html.short #hangar-preview { height: 70px; }
 .shop-tile.gold .sk-name { color: var(--gold); }
 .shop-tile.gold .buy:not(:disabled) { border-color: rgba(255, 209, 102, 0.7); background: rgba(255, 209, 102, 0.16); }
 .skin-tile.gold-skin .sk-name { color: var(--gold); }
+/* Welcome: returning pilots */
+.wl-back { display: flex; flex-direction: column; gap: 8px; margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--panel-border); }
+.wl-back .k { font-size: 12px; }
