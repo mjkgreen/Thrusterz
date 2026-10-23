@@ -176,7 +176,7 @@ body.touch #touch {
   padding-left: max(16px, var(--sa-left)); padding-right: max(16px, var(--sa-right));
   align-items: center; justify-content: center; padding-block: 24px; overflow-y: auto;
 }
-#pause, #result, #briefing, #help { background: rgba(3, 4, 10, 0.55); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); }
+#pause, #result, #briefing, #help, #welcome { background: rgba(3, 4, 10, 0.55); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); }
 .card {
   background: rgba(12, 16, 32, 0.92); border: 1px solid var(--panel-border);
   border-radius: 16px; padding: 26px 28px; width: min(520px, 100%);
@@ -595,3 +595,52 @@ html.rotated body.touch .pf-inline.lifted {
   width: calc(var(--lh) - 32px);
 }
 html.rotated body.touch .pf-inline.lifted::before { bottom: auto; top: calc(100% + 8px); }
+
+/* ----------------------------------------------------------- landing */
+/* First visit only. A web page over the menu backdrop: the hero fills the
+   first screen, and the details below it scroll. */
+#landing { justify-content: flex-start; padding-block: 0; scroll-behavior: smooth; }
+.ld-hero {
+  min-height: 100%; width: min(640px, 100%); flex-shrink: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 14px; padding: max(24px, var(--sa-top)) 0 24px; text-align: center;
+}
+.ld-hero h1.logo { margin: 0; line-height: 1.05; }
+.ld-pitch { margin: 0; max-width: 34em; font-size: clamp(16px, 2.2vw, 19px); line-height: 1.5; color: #c4cdee; }
+.ld-cta { display: flex; flex-direction: column; align-items: center; gap: 8px; margin-top: 8px; }
+.ld-cta .small, .ld-hero .small { font-size: 13px; color: var(--muted); }
+button.ld-play {
+  padding: 16px 40px; border-radius: 14px; font: 800 20px var(--sans); letter-spacing: 0.02em; cursor: pointer;
+  box-shadow: 0 0 0 0 rgba(124, 247, 212, 0.4), 0 12px 40px rgba(0,0,0,0.45);
+  animation: coach-pulse 2.4s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) { button.ld-play { animation: none; } #landing { scroll-behavior: auto; } }
+.ld-alt { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 8px; }
+.ld-alt button {
+  padding: 8px 12px; border-radius: 10px; border: 1px solid transparent; color: var(--muted);
+  font: 600 14px var(--sans); cursor: pointer;
+}
+.ld-alt button:hover { color: var(--text); border-color: var(--panel-border); }
+#ld-restore { width: min(380px, 100%); margin-top: 0; text-align: left; }
+#ld-restore .small { margin: 0; }
+#ld-status.warn { color: var(--warn); }
+.ld-more { margin-top: 10px; font: 12px var(--mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); text-decoration: none; }
+.ld-more:hover { color: var(--text); }
+.ld-info { width: min(720px, 100%); padding: 8px 0 max(32px, var(--sa-bottom)); -webkit-user-select: text; user-select: text; }
+.ld-info section {
+  margin-bottom: 18px; padding: 22px 24px; border-radius: 16px;
+  background: rgba(12, 16, 32, 0.85); border: 1px solid var(--panel-border);
+}
+.ld-info h2 { margin: 0 0 10px; font-size: 22px; font-weight: 800; }
+.ld-info p, .ld-info li { color: #c4cdee; line-height: 1.55; font-size: 15px; }
+.ld-info ul, .ld-info ol { margin: 0; padding-left: 20px; }
+.ld-info li { margin: 6px 0; }
+.ld-info b { color: var(--text); }
+.ld-info details { border-top: 1px solid rgba(255,255,255,0.06); padding: 10px 0; }
+.ld-info details:first-of-type { border-top: 0; }
+.ld-info summary { cursor: pointer; font-weight: 700; }
+.ld-info details p { margin: 8px 0 0; }
+.ld-foot { text-align: center; }
+body.in-app .web-only { display: none; }
+html.short .ld-hero { gap: 8px; }
+html.short button.ld-play { padding: 12px 32px; font-size: 18px; }

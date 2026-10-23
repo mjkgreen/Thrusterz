@@ -14,6 +14,13 @@ No build step. Open `index.html` in a browser, or serve the folder:
 npm start            # http://localhost:8080
 ```
 
+A first visit (no stars, never been past it) opens on a landing page: what
+the game is, **Play now** straight into Training's first mission, a way to
+skip Training, and a restore code for pilots on a new device. The pilot
+name is asked after the first mission you win, when there are stars worth
+saving. `?landing` shows the landing page again. The page's text is plain
+HTML in `index.html`, so search engines and link previews can read it.
+
 The menu shows one world per tab. World 1 is open from the start; each later
 world opens once the world before it has earned enough stars (World 2 needs
 50 of World 1's 90). Every mission inside an open world is playable, and the

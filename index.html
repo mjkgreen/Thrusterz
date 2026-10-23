@@ -3,20 +3,20 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<title>Thrusterz</title>
-<meta name="description" content="Fly a rocket under real orbital physics. Launch to orbit, transfers, rendezvous, slingshots and landings, free in your browser.">
+<title>Thrusterz · Orbital Mechanics Rocket Game, Free in Your Browser</title>
+<meta name="description" content="Fly a rocket under real orbital physics. Reach orbit, rendezvous, slingshot past moons and land in 120+ missions. Free in your browser, no sign-up, on desktop and phone.">
 <meta name="theme-color" content="#05060d">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Thrusterz">
-<meta property="og:title" content="Thrusterz">
-<meta property="og:description" content="Fly a rocket under real orbital physics. Launch to orbit, transfers, rendezvous, slingshots and landings.">
+<meta property="og:title" content="Thrusterz · Orbital mechanics rocket game">
+<meta property="og:description" content="Fly a rocket under real orbital physics. Launch to orbit, transfers, rendezvous, slingshots and landings. Free in your browser.">
 <meta property="og:url" content="https://thrusterz.com/">
 <meta property="og:image" content="https://thrusterz.com/img/og-image.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="Thrusterz: a rocket orbiting a blue planet">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Thrusterz">
+<meta name="twitter:title" content="Thrusterz · Orbital mechanics rocket game">
 <meta name="twitter:description" content="Fly a rocket under real orbital physics, free in your browser.">
 <meta name="twitter:image" content="https://thrusterz.com/img/og-image.png">
 <meta name="mobile-web-app-capable" content="yes">
@@ -29,8 +29,38 @@
 <link rel="apple-touch-icon" href="img/apple-touch-icon.png" sizes="180x180">
 <link rel="stylesheet" href="fonts/fonts.css">
 <link rel="stylesheet" href="css/style.css">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": "https://thrusterz.com/#website",
+      "name": "Thrusterz",
+      "url": "https://thrusterz.com/"
+    },
+    {
+      "@type": ["VideoGame", "WebApplication"],
+      "@id": "https://thrusterz.com/#game",
+      "name": "Thrusterz",
+      "url": "https://thrusterz.com/",
+      "image": "https://thrusterz.com/img/og-image.png",
+      "description": "An orbital mechanics flight game. Pilot a rocket with a fuel-limited main engine and side thrusters under real Newtonian gravity: reach orbit, rendezvous, slingshot past moons and land.",
+      "genre": ["Simulation", "Puzzle", "Space flight"],
+      "applicationCategory": "GameApplication",
+      "operatingSystem": "Any (web browser), iOS",
+      "gamePlatform": ["Web browser", "iOS"],
+      "playMode": "SinglePlayer",
+      "inLanguage": "en",
+      "isAccessibleForFree": true,
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+    }
+  ]
+}
+</script>
 </head>
 <body>
+<noscript><p style="padding:24px;font:16px system-ui;color:#dfe6ff">Thrusterz is a browser game and needs JavaScript turned on to play.</p></noscript>
 <canvas id="view"></canvas>
 
 <!-- In-flight HUD -->
@@ -104,7 +134,62 @@
 </div>
 
 <!-- Screens -->
-<div id="menu" class="screen">
+<!-- First visit: what the game is, and one tap into the first mission. Plain
+     HTML so search engines and link previews can read it. -->
+<main id="landing" class="screen">
+  <section class="ld-hero">
+    <img class="logo-mark" src="icon.svg" alt="" width="72" height="72">
+    <h1 class="logo">THRUSTERZ</h1>
+    <p class="ld-pitch">Fly a rocket under real orbital physics. Launch, reach orbit, rendezvous, slingshot past moons and land, one burn at a time.</p>
+    <div class="ld-cta">
+      <button id="btn-ld-play" class="primary ld-play">Play now ▸</button>
+      <span class="small">Free in your browser · your first flight takes 20 seconds · no sign-up</span>
+    </div>
+    <div class="ld-alt">
+      <button id="btn-ld-skip" class="ghost">Know your orbits? Skip training</button>
+      <button id="btn-ld-restore" class="ghost online-only">Played before? Restore your pilot</button>
+    </div>
+    <div id="ld-restore" class="pf-row hidden">
+      <label for="ld-restore-input" class="k">Your restore code</label>
+      <div class="pf-inline" data-label="Restore code"><input id="ld-restore-input" placeholder="XXXX-XXXX-XXXX" maxlength="16" autocomplete="off" autocapitalize="characters" spellcheck="false"><button id="btn-ld-restore-go" class="primary">Restore</button></div>
+      <p class="small" id="ld-status">It's under Pilot on the device you played on.</p>
+    </div>
+    <a class="ld-more web-only" href="#ld-about">What is Thrusterz? ↓</a>
+  </section>
+
+  <div class="ld-info web-only">
+    <section id="ld-about">
+      <h2>A flight school for orbital mechanics</h2>
+      <p>Thrusterz is a physics game about flying spacecraft the way they really move. You have a main engine, side thrusters that set your spin, and a limited fuel tank. Gravity does the rest. Burn the wrong way and you'll watch your orbit drift off course; burn at the right moment and a tiny nudge carries you to another planet.</p>
+      <ul class="ld-feats">
+        <li><b>Real Newtonian gravity.</b> Every planet and moon pulls on you. Orbits, transfers and gravity assists work like they do for real spacecraft.</li>
+        <li><b>Learn by flying.</b> Training starts with a single button and adds one control at a time. No physics knowledge needed.</li>
+        <li><b>Fuel is your score.</b> Three stars for flying under par Δv. Then race other pilots on the leaderboards.</li>
+        <li><b>Plays anywhere.</b> Keyboard on desktop, touch controls on phones and tablets, and an app for iPhone.</li>
+      </ul>
+    </section>
+    <section>
+      <h2>Five worlds of missions</h2>
+      <ol class="ld-worlds">
+        <li><b>Training.</b> One control at a time: liftoff, pointing, stopping, coasting, reference frames.</li>
+        <li><b>Flight School.</b> Reach orbit, circularize, deorbit, land on a spinning planet, dock with a station, and on to interplanetary transfers and moon tours.</li>
+        <li><b>Payloads.</b> Rockets that come apart: staging, deploying satellites and dodging the debris you leave behind.</li>
+        <li><b>No-Fly Zones.</b> Keep-out areas, asteroid fields and flip burns on a limited side-thruster budget.</li>
+        <li><b>Pulsar.</b> Radiation: hide in a planet's shadow, time your pass between a pulsar's sweeping beams, and keep your dose down.</li>
+      </ol>
+    </section>
+    <section>
+      <h2>Questions</h2>
+      <details><summary>Is Thrusterz free?</summary><p>Yes. The whole game plays free in your browser, with no ads and no tracking.</p></details>
+      <details><summary>Do I need to know physics?</summary><p>No. The Training missions teach every control and idea as you fly. If you've played Kerbal Space Program you'll feel at home, but it isn't required.</p></details>
+      <details><summary>Does it work on my phone?</summary><p>Yes. Turn your phone sideways and it plays full screen with touch controls: rotate with your left thumb, burn with your right.</p></details>
+      <details><summary>How do I keep my progress?</summary><p>Stars save on your device automatically. Pick a pilot name and you get a restore code that brings your stars back on any other device.</p></details>
+    </section>
+    <footer class="ld-foot small"><a href="support.html" class="plain">Help &amp; support</a> · <a href="privacy.html" class="plain">Privacy policy</a></footer>
+  </div>
+</main>
+
+<div id="menu" class="screen hidden">
   <div id="menu-top">
     <button id="btn-profile" class="mt-pilot" aria-label="Pilot profile"><span class="mt-icon">👤</span><span id="menu-pilot">Pilot</span></button>
     <div id="menu-stars" class="mt-stars" aria-label="Total stars"></div>
@@ -206,11 +291,12 @@
 
 <div id="welcome" class="screen hidden">
   <div class="card profile-card">
-    <div class="eyebrow">Welcome, pilot</div>
-    <h1 id="wl-title">What should we call you?</h1>
+    <div class="eyebrow">First stars earned</div>
+    <h1 id="wl-title">Save your stars</h1>
     <div id="wl-ask">
+      <p class="small">Pick a pilot name and you get a restore code that brings your stars back on any device. You'll also show up on the leaderboards.</p>
       <div class="pf-row">
-        <label for="wl-name" class="k">Your name on the leaderboards</label>
+        <label for="wl-name" class="k">Pilot name</label>
         <div class="pf-inline" data-label="Pilot name"><input id="wl-name" maxlength="16" autocomplete="off" autocapitalize="words" spellcheck="false" placeholder="Pilot name"><button id="btn-wl-save" class="primary">Save</button></div>
       </div>
       <p class="small" id="wl-status"></p>
@@ -222,7 +308,7 @@
         <div class="pf-inline"><code id="wl-code">····-····-····</code><button id="btn-wl-copy" class="ghost">Copy</button></div>
         <span class="small">Write it down or screenshot it. On a new device, enter it under Pilot and your stars come back. You can always find it there.</span>
       </div>
-      <div class="buttons"><button id="btn-wl-go" class="primary">Start flying ▸</button></div>
+      <div class="buttons"><button id="btn-wl-go" class="primary">Keep flying ▸</button></div>
     </div>
   </div>
 </div>
