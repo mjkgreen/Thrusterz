@@ -281,7 +281,7 @@ const check = (name, ok, info) => { console.log((ok ? 'ok   ' : 'FAIL ') + name 
     await p.close();
   }
 
-  // 6. Tilt to steer: off by default; on, tipping the phone fires the side
+  // 6. Tilt to steer: on by default (said once); tipping the phone fires the side
   //    thrusters like holding ⟲ / ⟳, the buttons still work and win, and
   //    the steering maths reads a landscape phone the right way round.
   {
@@ -319,11 +319,15 @@ const check = (name, ok, info) => { console.log((ok ? 'ok   ' : 'FAIL ') + name 
       T.startLevel(window.Levels.LEVELS.findIndex(l => l.id === 'point'));
       document.getElementById('gate').classList.add('hidden');
       const send = (o) => window.dispatchEvent(Object.assign(new Event('deviceorientation'), { alpha: 0, beta: o.b, gamma: o.g }));
-      T.settings.tilt = false;
-      out.offByDefault = !JSON.parse(localStorage.getItem('thrusterz.settings') || '{}').tilt;
-      // Switch it on the way a player does (readings must arrive to keep it on).
-      const sw = document.querySelector('#settings .toggle[data-set="tilt"]');
+      out.onByDefault = T.settings.tilt === true;
+      // With readings coming in, the first mission says once that tilt is on.
       const keep = setInterval(() => send(level), 50);
+      await wait(2800);
+      out.noticeShown = /Tilt to steer is on/.test(document.getElementById('toast').textContent);
+      // Off and back on the way a player does (readings must arrive to keep it on).
+      const sw = document.querySelector('#settings .toggle[data-set="tilt"]');
+      sw.click(); await wait(50);
+      out.switchedOff = T.settings.tilt === false && sw.getAttribute('aria-pressed') === 'false';
       sw.click(); await wait(1700);
       clearInterval(keep);
       out.switchedOn = T.settings.tilt === true && sw.getAttribute('aria-pressed') === 'true';
@@ -350,7 +354,7 @@ const check = (name, ok, info) => { console.log((ok ? 'ok   ' : 'FAIL ') + name 
     });
     check('tilt: the steering angle reads a landscape phone the right way round',
       Math.abs(r.landscapeRight - 20) < 0.5 && Math.abs(r.portraitRight - 0) > 5 && r.portraitRight > 0 && r.flat === null, JSON.stringify(r));
-    check('tilt: off by default, switched on in Settings', r.offByDefault && r.switchedOn, JSON.stringify(r));
+    check('tilt: on by default with a one-time note, and switches off and on in Settings', r.onByDefault && r.noticeShown && r.switchedOff && r.switchedOn, JSON.stringify(r));
     check('tilt: tipping right fires the right thruster and lights ⟳', r.tiltRotate === -1 && r.spunRight && r.buttonLit && r.buttonsVisible, JSON.stringify(r));
     check('tilt: the buttons still work and win', r.buttonWins, JSON.stringify(r));
     check('tilt: no readings or switched off means no rotation', r.staleIsZero && r.offIsZero, JSON.stringify(r));

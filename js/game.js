@@ -156,6 +156,10 @@
 
   // ---------------------------------------------------------------- level
   function startLevel(i) {
+    // Tilt is on by default: say so once, when the phone is actually sending readings.
+    setTimeout(() => {
+      if (settings.tilt && isTouch() && tilt.seen && state.mission) noteOnce('notedTilt', 'Tilt to steer is on: tip your phone left or right to turn. You can switch it off in Settings.');
+    }, 2500);
     state.levelIndex = i;
     const level = LEVELS[i];
     state.mission = new Mission(level);
@@ -522,7 +526,7 @@
   }
   // Rotate input from tilt right now (0 if off, stale or not flying).
   function tiltRotate() {
-    if (!settings.tilt || !state.mission || performance.now() - tilt.at > 500) return 0;
+    if (!settings.tilt || !isTouch() || !state.mission || performance.now() - tilt.at > 500) return 0;
     return tilt.dir;
   }
   // Light up the matching on-screen button while tilt fires it.
@@ -2919,7 +2923,7 @@
   // ------------------------------------------------------------ settings
   // Sound effects, music and (in the app) vibration. Kept on this device.
   const SETTINGS = 'thrusterz.settings';
-  const settings = Object.assign({ sfxVol: 0.8, musicVol: 0.5, haptics: true, ignoreSilent: true, autoFrame: true, autoZoom: true, tilt: false }, Online.Store.get(SETTINGS) || {});
+  const settings = Object.assign({ sfxVol: 0.8, musicVol: 0.5, haptics: true, ignoreSilent: true, autoFrame: true, autoZoom: true, tilt: true }, Online.Store.get(SETTINGS) || {});
   if (/iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)) document.body.classList.add('ios');
   // Settings saved before the volume sliders had on/off switches. Music was
   // off by default then, so only a switched-off sound effects carries over.
@@ -2970,9 +2974,23 @@
     Online.Store.set(SETTINGS, settings);
     renderSettings();
   });
-  // Turned on in an earlier visit: Android and the web keep the permission,
-  // so just listen (iOS may need the switch toggled again to ask).
+  // On by default. Android and most browsers just send readings; iOS needs
+  // motion access, which can only be asked for from a tap, so ask on the
+  // first one. Refused: switch tilt off and say how to get it back.
   if (settings.tilt) listenTilt(true);
+  let tiltAsked = false;
+  const askTilt = () => {
+    const D = window.DeviceOrientationEvent;
+    if (tiltAsked || !settings.tilt || !isTouch() || !D || typeof D.requestPermission !== 'function') return;
+    tiltAsked = true;
+    D.requestPermission().then((r) => {
+      if (r === 'granted') return;
+      settings.tilt = false; listenTilt(false); Online.Store.set(SETTINGS, settings); renderSettings();
+      toast('Tilt to steer is off: motion access wasn\'t allowed. Turn it on in Settings.', 4);
+    }).catch(() => { tiltAsked = false; });
+  };
+  document.addEventListener('touchend', askTilt);
+  document.addEventListener('click', askTilt);
 
   for (const b of document.querySelectorAll('#settings .toggle')) {
     b.onclick = () => {
