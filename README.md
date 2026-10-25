@@ -37,7 +37,12 @@ in menu order.
 | `R` · `Esc` | Restart · pause |
 
 Touch devices get on-screen controls: rotate on the left thumb, BURN on the right,
-warp / frame / gyro in the middle. Pinch to zoom.
+warp / frame / gyro in the middle. Pinch to zoom. **Tilt to steer** (on by
+default, with a one-time note that Settings can switch it off; iOS asks for
+motion access on the first tap) fires the side thrusters when you tip the phone left or right
+like a steering wheel, exactly as if ⟲ / ⟳ were held (past 12°, letting go
+below 7°; lying flat counts as level). The buttons keep working alongside it
+and win if they disagree, and light up while tilt is firing them.
 
 On phones the game plays in landscape and fullscreen: a portrait phone gets a
 "rotate your phone" screen, and leaving fullscreen, rotating back or switching
