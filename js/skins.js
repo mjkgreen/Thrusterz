@@ -344,14 +344,18 @@
   // How to place pieces [from, to) of a stack: scaled, and shifted so the
   // pieces flying now are centred on the ship. `shownFrom` is the bottom
   // piece of the stack the ship had when these pieces were on it.
-  function stackXform(hull, L, shownFrom) {
-    const c = CUSTOM[hull.custom], ps = c.pieces.slice(shownFrom), t = -L + 1;
-    const x0 = Math.min(...ps.map(p => p.x0)), x1 = Math.max(...ps.map(p => p.x1));
-    return { k: c.scale, dx: -(t + (x0 + x1) / 2), t };
+  // What is left after dropping stages is enlarged to the whole stack's
+  // length, so an upper stage flies full size; `grow` (0..1) eases it there
+  // just after a drop.
+  const span = (ps) => [Math.min(...ps.map(p => p.x0)), Math.max(...ps.map(p => p.x1))];
+  function stackXform(hull, L, shownFrom, grow) {
+    const c = CUSTOM[hull.custom], t = -L + 1, [x0, x1] = span(c.pieces.slice(shownFrom)), [a0, a1] = span(c.pieces);
+    const fit = (a1 - a0) / (x1 - x0), g = grow == null ? 1 : grow;
+    return { k: c.scale * (1 + (fit - 1) * g), dx: -(t + (x0 + x1) / 2), t };
   }
-  function drawStack(g, L, payload, hull, from, to, shownFrom) {
+  function drawStack(g, L, payload, hull, from, to, shownFrom, grow) {
     const c = CUSTOM[hull.custom], f = from == null ? 0 : from, e = to == null ? c.pieces.length : to;
-    const x = stackXform(hull, L, shownFrom == null ? f : shownFrom);
+    const x = stackXform(hull, L, shownFrom == null ? f : shownFrom, grow);
     g.save(); g.scale(x.k, x.k); g.translate(x.dx, 0);
     for (let i = f; i < e; i++) c.pieces[i].draw(g, x.t, payload && i === c.pieces.length - 1, hull, i === f);
     g.restore();
@@ -360,8 +364,8 @@
   // Where a whole stack's nose and tail end up (for fitting icons).
   function stackRight(hull, L) { const c = CUSTOM[hull.custom], x = stackXform(hull, L, 0); return (x.t + Math.max(...c.pieces.map(p => p.x1)) + x.dx) * x.k + 0.5; }
   // Engines of a stack showing from piece `from` up: { x, y } of each.
-  function stackEngines(hull, L, from) {
-    const c = CUSTOM[hull.custom], x = stackXform(hull, L, from);
+  function stackEngines(hull, L, from, grow) {
+    const c = CUSTOM[hull.custom], x = stackXform(hull, L, from, grow);
     const out = [];
     for (const p of c.pieces.slice(from)) for (const y of p.engines) out.push({ x: (x.t + p.tail + x.dx) * x.k, y: y * x.k });
     return { list: out, k: x.k };
@@ -375,11 +379,12 @@
 
   // The rocket body. `payload`: the nose is the gold fairing holding cargo
   // (the same for every skin: it tells you there's something to drop).
-  // from, to, shownFrom: for stacked rockets, which pieces to draw (see
-  // piecesFor); other hulls ignore them.
-  function drawRocket(g, L, payload, hull, from, to, shownFrom) {
+  // from, to, shownFrom, grow: for stacked rockets, which pieces to draw
+  // (see piecesFor) and how far they've grown since the last drop; other
+  // hulls ignore them.
+  function drawRocket(g, L, payload, hull, from, to, shownFrom, grow) {
     hull = hull || HULLS[0];
-    if (hull.custom) { drawStack(g, L, payload, hull, from, to, shownFrom); return; }
+    if (hull.custom) { drawStack(g, L, payload, hull, from, to, shownFrom, grow); return; }
     const needle = hull.shape === 'needle', W = needle ? 3 : 3.4, tail = -L + 1;
     // Fins (behind the hull)
     g.fillStyle = hull.fin; g.strokeStyle = hull.finLine || hull.line; g.lineWidth = 0.8;
@@ -499,12 +504,12 @@
 
   // The main engine's flame behind the nozzle; f is its size (throttle with
   // flicker), t the time in seconds (for pulsing flames).
-  function drawFlame(g, L, f, flame, t, hull, from) {
+  function drawFlame(g, L, f, flame, t, hull, from, grow) {
     flame = flame || FLAMES[0];
     // Stacked rockets fire from each engine of the pieces still attached,
     // with a slimmer flame from each.
     if (hull && hull.custom) {
-      const e = stackEngines(hull, L, from || 0), x0 = -L - 0.5;
+      const e = stackEngines(hull, L, from || 0, grow), x0 = -L - 0.5;
       for (const { x, y } of e.list) { g.save(); g.translate(x - x0 + 0.5 * e.k, y); g.scale(1, 0.55 * e.k); drawFlame(g, L, f * 0.85, flame, t); g.restore(); }
       return;
     }

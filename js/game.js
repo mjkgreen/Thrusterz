@@ -1759,6 +1759,15 @@
     return Skins.piecesFor(hull, k, m.stages.filter(st => st.sprite !== 'satellite').length);
   }
 
+  // After a drop, what's left grows to full size over 0.4 s (in real time,
+  // so it reads the same at any warp).
+  function stackGrow(m, pc) {
+    if (!pc || !pc.ship[0]) return 0;
+    if (m._growStage !== m.stage) { m._growStage = m.stage; m._growAt = performance.now(); }
+    const u = Math.min(1, (performance.now() - m._growAt) / 400);
+    return u * u * (3 - 2 * u);
+  }
+
   function drawShip() {
     const m = state.mission, s = m.ship, hull = Skins.HULL[myLook().hull];
     m.debris.forEach((d, k) => {
@@ -1768,7 +1777,7 @@
       }
       const [dx, dy] = w2s(d.x, d.y), pc = stackPieces(m, k);
       ctx.save(); ctx.globalAlpha = 0.75; ctx.translate(dx, dy); ctx.rotate(-d.angle);
-      if (pc) Skins.drawRocket(ctx, 9, false, hull, pc.dropped[0], pc.dropped[1], pc.ship[0]);
+      if (pc) Skins.drawRocket(ctx, 9, false, hull, pc.dropped[0], pc.dropped[1], pc.ship[0], k ? 1 : 0);
       else drawRocketBody(9, false);
       ctx.restore();
     });
@@ -1791,13 +1800,13 @@
     } else if (m.thrusting) {
       // Two-tone flame like the icon, in the pilot's chosen colours.
       const pc = sat ? null : stackPieces(m, m.stage);
-      Skins.drawFlame(ctx, L, (0.75 + Math.random() * 0.45) * state.throttle, Skins.FLAME[myLook().flame], performance.now() / 1000, sat ? null : hull, pc && pc.ship[0]);
+      Skins.drawFlame(ctx, L, (0.75 + Math.random() * 0.45) * state.throttle, Skins.FLAME[myLook().flame], performance.now() / 1000, sat ? null : hull, pc && pc.ship[0], stackGrow(m, pc));
     }
     const pc = sat ? null : stackPieces(m, m.stage);
     if (sat) drawSatelliteBody();
     // A stacked rocket shows its stages as pieces, so its gold marker is
     // only for a satellite still to release.
-    else if (pc) Skins.drawRocket(ctx, L, m.stages.slice(m.stage + 1).some(st => st.sprite === 'satellite'), hull, pc.ship[0], pc.ship[1], pc.ship[0]);
+    else if (pc) Skins.drawRocket(ctx, L, m.stages.slice(m.stage + 1).some(st => st.sprite === 'satellite'), hull, pc.ship[0], pc.ship[1], pc.ship[0], stackGrow(m, pc));
     else drawRocketBody(L, m.canDeploy() || (m.landed && m.stages.length > 1));
     ctx.restore();
   }
