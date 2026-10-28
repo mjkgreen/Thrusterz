@@ -177,6 +177,35 @@ const check = (name, ok, info) => { console.log((ok ? 'ok   ' : 'FAIL ') + name 
     errors.length = 0;
   }
 
+  // 3. First visit (as a real browser, not an automated one): the landing
+  //    page, Play straight into the first mission, the pilot name asked only
+  //    after the first win, then on to the next mission; a return visit goes
+  //    straight to the menu.
+  {
+    const ctx = await browser.newContext({ viewport: { width: 1000, height: 600 } });
+    await ctx.addInitScript(() => Object.defineProperty(Navigator.prototype, 'webdriver', { get: () => false }));
+    // The win below is faked, so the server's replay check would refuse the run.
+    await ctx.route('**/api/runs', r => r.fulfill({ contentType: 'application/json', body: '{}' }));
+    const p = await ctx.newPage();
+    watch(p);
+    await p.goto(URL);
+    await p.waitForTimeout(300);
+    const landing = await p.isVisible('#landing') && !(await p.isVisible('#menu'));
+    await p.click('#btn-ld-play');
+    const flying = await p.evaluate(() => window.Thrusterz.state.screen === 'flight' && window.Thrusterz.state.levelIndex === 0 && document.getElementById('landing').classList.contains('hidden'));
+    await p.evaluate(() => { const m = window.Thrusterz.state.mission; m.status = 'won'; });
+    await p.waitForSelector('#result:not(.hidden)', { timeout: 5000 }).catch(() => {});
+    await p.click('#btn-res-next');
+    const asked = await p.isVisible('#welcome');
+    await p.click('#btn-wl-skip');
+    const nextBrief = await p.isVisible('#briefing') && await p.evaluate(() => window.Thrusterz.state.levelIndex === 1);
+    await p.reload(); await p.waitForTimeout(300);
+    const back = await p.isVisible('#menu') && !(await p.isVisible('#landing'));
+    check('first visit: landing, Play flies mission 1, name asked after the first win, return visit goes to the menu', landing && flying && asked && nextBrief && back && errors.length === 0, JSON.stringify({ landing, flying, asked, nextBrief, back }) + ' ' + errors.slice(0, 2).join(' | '));
+    await ctx.close();
+    errors.length = 0;
+  }
+
   // 3a. First launch: a new pilot is asked for a name and gets a restore code.
   {
     const p = await browser.newPage({ viewport: { width: 1000, height: 600 } });

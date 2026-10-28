@@ -85,7 +85,9 @@
     if (JSON.stringify(merged) === JSON.stringify(Sync.mergeProgress(progress, {}))) return false;
     Object.assign(progress, merged);
     Online.Store.set(STORE, progress);
-    if (state.screen === 'menu' && !$('menu').classList.contains('hidden')) showMenu();
+    // Stars turning up from the app's native copy or the cloud mean this
+    // isn't a first visit after all.
+    if ((state.screen === 'menu' && !$('menu').classList.contains('hidden')) || (state.screen === 'landing' && Object.keys(progress.stars).length)) showMenu();
     return true;
   }
   const progress = loadProgress();
@@ -127,7 +129,8 @@
   function applyLayout() {
     const iw = window.innerWidth, ih = window.innerHeight;
     const phone = window.matchMedia('(pointer: coarse)').matches && Math.min(screen.width, screen.height) < 600;
-    const rot = phone && !Bridge.inApp && ih > iw;
+    // The landing page reads like a web page, so it stays upright.
+    const rot = phone && !Bridge.inApp && ih > iw && $('landing').classList.contains('hidden');
     // Keep clear of the status bar and home indicator (top and bottom of the
     // upright screen, which are the game's left and right when sideways).
     const ins = rot ? safeInsets() : { top: 0, bottom: 0 };
@@ -2455,6 +2458,7 @@
     state.screen = 'menu';
     state.flow = false;
     hide('hud'); hide('briefing'); hide('result'); hide('pause'); hide('help'); hide('board'); hide('profile');
+    leaveLanding();
     show('menu');
     const hasTests = LEVELS.some(l => l.test);
     if (state.menuTab == null || (state.menuTab !== TEST_TAB && !WORLDS.some(w => w.n === state.menuTab))) state.menuTab = progress.tab != null ? progress.tab : defaultTab();
@@ -2626,7 +2630,8 @@
   let fsUnavailable = false; // set when the browser refuses fullscreen
 
   function gateReason() {
-    if (!isTouch()) return null;
+    // The landing page asks for fullscreen itself, when you tap Play.
+    if (!isTouch() || state.screen === 'landing') return null;
     if (!fsEl() && !standalone() && fsSupported() && !fsUnavailable) return 'fullscreen';
     return null;
   }
@@ -2677,9 +2682,10 @@
 
   $('btn-brief-go').onclick = () => startLevel(state.levelIndex);
   $('btn-brief-back').onclick = showMenu;
-  $('btn-res-menu').onclick = showMenu;
+  // After a first win, ask for a pilot name before moving on (see offerWelcome).
+  $('btn-res-menu').onclick = () => offerWelcome(showMenu);
   $('btn-res-retry').onclick = () => { hide('result'); startLevel(state.levelIndex); };
-  $('btn-res-next').onclick = () => { hide('result'); showBriefing(nextIndex(state.levelIndex)); };
+  $('btn-res-next').onclick = () => offerWelcome(() => { hide('result'); showBriefing(nextIndex(state.levelIndex)); });
   $('btn-resume').onclick = togglePause;
   $('btn-restart').onclick = () => { hide('pause'); startLevel(state.levelIndex); };
   // Quick restart beside pause: tap once to arm ("Restart?"), again to go.
@@ -2918,7 +2924,10 @@
 
   // In the app, the native copy of progress survives the OS clearing WebView
   // storage; fold it back in, then sync with the cloud.
-  Online.Store.getNative(STORE).then((p) => { if (p) mergeIn(p); }).finally(() => { Online.start(); maybeWelcome(); });
+  Online.Store.getNative(STORE).then((p) => { if (p) mergeIn(p); }).finally(() => {
+    Online.start();
+    if (new URLSearchParams(location.search).has('welcome') && !$('menu').classList.contains('hidden')) offerWelcome(showMenu, true);
+  });
 
   // ------------------------------------------------------------ settings
   // Sound effects, music and (in the app) vibration. Kept on this device.
@@ -3020,20 +3029,24 @@
     }
   }
 
-  // First launch (no stars yet): ask for a pilot name and hand out the
-  // restore code, so nobody loses their stars. Asked once; Pilot has it all later.
+  // After the first mission you win, ask for a pilot name and hand out the
+  // restore code, so nobody loses their stars. Play first, sign up later:
+  // by then there's something worth saving. Asked once; Pilot has it all later.
   const WELCOMED = 'thrusterz.welcomed';
-  function maybeWelcome() {
+  let afterWelcome = null;
+  function offerWelcome(then, force) {
     const stars = Object.values(progress.stars).reduce((a, b) => a + b, 0);
-    const q = new URLSearchParams(location.search);
-    // Not mid-mission, and not for automated browsers unless asked (?welcome).
-    if (!Online.available() || q.has('level') || $('menu').classList.contains('hidden')) return;
-    if (!q.has('welcome') && (stars > 0 || Online.Store.get(WELCOMED) || navigator.webdriver)) return;
-    hide('menu'); show('welcome');
+    // Not for automated browsers unless asked (?welcome).
+    if (!force && (!Online.available() || stars === 0 || Online.Store.get(WELCOMED) || navigator.webdriver)) { then(); return; }
+    afterWelcome = then;
+    hide('menu'); hide('result'); show('welcome');
     $('wl-ask').classList.remove('hidden'); $('wl-done').classList.add('hidden');
-    setTimeout(() => $('wl-name').focus(), 50);
+    if (!isTouch()) setTimeout(() => $('wl-name').focus(), 50);
   }
-  function endWelcome() { Online.Store.set(WELCOMED, true); hide('welcome'); showMenu(); }
+  function endWelcome() {
+    Online.Store.set(WELCOMED, true); hide('welcome');
+    const then = afterWelcome || showMenu; afterWelcome = null; then();
+  }
   $('btn-wl-save').onclick = async () => {
     const btn = $('btn-wl-save'), st = $('wl-status');
     btn.disabled = true; st.className = 'small'; st.textContent = 'Saving…';
@@ -3081,13 +3094,65 @@
     try { await navigator.clipboard.writeText(code); toast('Restore code copied', 1.2); } catch (e) { toast(code, 3); }
   };
 
+  // ------------------------------------------------------------- landing
+  // First visit: say what the game is, then one tap into the first Training
+  // mission (it takes seconds and the coach prompts teach it), a way past
+  // Training for pilots who know orbits, and a restore code for returning
+  // pilots on a new device. Anyone with stars, or who has been past it
+  // once, goes straight to the menu.
+  const VISITED = 'thrusterz.visited';
+  function leaveLanding() {
+    if ($('landing').classList.contains('hidden')) return;
+    Online.Store.set(VISITED, true);
+    hide('landing');
+    resize(); // a phone held upright goes back to drawing the game sideways
+    updateGate();
+  }
+  function showLanding() {
+    state.screen = 'landing';
+    hide('menu'); show('landing');
+    resize();
+  }
+  $('btn-ld-play').onclick = () => {
+    // Fullscreen has to start from the tap itself.
+    if (isTouch() && !fsEl() && !standalone() && fsSupported()) enterFullscreen();
+    leaveLanding();
+    startLevel(0);
+  };
+  $('btn-ld-skip').onclick = () => { state.menuTab = 1; progress.tab = 1; saveProgress(); showMenu(); };
+  $('btn-ld-restore').onclick = () => {
+    $('ld-restore').classList.toggle('hidden');
+    if (!$('ld-restore').classList.contains('hidden')) $('ld-restore-input').focus();
+  };
+  $('btn-ld-restore-go').onclick = async () => {
+    const btn = $('btn-ld-restore-go'), st = $('ld-status'), code = $('ld-restore-input').value.trim();
+    st.className = 'small';
+    if (!code) { st.className = 'small warn'; st.textContent = 'Enter your restore code first.'; return; }
+    btn.disabled = true; st.textContent = 'Restoring…';
+    try {
+      await Online.restore(code);
+      Online.Store.set(WELCOMED, true);
+      $('ld-restore-input').value = '';
+      showMenu();
+      toast('Welcome back. Your stars are restored.', 2);
+    } catch (e) {
+      st.className = 'small warn';
+      st.textContent = e.offline ? 'You\'re offline. Try again when you\'re connected.' : e.message;
+    }
+    btn.disabled = false;
+  };
+  $('ld-restore-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('btn-ld-restore-go').click(); e.stopPropagation(); });
+
   // ---------------------------------------------------------------- boot
   const qs = new URLSearchParams(location.search);
+  const firstVisit = () => Object.keys(progress.stars).length === 0 && !Online.Store.get(VISITED) && !Online.Store.get(WELCOMED);
   if (qs.has('level')) {
     const i = Math.max(0, Math.min(LEVELS.length - 1, (+qs.get('level') || 1) - 1));
     progress.unlocked = Math.max(progress.unlocked, i);
+    leaveLanding();
     startLevel(i);
-  } else showMenu();
+  } else if (qs.has('landing') || (firstVisit() && !navigator.webdriver && !qs.has('unlock'))) showLanding();
+  else showMenu();
   updateGate();
   requestAnimationFrame(frame);
 
