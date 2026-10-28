@@ -168,7 +168,7 @@ body.touch #touch {
   background: rgba(255, 140, 50, 0.28); border-color: rgba(255, 170, 90, 0.6);
   font-weight: 800; font-size: 16px; letter-spacing: 0.1em;
 }
-#touch button.on { background: rgba(124, 247, 212, 0.35); }
+#touch button.on, #touch button.tilt-on { background: rgba(124, 247, 212, 0.35); }
 
 /* ------------------------------------------------------------ screens */
 .screen {

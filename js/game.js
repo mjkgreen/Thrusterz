@@ -159,6 +159,10 @@
 
   // ---------------------------------------------------------------- level
   function startLevel(i) {
+    // Tilt is on by default: say so once, when the phone is actually sending readings.
+    setTimeout(() => {
+      if (settings.tilt && isTouch() && tilt.seen && state.mission) noteOnce('notedTilt', 'Tilt to steer is on: tip your phone left or right to turn. You can switch it off in Settings.');
+    }, 2500);
     state.levelIndex = i;
     const level = LEVELS[i];
     state.mission = new Mission(level);
@@ -486,10 +490,65 @@
   const pulse = { dir: 0, until: 0 };
   function startPulse(dir) { pulse.dir = dir; pulse.until = performance.now() + PULSE_MS; }
 
+  // Tilt to steer (Settings): tip the phone left or right like a steering
+  // wheel and the side thrusters fire exactly as if ⟲ / ⟳ were held, so the
+  // rate is the same. The buttons and keys keep working alongside it and win
+  // if they disagree.
+  const TILT_ON = 12 * Math.PI / 180, TILT_OFF = 7 * Math.PI / 180;
+  const tilt = { dir: 0, angle: 0, at: 0, seen: false, listening: false };
+  // Steering angle (radians, + = right side down) from a deviceorientation
+  // reading: gravity in device axes, turned into screen axes by the screen's
+  // rotation, then its angle away from straight down the screen. null when
+  // the phone lies flat and there's no "down" on the screen to steer by.
+  function tiltAngle(beta, gamma, screenAngle) {
+    const b = beta * Math.PI / 180, g = gamma * Math.PI / 180, a = screenAngle * Math.PI / 180;
+    const dx = Math.cos(b) * Math.sin(g), dy = -Math.sin(b);
+    const sx = dx * Math.cos(a) - dy * Math.sin(a), sy = dx * Math.sin(a) + dy * Math.cos(a);
+    if (Math.hypot(sx, sy) < 0.35) return null;
+    return Math.atan2(sx, -sy);
+  }
+  function screenAngle() {
+    const a = screen.orientation && typeof screen.orientation.angle === 'number' ? screen.orientation.angle
+      : typeof window.orientation === 'number' ? window.orientation : 0;
+    return ((a % 360) + 360) % 360;
+  }
+  function onTilt(e) {
+    if (e.beta == null || e.gamma == null) return;
+    tilt.seen = true; tilt.at = performance.now();
+    const ang = tiltAngle(e.beta, e.gamma, screenAngle());
+    tilt.angle = ang || 0;
+    // Hysteresis, so holding near the edge doesn't flicker on and off.
+    const lim = tilt.dir ? TILT_OFF : TILT_ON;
+    tilt.dir = ang == null ? 0 : ang > lim ? -1 : ang < -lim ? 1 : 0;
+  }
+  function listenTilt(on) {
+    if (on === tilt.listening) return;
+    tilt.listening = on;
+    if (on) window.addEventListener('deviceorientation', onTilt);
+    else { window.removeEventListener('deviceorientation', onTilt); tilt.dir = 0; }
+  }
+  // Rotate input from tilt right now (0 if off, stale or not flying).
+  function tiltRotate() {
+    if (!settings.tilt || !isTouch() || !state.mission || performance.now() - tilt.at > 500) return 0;
+    return tilt.dir;
+  }
+  // Light up the matching on-screen button while tilt fires it.
+  let tiltShown = 0;
+  function showTilt(dir) {
+    if (dir === tiltShown) return;
+    tiltShown = dir;
+    for (const b of document.querySelectorAll('#touch [data-key="rotL"], #touch [data-key="rotR"]')) {
+      b.classList.toggle('tilt-on', (b.dataset.key === 'rotL' && dir === 1) || (b.dataset.key === 'rotR' && dir === -1));
+    }
+  }
+
   function controls() {
     let rotate = ((keys.has('ArrowLeft') || keys.has('KeyA') || touch.rotL) ? 1 : 0) -
                  ((keys.has('ArrowRight') || keys.has('KeyD') || touch.rotR) ? 1 : 0);
     if (!rotate && pulse.dir && performance.now() < pulse.until) rotate = pulse.dir;
+    const t = rotate ? 0 : tiltRotate();
+    showTilt(t);
+    if (!rotate) rotate = t;
     return { thrust: keys.has('Space') || touch.burn, throttle: state.throttle, rotate };
   }
 
@@ -2873,7 +2932,7 @@
   // ------------------------------------------------------------ settings
   // Sound effects, music and (in the app) vibration. Kept on this device.
   const SETTINGS = 'thrusterz.settings';
-  const settings = Object.assign({ sfxVol: 0.8, musicVol: 0.5, haptics: true, ignoreSilent: true, autoFrame: true, autoZoom: true }, Online.Store.get(SETTINGS) || {});
+  const settings = Object.assign({ sfxVol: 0.8, musicVol: 0.5, haptics: true, ignoreSilent: true, autoFrame: true, autoZoom: true, tilt: true }, Online.Store.get(SETTINGS) || {});
   if (/iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)) document.body.classList.add('ios');
   // Settings saved before the volume sliders had on/off switches. Music was
   // off by default then, so only a switched-off sound effects carries over.
@@ -2897,6 +2956,51 @@
     $('set-version').textContent = 'Version ' + ((window.THRUSTERZ_CONFIG || {}).version || '1.0') + ' · audio ' + Sound.status();
   }
   function showSettings(from) { settingsReturn = from; hide(from); renderSettings(); show('settings'); setTimeout(renderSettings, 400); }
+  // Tilt needs motion access. iOS asks once, and only from a tap, so ask
+  // right here when the switch is turned on; if it's refused (or the device
+  // sends no readings), switch it back off and say why.
+  async function enableTilt() {
+    const D = window.DeviceOrientationEvent;
+    if (!D) return 'This device has no tilt sensor.';
+    if (typeof D.requestPermission === 'function') {
+      try { if (await D.requestPermission() !== 'granted') return 'Motion access was not allowed. You can allow it in your device settings.'; }
+      catch (e) { return 'Motion access was not allowed.'; }
+    }
+    listenTilt(true);
+    tilt.seen = false;
+    await new Promise(r => setTimeout(r, 1500));
+    return tilt.seen ? null : 'No tilt readings from this device.';
+  }
+  const tiltRow = document.querySelector('#settings .toggle[data-set="tilt"]');
+  if (tiltRow) tiltRow.addEventListener('click', async (e) => {
+    e.stopImmediatePropagation();
+    if (settings.tilt) { settings.tilt = false; listenTilt(false); }
+    else {
+      settings.tilt = true; renderSettings();
+      const err = await enableTilt();
+      if (err) { settings.tilt = false; listenTilt(false); toast(err, 3); }
+    }
+    Online.Store.set(SETTINGS, settings);
+    renderSettings();
+  });
+  // On by default. Android and most browsers just send readings; iOS needs
+  // motion access, which can only be asked for from a tap, so ask on the
+  // first one. Refused: switch tilt off and say how to get it back.
+  if (settings.tilt) listenTilt(true);
+  let tiltAsked = false;
+  const askTilt = () => {
+    const D = window.DeviceOrientationEvent;
+    if (tiltAsked || !settings.tilt || !isTouch() || !D || typeof D.requestPermission !== 'function') return;
+    tiltAsked = true;
+    D.requestPermission().then((r) => {
+      if (r === 'granted') return;
+      settings.tilt = false; listenTilt(false); Online.Store.set(SETTINGS, settings); renderSettings();
+      toast('Tilt to steer is off: motion access wasn\'t allowed. Turn it on in Settings.', 4);
+    }).catch(() => { tiltAsked = false; });
+  };
+  document.addEventListener('touchend', askTilt);
+  document.addEventListener('click', askTilt);
+
   for (const b of document.querySelectorAll('#settings .toggle')) {
     b.onclick = () => {
       settings[b.dataset.set] = !settings[b.dataset.set];
@@ -3062,5 +3166,5 @@
   window.__reportCrash = reportCrash;
 
   // Expose for debugging / automated testing.
-  window.Thrusterz = { state, startLevel, showMenu, showBriefing, levelCount: LEVELS.length };
+  window.Thrusterz = { state, startLevel, showMenu, showBriefing, levelCount: LEVELS.length, controls, tiltAngle, settings };
 })();
