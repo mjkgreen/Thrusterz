@@ -121,6 +121,26 @@ button { font-family: var(--sans); }
 }
 #toast.show { opacity: 1; transform: translate(-50%, 0); }
 
+/* Alert: a big warning bottom-centre (a storm on its way). far: steady;
+   soon: flashing; now: flashing fast; on: while it blows; over: fades. */
+#alert {
+  position: absolute; left: 50%; bottom: 36px; transform: translate(-50%, 0);
+  padding: 10px 20px; border-radius: 12px; white-space: nowrap;
+  font-family: var(--mono); font-size: clamp(15px, calc(2.2 * var(--vw)), 20px); font-weight: 700; letter-spacing: 0.06em;
+  background: rgba(30, 12, 10, 0.82); border: 1.5px solid rgba(255, 179, 90, 0.7); color: #ffd29a;
+  opacity: 0; pointer-events: none; transition: opacity 0.3s;
+  max-width: calc(calc(100 * var(--vw)) - 32px); overflow: hidden; text-overflow: ellipsis;
+}
+#alert .small { display: block; font-size: 0.62em; font-weight: 500; letter-spacing: 0.02em; opacity: 0.85; }
+#alert.far, #alert.soon, #alert.now, #alert.on, #alert.over { opacity: 1; }
+#alert.soon, #alert.now { border-color: rgba(255, 107, 107, 0.9); color: #ffb0a0; animation: alert-flash 1s steps(2, jump-none) infinite; }
+#alert.now { animation-duration: 0.4s; }
+#alert.on { border-color: #ff6b6b; background: rgba(60, 10, 10, 0.88); color: #ffc2b5; }
+#alert.over { border-color: rgba(124, 247, 212, 0.6); color: #9ff5dc; background: rgba(10, 30, 26, 0.8); }
+@keyframes alert-flash { 0% { background: rgba(120, 20, 15, 0.92); box-shadow: 0 0 24px rgba(255, 90, 70, 0.55); } 100% { background: rgba(30, 12, 10, 0.82); box-shadow: none; } }
+@media (prefers-reduced-motion: reduce) { #alert.soon, #alert.now { animation: none; } }
+body.touch #alert { bottom: 104px; font-size: 14px; padding: 6px 14px; }
+
 /* Coach: big contextual control prompts */
 #coach {
   position: absolute; left: 50%; bottom: 120px; transform: translate(-50%, 12px);
