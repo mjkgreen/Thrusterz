@@ -14,7 +14,7 @@ let html = read('index.html');
 // Things a bundled page doesn't need: web manifest, favicons, social cards,
 // search-engine data.
 html = html.replace(/<link rel="(manifest|icon|apple-touch-icon|canonical)"[^>]*>\n?/g, '')
-  .replace(/<meta (property="og:|name="twitter:)[^>]*>\n?/g, '')
+  .replace(/<meta (property="og:|name="twitter:|name="apple-itunes-app")[^>]*>\n?/g, '')
   .replace(/<script type="application\/ld\+json">[\s\S]*?<\/script>\n?/g, '');
 
 // Stylesheets, with url(...) references made into data URIs.
