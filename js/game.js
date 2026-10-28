@@ -1750,18 +1750,28 @@
     }
   }
 
+  // Stacked hulls (Saturn V, Shuttle) shed pieces as the mission drops
+  // stages: which pieces the rocket has while flying stage k, and which
+  // stage k took away when dropped. Satellite stages don't count.
+  function stackPieces(m, k) {
+    const hull = Skins.HULL[myLook().hull];
+    if (!hull.custom) return null;
+    return Skins.piecesFor(hull, k, m.stages.filter(st => st.sprite !== 'satellite').length);
+  }
+
   function drawShip() {
-    const m = state.mission, s = m.ship;
-    for (const d of m.debris) {
+    const m = state.mission, s = m.ship, hull = Skins.HULL[myLook().hull];
+    m.debris.forEach((d, k) => {
       if (!d.alive) {
         if (!d.exploded) { d.exploded = true; explode(d.x, d.y, '#ffb35a'); }
-        continue;
+        return;
       }
-      const [dx, dy] = w2s(d.x, d.y);
+      const [dx, dy] = w2s(d.x, d.y), pc = stackPieces(m, k);
       ctx.save(); ctx.globalAlpha = 0.75; ctx.translate(dx, dy); ctx.rotate(-d.angle);
-      drawRocketBody(9, false);
+      if (pc) Skins.drawRocket(ctx, 9, false, hull, pc.dropped[0], pc.dropped[1], pc.ship[0]);
+      else drawRocketBody(9, false);
       ctx.restore();
-    }
+    });
     if (m.status === 'crashed' || (m.status === 'won' && shipImpactWin(m))) return;
     const [sx, sy] = w2s(s.x, s.y);
     if (m.tether) drawRope(sx, sy);
@@ -1780,9 +1790,15 @@
       ctx.beginPath(); ctx.moveTo(x0, -1.6); ctx.lineTo(x0 - len, -0.4); ctx.lineTo(x0 - len, 0.4); ctx.lineTo(x0, 1.6); ctx.fill();
     } else if (m.thrusting) {
       // Two-tone flame like the icon, in the pilot's chosen colours.
-      Skins.drawFlame(ctx, L, (0.75 + Math.random() * 0.45) * state.throttle, Skins.FLAME[myLook().flame], performance.now() / 1000, sat ? null : Skins.HULL[myLook().hull]);
+      const pc = sat ? null : stackPieces(m, m.stage);
+      Skins.drawFlame(ctx, L, (0.75 + Math.random() * 0.45) * state.throttle, Skins.FLAME[myLook().flame], performance.now() / 1000, sat ? null : hull, pc && pc.ship[0]);
     }
-    if (sat) drawSatelliteBody(); else drawRocketBody(L, m.canDeploy() || (m.landed && m.stages.length > 1));
+    const pc = sat ? null : stackPieces(m, m.stage);
+    if (sat) drawSatelliteBody();
+    // A stacked rocket shows its stages as pieces, so its gold marker is
+    // only for a satellite still to release.
+    else if (pc) Skins.drawRocket(ctx, L, m.stages.slice(m.stage + 1).some(st => st.sprite === 'satellite'), hull, pc.ship[0], pc.ship[1], pc.ship[0]);
+    else drawRocketBody(L, m.canDeploy() || (m.landed && m.stages.length > 1));
     ctx.restore();
   }
 

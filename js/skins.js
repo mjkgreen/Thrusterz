@@ -24,13 +24,13 @@
     { id: 'checker', name: 'Checkerboard', desc: 'Black and white checks, like 1940s test rockets painted so the cameras could see them roll.', world: 1, need: 'clear', fill: ['#ffffff', '#f2f4f8', '#c9cfdc'], line: '#3a3f4c', fin: '#262a33', finLine: '#0e1015', nozzle: '#262a33', pattern: 'checker', ink: '#262a33' },
     { id: 'nebula', name: 'Nebula', desc: 'Deep violet, dusted with stars.', world: 2, need: 'clear', fill: ['#f0c8ff', '#a45cf0', '#4b1f8f'], line: '#2e1260', fin: '#f78cff', finLine: '#7a2a90', nozzle: '#241046', pattern: 'stars', ink: '#ffffff' },
     { id: 'hazard', name: 'Hazard', desc: 'Caution yellow with black stripes, built for the no-fly zones.', world: 3, need: 'clear', fill: ['#ffe97a', '#ffcc33', '#c89400'], line: '#5a4300', fin: '#1e1e22', finLine: '#000000', nozzle: '#1e1e22', pattern: 'hazard', ink: '#1e1e22' },
-    { id: 'saturnv', name: 'Saturn V', desc: 'The Moon rocket: three white stages with black roll markings, the Apollo spacecraft on top and its red escape tower.', stars: 250, custom: 'saturn', nose: 19, engines: [-1.6, 0, 1.6], line: '#4a4f5c', fin: '#1c1e24', cap: '#e8c45a', capLine: '#8a6a1a' },
+    { id: 'saturnv', name: 'Saturn V', desc: 'The Moon rocket: three white stages with black roll markings, the Apollo spacecraft and its red escape tower. In multi-stage missions it drops its stages one by one.', stars: 250, custom: 'saturn', line: '#4a4f5c', fin: '#1c1e24', cap: '#e8c45a', capLine: '#8a6a1a' },
     { id: 'chrome', name: 'Chrome Needle', desc: 'A longer nose, bigger swept fins and a mirror finish.', world: 4, need: 'clear', shape: 'needle', fill: ['#ffffff', '#9aa6bd', '#eef2fa', '#5d6a85'], line: '#4a5570', fin: '#c8a8ff', finLine: '#5b3f99', nozzle: '#2a3150', pattern: 'pinstripe', ink: '#8cf0ff' },
     // Shop
     { id: 'retro', name: 'Retro Red', desc: 'Red and cream, straight off a 1950s pulp magazine cover.', shop: true, fill: ['#ffffff', '#f4f1ea', '#cfc8b8'], line: '#7a2020', fin: '#d62828', finLine: '#7a1010', nozzle: '#3a3a3a', pattern: 'bands', ink: '#d62828' },
     { id: 'stealth', name: 'Stealth', desc: 'Matte black with a red visor and a red pinstripe.', shop: true, fill: ['#4a4f5c', '#2a2e38', '#14161c'], line: '#0a0b0f', fin: '#22252e', finLine: '#000000', nozzle: '#0a0b0f', window: '#ff4040', pattern: 'pinstripe', ink: '#ff4040' },
     { id: 'gold', name: 'Solid Gold', gold: true, shop: true, desc: 'Polished gold from nose to nozzle. It flies exactly the same; everyone will know you paid for it.', fill: ['#fff6c8', '#ffd34d', '#fff0a0', '#b8860b'], line: '#6e4e00', fin: '#e6b422', finLine: '#6e4e00', nozzle: '#5a4000', window: '#fff3b0', pattern: 'pinstripe', ink: '#fffbe6' },
-    { id: 'shuttle', name: 'Space Shuttle', desc: 'The orbiter riding its orange fuel tank between two white boosters. The payload rides in the bay.', shop: true, custom: 'shuttle', nose: 11.5, engines: [-3.8, 0, 3.8], line: '#5a5f6a', fin: '#2a2d36', cap: '#e8c45a', capLine: '#8a6a1a' },
+    { id: 'shuttle', name: 'Space Shuttle', desc: 'The orbiter riding its orange fuel tank between two white boosters. Stage it and the tank and boosters fall away; the payload rides in the bay.', shop: true, custom: 'shuttle', line: '#5a5f6a', fin: '#2a2d36', cap: '#e8c45a', capLine: '#8a6a1a' },
     { id: 'tiger', name: 'Tiger', desc: 'Burnt orange with black tiger stripes.', shop: true, fill: ['#ffc070', '#ff8c1a', '#b85a00'], line: '#4a2400', fin: '#1a1410', finLine: '#000000', nozzle: '#1a1410', pattern: 'tiger', ink: '#1a1410' },
   ];
 
@@ -254,56 +254,118 @@
     g.beginPath(); g.moveTo(x0, -r0); g.lineTo(x1, -r1); g.lineTo(x1, r1); g.lineTo(x0, r0); g.closePath(); g.fill(); g.stroke();
   }
   const WHITE = ['#ffffff', '#eef1f6', '#b9c0ce'];
+  // Rockets drawn as a stack of pieces, bottom first. When a mission drops
+  // stages, the rocket sheds pieces to match (see view()), and each dropped
+  // stage is drawn as the pieces it took away. Each piece: its extent along
+  // x (x0, x1), where its engines fire from (tail, engines: y offsets), and
+  // draw(g, t, payload, hull, bottom): t is the stack's tail x; `bottom`
+  // is true when nothing is below it (so its nozzles show).
   const CUSTOM = {
-    // Saturn V: S-IC with fins and roll markings, S-II, S-IVB, then the
-    // Apollo spacecraft and escape tower. With a payload aboard, the
-    // adapter under the spacecraft is gold.
-    saturn(g, L, payload, hull) {
-      const t = -L + 1, ink = '#16181d';
-      g.fillStyle = ink;
-      for (const sgn of [-1, 1]) { g.beginPath(); g.moveTo(t + 2.5, sgn * 2.6); g.lineTo(t - 0.4, sgn * 4.4); g.lineTo(t, sgn * 2.6); g.closePath(); g.fill(); }
-      g.fillStyle = '#2a2d36'; for (const y of [-1.6, 0, 1.6]) g.fillRect(t - 1.4, y - 0.5, 1.4, 1);
-      cylinder(g, t, t + 7, 0, 2.6, WHITE, hull.line, 0);
-      g.fillStyle = ink; g.fillRect(t + 0.3, -2.6, 2.2, 2.6); g.fillRect(t + 2.5, 0, 2.2, 2.6); g.fillRect(t + 6.3, -2.6, 0.7, 5.2);
-      cylinder(g, t + 7, t + 13.6, 0, 2.6, WHITE, hull.line, 0);
-      frustum(g, t + 13.6, 2.6, t + 15, 2, '#f1f3f7', hull.line);
-      cylinder(g, t + 15, t + 18.4, 0, 2, WHITE, hull.line, 0);
-      g.fillStyle = ink; g.fillRect(t + 16.6, -2, 1.8, 2);
-      frustum(g, t + 18.4, 2, t + 20.4, 1.6, payload ? hull.cap : '#d5dae4', payload ? hull.capLine : hull.line);
-      frustum(g, t + 20.4, 1.6, t + 22.8, 0.35, '#c9ced8', hull.line);
-      g.strokeStyle = ink; g.lineWidth = 0.7; g.beginPath(); g.moveTo(t + 22.6, 0); g.lineTo(t + 25.4, 0); g.stroke();
-      g.fillStyle = '#c0392b'; g.fillRect(t + 24.6, -0.75, 2.2, 1.5);
-      g.lineWidth = 1;
+    // Saturn V: S-IC, S-II, then S-IVB with the Apollo spacecraft and escape
+    // tower. With a payload aboard, the adapter under the spacecraft is gold.
+    saturn: {
+      scale: 1.2,
+      pieces: [
+        { x0: -1.6, x1: 7, tail: 0, engines: [-1.6, 0, 1.6], draw(g, t, payload, hull) {
+          const ink = '#16181d';
+          g.fillStyle = ink;
+          for (const sgn of [-1, 1]) { g.beginPath(); g.moveTo(t + 2.5, sgn * 2.6); g.lineTo(t - 0.4, sgn * 4.4); g.lineTo(t, sgn * 2.6); g.closePath(); g.fill(); }
+          g.fillStyle = '#2a2d36'; for (const y of [-1.6, 0, 1.6]) g.fillRect(t - 1.4, y - 0.5, 1.4, 1);
+          cylinder(g, t, t + 7, 0, 2.6, WHITE, hull.line, 0);
+          g.fillStyle = ink; g.fillRect(t + 0.3, -2.6, 2.2, 2.6); g.fillRect(t + 2.5, 0, 2.2, 2.6); g.fillRect(t + 6.3, -2.6, 0.7, 5.2);
+        } },
+        { x0: 5.6, x1: 15, tail: 7, engines: [-1.2, 0, 1.2], draw(g, t, payload, hull, bottom) {
+          if (bottom) { g.fillStyle = '#2a2d36'; for (const y of [-1.2, 0, 1.2]) g.fillRect(t + 5.8, y - 0.4, 1.2, 0.8); }
+          cylinder(g, t + 7, t + 13.6, 0, 2.6, WHITE, hull.line, 0);
+          frustum(g, t + 13.6, 2.6, t + 15, 2, '#f1f3f7', hull.line);
+        } },
+        { x0: 14, x1: 26.8, tail: 15, engines: [0], draw(g, t, payload, hull, bottom) {
+          const ink = '#16181d';
+          if (bottom) { g.fillStyle = '#2a2d36'; g.fillRect(t + 14, -0.6, 1, 1.2); }
+          cylinder(g, t + 15, t + 18.4, 0, 2, WHITE, hull.line, 0);
+          g.fillStyle = ink; g.fillRect(t + 16.6, -2, 1.8, 2);
+          frustum(g, t + 18.4, 2, t + 20.4, 1.6, payload ? hull.cap : '#d5dae4', payload ? hull.capLine : hull.line);
+          frustum(g, t + 20.4, 1.6, t + 22.8, 0.35, '#c9ced8', hull.line);
+          g.strokeStyle = ink; g.lineWidth = 0.7; g.beginPath(); g.moveTo(t + 22.6, 0); g.lineTo(t + 25.4, 0); g.stroke();
+          g.fillStyle = '#c0392b'; g.fillRect(t + 24.6, -0.75, 2.2, 1.5);
+        } },
+      ],
     },
-    // Space Shuttle, seen from above: two boosters and the orange tank
-    // under the orbiter. The payload rides in the bay (gold when loaded).
-    shuttle(g, L, payload, hull) {
-      const t = -L + 1, ink = '#1b1d22';
-      g.fillStyle = '#2a2d36';
-      for (const y of [-3.8, 3.8]) g.fillRect(t - 1.4, y - 0.6, 1.4, 1.2);
-      for (const y of [-3.8, 3.8]) cylinder(g, t - 0.2, t + 14, y, 1.1, WHITE, hull.line, 2);
-      cylinder(g, t + 0.6, t + 16, 0, 2.3, ['#f0a050', '#d9772b', '#8a4510'], '#6a3208', 3.2);
-      // Orbiter: wings, fuselage, black nose and leading edges.
-      g.fillStyle = '#f4f5f8'; g.strokeStyle = hull.line; g.lineWidth = 0.6;
-      g.beginPath();
-      g.moveTo(t + 14.6, 0);
-      g.quadraticCurveTo(t + 14.2, -1.5, t + 12.4, -1.6);
-      g.lineTo(t + 9.4, -1.7); g.lineTo(t + 2.4, -6.2); g.lineTo(t + 0.4, -6.2); g.lineTo(t + 0.4, -1.8); g.lineTo(t - 0.4, -1.6);
-      g.lineTo(t - 0.4, 1.6); g.lineTo(t + 0.4, 1.8); g.lineTo(t + 0.4, 6.2); g.lineTo(t + 2.4, 6.2); g.lineTo(t + 9.4, 1.7);
-      g.lineTo(t + 12.4, 1.6); g.quadraticCurveTo(t + 14.2, 1.5, t + 14.6, 0);
-      g.closePath(); g.fill(); g.stroke();
-      g.strokeStyle = ink; g.lineWidth = 0.9;
-      g.beginPath(); g.moveTo(t + 9.4, -1.7); g.lineTo(t + 2.4, -6.2); g.moveTo(t + 9.4, 1.7); g.lineTo(t + 2.4, 6.2); g.stroke();
-      g.fillStyle = ink; g.beginPath(); g.ellipse(t + 14, 0, 0.7, 1.1, 0, 0, TAU); g.fill();
-      g.fillRect(t + 12.2, -0.9, 0.6, 0.6); g.fillRect(t + 12.2, 0.3, 0.6, 0.6);
-      // Payload bay doors, and the tail fin seen edge-on.
-      g.fillStyle = payload ? hull.cap : '#e3e6ec'; g.strokeStyle = payload ? hull.capLine : '#9aa0ad'; g.lineWidth = 0.4;
-      g.beginPath(); g.rect(t + 3.4, -1.15, 7.6, 2.3); g.fill(); g.stroke();
-      g.beginPath(); g.moveTo(t + 7.2, -1.15); g.lineTo(t + 7.2, 1.15); g.stroke();
-      g.fillStyle = '#9aa0ad'; g.fillRect(t - 0.2, -0.35, 3.4, 0.7);
-      g.lineWidth = 1;
+    // Space Shuttle, seen from above: the two boosters, the orange tank,
+    // then the orbiter riding on top. The payload rides in the bay (gold
+    // when loaded).
+    shuttle: {
+      scale: 1.3,
+      pieces: [
+        { x0: -1.4, x1: 16, tail: -0.2, engines: [-3.8, 3.8], draw(g, t, payload, hull) {
+          g.fillStyle = '#2a2d36';
+          for (const y of [-3.8, 3.8]) g.fillRect(t - 1.4, y - 0.6, 1.4, 1.2);
+          for (const y of [-3.8, 3.8]) cylinder(g, t - 0.2, t + 14, y, 1.1, WHITE, hull.line, 2);
+        } },
+        { x0: 0.6, x1: 19.2, tail: 0.6, engines: [], draw(g, t) {
+          cylinder(g, t + 0.6, t + 16, 0, 2.3, ['#f0a050', '#d9772b', '#8a4510'], '#6a3208', 3.2);
+        } },
+        { x0: -1.4, x1: 14.6, tail: -0.4, engines: [0], draw(g, t, payload, hull) {
+          const ink = '#1b1d22';
+          g.fillStyle = '#2a2d36'; for (const y of [-0.8, 0, 0.8]) g.fillRect(t - 1.4, y - 0.3, 1, 0.6);
+          g.fillStyle = '#f4f5f8'; g.strokeStyle = hull.line; g.lineWidth = 0.6;
+          g.beginPath();
+          g.moveTo(t + 14.6, 0);
+          g.quadraticCurveTo(t + 14.2, -1.5, t + 12.4, -1.6);
+          g.lineTo(t + 9.4, -1.7); g.lineTo(t + 2.4, -6.2); g.lineTo(t + 0.4, -6.2); g.lineTo(t + 0.4, -1.8); g.lineTo(t - 0.4, -1.6);
+          g.lineTo(t - 0.4, 1.6); g.lineTo(t + 0.4, 1.8); g.lineTo(t + 0.4, 6.2); g.lineTo(t + 2.4, 6.2); g.lineTo(t + 9.4, 1.7);
+          g.lineTo(t + 12.4, 1.6); g.quadraticCurveTo(t + 14.2, 1.5, t + 14.6, 0);
+          g.closePath(); g.fill(); g.stroke();
+          g.strokeStyle = ink; g.lineWidth = 0.9;
+          g.beginPath(); g.moveTo(t + 9.4, -1.7); g.lineTo(t + 2.4, -6.2); g.moveTo(t + 9.4, 1.7); g.lineTo(t + 2.4, 6.2); g.stroke();
+          g.fillStyle = ink; g.beginPath(); g.ellipse(t + 14, 0, 0.7, 1.1, 0, 0, TAU); g.fill();
+          g.fillRect(t + 12.2, -0.9, 0.6, 0.6); g.fillRect(t + 12.2, 0.3, 0.6, 0.6);
+          // Payload bay doors, and the tail fin seen edge-on.
+          g.fillStyle = payload ? hull.cap : '#e3e6ec'; g.strokeStyle = payload ? hull.capLine : '#9aa0ad'; g.lineWidth = 0.4;
+          g.beginPath(); g.rect(t + 3.4, -1.15, 7.6, 2.3); g.fill(); g.stroke();
+          g.beginPath(); g.moveTo(t + 7.2, -1.15); g.lineTo(t + 7.2, 1.15); g.stroke();
+          g.fillStyle = '#9aa0ad'; g.fillRect(t - 0.2, -0.35, 3.4, 0.7);
+        } },
+      ],
     },
   };
+  // Which pieces show while flying stage `stage` of `rockets` rocket stages
+  // (satellite stages don't count): a one-stage mission shows the whole
+  // stack; otherwise the pieces are shared out so the last rocket stage is
+  // the top piece alone. Returns [from, to) piece indices.
+  function piecesFor(hull, stage, rockets) {
+    const n = CUSTOM[hull.custom].pieces.length;
+    const start = (k) => (rockets <= 1 ? 0 : Math.round(Math.min(k, rockets - 1) * (n - 1) / (rockets - 1)));
+    // The last rocket stage, dropped (releasing a satellite), takes all
+    // that is left of the stack with it.
+    const last = stage >= rockets - 1;
+    return { ship: [start(stage), n], dropped: [start(stage), last ? n : Math.max(start(stage) + 1, start(stage + 1))] };
+  }
+  // How to place pieces [from, to) of a stack: scaled, and shifted so the
+  // pieces flying now are centred on the ship. `shownFrom` is the bottom
+  // piece of the stack the ship had when these pieces were on it.
+  function stackXform(hull, L, shownFrom) {
+    const c = CUSTOM[hull.custom], ps = c.pieces.slice(shownFrom), t = -L + 1;
+    const x0 = Math.min(...ps.map(p => p.x0)), x1 = Math.max(...ps.map(p => p.x1));
+    return { k: c.scale, dx: -(t + (x0 + x1) / 2), t };
+  }
+  function drawStack(g, L, payload, hull, from, to, shownFrom) {
+    const c = CUSTOM[hull.custom], f = from == null ? 0 : from, e = to == null ? c.pieces.length : to;
+    const x = stackXform(hull, L, shownFrom == null ? f : shownFrom);
+    g.save(); g.scale(x.k, x.k); g.translate(x.dx, 0);
+    for (let i = f; i < e; i++) c.pieces[i].draw(g, x.t, payload && i === c.pieces.length - 1, hull, i === f);
+    g.restore();
+    g.lineWidth = 1;
+  }
+  // Where a whole stack's nose and tail end up (for fitting icons).
+  function stackRight(hull, L) { const c = CUSTOM[hull.custom], x = stackXform(hull, L, 0); return (x.t + Math.max(...c.pieces.map(p => p.x1)) + x.dx) * x.k + 0.5; }
+  // Engines of a stack showing from piece `from` up: { x, y } of each.
+  function stackEngines(hull, L, from) {
+    const c = CUSTOM[hull.custom], x = stackXform(hull, L, from);
+    const out = [];
+    for (const p of c.pieces.slice(from)) for (const y of p.engines) out.push({ x: (x.t + p.tail + x.dx) * x.k, y: y * x.k });
+    return { list: out, k: x.k };
+  }
 
   // Is a #rrggbb colour dark (so a seam on it should be light)?
   function dark(hex) {
@@ -313,9 +375,11 @@
 
   // The rocket body. `payload`: the nose is the gold fairing holding cargo
   // (the same for every skin: it tells you there's something to drop).
-  function drawRocket(g, L, payload, hull) {
+  // from, to, shownFrom: for stacked rockets, which pieces to draw (see
+  // piecesFor); other hulls ignore them.
+  function drawRocket(g, L, payload, hull, from, to, shownFrom) {
     hull = hull || HULLS[0];
-    if (hull.custom) { CUSTOM[hull.custom](g, L, payload, hull); return; }
+    if (hull.custom) { drawStack(g, L, payload, hull, from, to, shownFrom); return; }
     const needle = hull.shape === 'needle', W = needle ? 3 : 3.4, tail = -L + 1;
     // Fins (behind the hull)
     g.fillStyle = hull.fin; g.strokeStyle = hull.finLine || hull.line; g.lineWidth = 0.8;
@@ -435,11 +499,13 @@
 
   // The main engine's flame behind the nozzle; f is its size (throttle with
   // flicker), t the time in seconds (for pulsing flames).
-  function drawFlame(g, L, f, flame, t, hull) {
+  function drawFlame(g, L, f, flame, t, hull, from) {
     flame = flame || FLAMES[0];
-    // Rockets with several engines get a slimmer flame from each.
-    if (hull && hull.engines) {
-      for (const y of hull.engines) { g.save(); g.translate(0, y); g.scale(1, 0.55); drawFlame(g, L, f * 0.85, flame, t); g.restore(); }
+    // Stacked rockets fire from each engine of the pieces still attached,
+    // with a slimmer flame from each.
+    if (hull && hull.custom) {
+      const e = stackEngines(hull, L, from || 0), x0 = -L - 0.5;
+      for (const { x, y } of e.list) { g.save(); g.translate(x - x0 + 0.5 * e.k, y); g.scale(1, 0.55 * e.k); drawFlame(g, L, f * 0.85, flame, t); g.restore(); }
       return;
     }
     if (flame.pulse) f *= 0.8 + 0.45 * throb(t || 0);
@@ -518,7 +584,7 @@
       return;
     }
     // The picture spans from the flame's tip to the nose.
-    const left = -L - (flameOn ? 22 : 4), right = hull.nose != null ? hull.nose + 0.5 : L + (hull.shape === 'needle' ? 8 : 4), tall = 2 * (3.4 + 4.6);
+    const left = -L - (flameOn ? 22 : 4), right = hull.custom ? stackRight(hull, L) : L + (hull.shape === 'needle' ? 8 : 4), tall = 2 * (3.4 + 4.6);
     const s = Math.min(w / (right - left), h / tall) * 0.95;
     g.setTransform(dpr, 0, 0, dpr, 0, 0);
     g.clearRect(0, 0, w, h);
@@ -553,7 +619,7 @@
   const Skins = {
     HULLS, FLAMES, TRAILS, RCSES, SATS, SLOTS, HULL, FLAME, TRAIL, RCS, SAT, ALL, DEFAULT, PRODUCTS, PRODUCT,
     byId, slotOf, standard, entitlements, progressOf, earned, cleanLook, shownLook,
-    drawRocket, drawFlame, drawTrail, drawSatellite, drawRcsParticle, sparkColor, drawIcon,
+    drawRocket, drawFlame, drawTrail, drawSatellite, piecesFor, drawRcsParticle, sparkColor, drawIcon,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = Skins;
   else root.Skins = Skins;
