@@ -134,8 +134,16 @@ you do it, and stops appearing after you've mastered it.
   - *Event horizon* (`horizon`, `pw` on a black hole): a horizon bigger than
     the hole, and strong gravity (gm/(r − pw)²) with no stable orbits inside
     3·pw, so a close pass can whirl you round more than half a turn.
-  - *Radiation belt* (`belt: { rMin, rMax, dose }`): a limited number of
-    seconds inside, shown as a dose meter and on the predicted path.
+  - *Radiation belt* (`belt: { rMin, rMax, dose, rate? }`, or a list for
+    several): `rate` Sv per second inside (default 1), shown as a dose meter
+    and on the predicted path.
+  - *Magnetospheres* (`magnetosphere: { nose, width, tail }` on a planet):
+    a bubble pointing away from each source, with a blunt nose sunward and a
+    long tail, inside which a source's particles (`radiation.particles`, its
+    share 0 to 1) don't reach you; light still does. A scheduled storm
+    (`radiation.storm: { start, end, rate, squeeze }`) adds particles and
+    squeezes every nose in while it blows; the HUD counts down to it. An
+    orbit goal with `after` only counts once the clock passes that time.
   - *Refuelling depot* (`depot: { dv, dist, relVel }` on a station): a
     rendezvous refills the current stage once.
   - *Soft landing* (`maxSpeed` on a hit goal): touching down faster fails;
@@ -220,7 +228,7 @@ influence you're in, or the star you're orbiting when you're in none.
 
 World 2 flies through a green nebula with distant planets in the background,
 World 3 through an ember-red one, so you can always tell the worlds apart.
-**Experimental levels** (the menu's last tab) try out new mechanics that may or may not grow into a world, one level each: fuel pickups (*Fuel Run*), atmospheres and aerobraking (*Aerobrake*), wormholes (*Shortcut*), tethers (*Swing*), solar sails (*Sunward Sail*), event horizons and strong gravity (*Whirl*), radiation belts (*Radiation Belt*), refuelling depots (*Top Up*), soft landings (*Touchdown*) and ion engines (*Long Burn*). World 3's
+**Experimental levels** (the menu's last tab) try out new mechanics that may or may not grow into a world, one level each: fuel pickups (*Fuel Run*), atmospheres and aerobraking (*Aerobrake*), wormholes (*Shortcut*), tethers (*Swing*), solar sails (*Sunward Sail*), event horizons and strong gravity (*Whirl*), radiation belts (*Radiation Belt*), magnetospheres and storms (*Storm Warning*, *The Slot*), refuelling depots (*Top Up*), soft landings (*Touchdown*) and ion engines (*Long Burn*). World 3's
 missions are built in `tools/w3/` (levels, proofs and naive plans that must
 lose, one file per chapter) and written into `js/levels.js` with
 `npm run build:w3`. See [docs/ROADMAP.md](docs/ROADMAP.md) for

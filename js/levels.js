@@ -8184,6 +8184,37 @@
       goals: [{ type: 'orbit', body: 'terra', rMin: 115, rMax: 135 }],
       par: 5.6, bounds: 2000, tMax: 900, predict: 120, view: { x: 0, y: 0, span: 360 },
     },
+    {
+      id: 'test-storm',
+      test: true,
+      name: 'Storm Warning',
+      intro: 'Corona\'s wind is charged particles, and Halde\'s magnetic field turns them away: inside its magnetosphere, the blue bubble, you take none. A storm hits at T+1:15. While it blows, the bubble\'s nose is squashed in past your orbit, and the sunward half of every lap would be out in the storm. Get down under the radiation belt before it hits, crossing the belt quickly, and still be there when the storm ends.',
+      objective: 'Orbit Halde between 7 and 33 k up when the storm ends at T+2:45, taking under 15 Sv of radiation.',
+      teaches: 'Magnetospheres · a scheduled storm',
+      bodies: [
+        { id: 'corona', name: 'Corona', gm: 0, radius: 60, color: C.sun, kind: 'star', x: -1500, y: 0, radiation: { rate: 0.3, at: 1500, dose: 15, particles: 1, storm: { start: 75, end: 165, rate: 1.5, squeeze: 0.5 } } },
+        { id: 'halde', name: 'Halde', gm: 8000, radius: 35, color: C.blue, magnetosphere: { nose: 170, width: 230, tail: 1200 }, belt: { rMin: 75, rMax: 110 } },
+      ],
+      ship: ship({ start: { orbit: { body: 'halde', r: 150, angle: -0.51 } }, heading: 'prograde', dv: 7, accel: 1 }),
+      goals: [{ type: 'orbit', body: 'halde', rMin: 42, rMax: 68, after: 165 }],
+      par: 4.4, bounds: 2500, tMax: 400, predict: 200, view: { x: -150, y: 0, span: 700 },
+    },
+    {
+      id: 'test-slot',
+      test: true,
+      name: 'The Slot',
+      intro: 'Gauss has two radiation belts with a narrow slot of clean space between them, and Slot Station rides in it. Above the outer belt you are still safe inside Gauss\'s magnetosphere, but only up to its edge on the sunward side, where Ferro\'s wind gets in. Every second in a belt costs 1 Sv. Phase up here until the station is in the right place, then drop through the outer belt once, without dipping into the inner one, and match the station\'s speed.',
+      objective: 'Rendezvous with Slot Station (within 8 k, relative speed under 0.35 k/s), taking under 20 Sv of radiation.',
+      teaches: 'Belts and magnetospheres · a narrow slot',
+      bodies: [
+        { id: 'ferro', name: 'Ferro', gm: 0, radius: 60, color: C.sun2, kind: 'star', x: -1800, y: 0, radiation: { rate: 1.5, at: 1800, dose: 20, particles: 1 } },
+        { id: 'gauss', name: 'Gauss', gm: 20000, radius: 35, color: C.purple, magnetosphere: { nose: 230, width: 300, tail: 1500 }, belt: [{ rMin: 55, rMax: 85 }, { rMin: 125, rMax: 175 }] },
+        { id: 'slot', name: 'Slot Station', gm: 0, radius: 4, color: C.station, kind: 'station', orbit: { parent: 'gauss', a: 105, phase: 2.0 } },
+      ],
+      ship: ship({ start: { orbit: { body: 'gauss', r: 200, angle: 0 } }, heading: 'prograde', dv: 6, accel: 1 }),
+      goals: [{ type: 'rendezvous', body: 'slot', dist: 8, relVel: 0.35 }],
+      par: 4.4, bounds: 2500, tMax: 900, predict: 200, view: { x: -150, y: 0, span: 800 },
+    },
   );
 
   // Worlds in menu order. theme picks the in-flight backdrop; unlock is how

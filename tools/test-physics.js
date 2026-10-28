@@ -566,6 +566,28 @@ for (const L of LEVELS) {
     'test-ion': {
       'hold the burn with the nose fixed': [{ control: () => ({ thrust: true, angle: Math.PI / 2 }) }],
     },
+    'test-storm': (() => {
+      const o = (m) => AP.orb(m, 'halde');
+      const down = [{ burn: 'retro', until: (m) => o(m).pe <= 55 }, { coast: (m) => o(m).r < 59 && o(m).rising }, { burn: 'retro', until: (m) => o(m).ap <= 66 }];
+      return {
+        'stay put': [],
+        'wait for the storm, then go down': [{ wait: 76 }, ...down],
+        'only lower the low point (orbit keeps crossing the belt)': [down[0]],
+        'slow two-step descent through the belt': [{ burn: 'retro', until: (m) => o(m).pe <= 100 }, { coast: (m) => o(m).r < 104 && o(m).rising }, { burn: 'retro', until: (m) => o(m).ap <= 104 }, { wait: 5 }, ...down],
+        'climb above the storm': [{ burn: 'pro', until: (m) => o(m).ap >= 260 }, { coast: (m) => !o(m).rising }, { burn: 'pro', until: (m) => o(m).pe >= 250 }],
+      };
+    })(),
+    'test-slot': (() => {
+      const o = (m) => AP.orb(m, 'gauss');
+      const P = PROOFS['test-slot'], dock = P.script(P.p, AP)[4];
+      const down = (pe, ap) => [{ burn: 'retro', until: (m) => o(m).pe <= pe }, { coast: (m) => o(m).r < pe + 2 && o(m).rising }, { burn: 'retro', until: (m) => o(m).ap <= ap }];
+      return {
+        'go down at once and catch up in the slot': [...down(100, 104), dock],
+        'dip into the inner belt (low point 80)': [{ wait: 24.5 }, ...down(80, 90), dock],
+        'phase higher up, past the magnetosphere': [{ burn: 'pro', until: (m) => o(m).ap >= 300 }, { coast: (m) => !o(m).rising }, ...down(100, 104), dock],
+        'slow two-step descent through the outer belt': [{ wait: 24.5 }, ...down(150, 154), { wait: 3 }, ...down(100, 104), dock],
+      };
+    })(),
   };
   const wins = [];
   for (const [id, plans] of Object.entries(NAIVE)) for (const [name, steps] of Object.entries(plans)) if (AP.fly(lv(id), steps).won) wins.push(id + ': ' + name);
@@ -689,6 +711,28 @@ for (const L of LEVELS) {
     L.ship.start.orbit.r = 280;
     const q = coast(new Mission(L), 30);
     check('radiation belt: parked inside it, the dose runs out', q.status === 'crashed' && /Radiation/.test(q.message) && Math.abs(q.t - 17) < 0.5, `${q.message} at ${q.t.toFixed(1)}s`);
+  }
+  // Magnetospheres: particles are turned away inside the bubble and its
+  // tail, light isn't; a storm squeezes the nose in; belts can be listed.
+  {
+    const L = JSON.parse(JSON.stringify(LEVELS.find(l => l.id === 'test-storm')));
+    const m = new Mission(L), sys = m.sys, pos = (i) => [sys.px[i], sys.py[i]];
+    sys.update(0);
+    const rate = (x, y, t) => m.radiationAt(x, y, t, pos).rate;
+    const calm = { nose: rate(-150, 0, 0), tail: rate(600, 0, 0), out: rate(-300, 0, 0) };
+    const storm = { nose: rate(-150, 0, 100), side: rate(0, 150, 100) };
+    check('magnetosphere: no particles inside, in the tail too; outside you take the wind',
+      calm.nose === 0 && calm.tail === 0 && calm.out > 0, JSON.stringify(calm));
+    check('magnetosphere: a storm squeezes the nose in past a 150 k orbit, not the flanks',
+      storm.nose > 1 && storm.side === 0, JSON.stringify(storm));
+    L.bodies[0].radiation.particles = 0.25;
+    const half = new Mission(L);
+    half.sys.update(0);
+    const inside = half.radiationAt(-150, 0, 0, (i) => [half.sys.px[i], half.sys.py[i]]).rate, open = half.radiationAt(-300, 0, 0, (i) => [half.sys.px[i], half.sys.py[i]]).rate;
+    // Inside (1350 from the star) only the light share (75%) arrives; outside (1200) all of it.
+    check('magnetosphere: only the particle share is stopped (light gets in)', Math.abs(inside / open - 0.75 * (1200 / 1350) ** 2) < 1e-9, inside.toFixed(4) + ' vs ' + open.toFixed(4));
+    const S = new Mission(LEVELS.find(l => l.id === 'test-slot'));
+    check('belts: a planet can have several, each counted', S.belts.length === 2 && S.doseRateAt(70, 0, 0) === 1 && S.doseRateAt(105, 0, 0) === 0 && S.doseRateAt(150, 0, 0) === 1);
   }
   // Depot: a rendezvous refuels once; flying past doesn't.
   {

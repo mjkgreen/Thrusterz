@@ -784,8 +784,8 @@
         m.sys.posAt(b.index, p.ts[i], bp);
         const r = Math.hypot(p.xs[i] - bp[0], p.ys[i] - bp[1]);
         if (r >= b.belt.rMin && r <= b.belt.rMax) {
-          p.dose += p.ts[i] - p.ts[i - 1];
-          if (m.dose + p.dose > b.belt.dose) p.doseOut = i;
+          p.dose += (p.ts[i] - p.ts[i - 1]) * (b.belt.rate != null ? b.belt.rate : 1);
+          if (m.dose + p.dose > m.doseLimit) p.doseOut = i;
         }
       }
     }
@@ -823,7 +823,7 @@
         for (const b of m.belts) {
           m.sys.posAt(b.index, p.ts[i], bp);
           const r = Math.hypot(p.xs[i] - bp[0], p.ys[i] - bp[1]);
-          if (r >= b.belt.rMin && r <= b.belt.rMax) rate += 1;
+          if (r >= b.belt.rMin && r <= b.belt.rMax) rate += b.belt.rate != null ? b.belt.rate : 1;
         }
         d += rate * dt;
         if (d > next.dose) { p.cargoOut = i; break; }
@@ -1383,9 +1383,9 @@
       const [sx, sy] = w2s(sys.px[b.index], sys.py[b.index]);
       const r = Math.max(b.radius * z, b.kind === 'station' ? 0 : 2.5);
       // Rings around a body (belt, air, rope reach, horizon) can be on screen when the body isn't.
-      const reach = Math.max(b.radius, b.belt ? b.belt.rMax : 0, b.atmosphere ? b.radius + b.atmosphere.height : 0, b.tether ? b.tether.length : 0, b.pw ? 3 * b.pw : 0) * z;
+      const reach = Math.max(b.radius, b.belt ? Math.max(...[].concat(b.belt).map(q => q.rMax)) : 0, b.atmosphere ? b.radius + b.atmosphere.height : 0, b.tether ? b.tether.length : 0, b.pw ? 3 * b.pw : 0) * z;
       if (sx < -reach - 200 || sx > W + reach + 200 || sy < -reach - 200 || sy > H + reach + 200) continue;
-      if (b.belt) drawBelt(sx, sy, b);
+      if (b.belt) for (const bt of [].concat(b.belt)) drawBelt(sx, sy, b, bt);
       if (b.atmosphere) drawAtmosphere(sx, sy, b);
       if (b.kind === 'wormhole') { drawWormhole(sx, sy, r, b); continue; }
       if (b.tether) { drawAnchor(sx, sy, b); continue; }
@@ -1488,6 +1488,13 @@
           ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(sx + Math.cos(a + arm) * far, sy - Math.sin(a + arm) * far); ctx.stroke();
         }
       }
+      // Magnetospheres: the bubble this source's particles can't get into,
+      // pointing away from it (squeezed while a storm blows).
+      if (R.particles || R.storm) {
+        const storm = m.stormOn(b, m.t), sq = storm ? R.storm.squeeze : 1;
+        for (const c of m.fields) drawField(sx, sy, c, sq, storm);
+        if (storm) label('☄ STORM', sx, sy - b.radius * z - 22, 'rgba(255,140,120,0.95)');
+      }
       // Shadows. A point source (pulsar) casts a sharp shadow that widens.
       // A disc (star) casts an umbra that narrows and ends behind anything
       // smaller than it, inside a soft penumbra that widens (dose scales
@@ -1536,10 +1543,33 @@
     }
   }
 
+  // A magnetosphere seen from a source at screen (sx, sy): half an ellipse
+  // in front (nose out, width across), a band of the same width behind.
+  function drawField(sx, sy, c, sq, storm) {
+    const z = state.cam.zoom, sys = state.mission.sys, M = c.magnetosphere;
+    const [cx, cy] = w2s(sys.px[c.index], sys.py[c.index]);
+    const dx = cx - sx, dy = cy - sy, d = Math.hypot(dx, dy);
+    if (d <= 0) return;
+    const ux = dx / d, uy = dy / d, nx = -uy, ny = ux;
+    const nose = M.nose * sq * z, w = M.width * (1 + sq) / 2 * z, tail = M.tail * z;
+    const at = (a, p) => [cx + ux * a + nx * p, cy + uy * a + ny * p];
+    ctx.beginPath();
+    ctx.moveTo(...at(0, w)); ctx.lineTo(...at(tail, w)); ctx.lineTo(...at(tail, -w)); ctx.lineTo(...at(0, -w));
+    // Round the nose from (0, -w) through (-nose, 0) back to (0, w).
+    for (let k = 1; k <= 24; k++) { const f = Math.PI * k / 24; ctx.lineTo(...at(-nose * Math.sin(f), -w * Math.cos(f))); }
+    ctx.closePath();
+    const g = ctx.createLinearGradient(...at(-nose, 0), ...at(tail, 0));
+    g.addColorStop(0, storm ? 'rgba(255,140,120,0.16)' : 'rgba(110,170,255,0.16)'); g.addColorStop(1, 'rgba(110,170,255,0)');
+    ctx.fillStyle = g; ctx.fill();
+    ctx.strokeStyle = storm ? 'rgba(255,150,130,0.7)' : 'rgba(130,190,255,0.65)'; ctx.setLineDash([4, 6]); ctx.stroke(); ctx.setLineDash([]);
+    if (nose > 30) label('MAGNETOSPHERE', ...at(-nose - 12, 0), storm ? 'rgba(255,160,140,0.9)' : 'rgba(150,200,255,0.85)');
+  }
+
   // Radiation belt: a shaded amber ring that brightens while you're in it.
-  function drawBelt(sx, sy, b) {
-    const z = state.cam.zoom, m = state.mission, inside = m.inBelt === b.index;
-    const r0 = b.belt.rMin * z, r1 = b.belt.rMax * z;
+  function drawBelt(sx, sy, b, bt) {
+    const z = state.cam.zoom, m = state.mission, sys = m.sys;
+    const inside = m.inBelt === b.index && (() => { const r = Math.hypot(m.ship.x - sys.px[b.index], m.ship.y - sys.py[b.index]); return r >= bt.rMin && r <= bt.rMax; })();
+    const r0 = bt.rMin * z, r1 = bt.rMax * z;
     ctx.fillStyle = inside ? 'rgba(255,190,60,0.16)' : 'rgba(255,190,60,0.08)';
     ctx.beginPath(); ctx.arc(sx, sy, r1, 0, TAU); ctx.arc(sx, sy, r0, 0, TAU, true); ctx.fill();
     ctx.strokeStyle = 'rgba(255,190,60,0.45)'; ctx.setLineDash([2, 6]);
@@ -2219,10 +2249,18 @@
       case 'radiation': {
         k = 'RADIATION';
         const beam = m.sources.some(b => b.radiation.beam);
-        t = m.radRate > 0 && m.radShade >= 0 ? '<span class="warn">half-shadow of ' + sys.bodies[m.radShade].name + ' · ' + m.radRate.toFixed(2) + ' Sv/s</span>'
+        t = m.radRate > 0 && m.radField >= 0 ? '<span class="ok">inside ' + sys.bodies[m.radField].name + '\'s magnetosphere</span> · ' + m.radRate.toFixed(2) + ' Sv/s'
+          : m.radRate > 0 && m.radShade >= 0 ? '<span class="warn">half-shadow of ' + sys.bodies[m.radShade].name + ' · ' + m.radRate.toFixed(2) + ' Sv/s</span>'
           : m.radRate > 0 ? '<span class="warn">exposed · ' + m.radRate.toFixed(2) + ' Sv/s</span>'
           : m.radShade >= 0 ? '<span class="ok">in ' + sys.bodies[m.radShade].name + '\'s shadow</span>'
+          : m.radField >= 0 ? '<span class="ok">inside ' + sys.bodies[m.radField].name + '\'s magnetosphere</span>'
           : '<span class="ok">' + (beam ? 'out of the beam' : 'clear') + '</span>';
+        // A scheduled particle storm: count down to it, then to its end.
+        for (const b of m.sources) {
+          const S = b.radiation.storm;
+          if (!S) continue;
+          t = (m.t < S.start ? 'storm in ' + fmtT(S.start - m.t) : m.t < S.end ? '<span class="warn">STORM · ' + fmtT(S.end - m.t) + ' left</span>' : '<span class="ok">storm over</span>') + ' · ' + t;
+        }
         // Released cargo with its own limit.
         for (const c of m.crafts) if (c.alive && c.doseLimit != null) t += ' · ' + c.name + ' ' + c.dose.toFixed(1) + '/' + c.doseLimit + ' Sv';
         break;
@@ -2262,7 +2300,7 @@
     switch (g.type) {
       case 'hit': return g.site ? `Land in the zone on ${name}` : g.deorbit ? `Deorbit into ${name}` : g.maxSpeed ? `Land on ${name} slower than ${g.maxSpeed} k/s` : 'Impact ' + name;
       case 'reach': return 'Reach ' + (g.label || name);
-      case 'orbit': return `Orbit ${name} at ${alt(m, g, g.rMin)}–${alt(m, g, g.rMax)} k${g.dir ? (g.dir > 0 ? ' counter-clockwise' : ' clockwise') : ''}`;
+      case 'orbit': return `Orbit ${name} at ${alt(m, g, g.rMin)}–${alt(m, g, g.rMax)} k${g.dir ? (g.dir > 0 ? ' counter-clockwise' : ' clockwise') : ''}${g.after ? ' at T+' + fmtT(g.after) : ''}`;
       case 'hold': return `Park at ${g.label || name} for ${g.hold}s`;
       case 'escape': return `Get ${alt(m, g, g.r)} k from ${name}`;
       case 'rendezvous': return `Rendezvous with ${name}`;
