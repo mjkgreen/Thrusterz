@@ -1804,9 +1804,9 @@
     }
     const pc = sat ? null : stackPieces(m, m.stage);
     if (sat) drawSatelliteBody();
-    // A stacked rocket shows its stages as pieces, so its gold marker is
-    // only for a satellite still to release.
-    else if (pc) Skins.drawRocket(ctx, L, m.stages.slice(m.stage + 1).some(st => st.sprite === 'satellite'), hull, pc.ship[0], pc.ship[1], pc.ship[0], stackGrow(m, pc));
+    // A stacked rocket shows its stages as pieces and keeps its real
+    // colours: no payload marker.
+    else if (pc) Skins.drawRocket(ctx, L, false, hull, pc.ship[0], pc.ship[1], pc.ship[0], stackGrow(m, pc));
     else drawRocketBody(L, m.canDeploy() || (m.landed && m.stages.length > 1));
     ctx.restore();
   }
