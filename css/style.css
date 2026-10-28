@@ -644,15 +644,10 @@ button.ld-play {
 body.in-app .web-only { display: none; }
 html.short .ld-hero { gap: 8px; }
 html.short button.ld-play { padding: 12px 32px; font-size: 18px; }
-/* App Store button: a black badge-shaped link (web only; the app hides it). */
-a.appstore {
-  display: inline-flex; flex-direction: column; align-items: flex-start; justify-content: center;
-  padding: 6px 16px 7px; border-radius: 10px; background: #000; border: 1px solid #a6a6a6;
-  color: #fff; text-decoration: none; line-height: 1.1;
-}
-a.appstore:hover { border-color: #fff; }
-.as-small { font-size: 11px; letter-spacing: 0.01em; }
-.as-big { font-size: 20px; font-weight: 700; letter-spacing: -0.01em; }
+/* App Store badge (Apple's artwork; web only, the app hides it). */
+a.appstore { display: inline-block; line-height: 0; border-radius: 8px; }
+a.appstore img { height: 48px; width: auto; }
+a.appstore:hover img { filter: brightness(1.25); }
 .menu-foot a {
   padding: 10px 18px; border-radius: 10px; border: 1px solid var(--panel-border);
   color: var(--text); font-size: 15px; font-weight: 600; text-decoration: none;
