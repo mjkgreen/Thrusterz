@@ -577,6 +577,23 @@ for (const L of LEVELS) {
         'climb above the storm': [{ burn: 'pro', until: (m) => o(m).ap >= 260 }, { coast: (m) => !o(m).rising }, { burn: 'pro', until: (m) => o(m).pe >= 250 }],
       };
     })(),
+    'test-front': (() => {
+      const F = PROOFS['test-front'], go = F.script(F.p, AP);
+      return {
+        'stay at Cinder Outpost (no magnetosphere)': [],
+        'leave a minute later (the front catches you)': [{ wait: 60 }, ...go],
+        'a slow cruise (speed 3)': F.script([3, F.p[1], F.p[2]], AP),
+      };
+    })(),
+    'test-shield': (() => {
+      const o = (m) => AP.orb(m, 'kiln');
+      const up = [{ burn: 'pro', until: (m) => o(m).ap >= 650 }], top = [{ coast: (m) => !o(m).rising }], round = [{ burn: 'pro', until: (m) => o(m).pe >= 640 }];
+      return {
+        'keep the shield all the way (runs out of fuel)': [...up, ...top, ...round],
+        'drop it at once (too much dose)': [{ drop: true }, ...up, ...top, ...round],
+        'drop it after the first burn (hot transfer unshielded)': [...up, { drop: true }, ...top, ...round],
+      };
+    })(),
     'test-slot': (() => {
       const o = (m) => AP.orb(m, 'gauss');
       const P = PROOFS['test-slot'], dock = P.script(P.p, AP)[4];
@@ -731,6 +748,23 @@ for (const L of LEVELS) {
     const inside = half.radiationAt(-150, 0, 0, (i) => [half.sys.px[i], half.sys.py[i]]).rate, open = half.radiationAt(-300, 0, 0, (i) => [half.sys.px[i], half.sys.py[i]]).rate;
     // Inside (1350 from the star) only the light share (75%) arrives; outside (1200) all of it.
     check('magnetosphere: only the particle share is stopped (light gets in)', Math.abs(inside / open - 0.75 * (1200 / 1350) ** 2) < 1e-9, inside.toFixed(4) + ' vs ' + open.toFixed(4));
+    // A storm with a speed moves out as a shell: at 14 k/s it reaches 1400
+    // from Pyre at 100 s and Vale (2400) at about 171 s, and only squeezes
+    // Vale's magnetosphere once it's there.
+    const F = new Mission(LEVELS.find(l => l.id === 'test-front')), fs = F.sys, pyre = fs.byId.pyre;
+    fs.update(0);
+    const fpos = (i) => [fs.px[i], fs.py[i]], spF = fpos(pyre.index);
+    check('storm front: reaches each distance at distance / speed, and lasts as long as the storm',
+      !F.stormOn(pyre, 99, 1400) && F.stormOn(pyre, 101, 1400) && F.stormOn(pyre, 199, 1400) && !F.stormOn(pyre, 201, 1400) && !F.stormOn(pyre, 170, 2400) && F.stormOn(pyre, 172, 2400));
+    check('storm front: a magnetosphere is squeezed only once the front reaches its planet',
+      F.insideField(800, 0, spF, fpos, pyre, 150) >= 0 && F.insideField(800, 0, spF, fpos, pyre, 200) < 0);
+    // A water shield aboard stops 75% of the dose; dropped, it stops nothing.
+    const W = new Mission(LEVELS.find(l => l.id === 'test-shield'));
+    W.advance(0.5, { thrust: false, throttle: 1, rotate: 0 });
+    const shielded = W.radRate;
+    W.release(); W.advance(0.5, { thrust: false, throttle: 1, rotate: 0 });
+    check('shield: carried, it cuts the dose rate to a quarter; dropped, the full rate is back',
+      Math.abs(shielded / W.radRate - 0.25) < 0.01 && W.shieldFactor() === 1, shielded.toFixed(3) + ' vs ' + W.radRate.toFixed(3));
     const S = new Mission(LEVELS.find(l => l.id === 'test-slot'));
     check('belts: a planet can have several, each counted', S.belts.length === 2 && S.doseRateAt(70, 0, 0) === 1 && S.doseRateAt(105, 0, 0) === 0 && S.doseRateAt(150, 0, 0) === 1);
   }

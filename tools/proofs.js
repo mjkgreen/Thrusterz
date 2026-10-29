@@ -533,6 +533,39 @@ Object.assign(module.exports, {
     ],
   },
 
+  'test-front': {
+    // Head out at once: burn toward a point p[1] to the side of Vale until
+    // the speed is p[0], coast, then brake at radius p[2] from Vale into an
+    // orbit inside its magnetosphere, well before the front gets there.
+    p: [5, 140, 70], scale: [0.5, 15, 10],
+    script: (p, AP) => {
+      const v = (m) => AP.orb(m, 'vale');
+      const aim = (m) => { m.sys.update(m.t); const i = m.sys.byId.vale.index; return Math.atan2(m.sys.py[i] + p[1] - m.ship.y, m.sys.px[i] - m.ship.x); };
+      return [
+        { burn: aim, until: (m) => Math.hypot(m.ship.vx, m.ship.vy) >= p[0] },
+        { coast: (m) => v(m).r < p[2] },
+        { burn: 'retro', rel: 'vale', until: (m) => { const o = v(m); return o.bound && o.ap <= 80; } },
+        { coast: (m) => !v(m).rising },
+        { burn: 'pro', rel: 'vale', until: (m) => v(m).pe >= 45 },
+      ];
+    },
+  },
+
+  'test-shield': {
+    // Keep the shield through the hot transfer out from Kiln, drop it at the
+    // top, then round off: the empty-handed ship gets far more from its fuel.
+    p: [650, 640], scale: [10, 10],
+    script: (p, AP) => {
+      const o = (m) => AP.orb(m, 'kiln');
+      return [
+        { burn: 'pro', until: (m) => o(m).ap >= p[0] },
+        { coast: (m) => !o(m).rising },
+        { drop: true },
+        { burn: 'pro', until: (m) => o(m).pe >= p[1] },
+      ];
+    },
+  },
+
   'test-slot': {
     // Phase above the outer belt for p[0] s (the station needs to be about
     // 3.9 rad ahead), one transfer down through it to a low point p[1] in

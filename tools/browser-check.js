@@ -35,6 +35,7 @@ const check = (name, ok, info) => { console.log((ok ? 'ok   ' : 'FAIL ') + name 
     await p.goto(URL + '?unlock');
     await p.waitForTimeout(300);
     const n = await p.evaluate(() => window.Thrusterz.levelCount);
+    const levelIds = await p.evaluate(() => window.Levels.LEVELS.map(l => l.id));
     let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
     const stalled = [];
     for (let i = 0; i < n; i++) {
@@ -54,10 +55,20 @@ const check = (name, ok, info) => { console.log((ok ? 'ok   ' : 'FAIL ') + name 
         r = await p.evaluate(() => { const S = window.Thrusterz.state; return { t: S.mission.t, status: S.mission.status, paused: S.paused }; });
       }
       if (r.status === 'flying' && !(r.t > t0)) stalled.push(i);
-      // Fast-forward whatever state the random input left, and draw it.
-      await p.evaluate(() => { const S = window.Thrusterz.state, m = S.mission; for (let t = 0; t < 20 && m.status === 'flying'; t++) m.advance(20, { thrust: false, throttle: 1, rotate: 0 }); S.predDirty = true; });
-      await p.waitForTimeout(60);
-      await p.evaluate(() => { const S = window.Thrusterz.state; S.paused = false; ['pause', 'result', 'help'].forEach(id => document.getElementById(id).classList.add('hidden')); });
+      // Fast-forward whatever state the random input left, and draw it: 20
+      // short steps rather than one long blocking call (WebKit on CI has
+      // crashed the page here), naming the mission if the page dies anyway.
+      try {
+        for (let t = 0; t < 20; t++) {
+          const flying = await p.evaluate(() => { const m = window.Thrusterz.state.mission; if (m.status === 'flying') m.advance(20, { thrust: false, throttle: 1, rotate: 0 }); return m.status === 'flying'; });
+          if (!flying) break;
+        }
+        await p.evaluate(() => { window.Thrusterz.state.predDirty = true; });
+        await p.waitForTimeout(60);
+        await p.evaluate(() => { const S = window.Thrusterz.state; S.paused = false; ['pause', 'result', 'help'].forEach(id => document.getElementById(id).classList.add('hidden')); });
+      } catch (e) {
+        throw new Error(`page died fast-forwarding mission ${i} (${levelIds[i]}): ${e.message}`);
+      }
     }
     check(`all ${n} missions load and run under random input`, errors.length === 0, errors.slice(0, 3).join(' | '));
     check('the game loop never stalls', stalled.length === 0, stalled.join(','));
@@ -411,7 +422,17 @@ const check = (name, ok, info) => { console.log((ok ? 'ok   ' : 'FAIL ') + name 
       T.startLevel(window.Levels.LEVELS.findIndex(l => l.id === 'test-storm'));
       document.querySelectorAll('.screen').forEach(e => e.classList.add('hidden'));
       const el = document.getElementById('alert'), out = {};
-      const at = async (t) => { const m = S.mission; while (m.t < t) m.advance(0.25, { thrust: false, throttle: 1, rotate: 0 }); await wait(200); return [el.className, el.textContent]; };
+      // The HUD normally refreshes on animation frames, which headless WebKit
+      // doesn't always deliver in time (and a stray blur pauses the mission):
+      // unpause and refresh it directly before reading the warning.
+      const at = async (t) => {
+        const m = S.mission;
+        while (m.t < t) m.advance(0.25, { thrust: false, throttle: 1, rotate: 0 });
+        S.paused = false; document.getElementById('pause').classList.add('hidden');
+        T.refreshHud();
+        await wait(50);
+        return [el.className, el.textContent];
+      };
       out.far = await at(5); out.soon = await at(30); out.on = await at(76);
       out.row = document.getElementById('mech-text').textContent;
       return out;

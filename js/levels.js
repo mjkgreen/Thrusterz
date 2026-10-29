@@ -8215,6 +8215,36 @@
       goals: [{ type: 'rendezvous', body: 'slot', dist: 8, relVel: 0.35 }],
       par: 4.4, bounds: 2500, tMax: 900, predict: 200, view: { x: -150, y: 0, span: 800 },
     },
+    {
+      id: 'test-front',
+      test: true,
+      name: 'Storm Front',
+      intro: 'Pyre has just thrown out a storm, and its front is racing outward: the red ring. It reaches Cinder Outpost, a bare rock with no magnetic field, at T+1:47, and Vale further out a minute later. Vale\'s magnetosphere is the only shelter. Head for Vale now, fast enough to beat the front there (aim a little to one side of it), and brake into an orbit inside Vale\'s bubble. Caught in the open, the front takes ages to pass you.',
+      objective: 'Orbit Vale between 15 and 60 k up once the storm has passed it (T+4:31), taking under 15 Sv.',
+      teaches: 'A storm front moving out · outrun it',
+      bodies: [
+        { id: 'pyre', name: 'Pyre', gm: 0, radius: 60, color: C.sun, kind: 'star', x: -1500, y: 0, radiation: { rate: 0.05, at: 1500, dose: 15, particles: 1, storm: { start: 0, end: 100, rate: 3, squeeze: 0.7, speed: 14 } } },
+        { id: 'cinder', name: 'Cinder Outpost', gm: 0, radius: 14, color: C.red, kind: 'rock', x: 0, y: 0 },
+        { id: 'vale', name: 'Vale', gm: 3000, radius: 25, color: C.green, x: 900, y: 0, magnetosphere: { nose: 130, width: 170, tail: 900 } },
+      ],
+      ship: ship({ start: { free: { x: 0, y: -30 } }, heading: 0, dv: 14, accel: 1 }),
+      goals: [{ type: 'orbit', body: 'vale', rMin: 40, rMax: 85, after: 271 }],
+      par: 10, bounds: 3000, tMax: 700, predict: 260, view: { x: 200, y: 0, span: 1700 }, startCam: 'overview',
+    },
+    {
+      id: 'test-shield',
+      test: true,
+      name: 'Heavy Water',
+      intro: 'You start close to Kiln, a hot star, and need the cool orbit far out. You carry a water shield: the blue tank round your hull stops three quarters of the radiation, but it\'s heavy, and your tank can\'t lift it all the way. Keep it on through the hot climb, then drop it (E) before your last burn so the fuel you have left goes much further.',
+      objective: 'Orbit Kiln between 600 and 720 k from its centre, taking under 10 Sv.',
+      teaches: 'A droppable shield · when to let it go',
+      bodies: [
+        { id: 'kiln', name: 'Kiln', gm: 40000, radius: 45, color: C.sun, kind: 'star', radiation: { rate: 0.2, at: 300, dose: 10 } },
+      ],
+      ship: ship({ start: { orbit: { body: 'kiln', r: 220, angle: 0 } }, heading: 'prograde', dv: 4.6, accel: 1, cargo: [{ id: 'shield', name: 'Water shield', mass: 1, shield: 0.75, sprite: 'shield' }] }),
+      goals: [{ type: 'orbit', body: 'kiln', rMin: 600, rMax: 720 }],
+      par: 6, bounds: 3000, tMax: 700, predict: 300, view: { x: 0, y: 0, span: 1700 }, startCam: 'overview',
+    },
   );
 
   // Worlds in menu order. theme picks the in-flight backdrop; unlock is how
