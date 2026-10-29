@@ -59,7 +59,13 @@
   //       only by a solid body's shadow. storm: { start, end, rate, squeeze }
   //       is a scheduled particle storm: `rate` more (at distance `at`)
   //       between `start` and `end` s, and every magnetosphere's nose pushed
-  //       in to `squeeze` × its size (its width by half as much).
+  //       in to `squeeze` × its size (its width by half as much). With
+  //       `speed` the storm is a shell moving out from the star: it reaches
+  //       each place (and each planet's magnetosphere) distance / speed
+  //       later, and lasts end − start there.
+  // Cargo option: shield: 0..1 (e.g. a water tank): while it's aboard, that
+  //       share of all radiation (sources and belts) is stopped. It's mass
+  //       like any cargo, so dropping it (E) leaves more Δv in the tank.
   //   depot: { dv, dist, relVel } refuels the current stage by dv once you rendezvous
   //   horizon: r                 black hole event horizon (crossing it is final)
   // Goal option for 'hit': maxSpeed (touch down slower than this, relative to the surface).
@@ -774,9 +780,9 @@
         // Particles (the steady wind's share, and all of a storm) are turned
         // away inside a magnetosphere; light isn't.
         let strength = R.rate;
-        const storm = this.stormOn(b, t), pf = R.particles || 0;
+        const storm = this.stormOn(b, t, r), pf = R.particles || 0;
         if (pf > 0 || storm) {
-          const fi = this.insideField(x, y, sp, pos, storm ? R.storm.squeeze : 1);
+          const fi = this.insideField(x, y, sp, pos, b, t);
           if (fi >= 0) { strength = R.rate * (1 - pf); field = fi; }
           else if (storm) strength += R.storm.rate;
         }
@@ -787,19 +793,33 @@
       return { rate, src, shade, field };
     }
 
-    // Is source b's particle storm raging at time t?
-    stormOn(b, t) { const S = b.radiation.storm; return !!S && t >= S.start && t < S.end; }
+    // Is source b's particle storm raging at time t, at distance d from it?
+    // A storm with a speed is a shell moving outward: it reaches distance d
+    // d / speed after it starts at the star, and has passed d / speed after it ends.
+    stormOn(b, t, d) {
+      const S = b.radiation.storm;
+      if (!S) return false;
+      const lag = S.speed ? (d || 0) / S.speed : 0;
+      return t >= S.start + lag && t < S.end + lag;
+    }
+    // When source b's storm reaches, and leaves, distance d: [arrive, leave].
+    stormWindow(b, d) {
+      const S = b.radiation.storm, lag = S.speed ? d / S.speed : 0;
+      return [S.start + lag, S.end + lag];
+    }
 
     // The first magnetosphere (body index) that (x, y) is inside, seen from a
     // source at sp, or -1. The shape points away from the source: a half
     // ellipse in front (nose out, width across), then a band of the same
-    // width trailing `tail` behind. squeeze < 1 during a storm.
-    insideField(x, y, sp, pos, squeeze) {
+    // width trailing `tail` behind. Squeezed while source b's storm is at
+    // that planet (at time t).
+    insideField(x, y, sp, pos, b, t) {
       for (const c of this.fields) {
         const M = c.magnetosphere, cp = pos(c.index);
         let ux = cp[0] - sp[0], uy = cp[1] - sp[1];
         const d = Math.sqrt(ux * ux + uy * uy);
         if (d <= 0) continue;
+        const squeeze = this.stormOn(b, t, d) ? b.radiation.storm.squeeze : 1;
         ux /= d; uy /= d;
         const qx = x - cp[0], qy = y - cp[1];
         const along = qx * ux + qy * uy, perp = Math.abs(qx * uy - qy * ux);
@@ -808,6 +828,10 @@
       }
       return -1;
     }
+
+    // Share of radiation that gets through the shielding you carry (cargo
+    // with `shield`, e.g. a water tank): 1 with none, 0.25 behind a 0.75 shield.
+    shieldFactor() { let f = 1; for (const c of this.cargo) if (c.shield) f *= 1 - c.shield; return f; }
 
     // Total dose rate (Sv/s) at (x, y) now: 1 Sv/s inside any belt, plus the
     // radiation sources. Uses the bodies' current positions.
@@ -839,7 +863,7 @@
         const r = DM.hypot(s.x - sys.px[b.index], s.y - sys.py[b.index]);
         if (r < b.belt.rMin || r > b.belt.rMax) continue;
         this.inBelt = b.index;
-        this.dose += h * (b.belt.rate != null ? b.belt.rate : 1);
+        this.dose += h * (b.belt.rate != null ? b.belt.rate : 1) * this.shieldFactor();
         if (this.dose > this.doseLimit) {
           this.status = 'crashed';
           this.message = 'Radiation dose too high: over ' + this.doseLimit + ' Sv in ' + b.name + '\'s belt.';
@@ -859,8 +883,8 @@
       }
       if (this.sources.length) {
         const sys = this.sys, q = this.radiationAt(s.x, s.y, this.t, (i) => [sys.px[i], sys.py[i]]);
-        this.radRate = q.rate; this.radShade = q.shade; this.radField = q.field;
-        this.dose += q.rate * h;
+        this.radRate = q.rate * this.shieldFactor(); this.radShade = q.shade; this.radField = q.field;
+        this.dose += this.radRate * h;
         if (this.dose > this.doseLimit) {
           this.status = 'crashed';
           this.message = 'Radiation dose too high: over ' + this.doseLimit + ' Sv' + (q.src >= 0 ? ' from ' + sys.bodies[q.src].name : '') + '.';

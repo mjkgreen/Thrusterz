@@ -142,7 +142,11 @@ you do it, and stops appearing after you've mastered it.
     long tail, inside which a source's particles (`radiation.particles`, its
     share 0 to 1) don't reach you; light still does. A scheduled storm
     (`radiation.storm: { start, end, rate, squeeze }`) adds particles and
-    squeezes every nose in while it blows. Before it, a red dotted line
+    squeezes every nose in while it blows (with `speed`, it's a front
+    moving out from the star, reaching each planet and your ship in turn,
+    drawn as a red ring). A cargo item with `shield` (a water tank, drawn
+    as a blue jacket on the hull) stops that share of all radiation while
+    aboard; it's heavy, so dropping it (E) leaves more Δv. Before a storm, a red dotted line
     shows where each magnetosphere will shrink to (the strip it loses is
     tinted), a warning bottom-centre counts down (flashing in the last
     minute; on phones a one-line chip just above the middle buttons), the
@@ -234,7 +238,7 @@ influence you're in, or the star you're orbiting when you're in none.
 
 World 2 flies through a green nebula with distant planets in the background,
 World 3 through an ember-red one, so you can always tell the worlds apart.
-**Experimental levels** (the menu's last tab) try out new mechanics that may or may not grow into a world, one level each: fuel pickups (*Fuel Run*), atmospheres and aerobraking (*Aerobrake*), wormholes (*Shortcut*), tethers (*Swing*), solar sails (*Sunward Sail*), event horizons and strong gravity (*Whirl*), radiation belts (*Radiation Belt*), magnetospheres and storms (*Storm Warning*, *The Slot*), refuelling depots (*Top Up*), soft landings (*Touchdown*) and ion engines (*Long Burn*). World 3's
+**Experimental levels** (the menu's last tab) try out new mechanics that may or may not grow into a world, one level each: fuel pickups (*Fuel Run*), atmospheres and aerobraking (*Aerobrake*), wormholes (*Shortcut*), tethers (*Swing*), solar sails (*Sunward Sail*), event horizons and strong gravity (*Whirl*), radiation belts (*Radiation Belt*), magnetospheres and storms (*Storm Warning*, *The Slot*, *Storm Front*), droppable shields (*Heavy Water*), refuelling depots (*Top Up*), soft landings (*Touchdown*) and ion engines (*Long Burn*). World 3's
 missions are built in `tools/w3/` (levels, proofs and naive plans that must
 lose, one file per chapter) and written into `js/levels.js` with
 `npm run build:w3`. See [docs/ROADMAP.md](docs/ROADMAP.md) for
