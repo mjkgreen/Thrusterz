@@ -62,7 +62,8 @@
   //       in to `squeeze` × its size (its width by half as much). With
   //       `speed` the storm is a shell moving out from the star: it reaches
   //       each place (and each planet's magnetosphere) distance / speed
-  //       later, and lasts end − start there.
+  //       later, and lasts end − start there. It builds up and dies away
+  //       over `ramp` s at each end (default 6), squeeze and strength alike.
   // Cargo option: shield: 0..1 (e.g. a water tank): while it's aboard, that
   //       share of all radiation (sources and belts) is stopped. It's mass
   //       like any cargo, so dropping it (E) leaves more Δv in the tank.
@@ -780,11 +781,11 @@
         // Particles (the steady wind's share, and all of a storm) are turned
         // away inside a magnetosphere; light isn't.
         let strength = R.rate;
-        const storm = this.stormOn(b, t, r), pf = R.particles || 0;
-        if (pf > 0 || storm) {
+        const storm = this.stormLevel(b, t, r), pf = R.particles || 0;
+        if (pf > 0 || storm > 0) {
           const fi = this.insideField(x, y, sp, pos, b, t);
           if (fi >= 0) { strength = R.rate * (1 - pf); field = fi; }
-          else if (storm) strength += R.storm.rate;
+          else if (storm > 0) strength += R.storm.rate * storm;
         }
         const rr = Math.max(r, b.radius), add = lit * strength * R.at * R.at / (rr * rr);
         rate += add;
@@ -796,11 +797,17 @@
     // Is source b's particle storm raging at time t, at distance d from it?
     // A storm with a speed is a shell moving outward: it reaches distance d
     // d / speed after it starts at the star, and has passed d / speed after it ends.
-    stormOn(b, t, d) {
+    stormOn(b, t, d) { return this.stormLevel(b, t, d) > 0; }
+    // How hard it's blowing there, 0..1: it builds over `ramp` s (default
+    // 6) once the storm arrives and dies away over the last `ramp` s, so a
+    // magnetosphere squeezes in and springs back rather than snapping.
+    stormLevel(b, t, d) {
       const S = b.radiation.storm;
-      if (!S) return false;
-      const lag = S.speed ? (d || 0) / S.speed : 0;
-      return t >= S.start + lag && t < S.end + lag;
+      if (!S) return 0;
+      const lag = S.speed ? (d || 0) / S.speed : 0, t0 = S.start + lag, t1 = S.end + lag;
+      if (t < t0 || t >= t1) return 0;
+      const ramp = S.ramp != null ? S.ramp : 6;
+      return ramp > 0 ? Math.min(1, (t - t0) / ramp, (t1 - t) / ramp) : 1;
     }
     // When source b's storm reaches, and leaves, distance d: [arrive, leave].
     stormWindow(b, d) {
@@ -819,7 +826,7 @@
         let ux = cp[0] - sp[0], uy = cp[1] - sp[1];
         const d = Math.sqrt(ux * ux + uy * uy);
         if (d <= 0) continue;
-        const squeeze = this.stormOn(b, t, d) ? b.radiation.storm.squeeze : 1;
+        const lv = this.stormLevel(b, t, d), squeeze = lv > 0 ? 1 - (1 - b.radiation.storm.squeeze) * lv : 1;
         ux /= d; uy /= d;
         const qx = x - cp[0], qy = y - cp[1];
         const along = qx * ux + qy * uy, perp = Math.abs(qx * uy - qy * ux);

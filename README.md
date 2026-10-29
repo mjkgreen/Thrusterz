@@ -150,8 +150,11 @@ you do it, and stops appearing after you've mastered it.
     shows where each magnetosphere will shrink to (the strip it loses is
     tinted), a warning bottom-centre counts down (flashing in the last
     minute; on phones a one-line chip just above the middle buttons), the
-    screen's rim glows red, and the star flickers and flares; the app buzzes
-    when it hits. During it, particles stream
+    screen's rim glows red, and the star flickers and flares; a rumble
+    builds. When it hits, the screen washes red with a whoosh (and the app
+    buzzes); it builds and dies away over a few seconds (`ramp`), so
+    magnetospheres squeeze in and spring back smoothly, and while it blows
+    you hear it roar, muffled inside a magnetosphere. During it, particles stream
     off the star toward the planets. An
     orbit goal with `after` only counts once the clock passes that time.
   - *Refuelling depot* (`depot: { dv, dist, relVel }` on a station): a

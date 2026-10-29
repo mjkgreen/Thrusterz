@@ -595,7 +595,7 @@
       const flying = state.screen === 'flight' && !state.paused && $('gate').classList.contains('hidden');
       if (flying) update(realDt);
       // Engine and thrusters fall silent whenever we're not actually flying.
-      if (!flying || !state.mission || state.mission.status !== 'flying') { Sound.engine(0); Sound.rcs(false); }
+      if (!flying || !state.mission || state.mission.status !== 'flying') { Sound.engine(0); Sound.rcs(false); Sound.storm(0); }
       // Driving music from the first launch until you go back to the menu:
       // through pauses, results, retries and the next briefing, so the flow
       // isn't broken. The calm track is for the menu.
@@ -1499,10 +1499,12 @@
         // in the last minute. During it: the calm shape it will return to.
         for (const c of m.fields) {
           const d = Math.hypot(sys.px[c.index] - sys.px[b.index], sys.py[c.index] - sys.py[b.index]);
-          const storm = !!S && m.stormOn(b, m.t, d), w = S ? m.stormWindow(b, d) : null;
-          drawField(sx, sy, c, storm ? S.squeeze : 1, storm);
+          // lv eases 0 → 1 → 0 as the storm builds and dies away there, so the
+          // bubble squeezes in and springs back, and its colour follows.
+          const lv = S ? m.stormLevel(b, m.t, d) : 0, w = S ? m.stormWindow(b, d) : null;
+          drawField(sx, sy, c, lv > 0 ? 1 - (1 - S.squeeze) * lv : 1, lv);
           if (w && m.t < w[0]) drawFieldForecast(sx, sy, c, S.squeeze, w[0] - m.t);
-          else if (storm) drawFieldForecast(sx, sy, c, 1, -1);
+          else if (lv > 0) drawFieldForecast(sx, sy, c, 1, -1);
         }
         if (S && S.speed) drawStormFront(sx, sy, b);
         const lead = S && m.t < S.start ? S.start - m.t : Infinity;
@@ -1558,7 +1560,9 @@
 
   // A magnetosphere seen from a source at screen (sx, sy): half an ellipse
   // in front (nose out, width across), a band of the same width behind.
+  // storm: 0 (calm, blue) to 1 (full storm, red), blended in between.
   function drawField(sx, sy, c, sq, storm) {
+    const mix = (a, b2) => a.map((v, i) => v + (b2[i] - v) * storm), rgba = (c4) => `rgba(${c4[0] | 0},${c4[1] | 0},${c4[2] | 0},${c4[3].toFixed(3)})`;
     const z = state.cam.zoom, sys = state.mission.sys, M = c.magnetosphere;
     const [cx, cy] = w2s(sys.px[c.index], sys.py[c.index]);
     const dx = cx - sx, dy = cy - sy, d = Math.hypot(dx, dy);
@@ -1572,10 +1576,10 @@
     for (let k = 1; k <= 24; k++) { const f = Math.PI * k / 24; ctx.lineTo(...at(-nose * Math.sin(f), -w * Math.cos(f))); }
     ctx.closePath();
     const g = ctx.createLinearGradient(...at(-nose, 0), ...at(tail, 0));
-    g.addColorStop(0, storm ? 'rgba(255,140,120,0.16)' : 'rgba(110,170,255,0.16)'); g.addColorStop(1, 'rgba(110,170,255,0)');
+    g.addColorStop(0, rgba(mix([110, 170, 255, 0.16], [255, 140, 120, 0.16]))); g.addColorStop(1, 'rgba(110,170,255,0)');
     ctx.fillStyle = g; ctx.fill();
-    ctx.strokeStyle = storm ? 'rgba(255,150,130,0.7)' : 'rgba(130,190,255,0.65)'; ctx.setLineDash([4, 6]); ctx.stroke(); ctx.setLineDash([]);
-    if (nose > 30) label('MAGNETOSPHERE', ...at(-nose - 12, 0), storm ? 'rgba(255,160,140,0.9)' : 'rgba(150,200,255,0.85)');
+    ctx.strokeStyle = rgba(mix([130, 190, 255, 0.65], [255, 150, 130, 0.7])); ctx.setLineDash([4, 6]); ctx.stroke(); ctx.setLineDash([]);
+    if (nose > 30) label('MAGNETOSPHERE', ...at(-nose - 12, 0), rgba(mix([150, 200, 255, 0.85], [255, 160, 140, 0.9])));
   }
 
   // The outline a magnetosphere will have (sq: its squeeze then). Before a
@@ -2330,6 +2334,26 @@
   // run, then a few seconds of "storm over".
   let alertKey = '';
   const clock = (t) => { const n = Math.max(0, Math.ceil(t)); return Math.floor(n / 60) + ':' + String(n % 60).padStart(2, '0'); };
+  // A quick full-screen wash (red as a storm hits, cool as it passes).
+  function screenWash(kind) {
+    const el = $('storm-wash');
+    el.className = ''; void el.offsetWidth; el.className = kind;
+  }
+  // The storm's sound, every frame: a low rumble that swells in the last
+  // minute, then a roar while it blows where you are (muffled inside a
+  // magnetosphere), fading as it dies away.
+  function stormSound(m, cls) {
+    let level = 0, muffled = false;
+    for (const b of m.sources) {
+      const S = b.radiation.storm;
+      if (!S || m.status !== 'flying' || state.paused) continue;
+      const d = Math.hypot(m.ship.x - m.sys.px[b.index], m.ship.y - m.sys.py[b.index]);
+      const lv = m.stormLevel(b, m.t, d), [t0] = m.stormWindow(b, d);
+      level = lv > 0 ? 0.35 + 0.65 * lv : m.t < t0 && t0 - m.t < 60 ? 0.25 * (1 - (t0 - m.t) / 60) : 0;
+      muffled = m.radField >= 0;
+    }
+    Sound.storm(level, muffled);
+  }
   function updateAlert(m) {
     const el = $('alert');
     let cls = '', html = '';
@@ -2349,10 +2373,13 @@
       } else if (m.t < t1 + 4) { cls = 'over'; html = 'STORM OVER'; }
       break;
     }
+    stormSound(m, cls);
     const key = cls + html;
     if (key === alertKey) return;
-    // A buzz (app, Vibration on) the moment the storm hits.
-    if (cls === 'on' && !/^on/.test(alertKey)) haptic(false);
+    // The moment the storm reaches you: a red wash over the screen, a whoosh
+    // and (app, Vibration on) a buzz. When it has passed: a cool wash.
+    if (cls === 'on' && !/^on/.test(alertKey)) { haptic(false); screenWash('hit'); Sound.stormHit(); }
+    if (cls === 'over' && !/^over/.test(alertKey)) { screenWash('clear'); Sound.stormEnd(); }
     alertKey = key;
     el.className = cls; el.innerHTML = html;
     $('edge-alert').className = cls === 'soon' || cls === 'now' || cls === 'on' ? cls : '';

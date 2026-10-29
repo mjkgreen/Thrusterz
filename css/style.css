@@ -151,6 +151,13 @@ body.touch.alerting #coach { bottom: calc(var(--alert-bottom, 64px) + 30px); }
 #edge-alert.now { animation-duration: 0.5s; }
 #edge-alert.on { opacity: 0.55; }
 body.touch #edge-alert { box-shadow: inset 0 0 44px 8px rgba(255, 70, 50, 0.55); }
+/* A storm reaching you washes the screen red for a moment; one passing,
+   a cool cyan. Nothing stays covered. */
+#storm-wash { position: absolute; inset: 0; pointer-events: none; opacity: 0; }
+#storm-wash.hit { background: radial-gradient(ellipse at center, rgba(255, 80, 50, 0.08), rgba(255, 60, 40, 0.45)); animation: wash 1.1s ease-out forwards; }
+#storm-wash.clear { background: radial-gradient(ellipse at center, rgba(120, 220, 255, 0.04), rgba(120, 220, 255, 0.25)); animation: wash 1.6s ease-out forwards; }
+@keyframes wash { 0% { opacity: 0; } 15% { opacity: 1; } 100% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { #storm-wash.hit, #storm-wash.clear { animation-duration: 0.4s; } }
 @keyframes edge-pulse { 0%, 100% { opacity: 0.25; } 50% { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { #edge-alert.soon, #edge-alert.now { animation: none; opacity: 0.6; } }
 
