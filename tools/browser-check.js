@@ -45,7 +45,14 @@ const check = (name, ok, info) => { console.log((ok ? 'ok   ' : 'FAIL ') + name 
         const key = r < 0.3 ? 'Space' : r < 0.45 ? 'KeyA' : r < 0.6 ? 'KeyD' : r < 0.72 ? 'KeyE' : r < 0.82 ? 'Period' : r < 0.9 ? 'KeyV' : 'KeyO';
         await p.keyboard.down(key); await p.waitForTimeout(30 + rnd() * 150); await p.keyboard.up(key);
       }
-      const r = await p.evaluate(() => { const S = window.Thrusterz.state; return { t: S.mission.t, status: S.mission.status }; });
+      let r = await p.evaluate(() => { const S = window.Thrusterz.state; return { t: S.mission.t, status: S.mission.status, paused: S.paused }; });
+      // A stray window blur (headless WebKit sends them) pauses the mission on
+      // purpose. That isn't a stall, but the loop must run again once unpaused.
+      if (r.status === 'flying' && !(r.t > t0) && r.paused) {
+        await p.evaluate(() => { window.Thrusterz.state.paused = false; document.getElementById('pause').classList.add('hidden'); });
+        await p.waitForTimeout(400);
+        r = await p.evaluate(() => { const S = window.Thrusterz.state; return { t: S.mission.t, status: S.mission.status, paused: S.paused }; });
+      }
       if (r.status === 'flying' && !(r.t > t0)) stalled.push(i);
       // Fast-forward whatever state the random input left, and draw it.
       await p.evaluate(() => { const S = window.Thrusterz.state, m = S.mission; for (let t = 0; t < 20 && m.status === 'flying'; t++) m.advance(20, { thrust: false, throttle: 1, rotate: 0 }); S.predDirty = true; });
@@ -390,6 +397,30 @@ const check = (name, ok, info) => { console.log((ok ? 'ok   ' : 'FAIL ') + name 
     check('no page errors with tilt', errors.length === 0, errors.slice(0, 3).join(' | '));
     errors.length = 0;
     await ctx.close();
+  }
+
+  // 7. Storm Warning: the bottom-centre warning escalates (steady, then
+  //    flashing in the last minute) and reports the storm while it blows.
+  {
+    const p = await browser.newPage({ viewport: { width: 1000, height: 600 } });
+    watch(p);
+    await p.goto(URL + '?unlock');
+    await p.waitForTimeout(300);
+    const r = await p.evaluate(async () => {
+      const T = window.Thrusterz, S = T.state, wait = (ms) => new Promise(res => setTimeout(res, ms));
+      T.startLevel(window.Levels.LEVELS.findIndex(l => l.id === 'test-storm'));
+      document.querySelectorAll('.screen').forEach(e => e.classList.add('hidden'));
+      const el = document.getElementById('alert'), out = {};
+      const at = async (t) => { const m = S.mission; while (m.t < t) m.advance(0.25, { thrust: false, throttle: 1, rotate: 0 }); await wait(200); return [el.className, el.textContent]; };
+      out.far = await at(5); out.soon = await at(30); out.on = await at(76);
+      out.row = document.getElementById('mech-text').textContent;
+      return out;
+    });
+    check('storm warning: steady, then flashing, then the storm itself, bottom-centre (not in the HUD row)',
+      r.far[0] === 'far' && /STORM IN 1:1/.test(r.far[1]) && r.soon[0] === 'soon' && /STORM IN 0:4/.test(r.soon[1]) && r.on[0] === 'on' && /LEFT/.test(r.on[1]) && !/storm in/i.test(r.row), JSON.stringify(r));
+    check('no page errors in Storm Warning', errors.length === 0, errors.slice(0, 3).join(' | '));
+    errors.length = 0;
+    await p.close();
   }
 
   await browser.close();

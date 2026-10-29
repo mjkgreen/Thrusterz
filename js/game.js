@@ -1491,9 +1491,17 @@
       // Magnetospheres: the bubble this source's particles can't get into,
       // pointing away from it (squeezed while a storm blows).
       if (R.particles || R.storm) {
-        const storm = m.stormOn(b, m.t), sq = storm ? R.storm.squeeze : 1;
-        for (const c of m.fields) drawField(sx, sy, c, sq, storm);
-        if (storm) label('☄ STORM', sx, sy - b.radius * z - 22, 'rgba(255,140,120,0.95)');
+        const S = R.storm, storm = m.stormOn(b, m.t), sq = storm ? S.squeeze : 1;
+        // Before a storm: the squeezed shape it will have, as a red dotted
+        // line (the strip in between goes out in the storm), pulsing harder
+        // in the last minute. During it: the calm shape it will return to.
+        const lead = S && m.t < S.start ? S.start - m.t : Infinity;
+        for (const c of m.fields) {
+          drawField(sx, sy, c, sq, storm);
+          if (lead < Infinity) drawFieldForecast(sx, sy, c, S.squeeze, lead);
+          else if (storm) drawFieldForecast(sx, sy, c, 1, -1);
+        }
+        if (S && (storm || lead <= 60)) drawStormStar(sx, sy, b, storm, lead);
       }
       // Shadows. A point source (pulsar) casts a sharp shadow that widens.
       // A disc (star) casts an umbra that narrows and ends behind anything
@@ -1563,6 +1571,89 @@
     ctx.fillStyle = g; ctx.fill();
     ctx.strokeStyle = storm ? 'rgba(255,150,130,0.7)' : 'rgba(130,190,255,0.65)'; ctx.setLineDash([4, 6]); ctx.stroke(); ctx.setLineDash([]);
     if (nose > 30) label('MAGNETOSPHERE', ...at(-nose - 12, 0), storm ? 'rgba(255,160,140,0.9)' : 'rgba(150,200,255,0.85)');
+  }
+
+  // The outline a magnetosphere will have (sq: its squeeze then). Before a
+  // storm (lead s to go): red dots, and the strip it will lose tinted red,
+  // flashing faster as the storm nears. lead < 0: during a storm, the calm
+  // shape it springs back to, faint blue.
+  function drawFieldForecast(sx, sy, c, sq, lead) {
+    const z = state.cam.zoom, sys = state.mission.sys, M = c.magnetosphere;
+    const [cx, cy] = w2s(sys.px[c.index], sys.py[c.index]);
+    const dx = cx - sx, dy = cy - sy, d = Math.hypot(dx, dy);
+    if (d <= 0) return;
+    const ux = dx / d, uy = dy / d, nx = -uy, ny = ux;
+    const at = (a, p) => [cx + ux * a + nx * p, cy + uy * a + ny * p];
+    const shape = (s) => {
+      const nose = M.nose * s * z, w = M.width * (1 + s) / 2 * z, tail = M.tail * z;
+      ctx.moveTo(...at(0, w)); ctx.lineTo(...at(tail, w)); ctx.lineTo(...at(tail, -w)); ctx.lineTo(...at(0, -w));
+      for (let k = 1; k <= 24; k++) { const f = Math.PI * k / 24; ctx.lineTo(...at(-nose * Math.sin(f), -w * Math.cos(f))); }
+      ctx.closePath();
+    };
+    if (lead < 0) {
+      ctx.beginPath(); shape(1);
+      ctx.strokeStyle = 'rgba(130,190,255,0.35)'; ctx.setLineDash([2, 6]); ctx.stroke(); ctx.setLineDash([]);
+      return;
+    }
+    // Pulse: slow far out, quicker in the last minute, fast in the last 10 s.
+    const now = performance.now() / 1000, hz = lead <= 10 ? 2.5 : lead <= 60 ? 1 : 0;
+    const pulse = hz ? 0.5 + 0.5 * Math.sin(now * TAU * hz) : 0.5;
+    const k = lead <= 60 ? 0.55 + 0.45 * pulse : 0.45;
+    ctx.beginPath(); shape(1); shape(sq);
+    ctx.fillStyle = `rgba(255,90,70,${(0.05 + 0.13 * (lead <= 60 ? pulse : 0)).toFixed(3)})`;
+    ctx.fill('evenodd');
+    ctx.beginPath(); shape(sq);
+    ctx.strokeStyle = `rgba(255,110,90,${k.toFixed(3)})`; ctx.lineWidth = 1.5; ctx.setLineDash([2, 5]); ctx.stroke(); ctx.setLineDash([]); ctx.lineWidth = 1;
+    // Label it partway round the nose, clear of the MAGNETOSPHERE label on the axis.
+    const nose = M.nose * sq * z, w = M.width * (1 + sq) / 2 * z;
+    if (nose > 24) label('STORM EDGE', ...at(-nose * Math.sin(0.3 * Math.PI) - 8, -w * Math.cos(0.3 * Math.PI) - 10), `rgba(255,140,120,${Math.max(0.6, k).toFixed(2)})`);
+  }
+
+  // A star building up to a storm (last minute: a flickering, swelling
+  // corona and flares on its rim) and blowing one (a hot corona, and
+  // particles streaming off toward every magnetosphere).
+  function drawStormStar(sx, sy, b, storm, lead) {
+    const m = state.mission, z = state.cam.zoom, sys = m.sys, now = performance.now() / 1000;
+    const r = Math.max(b.radius * z, 6);
+    const k = storm ? 1 : Math.max(0, 1 - lead / 60);          // 0 → 1 over the last minute
+    const flick = 0.75 + 0.25 * Math.sin(now * (3 + 9 * k)) * Math.sin(now * (1.7 + 5 * k));
+    const R = r * (1.6 + 1.6 * k * flick);
+    const g = ctx.createRadialGradient(sx, sy, r * 0.9, sx, sy, R);
+    g.addColorStop(0, `rgba(255,120,80,${(0.25 + 0.5 * k * flick).toFixed(3)})`); g.addColorStop(1, 'rgba(255,90,60,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(sx, sy, R, 0, TAU); ctx.fill();
+    // Flares: loops on the rim that come and go.
+    ctx.strokeStyle = `rgba(255,170,110,${(0.35 + 0.5 * k).toFixed(3)})`; ctx.lineWidth = Math.max(1, r * 0.06);
+    for (let j = 0; j < 5; j++) {
+      const a = j * 1.37 + now * 0.15, h = r * (0.25 + 0.5 * k) * (0.5 + 0.5 * Math.sin(now * (1.3 + j * 0.4) + j));
+      ctx.beginPath(); ctx.arc(sx + Math.cos(a) * r, sy - Math.sin(a) * r, h, a + Math.PI * 1.5, a + Math.PI * 0.5, true); ctx.stroke();
+    }
+    ctx.lineWidth = 1;
+    if (storm) {
+      // Particles streaming out toward each planet with a magnetosphere.
+      ctx.strokeStyle = 'rgba(255,150,110,0.55)'; ctx.setLineDash([3, 14]); ctx.lineDashOffset = -now * 120;
+      for (const c of m.fields) {
+        const [cx, cy] = w2s(sys.px[c.index], sys.py[c.index]);
+        const dx = cx - sx, dy = cy - sy, d = Math.hypot(dx, dy), nx = -dy / d, ny = dx / d;
+        const spread = c.magnetosphere.width * z * 1.4;
+        for (let j = -4; j <= 4; j++) {
+          const o = j / 4 * spread;
+          ctx.beginPath(); ctx.moveTo(sx + nx * o * 0.08, sy + ny * o * 0.08); ctx.lineTo(cx + nx * o - dx * 0.05, cy + ny * o - dy * 0.05); ctx.stroke();
+        }
+      }
+      ctx.setLineDash([]); ctx.lineDashOffset = 0;
+    }
+    label(storm ? '☄ STORM' : '☄ STORM BUILDING', sx, sy - r - 22, `rgba(255,140,120,${storm ? 0.95 : (0.6 + 0.4 * flick).toFixed(2)})`);
+    // Off screen: a pulsing glow on the screen edge, in the star's direction.
+    if (sx < 0 || sx > W || sy < 0 || sy > H) {
+      const cx = W / 2, cy = H / 2, dx = sx - cx, dy = sy - cy;
+      const f = Math.min(Math.abs((W / 2 - 18) / (dx || 1e-9)), Math.abs((H / 2 - 18) / (dy || 1e-9)));
+      const ex = cx + dx * f, ey = cy + dy * f, gr = 40 + 50 * k * flick;
+      const eg = ctx.createRadialGradient(ex, ey, 0, ex, ey, gr);
+      eg.addColorStop(0, `rgba(255,110,80,${(0.35 + 0.45 * k * flick).toFixed(3)})`); eg.addColorStop(1, 'rgba(255,90,60,0)');
+      ctx.fillStyle = eg; ctx.beginPath(); ctx.arc(ex, ey, gr, 0, TAU); ctx.fill();
+      const lx = Math.max(70, Math.min(W - 70, ex)), ly = Math.max(24, Math.min(H - 24, ey));
+      label('☄ ' + b.name.toUpperCase(), lx, ly, `rgba(255,150,120,${(0.6 + 0.4 * flick).toFixed(2)})`);
+    }
   }
 
   // Radiation belt: a shaded amber ring that brightens while you're in it.
@@ -2185,6 +2276,33 @@
     $('mech-label').textContent = { heat: 'Heat', dose: 'Dose', sail: 'Sail push' }[gauge] || '';
   }
 
+  // A scheduled storm: a warning bottom-centre, steady at first, flashing
+  // inside the last minute (fast in the last 10 s), then how long it has to
+  // run, then a few seconds of "storm over".
+  let alertKey = '';
+  const clock = (t) => { const n = Math.max(0, Math.ceil(t)); return Math.floor(n / 60) + ':' + String(n % 60).padStart(2, '0'); };
+  function updateAlert(m) {
+    const el = $('alert');
+    let cls = '', html = '';
+    for (const b of m.sources) {
+      const S = b.radiation.storm;
+      if (!S || m.status !== 'flying') continue;
+      if (m.t < S.start) {
+        const lead = S.start - m.t;
+        cls = lead <= 10 ? 'now' : lead <= 60 ? 'soon' : 'far';
+        html = '☄ STORM IN ' + clock(lead) + '<span class="small">' + (m.fields.length ? 'the magnetosphere shrinks to the red dotted line' : b.name + ' is about to flare') + '</span>';
+      } else if (m.t < S.end) {
+        cls = 'on';
+        html = '☄ STORM · ' + clock(S.end - m.t) + ' LEFT<span class="small">' + (m.radField >= 0 ? 'sheltered inside ' + m.sys.bodies[m.radField].name + '\'s magnetosphere' : m.radRate > 0 ? 'exposed · ' + m.radRate.toFixed(2) + ' Sv/s' : 'out of the storm') + '</span>';
+      } else if (m.t < S.end + 4) { cls = 'over'; html = 'STORM OVER'; }
+      break;
+    }
+    const key = cls + html;
+    if (key === alertKey) return;
+    alertKey = key;
+    el.className = cls; el.innerHTML = html;
+  }
+
   function updateMechHud(m) {
     const M = state.mech, sys = m.sys, s = m.ship, p = state.pred;
     if (!M) return;
@@ -2255,12 +2373,7 @@
           : m.radShade >= 0 ? '<span class="ok">in ' + sys.bodies[m.radShade].name + '\'s shadow</span>'
           : m.radField >= 0 ? '<span class="ok">inside ' + sys.bodies[m.radField].name + '\'s magnetosphere</span>'
           : '<span class="ok">' + (beam ? 'out of the beam' : 'clear') + '</span>';
-        // A scheduled particle storm: count down to it, then to its end.
-        for (const b of m.sources) {
-          const S = b.radiation.storm;
-          if (!S) continue;
-          t = (m.t < S.start ? 'storm in ' + fmtT(S.start - m.t) : m.t < S.end ? '<span class="warn">STORM · ' + fmtT(S.end - m.t) + ' left</span>' : '<span class="ok">storm over</span>') + ' · ' + t;
-        }
+
         // Released cargo with its own limit.
         for (const c of m.crafts) if (c.alive && c.doseLimit != null) t += ' · ' + c.name + ' ' + c.dose.toFixed(1) + '/' + c.doseLimit + ' Sv';
         break;
@@ -2362,6 +2475,7 @@
     const dropBtn = document.querySelector('#touch button.deploy');
     if (dropBtn) dropBtn.textContent = tether ? (m.tether ? 'RELEASE' : 'LATCH') : m.canDrop() ? 'DROP' : 'DEPLOY';
     updateMechHud(m);
+    updateAlert(m);
     if (L.ship.cargo && L.ship.cargo.length) {
       $('hud-cargo').textContent = m.cargo.length ? m.cargo.map(c => c.name).join(', ') + (isTouch() ? '' : ' · E drops') : 'all dropped';
     }

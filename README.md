@@ -142,7 +142,11 @@ you do it, and stops appearing after you've mastered it.
     long tail, inside which a source's particles (`radiation.particles`, its
     share 0 to 1) don't reach you; light still does. A scheduled storm
     (`radiation.storm: { start, end, rate, squeeze }`) adds particles and
-    squeezes every nose in while it blows; the HUD counts down to it. An
+    squeezes every nose in while it blows. Before it, a red dotted line
+    shows where each magnetosphere will shrink to (the strip it loses is
+    tinted), a warning bottom-centre counts down (flashing in the last
+    minute), and the star flickers and flares; during it, particles stream
+    off the star toward the planets. An
     orbit goal with `after` only counts once the clock passes that time.
   - *Refuelling depot* (`depot: { dv, dist, relVel }` on a station): a
     rendezvous refills the current stage once.
