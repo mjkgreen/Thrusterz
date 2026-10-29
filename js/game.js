@@ -1606,7 +1606,7 @@
     ctx.strokeStyle = `rgba(255,110,90,${k.toFixed(3)})`; ctx.lineWidth = 1.5; ctx.setLineDash([2, 5]); ctx.stroke(); ctx.setLineDash([]); ctx.lineWidth = 1;
     // Label it partway round the nose, clear of the MAGNETOSPHERE label on the axis.
     const nose = M.nose * sq * z, w = M.width * (1 + sq) / 2 * z;
-    if (nose > 24) label('STORM EDGE', ...at(-nose * Math.sin(0.3 * Math.PI) - 8, -w * Math.cos(0.3 * Math.PI) - 10), `rgba(255,140,120,${Math.max(0.6, k).toFixed(2)})`);
+    if (nose > 24) label('STORM EDGE: shrinks to here', ...at(-nose * Math.sin(0.3 * Math.PI) - 8, -w * Math.cos(0.3 * Math.PI) - 10), `rgba(255,140,120,${Math.max(0.6, k).toFixed(2)})`);
   }
 
   // A star building up to a storm (last minute: a flickering, swelling
@@ -2299,8 +2299,18 @@
     }
     const key = cls + html;
     if (key === alertKey) return;
+    // A buzz (app, Vibration on) the moment the storm hits.
+    if (cls === 'on' && !/^on/.test(alertKey)) haptic(false);
     alertKey = key;
     el.className = cls; el.innerHTML = html;
+    $('edge-alert').className = cls === 'soon' || cls === 'now' || cls === 'on' ? cls : '';
+    document.body.classList.toggle('alerting', !!cls);
+    // Phones: sit just above the middle buttons (warp, frame, camera).
+    if (cls && isTouch()) {
+      const mid = document.querySelector('#touch .tgroup.small');
+      const top = mid && mid.getBoundingClientRect().top;
+      if (top > 0) document.body.style.setProperty('--alert-bottom', Math.round(window.innerHeight - top + 6) + 'px');
+    }
   }
 
   function updateMechHud(m) {
