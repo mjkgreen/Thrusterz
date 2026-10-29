@@ -411,7 +411,15 @@ const check = (name, ok, info) => { console.log((ok ? 'ok   ' : 'FAIL ') + name 
       T.startLevel(window.Levels.LEVELS.findIndex(l => l.id === 'test-storm'));
       document.querySelectorAll('.screen').forEach(e => e.classList.add('hidden'));
       const el = document.getElementById('alert'), out = {};
-      const at = async (t) => { const m = S.mission; while (m.t < t) m.advance(0.25, { thrust: false, throttle: 1, rotate: 0 }); await wait(200); return [el.className, el.textContent]; };
+      // The HUD only refreshes while the mission runs; a stray blur (headless
+      // WebKit sends them) pauses it, so unpause before reading the warning.
+      const at = async (t) => {
+        const m = S.mission;
+        while (m.t < t) m.advance(0.25, { thrust: false, throttle: 1, rotate: 0 });
+        S.paused = false; document.getElementById('pause').classList.add('hidden');
+        await wait(200);
+        return [el.className, el.textContent];
+      };
       out.far = await at(5); out.soon = await at(30); out.on = await at(76);
       out.row = document.getElementById('mech-text').textContent;
       return out;
