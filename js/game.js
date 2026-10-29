@@ -3410,5 +3410,7 @@
   window.__reportCrash = reportCrash;
 
   // Expose for debugging / automated testing.
-  window.Thrusterz = { state, startLevel, showMenu, showBriefing, levelCount: LEVELS.length, controls, tiltAngle, settings };
+  window.Thrusterz = { state, startLevel, showMenu, showBriefing, levelCount: LEVELS.length, controls, tiltAngle, settings,
+    // Tests: redraw the HUD now, without waiting for an animation frame.
+    refreshHud: () => { if (state.mission) updateHud(); } };
 })();
