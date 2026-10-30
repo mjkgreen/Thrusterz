@@ -5940,368 +5940,73 @@
       },
       "startCam": "overview"
     },
-    // Chapter: Shadow Lanes
+    // Chapter: Magnetic Shelter
     {
-      "id": "nightwatch",
-      "name": "Night Watch",
-      "intro": "Vesper's L2 point is the marker in the dark cone behind it, keeping pace as Vesper goes round Lamp. Climb to it: burn prograde as you come round the day side so the top of your climb lands on the marker (the closest approach readout shows how near you will pass), then brake to match its speed. Nothing stays at L2 on its own, so keep station with small taps whenever your path starts to curl away, and turn sparingly: the side thrusters are short. Then nudge sunward, fall back and brake into a low orbit.",
-      "objective": "Hold within 4 k of Vesper's L2 (moving with it to within 0.2 k/s) for 60 s, then orbit Vesper between 15 and 35 k from its centre, taking under 4 Sv of radiation, with 19.5 s of side-thruster propellant.",
-      "teaches": "Keep station at L2",
+      "id": "stormwarn",
+      "name": "Storm Warning",
+      "intro": "Corona's wind is charged particles, and Halde's magnetic field turns them away: inside its magnetosphere, the blue bubble, you take none. A storm hits at T+1:15 and squashes the bubble's nose in past your orbit; the red dotted line shows where to. Get down under the radiation belt before it hits, crossing the belt quickly, and wait there until the storm has passed. Then climb back up through the belt to your work orbit. Both crossings come out of the same dose budget.",
+      "objective": "Orbit Halde between 13 and 29 k up when the storm ends (T+2:45), then between 102 and 114 k up, taking under 20 Sv.",
+      "teaches": "Magnetospheres · a scheduled storm",
       "bodies": [
         {
-          "id": "lamp",
-          "name": "Lamp",
-          "gm": 40000,
-          "radius": 45,
+          "id": "corona",
+          "name": "Corona",
+          "gm": 0,
+          "radius": 60,
           "color": "#ffcf5a",
           "kind": "star",
+          "x": -1500,
+          "y": 0,
           "radiation": {
-            "rate": 0.05,
-            "at": 550,
-            "dose": 4
-          }
-        },
-        {
-          "id": "vesper",
-          "name": "Vesper",
-          "gm": 1000,
-          "radius": 12,
-          "color": "#6f86b8",
-          "orbit": {
-            "parent": "lamp",
-            "a": 550,
-            "phase": 0
-          }
-        }
-      ],
-      "ship": {
-        "start": {
-          "orbit": {
-            "body": "vesper",
-            "r": 30,
-            "angle": 3.141592653589793
-          }
-        },
-        "heading": "prograde",
-        "stages": [
-          {
-            "dryMass": 1,
-            "fuel": 0.5636142992864179,
-            "thrust": 0.9381685795718507,
-            "ve": 10
-          }
-        ],
-        "cargo": [],
-        "rcs": {
-          "fuel": 19.5,
-          "accel": 1.2,
-          "maxRate": 1.6
-        },
-        "canRotate": true
-      },
-      "goals": [
-        {
-          "type": "hold",
-          "lagrange": {
-            "body": "vesper",
-            "lead": 0,
-            "scale": 1.2147
-          },
-          "r": 4,
-          "relVel": 0.2,
-          "hold": 60,
-          "label": "L2"
-        },
-        {
-          "type": "orbit",
-          "body": "vesper",
-          "rMin": 15,
-          "rMax": 35,
-          "label": "Low orbit"
-        }
-      ],
-      "par": 4.1,
-      "bounds": 3000,
-      "tMax": 400,
-      "predict": 150,
-      "view": {
-        "x": 640,
-        "y": 0,
-        "span": 320
-      }
-    },
-    {
-      "id": "perihelion",
-      "name": "Perihelion",
-      "intro": "Wend is on an ellipse, and it is falling toward Pyre: in a minute it swings through perihelion, its closest pass, where the sunlight on your low orbit is fiercest. Climb into the dark behind it before then: burn prograde as you come round the day side so the top of your climb meets the L2 marker. Watch it: near perihelion the marker races in toward Wend and back out, and your corrections have to keep up. Then push off sunward and a little ahead (the glow on your path fades as you push), fall down the shadow and brake into a low orbit at the bottom: push too far ahead and the fall clips Wend.",
-      "objective": "Hold within 2 k of Wend's L2 (moving with it to within 0.1 k/s) for 40 s, then orbit Wend between 10 and 30 k from its centre, taking under 5.55 Sv of radiation, with 18.9 s of side-thruster propellant.",
-      "teaches": "Elliptical orbits · L2 at perihelion",
-      "bodies": [
-        {
-          "id": "pyre",
-          "name": "Pyre",
-          "gm": 40000,
-          "radius": 50,
-          "color": "#ff8a5a",
-          "kind": "star",
-          "radiation": {
-            "rate": 0.12,
-            "at": 550,
-            "dose": 5.55
-          }
-        },
-        {
-          "id": "wend",
-          "name": "Wend",
-          "gm": 300,
-          "radius": 9,
-          "color": "#d8b67a",
-          "orbit": {
-            "parent": "pyre",
-            "a": 600,
-            "e": 0.4,
-            "argp": 0,
-            "phase": -0.6146645426572124
-          }
-        }
-      ],
-      "ship": {
-        "start": {
-          "orbit": {
-            "body": "wend",
-            "r": 16,
-            "angle": 1.7
-          }
-        },
-        "heading": "prograde",
-        "stages": [
-          {
-            "dryMass": 1,
-            "fuel": 0.6736385017975295,
-            "thrust": 1.3389108014380238,
-            "ve": 10
-          }
-        ],
-        "cargo": [],
-        "rcs": {
-          "fuel": 18.9,
-          "accel": 1.2,
-          "maxRate": 1.6
-        },
-        "canRotate": true
-      },
-      "goals": [
-        {
-          "type": "hold",
-          "lagrange": {
-            "body": "wend",
-            "lead": 0,
-            "scale": 1.14143
-          },
-          "r": 2,
-          "relVel": 0.1,
-          "hold": 40,
-          "label": "L2"
-        },
-        {
-          "type": "orbit",
-          "body": "wend",
-          "rMin": 10,
-          "rMax": 30,
-          "label": "Low orbit"
-        }
-      ],
-      "par": 4.9,
-      "bounds": 3000,
-      "tMax": 450,
-      "predict": 150,
-      "view": {
-        "x": 400,
-        "y": 0,
-        "span": 300
-      }
-    },
-    {
-      "id": "closepass",
-      "name": "Close Pass",
-      "intro": "Tallow's orbit is an ellipse: most of the year it is far out, but at perihelion it swings in close outside Hale and moves almost level with it for a while. Climb from your low orbit to Hale's L2 (burn prograde as you pass the day side so the top of your climb meets the marker) and keep station in the dark while Tallow comes in. Hop across when its marker is near: push off outward, fix your aim with the closest approach marker, and brake to match Tallow's L2 as you arrive. Wait too long and it is already pulling away.",
-      "objective": "Hold within 6 k of Hale's L2 (moving with it to within 0.25 k/s) for 15 s, then within 8 k of Tallow's L2 (to within 0.3 k/s) for 10 s, taking under 13 Sv of radiation, with 24 s of side-thruster propellant.",
-      "teaches": "Elliptical orbits · hop between shadows",
-      "bodies": [
-        {
-          "id": "brazier",
-          "name": "Brazier",
-          "gm": 40000,
-          "radius": 50,
-          "color": "#ffcf5a",
-          "kind": "star",
-          "radiation": {
-            "rate": 0.06,
-            "at": 550,
-            "dose": 13
-          }
-        },
-        {
-          "id": "hale",
-          "name": "Hale",
-          "gm": 300,
-          "radius": 10,
-          "color": "#b8bcc6",
-          "orbit": {
-            "parent": "brazier",
-            "a": 480,
-            "phase": 0
-          }
-        },
-        {
-          "id": "wend",
-          "name": "Tallow",
-          "gm": 300,
-          "radius": 10,
-          "color": "#d8b67a",
-          "orbit": {
-            "parent": "brazier",
-            "a": 760,
-            "e": 0.16,
-            "argp": 3.74,
-            "phase": -2.1955202305960877,
-            "reflex": false
-          }
-        }
-      ],
-      "ship": {
-        "start": {
-          "orbit": {
-            "body": "hale",
-            "r": 17,
-            "angle": 1.7
-          }
-        },
-        "heading": "prograde",
-        "stages": [
-          {
-            "dryMass": 1,
-            "fuel": 0.9581497063588056,
-            "thrust": 1.5665197650870446,
-            "ve": 10
-          }
-        ],
-        "cargo": [],
-        "rcs": {
-          "fuel": 24,
-          "accel": 1.2,
-          "maxRate": 1.6
-        },
-        "canRotate": true
-      },
-      "goals": [
-        {
-          "type": "hold",
-          "lagrange": {
-            "body": "hale",
-            "lead": 0,
-            "scale": 1.14158
-          },
-          "r": 6,
-          "relVel": 0.25,
-          "hold": 15,
-          "label": "Hale L2"
-        },
-        {
-          "type": "hold",
-          "lagrange": {
-            "body": "wend",
-            "lead": 0,
-            "scale": 1.14204
-          },
-          "r": 8,
-          "relVel": 0.3,
-          "hold": 10,
-          "label": "Tallow L2"
-        }
-      ],
-      "par": 5.8,
-      "bounds": 3000,
-      "tMax": 600,
-      "predict": 250,
-      "view": {
-        "x": -200,
-        "y": 400,
-        "span": 1500
-      },
-      "startCam": "overview"
-    },
-    {
-      "id": "sweeps",
-      "name": "Between Sweeps",
-      "intro": "Corax is a pulsar: its two beams sweep round, and only a planet's shadow stops them, so Tarn's and Skerry's L2 points sit in dark lanes the beams never reach. Climb from your low orbit to Tarn's L2 (burn prograde as you pass the day side so the top of your climb meets the marker) and keep station there while Skerry comes round behind you. Then hop across: push off outward, fix your aim with the closest approach marker, and brake to match Skerry's L2 as you arrive. Out in the open the beams will catch you, and the glow on your path shows where: leave when it shows the fewest, faintest hits.",
-      "objective": "Hold within 6 k of Tarn's L2 (moving with it to within 0.25 k/s) for 15 s, then within 8 k of Skerry's L2 (to within 0.3 k/s) for 10 s, taking under 10 Sv of radiation, with 24 s of side-thruster propellant.",
-      "teaches": "Hop between shadows · between sweeps",
-      "bodies": [
-        {
-          "id": "corax",
-          "name": "Corax",
-          "gm": 40000,
-          "radius": 8,
-          "color": "#e4dcff",
-          "kind": "pulsar",
-          "radiation": {
-            "rate": 1,
-            "at": 500,
-            "dose": 10,
-            "beam": {
-              "width": 0.3,
-              "period": 70,
-              "phase": 0
+            "rate": 0.3,
+            "at": 1500,
+            "dose": 20,
+            "particles": 1,
+            "storm": {
+              "start": 75,
+              "end": 165,
+              "rate": 1.5,
+              "squeeze": 0.5
             }
           }
         },
         {
-          "id": "tarn",
-          "name": "Tarn",
-          "gm": 300,
-          "radius": 10,
+          "id": "halde",
+          "name": "Halde",
+          "gm": 8000,
+          "radius": 35,
           "color": "#4f8fe0",
-          "orbit": {
-            "parent": "corax",
-            "a": 480,
-            "phase": 0
-          }
-        },
-        {
-          "id": "skerry",
-          "name": "Skerry",
-          "gm": 300,
-          "radius": 10,
-          "color": "#9fe0f0",
-          "orbit": {
-            "parent": "corax",
-            "a": 640,
-            "phase": 0.9,
-            "reflex": false
+          "magnetosphere": {
+            "nose": 170,
+            "width": 230,
+            "tail": 1200
+          },
+          "belt": {
+            "rMin": 75,
+            "rMax": 110
           }
         }
       ],
       "ship": {
         "start": {
           "orbit": {
-            "body": "tarn",
-            "r": 17,
-            "angle": 1.7
+            "body": "halde",
+            "r": 150,
+            "angle": -0.51
           }
         },
         "heading": "prograde",
         "stages": [
           {
             "dryMass": 1,
-            "fuel": 0.7471746543074462,
-            "thrust": 1.397739723445957,
+            "fuel": 1.8576511180631639,
+            "thrust": 2.857651118063164,
             "ve": 10
           }
         ],
         "cargo": [],
         "rcs": {
-          "fuel": 24,
+          "fuel": 60,
           "accel": 1.2,
           "maxRate": 1.6
         },
@@ -6309,109 +6014,328 @@
       },
       "goals": [
         {
-          "type": "hold",
-          "lagrange": {
-            "body": "tarn",
-            "lead": 0,
-            "scale": 1.14166
-          },
-          "r": 6,
-          "relVel": 0.25,
-          "hold": 15,
-          "label": "Tarn L2"
+          "type": "orbit",
+          "body": "halde",
+          "rMin": 48,
+          "rMax": 64,
+          "after": 165,
+          "label": "Under the belt"
         },
         {
-          "type": "hold",
-          "lagrange": {
-            "body": "skerry",
-            "lead": 0,
-            "scale": 1.1414
-          },
-          "r": 8,
-          "relVel": 0.3,
-          "hold": 10,
-          "label": "Skerry L2"
+          "type": "orbit",
+          "body": "halde",
+          "rMin": 137,
+          "rMax": 149,
+          "label": "Work orbit"
         }
       ],
-      "par": 5,
-      "bounds": 3000,
-      "tMax": 450,
-      "predict": 250,
+      "par": 9.5,
+      "bounds": 2500,
+      "tMax": 500,
+      "predict": 200,
       "view": {
-        "x": 300,
-        "y": 400,
-        "span": 1100
+        "x": -150,
+        "y": 0,
+        "span": 700
+      }
+    },
+    {
+      "id": "slot",
+      "name": "The Slot",
+      "intro": "Gauss has two radiation belts with a narrow slot of clean space between them, and Slot Station rides in it. Above the outer belt you are safe inside Gauss's magnetosphere, but only up to its edge on the sunward side, where Ferro's wind gets in. Every second in a belt costs 1 Sv. Phase up here until the station is in the right place, drop through the outer belt once without dipping into the inner one, and dock. Then climb back out through the outer belt to your parking orbit.",
+      "objective": "Rendezvous with Slot Station (within 10 k, relative speed under 0.3 k/s), then orbit Gauss between 155 and 180 k up, taking under 25 Sv.",
+      "teaches": "Belts and magnetospheres · a narrow slot",
+      "bodies": [
+        {
+          "id": "ferro",
+          "name": "Ferro",
+          "gm": 0,
+          "radius": 60,
+          "color": "#ff8a5a",
+          "kind": "star",
+          "x": -1800,
+          "y": 0,
+          "radiation": {
+            "rate": 1.5,
+            "at": 1800,
+            "dose": 25,
+            "particles": 1
+          }
+        },
+        {
+          "id": "gauss",
+          "name": "Gauss",
+          "gm": 20000,
+          "radius": 35,
+          "color": "#a98be8",
+          "magnetosphere": {
+            "nose": 230,
+            "width": 300,
+            "tail": 1500
+          },
+          "belt": [
+            {
+              "rMin": 55,
+              "rMax": 85
+            },
+            {
+              "rMin": 130,
+              "rMax": 170
+            }
+          ]
+        },
+        {
+          "id": "slotst",
+          "name": "Slot Station",
+          "gm": 0,
+          "radius": 4,
+          "color": "#e6e6f0",
+          "kind": "station",
+          "orbit": {
+            "parent": "gauss",
+            "a": 105,
+            "phase": 2
+          }
+        }
+      ],
+      "ship": {
+        "start": {
+          "orbit": {
+            "body": "gauss",
+            "r": 200,
+            "angle": 0
+          }
+        },
+        "heading": "prograde",
+        "stages": [
+          {
+            "dryMass": 1,
+            "fuel": 2.0041660239464334,
+            "thrust": 3.0041660239464334,
+            "ve": 10
+          }
+        ],
+        "cargo": [],
+        "rcs": {
+          "fuel": 60,
+          "accel": 1.2,
+          "maxRate": 1.6
+        },
+        "canRotate": true
+      },
+      "goals": [
+        {
+          "type": "rendezvous",
+          "body": "slotst",
+          "dist": 10,
+          "relVel": 0.3
+        },
+        {
+          "type": "orbit",
+          "body": "gauss",
+          "rMin": 190,
+          "rMax": 215,
+          "label": "Parking orbit"
+        }
+      ],
+      "par": 9,
+      "bounds": 2500,
+      "tMax": 600,
+      "predict": 200,
+      "view": {
+        "x": -150,
+        "y": 0,
+        "span": 800
+      }
+    },
+    {
+      "id": "stormfront",
+      "name": "Storm Front",
+      "intro": "Pyre has just thrown out a storm, and its front is racing outward: the red ring. It reaches Cinder Outpost, a bare rock with no magnetic field, at T+1:47, and Vale further out a minute later. Vale's magnetosphere is the only shelter. Head for Vale now, fast enough to beat the front there (aim a little to one side of it), and brake into a low orbit inside Vale's bubble. Caught in the open, the front takes ages to pass you. Once it has passed, head back to the outpost: whatever fuel you spent racing the front isn't there for the trip home.",
+      "objective": "Orbit Vale between 19 and 55 k up once the storm has passed it (T+4:31), then fly back to within 40 k of Cinder Outpost, taking under 15 Sv.",
+      "teaches": "A storm front moving out · outrun it",
+      "bodies": [
+        {
+          "id": "pyre",
+          "name": "Pyre",
+          "gm": 0,
+          "radius": 60,
+          "color": "#ffcf5a",
+          "kind": "star",
+          "x": -1500,
+          "y": 0,
+          "radiation": {
+            "rate": 0.05,
+            "at": 1500,
+            "dose": 15,
+            "particles": 1,
+            "storm": {
+              "start": 0,
+              "end": 100,
+              "rate": 3,
+              "squeeze": 0.7,
+              "speed": 14
+            }
+          }
+        },
+        {
+          "id": "cinder",
+          "name": "Cinder Outpost",
+          "gm": 0,
+          "radius": 14,
+          "color": "#d9694a",
+          "kind": "rock",
+          "x": 0,
+          "y": 0
+        },
+        {
+          "id": "vale",
+          "name": "Vale",
+          "gm": 3000,
+          "radius": 25,
+          "color": "#5fbf7f",
+          "x": 900,
+          "y": 0,
+          "magnetosphere": {
+            "nose": 130,
+            "width": 170,
+            "tail": 900
+          }
+        }
+      ],
+      "ship": {
+        "start": {
+          "free": {
+            "x": 0,
+            "y": -30
+          }
+        },
+        "heading": 0,
+        "stages": [
+          {
+            "dryMass": 1,
+            "fuel": 3.5722251951421597,
+            "thrust": 4.57222519514216,
+            "ve": 10
+          }
+        ],
+        "cargo": [],
+        "rcs": {
+          "fuel": 60,
+          "accel": 1.2,
+          "maxRate": 1.6
+        },
+        "canRotate": true
+      },
+      "goals": [
+        {
+          "type": "orbit",
+          "body": "vale",
+          "rMin": 44,
+          "rMax": 80,
+          "after": 271,
+          "label": "In Vale's bubble"
+        },
+        {
+          "type": "reach",
+          "body": "cinder",
+          "r": 40,
+          "label": "Back at the outpost"
+        }
+      ],
+      "par": 14,
+      "bounds": 3000,
+      "tMax": 800,
+      "predict": 260,
+      "view": {
+        "x": 200,
+        "y": 0,
+        "span": 1700
       },
       "startCam": "overview"
     },
     {
-      "id": "lanedown",
-      "name": "Down the Lane",
-      "intro": "Loam is on an ellipse that brings it in close outside Peat once a year, and its supply drop is due at the bottom of its shadow. Climb from your low orbit to Peat's L2 and keep station while Loam comes in, then hop across: push off outward, fix your aim with the closest approach marker and brake to match Loam's L2. Hold there, then push off sunward and a little ahead so you fall down the dark lane behind Loam (the glow on your path fades as you angle it), and brake into a low orbit at the bottom. Angle the push too far and the fall clips Loam.",
-      "objective": "Hold within 4 k of Peat's L2 (moving with it to within 0.15 k/s) for 25 s, then within 5 k of Loam's L2 (to within 0.2 k/s) for 10 s, then orbit Loam between 13 and 30 k from its centre, taking under 12.5 Sv of radiation, with 35.7 s of side-thruster propellant.",
-      "teaches": "Hop, then down the shadow",
+      "id": "moontail",
+      "name": "Moon in the Tail",
+      "intro": "A storm is blowing, and only Tor's magnetosphere keeps it off you; its tail stretches far behind Tor, away from Brand. Wick Base needs a supply pod, but Wick has no field of its own, and the pod can take only 3 Sv once you let it go. Watch Wick swing round into Tor's tail, and time your climb so the pod drops onto it while it's in there. Drop the pod right after your burn so it coasts up on its own, then steer yourself off the collision course and back down into a low orbit, inside the bubble.",
+      "objective": "Land the pod on Wick (it may take under 3 Sv), then orbit Tor between 41 and 57 k up, taking under 12 Sv yourself.",
+      "teaches": "Magnetotails · a moon passing through",
       "bodies": [
         {
-          "id": "kiln",
-          "name": "Kiln",
-          "gm": 40000,
-          "radius": 50,
-          "color": "#ff8a5a",
+          "id": "brand",
+          "name": "Brand",
+          "gm": 0,
+          "radius": 60,
+          "color": "#ffcf5a",
           "kind": "star",
+          "x": -1600,
+          "y": 0,
           "radiation": {
-            "rate": 0.06,
-            "at": 550,
-            "dose": 12.5
+            "rate": 0.2,
+            "at": 1600,
+            "dose": 12,
+            "particles": 1,
+            "storm": {
+              "start": 0,
+              "end": 400,
+              "rate": 2,
+              "squeeze": 0.6,
+              "ramp": 0
+            }
           }
         },
         {
-          "id": "peat",
-          "name": "Peat",
-          "gm": 300,
-          "radius": 10,
-          "color": "#5fbf7f",
-          "orbit": {
-            "parent": "kiln",
-            "a": 480,
-            "phase": 2
+          "id": "tor",
+          "name": "Tor",
+          "gm": 6000,
+          "radius": 30,
+          "color": "#4f8fe0",
+          "magnetosphere": {
+            "nose": 160,
+            "width": 200,
+            "tail": 1400
           }
         },
         {
-          "id": "loam",
-          "name": "Loam",
-          "gm": 300,
-          "radius": 10,
-          "color": "#d9694a",
+          "id": "wick",
+          "name": "Wick",
+          "gm": 250,
+          "radius": 13,
+          "color": "#b8bcc6",
           "orbit": {
-            "parent": "kiln",
-            "a": 760,
-            "e": 0.16,
-            "argp": 5.74,
-            "phase": -2.1955202305960877,
-            "reflex": false
+            "parent": "tor",
+            "a": 260,
+            "phase": -2
           }
         }
       ],
       "ship": {
         "start": {
           "orbit": {
-            "body": "peat",
-            "r": 17,
-            "angle": 3.7
+            "body": "tor",
+            "r": 75,
+            "angle": 0
           }
         },
         "heading": "prograde",
         "stages": [
           {
             "dryMass": 1,
-            "fuel": 1.3233265117943045,
-            "thrust": 1.8586612094354438,
+            "fuel": 1.0687544405076617,
+            "thrust": 2.3687544405076615,
             "ve": 10
           }
         ],
-        "cargo": [],
+        "cargo": [
+          {
+            "id": "pod",
+            "name": "Supply pod",
+            "mass": 0.3,
+            "dose": 3
+          }
+        ],
         "rcs": {
-          "fuel": 35.7,
+          "fuel": 60,
           "accel": 1.2,
           "maxRate": 1.6
         },
@@ -6419,182 +6343,253 @@
       },
       "goals": [
         {
-          "type": "hold",
-          "lagrange": {
-            "body": "peat",
-            "lead": 0,
-            "scale": 1.14158
-          },
-          "r": 4,
-          "relVel": 0.15,
-          "hold": 25,
-          "label": "Peat L2"
-        },
-        {
-          "type": "hold",
-          "lagrange": {
-            "body": "loam",
-            "lead": 0,
-            "scale": 1.14204
-          },
-          "r": 5,
-          "relVel": 0.2,
-          "hold": 10,
-          "label": "Loam L2"
+          "type": "hit",
+          "body": "wick",
+          "craft": "pod",
+          "label": "Pod to Wick Base"
         },
         {
           "type": "orbit",
-          "body": "loam",
-          "rMin": 13,
-          "rMax": 30,
-          "label": "Low orbit"
+          "body": "tor",
+          "rMin": 71,
+          "rMax": 87,
+          "label": "Back in the bubble"
         }
       ],
-      "par": 8,
+      "par": 5,
+      "bounds": 2500,
+      "tMax": 500,
+      "predict": 220,
+      "view": {
+        "x": 150,
+        "y": 0,
+        "span": 800
+      }
+    },
+    {
+      "id": "lightwind",
+      "name": "Light and Wind",
+      "intro": "Wisp is a pulsar: its wind is particles, which Gale's magnetosphere keeps off you, but its two sweeping beams are light, and the bubble does nothing about those. Only Gale itself blocks the beams, in the narrow shadow on its far side. A beam crosses Gale's line every 40 s, and so does your orbit if you set it right: an orbit 40 s round, timed so each sweep finds you behind Gale. Lower your orbit to the band at the right moment, stay in it while the beams go by, then climb back to the high orbit.",
+      "objective": "Orbit Gale between 25 and 33 k up (about 40 s round) and still be there at T+6:00, then orbit between 52 and 64 k up, taking under 13 Sv.",
+      "teaches": "Light and wind · an orbit timed to the beam",
+      "bodies": [
+        {
+          "id": "wisp",
+          "name": "Wisp",
+          "gm": 0,
+          "radius": 8,
+          "color": "#e4dcff",
+          "kind": "pulsar",
+          "x": -1500,
+          "y": 0,
+          "radiation": {
+            "rate": 1.2,
+            "at": 1500,
+            "dose": 13,
+            "beam": {
+              "width": 0.35,
+              "period": 80,
+              "phase": 0.3
+            }
+          }
+        },
+        {
+          "id": "wispwind",
+          "name": "Wisp's wind",
+          "gm": 0,
+          "radius": 2,
+          "color": "#e4dcff",
+          "hidden": true,
+          "x": -1500,
+          "y": 0,
+          "radiation": {
+            "rate": 0.4,
+            "at": 1500,
+            "dose": 13,
+            "particles": 1
+          }
+        },
+        {
+          "id": "gale",
+          "name": "Gale",
+          "gm": 8000,
+          "radius": 40,
+          "color": "#a98be8",
+          "magnetosphere": {
+            "nose": 115,
+            "width": 150,
+            "tail": 900
+          }
+        }
+      ],
+      "ship": {
+        "start": {
+          "orbit": {
+            "body": "gale",
+            "r": 95,
+            "angle": 2
+          }
+        },
+        "heading": "prograde",
+        "stages": [
+          {
+            "dryMass": 1,
+            "fuel": 0.49182469764127035,
+            "thrust": 1.4918246976412703,
+            "ve": 10
+          }
+        ],
+        "cargo": [],
+        "rcs": {
+          "fuel": 60,
+          "accel": 1.2,
+          "maxRate": 1.6
+        },
+        "canRotate": true
+      },
+      "goals": [
+        {
+          "type": "orbit",
+          "body": "gale",
+          "rMin": 65,
+          "rMax": 73,
+          "after": 360,
+          "label": "Timed to the beam"
+        },
+        {
+          "type": "orbit",
+          "body": "gale",
+          "rMin": 92,
+          "rMax": 104,
+          "label": "Back to the high orbit"
+        }
+      ],
+      "par": 3.8,
+      "bounds": 2500,
+      "tMax": 600,
+      "predict": 200,
+      "view": {
+        "x": -100,
+        "y": 0,
+        "span": 700
+      }
+    },
+    {
+      "id": "pocket",
+      "name": "Pocket",
+      "intro": "Jovan's radiation belt is thick, but its moon Gan has a magnetic field of its own, and inside Gan's little magnetosphere the belt can't reach you: a clean pocket in the middle of it. You need to call at Gan and wait there until T+5:20. Drop from your high orbit down to Gan, letting it catch you up, and settle into a tight orbit inside the pocket. Don't wait about: Gan passes close under your orbit at about T+1:15 and its pull will throw you off it. Then leave it, cross the rest of the belt and park in the clear space beneath it. Leave Gan at the right point of your loop: too early and Gan flings you into Jovan, too late and you fall back into the belt. Both crossings come out of the same dose budget, and an orbit round Gan that strays out of the pocket takes the belt's full dose.",
+      "objective": "Orbit Gan between 14 and 21 k up and still be there at T+5:20, then get down under the belt and park in an orbit round Jovan whose high point is under 114 k up, taking under 23.5 Sv.",
+      "teaches": "A moon's own magnetosphere · a pocket in the belt",
+      "bodies": [
+        {
+          "id": "helion",
+          "name": "Helion",
+          "gm": 0,
+          "radius": 60,
+          "color": "#ffcf5a",
+          "kind": "star",
+          "x": -3000,
+          "y": 0,
+          "radiation": {
+            "rate": 0.05,
+            "at": 3000,
+            "dose": 23.5,
+            "particles": 1
+          }
+        },
+        {
+          "id": "jovan",
+          "name": "Jovan",
+          "gm": 30000,
+          "radius": 66,
+          "color": "#d8b67a",
+          "magnetosphere": {
+            "nose": 1200,
+            "width": 1400,
+            "tail": 4000
+          },
+          "belt": {
+            "rMin": 200,
+            "rMax": 380,
+            "rate": 0.6
+          }
+        },
+        {
+          "id": "gan",
+          "name": "Gan",
+          "gm": 2000,
+          "radius": 14,
+          "color": "#b8bcc6",
+          "magnetosphere": {
+            "nose": 55,
+            "width": 65,
+            "tail": 160
+          },
+          "orbit": {
+            "parent": "jovan",
+            "a": 330,
+            "phase": -0.92
+          }
+        }
+      ],
+      "ship": {
+        "start": {
+          "orbit": {
+            "body": "jovan",
+            "r": 445,
+            "angle": 0
+          }
+        },
+        "heading": "prograde",
+        "stages": [
+          {
+            "dryMass": 1,
+            "fuel": 3.6645902709881257,
+            "thrust": 4.664590270988126,
+            "ve": 10
+          }
+        ],
+        "cargo": [],
+        "rcs": {
+          "fuel": 60,
+          "accel": 1.2,
+          "maxRate": 1.6
+        },
+        "canRotate": true
+      },
+      "goals": [
+        {
+          "type": "orbit",
+          "body": "gan",
+          "rMin": 28,
+          "rMax": 35,
+          "after": 320,
+          "label": "In Gan's pocket"
+        },
+        {
+          "type": "reach",
+          "body": "jovan",
+          "r": 190,
+          "label": "Under the belt"
+        },
+        {
+          "type": "orbit",
+          "body": "jovan",
+          "rMin": 66,
+          "rMax": 180,
+          "label": "Parked under the belt"
+        }
+      ],
+      "unstableStart": "Gan passes close at T+1:15",
+      "par": 13.5,
       "bounds": 3000,
       "tMax": 800,
       "predict": 250,
       "view": {
         "x": 0,
         "y": 0,
-        "span": 1600
-      },
-      "startCam": "overview"
-    },
-    {
-      "id": "lantern",
-      "name": "Lantern",
-      "intro": "Lantern Station rides in Moor's shadow, a little beyond its L2: a station on its own rail stays put, but you do not. Climb from your low orbit to Fen's L2 (burn prograde as you pass the day side so the top of your climb meets the marker) and keep station while Moor comes round behind you. Hop across between Mirk's sweeps: push off outward, fix your aim with the closest approach marker, brake to match Moor's L2 and hold there. Then let the drift carry you out to Lantern and match its speed, gently: the station is solid.",
-      "objective": "Hold within 4 k of Fen's L2 (moving with it to within 0.15 k/s) for 25 s, then within 3 k of Moor's L2 (to within 0.15 k/s) for 30 s, then rendezvous with Lantern Station (within 10 k, relative speed under 0.4 k/s), taking under 10.2 Sv of radiation, with 30.2 s of side-thruster propellant.",
-      "teaches": "Shadow to shadow · a station at L2",
-      "bodies": [
-        {
-          "id": "mirk",
-          "name": "Mirk",
-          "gm": 40000,
-          "radius": 8,
-          "color": "#d8e4ff",
-          "kind": "pulsar",
-          "radiation": {
-            "rate": 1,
-            "at": 500,
-            "dose": 10.2,
-            "beam": {
-              "width": 0.3,
-              "period": 70,
-              "phase": -1
-            }
-          }
-        },
-        {
-          "id": "fen",
-          "name": "Fen",
-          "gm": 300,
-          "radius": 10,
-          "color": "#a98be8",
-          "orbit": {
-            "parent": "mirk",
-            "a": 480,
-            "phase": -1
-          }
-        },
-        {
-          "id": "moor",
-          "name": "Moor",
-          "gm": 300,
-          "radius": 10,
-          "color": "#5fbf7f",
-          "orbit": {
-            "parent": "mirk",
-            "a": 640,
-            "phase": -0.09999999999999998,
-            "reflex": false
-          }
-        },
-        {
-          "id": "lantern",
-          "name": "Lantern Station",
-          "gm": 0,
-          "radius": 3,
-          "color": "#e6e6f0",
-          "kind": "station",
-          "orbit": {
-            "parent": "mirk",
-            "a": 760.496,
-            "phase": -0.09999999999999998,
-            "reflex": false,
-            "n": 0.012352647110032733
-          }
-        }
-      ],
-      "ship": {
-        "start": {
-          "orbit": {
-            "body": "fen",
-            "r": 14,
-            "angle": 0.7
-          }
-        },
-        "heading": "prograde",
-        "stages": [
-          {
-            "dryMass": 1,
-            "fuel": 1.0278984286853743,
-            "thrust": 1.6223187429482995,
-            "ve": 10
-          }
-        ],
-        "cargo": [],
-        "rcs": {
-          "fuel": 30.2,
-          "accel": 1.2,
-          "maxRate": 1.6
-        },
-        "canRotate": true
-      },
-      "goals": [
-        {
-          "type": "hold",
-          "lagrange": {
-            "body": "fen",
-            "lead": 0,
-            "scale": 1.14166
-          },
-          "r": 4,
-          "relVel": 0.15,
-          "hold": 25,
-          "label": "Fen L2"
-        },
-        {
-          "type": "hold",
-          "lagrange": {
-            "body": "moor",
-            "lead": 0,
-            "scale": 1.1414
-          },
-          "r": 3,
-          "relVel": 0.15,
-          "hold": 30,
-          "label": "Moor L2"
-        },
-        {
-          "type": "rendezvous",
-          "body": "lantern",
-          "dist": 10,
-          "relVel": 0.4,
-          "label": "Lantern Station"
-        }
-      ],
-      "par": 7.3,
-      "bounds": 3000,
-      "tMax": 600,
-      "predict": 250,
-      "view": {
-        "x": 0,
-        "y": 0,
-        "span": 1500
-      },
-      "startCam": "overview"
+        "span": 1100
+      }
     },
     // Chapter: Deep Gravity
     {

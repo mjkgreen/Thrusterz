@@ -778,12 +778,13 @@
     }
     // Radiation belts: predicted dose along the path, and where it would run out.
     p.dose = 0; p.doseOut = -1;
+    const posAtT = (t) => (j) => { const q = [0, 0]; m.sys.posAt(j, t, q); return q; };
     for (const b of m.belts) {
       const bp = [0, 0];
       for (let i = 1; i < p.ts.length && p.doseOut < 0; i++) {
         m.sys.posAt(b.index, p.ts[i], bp);
         const r = Math.hypot(p.xs[i] - bp[0], p.ys[i] - bp[1]);
-        if (r >= b.belt.rMin && r <= b.belt.rMax) {
+        if (r >= b.belt.rMin && r <= b.belt.rMax && !m.pocketed(p.xs[i], p.ys[i], p.ts[i], posAtT(p.ts[i]), b.index)) {
           p.dose += (p.ts[i] - p.ts[i - 1]) * (b.belt.rate != null ? b.belt.rate : 1) * m.shieldFactor();
           if (m.dose + p.dose > m.doseLimit) p.doseOut = i;
         }
@@ -824,7 +825,7 @@
         for (const b of m.belts) {
           m.sys.posAt(b.index, p.ts[i], bp);
           const r = Math.hypot(p.xs[i] - bp[0], p.ys[i] - bp[1]);
-          if (r >= b.belt.rMin && r <= b.belt.rMax) rate += b.belt.rate != null ? b.belt.rate : 1;
+          if (r >= b.belt.rMin && r <= b.belt.rMax && !m.pocketed(p.xs[i], p.ys[i], p.ts[i], posAtT(p.ts[i]), b.index)) rate += b.belt.rate != null ? b.belt.rate : 1;
         }
         d += rate * dt;
         if (d > next.dose) { p.cargoOut = i; break; }

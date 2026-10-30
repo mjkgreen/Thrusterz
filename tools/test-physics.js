@@ -54,6 +54,7 @@ const check = (name, ok, info) => { console.log((ok ? 'ok   ' : 'FAIL ') + name 
 // 3. Every orbital level's parking orbit is stable while coasting.
 for (const L of LEVELS) {
   if (!L.ship.start.orbit || L.ship.start.orbit.speed || L.ship.sail) continue; // a sail always pushes
+  if (L.unstableStart) continue; // the level says why (a moon sweeps past early, on purpose)
   // Radiation levels make parking deadly on purpose: check the orbit alone.
   const m = new Mission(L.bodies.some(b => b.radiation)
     ? Object.assign({}, L, { bodies: L.bodies.map(b => b.radiation ? Object.assign({}, b, { radiation: Object.assign({}, b.radiation, { dose: 1e9 }) }) : b) }) : L);

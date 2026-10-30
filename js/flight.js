@@ -41,7 +41,8 @@
   //       at most `dose` Sv in total. A list of belts gives a planet several.
   //   magnetosphere: { nose, width, tail } a magnetic field that turns away
   //       particle radiation (see `particles` below; light still gets
-  //       through). Its shape points away from each source: a blunt nose
+  //       through), and keeps out other bodies' belts (a moon's field makes
+  //       a pocket in its planet's belt). Its shape points away from each source: a blunt nose
   //       `nose` out on the sunward side, `width` across at the planet, and a
   //       tail of the same width stretching `tail` behind it.
   //   radiation: { rate, at, dose, beam? } a radiation source (hot star, pulsar):
@@ -840,14 +841,40 @@
     // with `shield`, e.g. a water tank): 1 with none, 0.25 behind a 0.75 shield.
     shieldFactor() { let f = 1; for (const c of this.cargo) if (c.shield) f *= 1 - c.shield; return f; }
 
+    // Is (x, y) inside the magnetosphere of a body other than `owner` (time
+    // t, positions from pos)? A moon with a field of its own makes a pocket
+    // in its planet's belt. Shaped by the first source with particles (or
+    // any source); with none, a circle of the nose's size.
+    pocketed(x, y, t, pos, owner) {
+      if (!this.fields.length) return false;
+      const src = this.sources.find(b => b.radiation.particles) || this.sources[0];
+      for (const c of this.fields) {
+        if (c.index === owner) continue;
+        const cp = pos(c.index), M = c.magnetosphere;
+        if (!src) { if ((x - cp[0]) ** 2 + (y - cp[1]) ** 2 < M.nose * M.nose) return true; continue; }
+        const sp = pos(src.index);
+        let ux = cp[0] - sp[0], uy = cp[1] - sp[1];
+        const d = Math.sqrt(ux * ux + uy * uy);
+        if (d <= 0) continue;
+        ux /= d; uy /= d;
+        // A storm squeezes a pocket just as it does a planet's magnetosphere.
+        const lv = src.radiation.storm ? this.stormLevel(src, t, d) : 0, sq = lv > 0 ? 1 - (1 - src.radiation.storm.squeeze) * lv : 1;
+        const nose = M.nose * sq, width = M.width * (1 + sq) / 2;
+        const qx = x - cp[0], qy = y - cp[1], along = qx * ux + qy * uy, perp = Math.abs(qx * uy - qy * ux);
+        if (along < 0 ? (along * along) / (nose * nose) + (perp * perp) / (width * width) < 1 : perp < width && along < M.tail) return true;
+      }
+      return false;
+    }
+
     // Total dose rate (Sv/s) at (x, y) now: 1 Sv/s inside any belt, plus the
     // radiation sources. Uses the bodies' current positions.
     doseRateAt(x, y, t) {
       const sys = this.sys;
       let rate = 0;
+      const now = (i) => [sys.px[i], sys.py[i]];
       for (const b of this.belts) {
         const r = DM.hypot(x - sys.px[b.index], y - sys.py[b.index]);
-        if (r >= b.belt.rMin && r <= b.belt.rMax) rate += b.belt.rate != null ? b.belt.rate : 1;
+        if (r >= b.belt.rMin && r <= b.belt.rMax && !this.pocketed(x, y, t, now, b.index)) rate += b.belt.rate != null ? b.belt.rate : 1;
       }
       if (this.sources.length) rate += this.radiationAt(x, y, t, (i) => [sys.px[i], sys.py[i]]).rate;
       return rate;
@@ -869,6 +896,7 @@
       for (const b of this.belts) {
         const r = DM.hypot(s.x - sys.px[b.index], s.y - sys.py[b.index]);
         if (r < b.belt.rMin || r > b.belt.rMax) continue;
+        if (this.pocketed(s.x, s.y, this.t, (i) => [sys.px[i], sys.py[i]], b.index)) continue;
         this.inBelt = b.index;
         this.dose += h * (b.belt.rate != null ? b.belt.rate : 1) * this.shieldFactor();
         if (this.dose > this.doseLimit) {
