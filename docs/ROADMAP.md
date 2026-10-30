@@ -246,12 +246,13 @@ on mass, so dropping cargo makes the ship nimbler?
 **v3 (after the second playtest).** Every mission is multi-part (2 to 4
 goals sharing one tank, side-thruster budget and dose limit), so errors
 accumulate across the parts. Pulsar beams are sprinkled through chapters 2
-to 5 instead of having a chapter of their own. Chapter 3 is now **Shadow
-Lanes**: holding in a planet's L2 shadow, the game's first planets on
-elliptical orbits, and hopping between L2 points when planets line up.
+to 5 instead of having a chapter of their own. Chapter 3 is now **Magnetic
+Shelter**: magnetospheres, radiation belts, scheduled and moving storms,
+and a moon's pocket inside its planet's belt (it replaced Shadow Lanes,
+whose L2-shadow missions played too alike).
 Every mission sits in the difficulty band of `tools/w4/robust.js`: an
 average player wins 10–35% of tries, a good one ≥ 40%, an expert ≥ 80%.
-Chapters: 1 Sunburn, 2 Shadows and Beams, 3 Shadow Lanes, 4 Deep Gravity,
+Chapters: 1 Sunburn, 2 Shadows and Beams, 3 Magnetic Shelter, 4 Deep Gravity,
 5 Grand Missions. Details in `tools/w4/README.md`.
 
 Engine follow-ups the chapter work found: a craft passing inside a strong-
