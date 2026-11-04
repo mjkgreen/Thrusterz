@@ -15,7 +15,9 @@ What's in the app:
   `tools/brand/render-mobile.js`).
 - Native storage for progress and the account (AsyncStorage, not cleared by
   iOS like web storage can be), **Sign in with Apple**, haptics, links open
-  in Safari. The web side of this is `js/bridge.js`.
+  in Safari, **Game Center** (`mobile/modules/game-center`) and the App
+  Store rating prompt (`expo-store-review`). The web side of this is
+  `js/bridge.js`.
 - Privacy manifest and "no encryption" export answer in `mobile/app.json`.
 
 The online side (accounts, cloud save, restore codes, leaderboards with
@@ -117,6 +119,64 @@ just run the build and submit commands again.
 - Export compliance is already answered in the app (`ITSAppUsesNonExemptEncryption = NO`).
 
 Then **Add for Review → Submit**.
+
+## 6. Game Center and ratings
+
+The app signs in to Game Center at launch (`com.apple.developer.game-center`
+entitlement in `mobile/app.json`; EAS turns the capability on), posts totals
+to leaderboards and unlocks achievements from the stars a player holds, so
+stars won before Game Center, or synced from another device, count too
+(`js/game.js`, "Game Center, App Store"). A **Game Center** button shows on
+the menu once signed in. Our own leaderboards stay the replay-checked ones.
+
+In App Store Connect: the app → **Features → Game Center**, create these
+with exactly these IDs, then on the version page tick **Game Center** and
+add them. Test with a Game Center sandbox account on a TestFlight build.
+
+Leaderboards (Classic, High Score first, Integer, best score kept):
+
+| ID | Name |
+| --- | --- |
+| `thrusterz.total_stars` | Total Stars |
+| `thrusterz.total_score` | Total Score |
+| `thrusterz.world1_score` | Flight School |
+| `thrusterz.world2_score` | Payloads |
+| `thrusterz.world3_score` | No-Fly Zones |
+| `thrusterz.world4_score` | Pulsar |
+
+Achievements (not hidden, achievable once). Apple allows 1000 points per
+game in all (at most 100 each); these use 390, leaving about 600 for future
+worlds (75 each: 25 for finishing a world, 50 for three stars on all of it):
+
+| ID | Name | Description | Points |
+| --- | --- | --- | --- |
+| `thrusterz.first_mission` | Liftoff | Complete your first mission | 5 |
+| `thrusterz.first_three_stars` | Textbook | Earn three stars on a mission | 5 |
+| `thrusterz.training_complete` | Cadet | Complete every Training mission | 10 |
+| `thrusterz.training_perfect` | Top Cadet | Three stars on every Training mission | 10 |
+| `thrusterz.world1_complete` | Flight School Graduate | Complete every mission in World 1 | 25 |
+| `thrusterz.world1_perfect` | Flight School Ace | Three stars on every mission in World 1 | 50 |
+| `thrusterz.world2_complete` | Payload Specialist | Complete every mission in World 2 | 25 |
+| `thrusterz.world2_perfect` | Payload Ace | Three stars on every mission in World 2 | 50 |
+| `thrusterz.world3_complete` | Zone Runner | Complete every mission in World 3 | 25 |
+| `thrusterz.world3_perfect` | No-Fly Ace | Three stars on every mission in World 3 | 50 |
+| `thrusterz.world4_complete` | Pulsar Pilot | Complete every mission in World 4 | 25 |
+| `thrusterz.world4_perfect` | Pulsar Ace | Three stars on every mission in World 4 | 50 |
+| `thrusterz.stars_50` | Fifty Stars | Hold 50 stars | 10 |
+| `thrusterz.stars_150` | Star Collector | Hold 150 stars | 20 |
+| `thrusterz.stars_300` | Constellation | Hold 300 stars | 30 |
+
+A new world N gets `thrusterz.worldN_complete` and `thrusterz.worldN_perfect`
+automatically from the code; create them in App Store Connect when it ships.
+There's no "every star" achievement on purpose: the total grows with each
+world. Star milestones can be added (e.g. 500) by extending `GC_STAR_MARKS`.
+
+An ID that isn't set up yet is simply skipped (and tried again later).
+
+**Ratings:** after a three-star win, once a player has flown 8 missions,
+the app asks iOS for its rating prompt, at most once every four months (iOS
+itself shows it at most three times a year, and never in TestFlight).
+Settings also has a **Rate Thrusterz** link to the App Store review page.
 
 ## Android later
 

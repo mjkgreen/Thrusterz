@@ -11,9 +11,13 @@ const dataUri = (f, type) => `data:${type};base64,${fs.readFileSync(path.join(ro
 
 let html = read('index.html');
 
-// Things a bundled page doesn't need: web manifest, favicons, social cards.
-html = html.replace(/<link rel="(manifest|icon|apple-touch-icon)"[^>]*>\n?/g, '')
-  .replace(/<meta (property="og:|name="twitter:)[^>]*>\n?/g, '');
+// Things a bundled page doesn't need: web manifest, favicons, social cards,
+// search-engine data.
+html = html.replace(/<link rel="(manifest|icon|apple-touch-icon|canonical)"[^>]*>\n?/g, '')
+  .replace(/<meta (property="og:|name="twitter:|name="apple-itunes-app")[^>]*>\n?/g, '')
+  .replace(/<script type="application\/ld\+json">[\s\S]*?<\/script>\n?/g, '')
+  // The App Store badge only shows on the website.
+  .replace(/\s*<a class="appstore[^>]*>[\s\S]*?<\/a>/g, '');
 
 // Stylesheets, with url(...) references made into data URIs.
 html = html.replace(/<link rel="stylesheet" href="([^"]+)">/g, (_, href) => {

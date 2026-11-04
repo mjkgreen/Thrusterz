@@ -86,7 +86,10 @@
     Object.assign(progress, merged);
     ownedCache = null;
     Online.Store.set(STORE, progress);
-    if (state.screen === 'menu' && !$('menu').classList.contains('hidden')) showMenu();
+    gcSync(false);
+    // Stars turning up from the app's native copy or the cloud mean this
+    // isn't a first visit after all.
+    if ((state.screen === 'menu' && !$('menu').classList.contains('hidden')) || (state.screen === 'landing' && Object.keys(progress.stars).length)) showMenu();
     return true;
   }
   const progress = loadProgress();
@@ -158,7 +161,8 @@
   function applyLayout() {
     const iw = window.innerWidth, ih = window.innerHeight;
     const phone = window.matchMedia('(pointer: coarse)').matches && Math.min(screen.width, screen.height) < 600;
-    const rot = phone && !Bridge.inApp && ih > iw;
+    // The landing page reads like a web page, so it stays upright.
+    const rot = phone && !Bridge.inApp && ih > iw && $('landing').classList.contains('hidden');
     // Keep clear of the status bar and home indicator (top and bottom of the
     // upright screen, which are the game's left and right when sideways).
     const ins = rot ? safeInsets() : { top: 0, bottom: 0 };
@@ -187,6 +191,10 @@
 
   // ---------------------------------------------------------------- level
   function startLevel(i) {
+    // Tilt is on by default: say so once, when the phone is actually sending readings.
+    setTimeout(() => {
+      if (settings.tilt && isTouch() && tilt.seen && state.mission) noteOnce('notedTilt', 'Tilt to steer is on: tip your phone left or right to turn. You can switch it off in Settings.');
+    }, 2500);
     state.levelIndex = i;
     const level = LEVELS[i];
     state.mission = new Mission(level);
@@ -514,10 +522,65 @@
   const pulse = { dir: 0, until: 0 };
   function startPulse(dir) { pulse.dir = dir; pulse.until = performance.now() + PULSE_MS; }
 
+  // Tilt to steer (Settings): tip the phone left or right like a steering
+  // wheel and the side thrusters fire exactly as if ⟲ / ⟳ were held, so the
+  // rate is the same. The buttons and keys keep working alongside it and win
+  // if they disagree.
+  const TILT_ON = 12 * Math.PI / 180, TILT_OFF = 7 * Math.PI / 180;
+  const tilt = { dir: 0, angle: 0, at: 0, seen: false, listening: false };
+  // Steering angle (radians, + = right side down) from a deviceorientation
+  // reading: gravity in device axes, turned into screen axes by the screen's
+  // rotation, then its angle away from straight down the screen. null when
+  // the phone lies flat and there's no "down" on the screen to steer by.
+  function tiltAngle(beta, gamma, screenAngle) {
+    const b = beta * Math.PI / 180, g = gamma * Math.PI / 180, a = screenAngle * Math.PI / 180;
+    const dx = Math.cos(b) * Math.sin(g), dy = -Math.sin(b);
+    const sx = dx * Math.cos(a) - dy * Math.sin(a), sy = dx * Math.sin(a) + dy * Math.cos(a);
+    if (Math.hypot(sx, sy) < 0.35) return null;
+    return Math.atan2(sx, -sy);
+  }
+  function screenAngle() {
+    const a = screen.orientation && typeof screen.orientation.angle === 'number' ? screen.orientation.angle
+      : typeof window.orientation === 'number' ? window.orientation : 0;
+    return ((a % 360) + 360) % 360;
+  }
+  function onTilt(e) {
+    if (e.beta == null || e.gamma == null) return;
+    tilt.seen = true; tilt.at = performance.now();
+    const ang = tiltAngle(e.beta, e.gamma, screenAngle());
+    tilt.angle = ang || 0;
+    // Hysteresis, so holding near the edge doesn't flicker on and off.
+    const lim = tilt.dir ? TILT_OFF : TILT_ON;
+    tilt.dir = ang == null ? 0 : ang > lim ? -1 : ang < -lim ? 1 : 0;
+  }
+  function listenTilt(on) {
+    if (on === tilt.listening) return;
+    tilt.listening = on;
+    if (on) window.addEventListener('deviceorientation', onTilt);
+    else { window.removeEventListener('deviceorientation', onTilt); tilt.dir = 0; }
+  }
+  // Rotate input from tilt right now (0 if off, stale or not flying).
+  function tiltRotate() {
+    if (!settings.tilt || !isTouch() || !state.mission || performance.now() - tilt.at > 500) return 0;
+    return tilt.dir;
+  }
+  // Light up the matching on-screen button while tilt fires it.
+  let tiltShown = 0;
+  function showTilt(dir) {
+    if (dir === tiltShown) return;
+    tiltShown = dir;
+    for (const b of document.querySelectorAll('#touch [data-key="rotL"], #touch [data-key="rotR"]')) {
+      b.classList.toggle('tilt-on', (b.dataset.key === 'rotL' && dir === 1) || (b.dataset.key === 'rotR' && dir === -1));
+    }
+  }
+
   function controls() {
     let rotate = ((keys.has('ArrowLeft') || keys.has('KeyA') || touch.rotL) ? 1 : 0) -
                  ((keys.has('ArrowRight') || keys.has('KeyD') || touch.rotR) ? 1 : 0);
     if (!rotate && pulse.dir && performance.now() < pulse.until) rotate = pulse.dir;
+    const t = rotate ? 0 : tiltRotate();
+    showTilt(t);
+    if (!rotate) rotate = t;
     return { thrust: keys.has('Space') || touch.burn, throttle: state.throttle, rotate };
   }
 
@@ -564,7 +627,7 @@
       const flying = state.screen === 'flight' && !state.paused && $('gate').classList.contains('hidden');
       if (flying) update(realDt);
       // Engine and thrusters fall silent whenever we're not actually flying.
-      if (!flying || !state.mission || state.mission.status !== 'flying') { Sound.engine(0); Sound.rcs(false); }
+      if (!flying || !state.mission || state.mission.status !== 'flying') { Sound.engine(0); Sound.rcs(false); Sound.storm(0); }
       // Driving music from the first launch until you go back to the menu:
       // through pauses, results, retries and the next briefing, so the flow
       // isn't broken. The calm track is for the menu.
@@ -747,14 +810,15 @@
     }
     // Radiation belts: predicted dose along the path, and where it would run out.
     p.dose = 0; p.doseOut = -1;
+    const posAtT = (t) => (j) => { const q = [0, 0]; m.sys.posAt(j, t, q); return q; };
     for (const b of m.belts) {
       const bp = [0, 0];
       for (let i = 1; i < p.ts.length && p.doseOut < 0; i++) {
         m.sys.posAt(b.index, p.ts[i], bp);
         const r = Math.hypot(p.xs[i] - bp[0], p.ys[i] - bp[1]);
-        if (r >= b.belt.rMin && r <= b.belt.rMax) {
-          p.dose += p.ts[i] - p.ts[i - 1];
-          if (m.dose + p.dose > b.belt.dose) p.doseOut = i;
+        if (r >= b.belt.rMin && r <= b.belt.rMax && !m.pocketed(p.xs[i], p.ys[i], p.ts[i], posAtT(p.ts[i]), b.index)) {
+          p.dose += (p.ts[i] - p.ts[i - 1]) * (b.belt.rate != null ? b.belt.rate : 1) * m.shieldFactor();
+          if (m.dose + p.dose > m.doseLimit) p.doseOut = i;
         }
       }
     }
@@ -774,7 +838,8 @@
           const q = m.radiationAt(p.xs[i - 1] + (p.xs[i] - p.xs[i - 1]) * f, p.ys[i - 1] + (p.ys[i] - p.ys[i - 1]) * f, t, (j) => { m.sys.posAt(j, t, buf[j]); return buf[j]; });
           sum += q.rate;
         }
-        p.rad[i] = sum / n;
+        // Through the shielding you carry now (if you keep it).
+        p.rad[i] = sum / n * m.shieldFactor();
         p.dose += p.rad[i] * dt;
         if (p.doseOut < 0 && m.dose + p.dose > m.doseLimit) p.doseOut = i;
       }
@@ -792,7 +857,7 @@
         for (const b of m.belts) {
           m.sys.posAt(b.index, p.ts[i], bp);
           const r = Math.hypot(p.xs[i] - bp[0], p.ys[i] - bp[1]);
-          if (r >= b.belt.rMin && r <= b.belt.rMax) rate += 1;
+          if (r >= b.belt.rMin && r <= b.belt.rMax && !m.pocketed(p.xs[i], p.ys[i], p.ts[i], posAtT(p.ts[i]), b.index)) rate += b.belt.rate != null ? b.belt.rate : 1;
         }
         d += rate * dt;
         if (d > next.dose) { p.cargoOut = i; break; }
@@ -1347,9 +1412,9 @@
       const [sx, sy] = w2s(sys.px[b.index], sys.py[b.index]);
       const r = Math.max(b.radius * z, b.kind === 'station' ? 0 : 2.5);
       // Rings around a body (belt, air, rope reach, horizon) can be on screen when the body isn't.
-      const reach = Math.max(b.radius, b.belt ? b.belt.rMax : 0, b.atmosphere ? b.radius + b.atmosphere.height : 0, b.tether ? b.tether.length : 0, b.pw ? 3 * b.pw : 0) * z;
+      const reach = Math.max(b.radius, b.belt ? Math.max(...[].concat(b.belt).map(q => q.rMax)) : 0, b.atmosphere ? b.radius + b.atmosphere.height : 0, b.tether ? b.tether.length : 0, b.pw ? 3 * b.pw : 0) * z;
       if (sx < -reach - 200 || sx > W + reach + 200 || sy < -reach - 200 || sy > H + reach + 200) continue;
-      if (b.belt) drawBelt(sx, sy, b);
+      if (b.belt) for (const bt of [].concat(b.belt)) drawBelt(sx, sy, b, bt);
       if (b.atmosphere) drawAtmosphere(sx, sy, b);
       if (b.kind === 'wormhole') { drawWormhole(sx, sy, r, b); continue; }
       if (b.tether) { drawAnchor(sx, sy, b); continue; }
@@ -1452,6 +1517,27 @@
           ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(sx + Math.cos(a + arm) * far, sy - Math.sin(a + arm) * far); ctx.stroke();
         }
       }
+      // Magnetospheres: the bubble this source's particles can't get into,
+      // pointing away from it (squeezed while a storm blows).
+      if (R.particles || R.storm) {
+        const S = R.storm, atStar = !!S && m.stormOn(b, m.t, 0);
+        // Each magnetosphere, as the storm is (or isn't) at its planet. Before
+        // a storm reaches it: the squeezed shape it will have, as a red dotted
+        // line (the strip in between goes out in the storm), pulsing harder
+        // in the last minute. During it: the calm shape it will return to.
+        for (const c of m.fields) {
+          const d = Math.hypot(sys.px[c.index] - sys.px[b.index], sys.py[c.index] - sys.py[b.index]);
+          // lv eases 0 → 1 → 0 as the storm builds and dies away there, so the
+          // bubble squeezes in and springs back, and its colour follows.
+          const lv = S ? m.stormLevel(b, m.t, d) : 0, w = S ? m.stormWindow(b, d) : null;
+          drawField(sx, sy, c, lv > 0 ? 1 - (1 - S.squeeze) * lv : 1, lv);
+          if (w && m.t < w[0]) drawFieldForecast(sx, sy, c, S.squeeze, w[0] - m.t);
+          else if (lv > 0) drawFieldForecast(sx, sy, c, 1, -1);
+        }
+        if (S && S.speed) drawStormFront(sx, sy, b);
+        const lead = S && m.t < S.start ? S.start - m.t : Infinity;
+        if (S && (atStar || lead <= 60)) drawStormStar(sx, sy, b, atStar, lead);
+      }
       // Shadows. A point source (pulsar) casts a sharp shadow that widens.
       // A disc (star) casts an umbra that narrows and ends behind anything
       // smaller than it, inside a soft penumbra that widens (dose scales
@@ -1500,10 +1586,143 @@
     }
   }
 
+  // A magnetosphere seen from a source at screen (sx, sy): half an ellipse
+  // in front (nose out, width across), a band of the same width behind.
+  // storm: 0 (calm, blue) to 1 (full storm, red), blended in between.
+  function drawField(sx, sy, c, sq, storm) {
+    const mix = (a, b2) => a.map((v, i) => v + (b2[i] - v) * storm), rgba = (c4) => `rgba(${c4[0] | 0},${c4[1] | 0},${c4[2] | 0},${c4[3].toFixed(3)})`;
+    const z = state.cam.zoom, sys = state.mission.sys, M = c.magnetosphere;
+    const [cx, cy] = w2s(sys.px[c.index], sys.py[c.index]);
+    const dx = cx - sx, dy = cy - sy, d = Math.hypot(dx, dy);
+    if (d <= 0) return;
+    const ux = dx / d, uy = dy / d, nx = -uy, ny = ux;
+    const nose = M.nose * sq * z, w = M.width * (1 + sq) / 2 * z, tail = M.tail * z;
+    const at = (a, p) => [cx + ux * a + nx * p, cy + uy * a + ny * p];
+    ctx.beginPath();
+    ctx.moveTo(...at(0, w)); ctx.lineTo(...at(tail, w)); ctx.lineTo(...at(tail, -w)); ctx.lineTo(...at(0, -w));
+    // Round the nose from (0, -w) through (-nose, 0) back to (0, w).
+    for (let k = 1; k <= 24; k++) { const f = Math.PI * k / 24; ctx.lineTo(...at(-nose * Math.sin(f), -w * Math.cos(f))); }
+    ctx.closePath();
+    const g = ctx.createLinearGradient(...at(-nose, 0), ...at(tail, 0));
+    g.addColorStop(0, rgba(mix([110, 170, 255, 0.16], [255, 140, 120, 0.16]))); g.addColorStop(1, 'rgba(110,170,255,0)');
+    ctx.fillStyle = g; ctx.fill();
+    ctx.strokeStyle = rgba(mix([130, 190, 255, 0.65], [255, 150, 130, 0.7])); ctx.setLineDash([4, 6]); ctx.stroke(); ctx.setLineDash([]);
+    if (nose > 30) label('MAGNETOSPHERE', ...at(-nose - 12, 0), rgba(mix([150, 200, 255, 0.85], [255, 160, 140, 0.9])));
+  }
+
+  // The outline a magnetosphere will have (sq: its squeeze then). Before a
+  // storm (lead s to go): red dots, and the strip it will lose tinted red,
+  // flashing faster as the storm nears. lead < 0: during a storm, the calm
+  // shape it springs back to, faint blue.
+  function drawFieldForecast(sx, sy, c, sq, lead) {
+    const z = state.cam.zoom, sys = state.mission.sys, M = c.magnetosphere;
+    const [cx, cy] = w2s(sys.px[c.index], sys.py[c.index]);
+    const dx = cx - sx, dy = cy - sy, d = Math.hypot(dx, dy);
+    if (d <= 0) return;
+    const ux = dx / d, uy = dy / d, nx = -uy, ny = ux;
+    const at = (a, p) => [cx + ux * a + nx * p, cy + uy * a + ny * p];
+    const shape = (s) => {
+      const nose = M.nose * s * z, w = M.width * (1 + s) / 2 * z, tail = M.tail * z;
+      ctx.moveTo(...at(0, w)); ctx.lineTo(...at(tail, w)); ctx.lineTo(...at(tail, -w)); ctx.lineTo(...at(0, -w));
+      for (let k = 1; k <= 24; k++) { const f = Math.PI * k / 24; ctx.lineTo(...at(-nose * Math.sin(f), -w * Math.cos(f))); }
+      ctx.closePath();
+    };
+    if (lead < 0) {
+      ctx.beginPath(); shape(1);
+      ctx.strokeStyle = 'rgba(130,190,255,0.35)'; ctx.setLineDash([2, 6]); ctx.stroke(); ctx.setLineDash([]);
+      return;
+    }
+    // Pulse: slow far out, quicker in the last minute, fast in the last 10 s.
+    const now = performance.now() / 1000, hz = lead <= 10 ? 2.5 : lead <= 60 ? 1 : 0;
+    const pulse = hz ? 0.5 + 0.5 * Math.sin(now * TAU * hz) : 0.5;
+    const k = lead <= 60 ? 0.55 + 0.45 * pulse : 0.45;
+    ctx.beginPath(); shape(1); shape(sq);
+    ctx.fillStyle = `rgba(255,90,70,${(0.05 + 0.13 * (lead <= 60 ? pulse : 0)).toFixed(3)})`;
+    ctx.fill('evenodd');
+    ctx.beginPath(); shape(sq);
+    ctx.strokeStyle = `rgba(255,110,90,${k.toFixed(3)})`; ctx.lineWidth = 1.5; ctx.setLineDash([2, 5]); ctx.stroke(); ctx.setLineDash([]); ctx.lineWidth = 1;
+    // Label it partway round the nose, clear of the MAGNETOSPHERE label on the axis.
+    const nose = M.nose * sq * z, w = M.width * (1 + sq) / 2 * z;
+    if (nose > 24) label('STORM EDGE: shrinks to here', ...at(-nose * Math.sin(0.3 * Math.PI) - 8, -w * Math.cos(0.3 * Math.PI) - 10), `rgba(255,140,120,${Math.max(0.6, k).toFixed(2)})`);
+  }
+
+  // A storm moving outward: the shell between its front and its back edge,
+  // with the front's ring labelled, and when it will reach each planet.
+  function drawStormFront(sx, sy, b) {
+    const m = state.mission, S = b.radiation.storm, z = state.cam.zoom, sys = m.sys;
+    const front = (m.t - S.start) * S.speed, back = Math.max(0, (m.t - S.end) * S.speed);
+    if (front <= 0 || back > m.level.bounds * 3) return;
+    const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 1000 * TAU * 0.8);
+    ctx.beginPath(); ctx.arc(sx, sy, front * z, 0, TAU); if (back > 0) ctx.arc(sx, sy, back * z, 0, TAU, true);
+    ctx.fillStyle = 'rgba(255,90,60,0.07)'; ctx.fill();
+    ctx.strokeStyle = `rgba(255,120,90,${(0.55 + 0.35 * pulse).toFixed(3)})`; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(sx, sy, front * z, 0, TAU); ctx.stroke();
+    if (back > 0) { ctx.lineWidth = 1; ctx.setLineDash([3, 6]); ctx.beginPath(); ctx.arc(sx, sy, back * z, 0, TAU); ctx.stroke(); ctx.setLineDash([]); }
+    ctx.lineWidth = 1;
+    // Label the front where it crosses the line to the ship.
+    const a = Math.atan2(-(m.ship.y - sys.py[b.index]), m.ship.x - sys.px[b.index]);
+    label('☄ STORM FRONT', sx + Math.cos(a + 0.12) * front * z, sy + Math.sin(a + 0.12) * front * z, 'rgba(255,150,120,0.95)');
+    // When it reaches each planet with a magnetosphere.
+    for (const c of m.fields) {
+      const d = Math.hypot(sys.px[c.index] - sys.px[b.index], sys.py[c.index] - sys.py[b.index]);
+      const w = m.stormWindow(b, d), [cx, cy] = w2s(sys.px[c.index], sys.py[c.index]);
+      const txt = m.t < w[0] ? 'storm in ' + fmtT(w[0] - m.t) : m.t < w[1] ? 'storm · ' + fmtT(w[1] - m.t) + ' left' : 'storm passed';
+      label(txt, cx, cy - c.radius * z - 26, m.t < w[0] ? 'rgba(255,170,140,0.9)' : m.t < w[1] ? 'rgba(255,120,100,0.95)' : 'rgba(124,247,212,0.8)');
+    }
+  }
+
+  // A star building up to a storm (last minute: a flickering, swelling
+  // corona and flares on its rim) and blowing one (a hot corona, and
+  // particles streaming off toward every magnetosphere).
+  function drawStormStar(sx, sy, b, storm, lead) {
+    const m = state.mission, z = state.cam.zoom, sys = m.sys, now = performance.now() / 1000;
+    const r = Math.max(b.radius * z, 6);
+    const k = storm ? 1 : Math.max(0, 1 - lead / 60);          // 0 → 1 over the last minute
+    const flick = 0.75 + 0.25 * Math.sin(now * (3 + 9 * k)) * Math.sin(now * (1.7 + 5 * k));
+    const R = r * (1.6 + 1.6 * k * flick);
+    const g = ctx.createRadialGradient(sx, sy, r * 0.9, sx, sy, R);
+    g.addColorStop(0, `rgba(255,120,80,${(0.25 + 0.5 * k * flick).toFixed(3)})`); g.addColorStop(1, 'rgba(255,90,60,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(sx, sy, R, 0, TAU); ctx.fill();
+    // Flares: loops on the rim that come and go.
+    ctx.strokeStyle = `rgba(255,170,110,${(0.35 + 0.5 * k).toFixed(3)})`; ctx.lineWidth = Math.max(1, r * 0.06);
+    for (let j = 0; j < 5; j++) {
+      const a = j * 1.37 + now * 0.15, h = r * (0.25 + 0.5 * k) * (0.5 + 0.5 * Math.sin(now * (1.3 + j * 0.4) + j));
+      ctx.beginPath(); ctx.arc(sx + Math.cos(a) * r, sy - Math.sin(a) * r, h, a + Math.PI * 1.5, a + Math.PI * 0.5, true); ctx.stroke();
+    }
+    ctx.lineWidth = 1;
+    if (storm) {
+      // Particles streaming out toward each planet with a magnetosphere.
+      ctx.strokeStyle = 'rgba(255,150,110,0.55)'; ctx.setLineDash([3, 14]); ctx.lineDashOffset = -now * 120;
+      for (const c of m.fields) {
+        const [cx, cy] = w2s(sys.px[c.index], sys.py[c.index]);
+        const dx = cx - sx, dy = cy - sy, d = Math.hypot(dx, dy), nx = -dy / d, ny = dx / d;
+        const spread = c.magnetosphere.width * z * 1.4;
+        for (let j = -4; j <= 4; j++) {
+          const o = j / 4 * spread;
+          ctx.beginPath(); ctx.moveTo(sx + nx * o * 0.08, sy + ny * o * 0.08); ctx.lineTo(cx + nx * o - dx * 0.05, cy + ny * o - dy * 0.05); ctx.stroke();
+        }
+      }
+      ctx.setLineDash([]); ctx.lineDashOffset = 0;
+    }
+    label(storm ? '☄ STORM' : '☄ STORM BUILDING', sx, sy - r - 22, `rgba(255,140,120,${storm ? 0.95 : (0.6 + 0.4 * flick).toFixed(2)})`);
+    // Off screen: a pulsing glow on the screen edge, in the star's direction.
+    if (sx < 0 || sx > W || sy < 0 || sy > H) {
+      const cx = W / 2, cy = H / 2, dx = sx - cx, dy = sy - cy;
+      const f = Math.min(Math.abs((W / 2 - 18) / (dx || 1e-9)), Math.abs((H / 2 - 18) / (dy || 1e-9)));
+      const ex = cx + dx * f, ey = cy + dy * f, gr = 40 + 50 * k * flick;
+      const eg = ctx.createRadialGradient(ex, ey, 0, ex, ey, gr);
+      eg.addColorStop(0, `rgba(255,110,80,${(0.35 + 0.45 * k * flick).toFixed(3)})`); eg.addColorStop(1, 'rgba(255,90,60,0)');
+      ctx.fillStyle = eg; ctx.beginPath(); ctx.arc(ex, ey, gr, 0, TAU); ctx.fill();
+      const lx = Math.max(70, Math.min(W - 70, ex)), ly = Math.max(24, Math.min(H - 24, ey));
+      label('☄ ' + b.name.toUpperCase(), lx, ly, `rgba(255,150,120,${(0.6 + 0.4 * flick).toFixed(2)})`);
+    }
+  }
+
   // Radiation belt: a shaded amber ring that brightens while you're in it.
-  function drawBelt(sx, sy, b) {
-    const z = state.cam.zoom, m = state.mission, inside = m.inBelt === b.index;
-    const r0 = b.belt.rMin * z, r1 = b.belt.rMax * z;
+  function drawBelt(sx, sy, b, bt) {
+    const z = state.cam.zoom, m = state.mission, sys = m.sys;
+    const inside = m.inBelt === b.index && (() => { const r = Math.hypot(m.ship.x - sys.px[b.index], m.ship.y - sys.py[b.index]); return r >= bt.rMin && r <= bt.rMax; })();
+    const r0 = bt.rMin * z, r1 = bt.rMax * z;
     ctx.fillStyle = inside ? 'rgba(255,190,60,0.16)' : 'rgba(255,190,60,0.08)';
     ctx.beginPath(); ctx.arc(sx, sy, r1, 0, TAU); ctx.arc(sx, sy, r0, 0, TAU, true); ctx.fill();
     ctx.strokeStyle = 'rgba(255,190,60,0.45)'; ctx.setLineDash([2, 6]);
@@ -1742,9 +1961,13 @@
       if (c.alive) drawCoastPath(c.path, 'rgba(124,247,212,0.6)', disp);
       if (!c.alive) { if (!c.exploded) { c.exploded = true; explode(c.x, c.y, '#7cf7d4'); } continue; }
       const [sx, sy] = w2s(c.x, c.y);
-      ctx.save(); ctx.translate(sx, sy); ctx.rotate(-Math.atan2(c.vy, c.vx));
-      ctx.fillStyle = '#e8c45a'; ctx.strokeStyle = '#8a6a1a'; ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.moveTo(5, 0); ctx.lineTo(-3, -4); ctx.lineTo(-4, 0); ctx.lineTo(-3, 4); ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.save(); ctx.translate(sx, sy);
+      if (c.sprite === 'shield') { ctx.rotate(-c.angle - performance.now() / 1000 * 0.6); drawShieldJacket(7); }
+      else {
+        ctx.rotate(-Math.atan2(c.vy, c.vx));
+        ctx.fillStyle = '#e8c45a'; ctx.strokeStyle = '#8a6a1a'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(5, 0); ctx.lineTo(-3, -4); ctx.lineTo(-4, 0); ctx.lineTo(-3, 4); ctx.closePath(); ctx.fill(); ctx.stroke();
+      }
       ctx.restore();
       label(c.name, sx, sy - 10, '#7cf7d4');
     }
@@ -1808,7 +2031,22 @@
     // colours: no payload marker.
     else if (pc) Skins.drawRocket(ctx, L, false, hull, pc.ship[0], pc.ship[1], pc.ship[0], stackGrow(m, pc));
     else drawRocketBody(L, m.canDeploy() || (m.landed && m.stages.length > 1));
+    if (m.shieldFactor() < 1) drawShieldJacket(L);
     ctx.restore();
+  }
+
+  // A water shield: a blue tank jacketing the hull while it's aboard (and,
+  // once dropped, the same tank tumbling on its own).
+  function drawShieldJacket(L) {
+    const t = performance.now() / 1000;
+    ctx.save(); ctx.shadowColor = 'rgba(90,170,255,0.9)'; ctx.shadowBlur = 8;
+    ctx.fillStyle = 'rgba(70,150,255,0.5)'; ctx.strokeStyle = 'rgba(170,220,255,1)'; ctx.lineWidth = 1.6;
+    ctx.beginPath(); ctx.roundRect(-L - 2, -8, L * 1.7 + 4, 16, 6); ctx.fill(); ctx.stroke();
+    ctx.restore();
+    ctx.strokeStyle = 'rgba(200,235,255,0.7)'; ctx.lineWidth = 0.8;
+    ctx.beginPath();
+    for (let x = -L; x <= L * 0.6; x += 1) { const y = 2.5 + Math.sin(x * 0.9 + t * 3) * 0.8; if (x === -L) ctx.moveTo(x, y); else ctx.lineTo(x, y); }
+    ctx.stroke(); ctx.lineWidth = 1;
   }
 
   // The tether from its anchor to the ship: straight when taut, sagging when slack.
@@ -2084,6 +2322,69 @@
     $('mech-label').textContent = { heat: 'Heat', dose: 'Dose', sail: 'Sail push' }[gauge] || '';
   }
 
+  // A scheduled storm: a warning bottom-centre, steady at first, flashing
+  // inside the last minute (fast in the last 10 s), then how long it has to
+  // run, then a few seconds of "storm over".
+  let alertKey = '';
+  const clock = (t) => { const n = Math.max(0, Math.ceil(t)); return Math.floor(n / 60) + ':' + String(n % 60).padStart(2, '0'); };
+  // A quick full-screen wash (red as a storm hits, cool as it passes).
+  function screenWash(kind) {
+    const el = $('storm-wash');
+    el.className = ''; void el.offsetWidth; el.className = kind;
+  }
+  // The storm's sound, every frame: a low rumble that swells in the last
+  // minute, then a roar while it blows where you are (muffled inside a
+  // magnetosphere), fading as it dies away.
+  function stormSound(m, cls) {
+    let level = 0, muffled = false;
+    for (const b of m.sources) {
+      const S = b.radiation.storm;
+      if (!S || m.status !== 'flying' || state.paused) continue;
+      const d = Math.hypot(m.ship.x - m.sys.px[b.index], m.ship.y - m.sys.py[b.index]);
+      const lv = m.stormLevel(b, m.t, d), [t0] = m.stormWindow(b, d);
+      level = lv > 0 ? 0.35 + 0.65 * lv : m.t < t0 && t0 - m.t < 60 ? 0.25 * (1 - (t0 - m.t) / 60) : 0;
+      muffled = m.radField >= 0;
+    }
+    Sound.storm(level, muffled);
+  }
+  function updateAlert(m) {
+    const el = $('alert');
+    let cls = '', html = '';
+    for (const b of m.sources) {
+      const S = b.radiation.storm;
+      if (!S || m.status !== 'flying') continue;
+      // A moving storm is timed to when its front reaches you, where you are now.
+      m.sys.update(m.t);
+      const [t0, t1] = m.stormWindow(b, Math.hypot(m.ship.x - m.sys.px[b.index], m.ship.y - m.sys.py[b.index]));
+      if (m.t < t0) {
+        const lead = t0 - m.t;
+        cls = lead <= 10 ? 'now' : lead <= 60 ? 'soon' : 'far';
+        html = '☄ STORM IN ' + clock(lead) + '<span class="small">' + (S.speed ? 'the front reaches you here then: outrun it, or get into a magnetosphere' : m.fields.length ? 'the magnetosphere shrinks to the red dotted line' : b.name + ' is about to flare') + '</span>';
+      } else if (m.t < t1) {
+        cls = 'on';
+        html = '☄ STORM · ' + clock(t1 - m.t) + ' LEFT<span class="small">' + (m.radField >= 0 ? 'sheltered inside ' + m.sys.bodies[m.radField].name + '\'s magnetosphere' : m.radRate > 0 ? 'exposed · ' + m.radRate.toFixed(2) + ' Sv/s' : 'out of the storm') + '</span>';
+      } else if (m.t < t1 + 4) { cls = 'over'; html = 'STORM OVER'; }
+      break;
+    }
+    stormSound(m, cls);
+    const key = cls + html;
+    if (key === alertKey) return;
+    // The moment the storm reaches you: a red wash over the screen, a whoosh
+    // and (app, Vibration on) a buzz. When it has passed: a cool wash.
+    if (cls === 'on' && !/^on/.test(alertKey)) { haptic(false); screenWash('hit'); Sound.stormHit(); }
+    if (cls === 'over' && !/^over/.test(alertKey)) { screenWash('clear'); Sound.stormEnd(); }
+    alertKey = key;
+    el.className = cls; el.innerHTML = html;
+    $('edge-alert').className = cls === 'soon' || cls === 'now' || cls === 'on' ? cls : '';
+    document.body.classList.toggle('alerting', !!cls);
+    // Phones: sit just above the middle buttons (warp, frame, camera).
+    if (cls && isTouch()) {
+      const mid = document.querySelector('#touch .tgroup.small');
+      const top = mid && mid.getBoundingClientRect().top;
+      if (top > 0) document.body.style.setProperty('--alert-bottom', Math.round(window.innerHeight - top + 6) + 'px');
+    }
+  }
+
   function updateMechHud(m) {
     const M = state.mech, sys = m.sys, s = m.ship, p = state.pred;
     if (!M) return;
@@ -2148,10 +2449,16 @@
       case 'radiation': {
         k = 'RADIATION';
         const beam = m.sources.some(b => b.radiation.beam);
-        t = m.radRate > 0 && m.radShade >= 0 ? '<span class="warn">half-shadow of ' + sys.bodies[m.radShade].name + ' · ' + m.radRate.toFixed(2) + ' Sv/s</span>'
+        t = m.radRate > 0 && m.radField >= 0 ? '<span class="ok">inside ' + sys.bodies[m.radField].name + '\'s magnetosphere</span> · ' + m.radRate.toFixed(2) + ' Sv/s'
+          : m.radRate > 0 && m.radShade >= 0 ? '<span class="warn">half-shadow of ' + sys.bodies[m.radShade].name + ' · ' + m.radRate.toFixed(2) + ' Sv/s</span>'
           : m.radRate > 0 ? '<span class="warn">exposed · ' + m.radRate.toFixed(2) + ' Sv/s</span>'
           : m.radShade >= 0 ? '<span class="ok">in ' + sys.bodies[m.radShade].name + '\'s shadow</span>'
+          : m.radField >= 0 ? '<span class="ok">inside ' + sys.bodies[m.radField].name + '\'s magnetosphere</span>'
           : '<span class="ok">' + (beam ? 'out of the beam' : 'clear') + '</span>';
+
+        // Shielding aboard.
+        const sf = m.shieldFactor();
+        if (sf < 1) t += ' · <span class="ok">shield blocks ' + Math.round(100 * (1 - sf)) + '%</span>';
         // Released cargo with its own limit.
         for (const c of m.crafts) if (c.alive && c.doseLimit != null) t += ' · ' + c.name + ' ' + c.dose.toFixed(1) + '/' + c.doseLimit + ' Sv';
         break;
@@ -2191,7 +2498,7 @@
     switch (g.type) {
       case 'hit': return g.site ? `Land in the zone on ${name}` : g.deorbit ? `Deorbit into ${name}` : g.maxSpeed ? `Land on ${name} slower than ${g.maxSpeed} k/s` : 'Impact ' + name;
       case 'reach': return 'Reach ' + (g.label || name);
-      case 'orbit': return `Orbit ${name} at ${alt(m, g, g.rMin)}–${alt(m, g, g.rMax)} k${g.dir ? (g.dir > 0 ? ' counter-clockwise' : ' clockwise') : ''}`;
+      case 'orbit': return `Orbit ${name} at ${alt(m, g, g.rMin)}–${alt(m, g, g.rMax)} k${g.dir ? (g.dir > 0 ? ' counter-clockwise' : ' clockwise') : ''}${g.after ? ' at T+' + fmtT(g.after) : ''}`;
       case 'hold': return `Park at ${g.label || name} for ${g.hold}s`;
       case 'escape': return `Get ${alt(m, g, g.r)} k from ${name}`;
       case 'rendezvous': return `Rendezvous with ${name}`;
@@ -2253,6 +2560,7 @@
     const dropBtn = document.querySelector('#touch button.deploy');
     if (dropBtn) dropBtn.textContent = tether ? (m.tether ? 'RELEASE' : 'LATCH') : m.canDrop() ? 'DROP' : 'DEPLOY';
     updateMechHud(m);
+    updateAlert(m);
     if (L.ship.cargo && L.ship.cargo.length) {
       $('hud-cargo').textContent = m.cargo.length ? m.cargo.map(c => c.name).join(', ') + (isTouch() ? '' : ' · E drops') : 'all dropped';
     }
@@ -2389,6 +2697,7 @@
     state.screen = 'menu';
     state.flow = false;
     hide('hud'); hide('briefing'); hide('result'); hide('pause'); hide('help'); hide('board'); hide('profile'); hide('hangar'); hide('shop');
+    leaveLanding();
     show('menu');
     const hasTests = LEVELS.some(l => l.test);
     if (state.menuTab == null || (state.menuTab !== TEST_TAB && !WORLDS.some(w => w.n === state.menuTab))) state.menuTab = progress.tab != null ? progress.tab : defaultTab();
@@ -2572,6 +2881,8 @@
       if (state.newBest) progress.score[L.id] = m.score();
       saveProgress();
       state.skinsEarned = [...owned()].filter(id => !hadSkins.has(id));
+      gcSync(true);
+      maybeAskReview(stars);
     }
     state.screen = 'result';
     $('res-title').textContent = won ? 'Mission complete' : 'Mission failed';
@@ -2618,7 +2929,8 @@
   let fsUnavailable = false; // set when the browser refuses fullscreen
 
   function gateReason() {
-    if (!isTouch()) return null;
+    // The landing page asks for fullscreen itself, when you tap Play.
+    if (!isTouch() || state.screen === 'landing') return null;
     if (!fsEl() && !standalone() && fsSupported() && !fsUnavailable) return 'fullscreen';
     return null;
   }
@@ -2669,9 +2981,10 @@
 
   $('btn-brief-go').onclick = () => startLevel(state.levelIndex);
   $('btn-brief-back').onclick = showMenu;
-  $('btn-res-menu').onclick = showMenu;
+  // After a first win, ask for a pilot name before moving on (see offerWelcome).
+  $('btn-res-menu').onclick = () => offerWelcome(showMenu);
   $('btn-res-retry').onclick = () => { hide('result'); startLevel(state.levelIndex); };
-  $('btn-res-next').onclick = () => { hide('result'); showBriefing(nextIndex(state.levelIndex)); };
+  $('btn-res-next').onclick = () => offerWelcome(() => { hide('result'); showBriefing(nextIndex(state.levelIndex)); });
   $('btn-resume').onclick = togglePause;
   $('btn-restart').onclick = () => { hide('pause'); startLevel(state.levelIndex); };
   // Quick restart beside pause: tap once to arm ("Restart?"), again to go.
@@ -3061,12 +3374,15 @@
 
   // In the app, the native copy of progress survives the OS clearing WebView
   // storage; fold it back in, then sync with the cloud.
-  Online.Store.getNative(STORE).then((p) => { if (p) mergeIn(p); }).finally(() => { Online.start(); maybeWelcome(); });
+  Online.Store.getNative(STORE).then((p) => { if (p) mergeIn(p); }).finally(() => {
+    Online.start();
+    if (new URLSearchParams(location.search).has('welcome') && !$('menu').classList.contains('hidden')) offerWelcome(showMenu, true);
+  });
 
   // ------------------------------------------------------------ settings
   // Sound effects, music and (in the app) vibration. Kept on this device.
   const SETTINGS = 'thrusterz.settings';
-  const settings = Object.assign({ sfxVol: 0.8, musicVol: 0.5, haptics: true, ignoreSilent: true, autoFrame: true, autoZoom: true }, Online.Store.get(SETTINGS) || {});
+  const settings = Object.assign({ sfxVol: 0.8, musicVol: 0.5, haptics: true, ignoreSilent: true, autoFrame: true, autoZoom: true, tilt: true }, Online.Store.get(SETTINGS) || {});
   if (/iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)) document.body.classList.add('ios');
   // Settings saved before the volume sliders had on/off switches. Music was
   // off by default then, so only a switched-off sound effects carries over.
@@ -3090,6 +3406,51 @@
     $('set-version').textContent = 'Version ' + ((window.THRUSTERZ_CONFIG || {}).version || '1.0') + ' · audio ' + Sound.status();
   }
   function showSettings(from) { settingsReturn = from; hide(from); renderSettings(); show('settings'); setTimeout(renderSettings, 400); }
+  // Tilt needs motion access. iOS asks once, and only from a tap, so ask
+  // right here when the switch is turned on; if it's refused (or the device
+  // sends no readings), switch it back off and say why.
+  async function enableTilt() {
+    const D = window.DeviceOrientationEvent;
+    if (!D) return 'This device has no tilt sensor.';
+    if (typeof D.requestPermission === 'function') {
+      try { if (await D.requestPermission() !== 'granted') return 'Motion access was not allowed. You can allow it in your device settings.'; }
+      catch (e) { return 'Motion access was not allowed.'; }
+    }
+    listenTilt(true);
+    tilt.seen = false;
+    await new Promise(r => setTimeout(r, 1500));
+    return tilt.seen ? null : 'No tilt readings from this device.';
+  }
+  const tiltRow = document.querySelector('#settings .toggle[data-set="tilt"]');
+  if (tiltRow) tiltRow.addEventListener('click', async (e) => {
+    e.stopImmediatePropagation();
+    if (settings.tilt) { settings.tilt = false; listenTilt(false); }
+    else {
+      settings.tilt = true; renderSettings();
+      const err = await enableTilt();
+      if (err) { settings.tilt = false; listenTilt(false); toast(err, 3); }
+    }
+    Online.Store.set(SETTINGS, settings);
+    renderSettings();
+  });
+  // On by default. Android and most browsers just send readings; iOS needs
+  // motion access, which can only be asked for from a tap, so ask on the
+  // first one. Refused: switch tilt off and say how to get it back.
+  if (settings.tilt) listenTilt(true);
+  let tiltAsked = false;
+  const askTilt = () => {
+    const D = window.DeviceOrientationEvent;
+    if (tiltAsked || !settings.tilt || !isTouch() || !D || typeof D.requestPermission !== 'function') return;
+    tiltAsked = true;
+    D.requestPermission().then((r) => {
+      if (r === 'granted') return;
+      settings.tilt = false; listenTilt(false); Online.Store.set(SETTINGS, settings); renderSettings();
+      toast('Tilt to steer is off: motion access wasn\'t allowed. Turn it on in Settings.', 4);
+    }).catch(() => { tiltAsked = false; });
+  };
+  document.addEventListener('touchend', askTilt);
+  document.addEventListener('click', askTilt);
+
   for (const b of document.querySelectorAll('#settings .toggle')) {
     b.onclick = () => {
       settings[b.dataset.set] = !settings[b.dataset.set];
@@ -3118,21 +3479,103 @@
     }
   }
 
-  // First launch (no stars yet): ask for a pilot name and hand out the
-  // restore code, so nobody loses their stars. Asked once; Pilot has it all later.
-  const WELCOMED = 'thrusterz.welcomed';
-  function maybeWelcome() {
-    const stars = Object.values(progress.stars).reduce((a, b) => a + b, 0);
-    const q = new URLSearchParams(location.search);
-    // Not mid-mission, and not for automated browsers unless asked (?welcome).
-    if (!Online.available() || q.has('level') || $('menu').classList.contains('hidden')) return;
-    if (!q.has('welcome') && (stars > 0 || Online.Store.get(WELCOMED) || navigator.webdriver)) return;
-    hide('menu'); show('welcome');
-    $('wl-ask').classList.remove('hidden'); $('wl-done').classList.add('hidden');
-    $('btn-wl-apple').style.display = Online.appleAvailable() ? '' : 'none';
-    setTimeout(() => $('wl-name').focus(), 50);
+  // ------------------------------------------------ Game Center, App Store
+  // In the iPhone app: sign in to Game Center at launch, post totals to its
+  // leaderboards and unlock achievements from the stars you hold (so stars
+  // won before Game Center, or synced from another device, count too). The
+  // IDs match App Store Connect. Our own leaderboards stay the checked ones.
+  const GC_BOARDS = {
+    stars: 'thrusterz.total_stars',
+    score: 'thrusterz.total_score',
+    world: (n) => `thrusterz.world${n}_score`,
+  };
+  const GC_STAR_MARKS = [50, 150, 300];
+  const GC_DONE = 'thrusterz.gc';   // achievements already reported from here
+  const gcDone = new Set(((Online.Store.get(GC_DONE) || {}).done) || []);
+  let gcOn = false;
+  const sumOf = (o) => Object.values(o).reduce((a, b) => a + b, 0);
+  function gcEarned() {
+    const ids = [], P = 'thrusterz.';
+    const stars = progress.stars, total = sumOf(stars);
+    if (Object.keys(stars).length) ids.push(P + 'first_mission');
+    if (Object.values(stars).some(s => s >= 3)) ids.push(P + 'first_three_stars');
+    for (const w of WORLDS) {
+      const ls = worldLevels(w.n);
+      if (!ls.length) continue;
+      const tag = w.n === 0 ? 'training' : 'world' + w.n;
+      if (ls.every(l => stars[l.id])) ids.push(P + tag + '_complete');
+      if (ls.every(l => stars[l.id] >= 3)) ids.push(P + tag + '_perfect');
+    }
+    // No "every star" achievement: the total grows with each new world.
+    for (const n of GC_STAR_MARKS) if (total >= n) ids.push(P + 'stars_' + n);
+    return ids;
   }
-  function endWelcome() { Online.Store.set(WELCOMED, true); hide('welcome'); showMenu(); }
+  function gcScores() {
+    const out = [{ board: GC_BOARDS.stars, value: sumOf(progress.stars) }, { board: GC_BOARDS.score, value: Math.round(sumOf(progress.score)) }];
+    for (const w of WORLDS) {
+      if (w.n === 0) continue;
+      const v = worldLevels(w.n).reduce((a, l) => a + (progress.score[l.id] || 0), 0);
+      if (v > 0) out.push({ board: GC_BOARDS.world(w.n), value: Math.round(v) });
+    }
+    return out.filter(x => x.value > 0);
+  }
+  // Post totals and any achievements not yet reported (banner: show Apple's
+  // "achievement unlocked" banner; off for the catch-up at launch).
+  function gcSync(banner) {
+    if (!gcOn) return;
+    Bridge.send('gcScores', { scores: gcScores() });
+    const todo = gcEarned().filter(id => !gcDone.has(id));
+    if (!todo.length) return;
+    Bridge.call('gcAchieve', { ids: todo, banner }).then((done) => {
+      for (const id of done || []) gcDone.add(id);
+      Online.Store.set(GC_DONE, { done: [...gcDone] });
+    }).catch(() => {});
+  }
+  if (Bridge.gameCenter) {
+    Bridge.call('gcAuth').then((ok) => {
+      gcOn = !!ok;
+      document.body.classList.toggle('gc', gcOn);
+      gcSync(false);
+    }).catch(() => {});
+  }
+  $('btn-gc-menu').onclick = () => Bridge.send('gcShow', { view: 'dashboard' });
+
+  // Rating: the App Store's own prompt, asked at a good moment (a three-star
+  // win, once you've flown a fair few missions), at most once every four
+  // months from here; iOS itself shows it at most three times a year. And a
+  // "Rate Thrusterz" link in Settings that opens the App Store's review page.
+  const APP_STORE_REVIEW = 'https://apps.apple.com/app/id6821517941?action=write-review';
+  const REVIEW = 'thrusterz.review';
+  const REVIEW_AFTER = 8, REVIEW_GAP = 120 * 86400e3;
+  const canRate = Bridge.inApp && Bridge.platform === 'ios';
+  if (canRate) document.body.classList.add('rate');
+  $('set-rate').onclick = (e) => { e.preventDefault(); Bridge.open(APP_STORE_REVIEW); };
+  function maybeAskReview(stars) {
+    if (!canRate || stars < 3 || Object.keys(progress.stars).length < REVIEW_AFTER) return;
+    const last = (Online.Store.get(REVIEW) || {}).at || 0;
+    if (Date.now() - last < REVIEW_GAP) return;
+    Online.Store.set(REVIEW, { at: Date.now() });
+    setTimeout(() => { if (state.screen === 'result') Bridge.review(); }, 1500);
+  }
+
+  // After the first mission you win, ask for a pilot name and hand out the
+  // restore code, so nobody loses their stars. Play first, sign up later:
+  // by then there's something worth saving. Asked once; Pilot has it all later.
+  const WELCOMED = 'thrusterz.welcomed';
+  let afterWelcome = null;
+  function offerWelcome(then, force) {
+    const stars = Object.values(progress.stars).reduce((a, b) => a + b, 0);
+    // Not for automated browsers unless asked (?welcome).
+    if (!force && (!Online.available() || stars === 0 || Online.Store.get(WELCOMED) || navigator.webdriver)) { then(); return; }
+    afterWelcome = then;
+    hide('menu'); hide('result'); show('welcome');
+    $('wl-ask').classList.remove('hidden'); $('wl-done').classList.add('hidden');
+    if (!isTouch()) setTimeout(() => $('wl-name').focus(), 50);
+  }
+  function endWelcome() {
+    Online.Store.set(WELCOMED, true); hide('welcome');
+    const then = afterWelcome || showMenu; afterWelcome = null; then();
+  }
   $('btn-wl-save').onclick = async () => {
     const btn = $('btn-wl-save'), st = $('wl-status');
     btn.disabled = true; st.className = 'small'; st.textContent = 'Saving…';
@@ -3148,30 +3591,6 @@
     }
     btn.disabled = false;
   };
-  // A returning pilot can bring their account back from the first screen:
-  // Sign in with Apple (in the app) or their restore code.
-  async function welcomeBack(btn, fn) {
-    const st = $('wl-status');
-    btn.disabled = true; st.className = 'small'; st.textContent = 'Finding your pilot…';
-    try {
-      const p = await fn();
-      Online.Store.set(WELCOMED, true);
-      st.textContent = '';
-      toast(`Welcome back, ${p.name}. Your stars are back.`, 2.5);
-      endWelcome();
-    } catch (e) {
-      st.className = 'small warn';
-      st.textContent = e.offline ? 'You\'re offline. You can restore later under Pilot.' : e.message;
-    }
-    btn.disabled = false;
-  }
-  $('btn-wl-apple').onclick = () => welcomeBack($('btn-wl-apple'), () => Online.signInWithApple());
-  $('btn-wl-restore').onclick = () => welcomeBack($('btn-wl-restore'), async () => {
-    const code = $('wl-restore').value.trim();
-    if (!code) throw new Error('Enter your restore code first');
-    return Online.restore(code);
-  });
-  $('wl-restore').addEventListener('keydown', (e) => { if (e.key === 'Enter') { $('btn-wl-restore').click(); $('wl-restore').blur(); } e.stopPropagation(); });
   $('wl-name').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('btn-wl-save').click(); e.stopPropagation(); });
   for (const [input, btn] of [['pf-name-input', 'btn-pf-rename'], ['pf-restore-input', 'btn-pf-restore']]) {
     $(input).addEventListener('keydown', (e) => { if (e.key === 'Enter') { $(btn).click(); $(input).blur(); } e.stopPropagation(); });
@@ -3204,13 +3623,81 @@
     try { await navigator.clipboard.writeText(code); toast('Restore code copied', 1.2); } catch (e) { toast(code, 3); }
   };
 
+  // ------------------------------------------------------------- landing
+  // First visit: say what the game is, then one tap into the first Training
+  // mission (it takes seconds and the coach prompts teach it), a way past
+  // Training for pilots who know orbits, and a restore code for returning
+  // pilots on a new device. Anyone with stars, or who has been past it
+  // once, goes straight to the menu.
+  const VISITED = 'thrusterz.visited';
+  function leaveLanding() {
+    if ($('landing').classList.contains('hidden')) return;
+    Online.Store.set(VISITED, true);
+    hide('landing');
+    resize(); // a phone held upright goes back to drawing the game sideways
+    updateGate();
+  }
+  function showLanding() {
+    state.screen = 'landing';
+    hide('menu'); show('landing');
+    resize();
+  }
+  $('btn-ld-play').onclick = () => {
+    // Fullscreen has to start from the tap itself.
+    if (isTouch() && !fsEl() && !standalone() && fsSupported()) enterFullscreen();
+    leaveLanding();
+    startLevel(0);
+  };
+  $('btn-ld-skip').onclick = () => { state.menuTab = 1; progress.tab = 1; saveProgress(); showMenu(); };
+  $('btn-ld-restore').onclick = () => {
+    $('ld-restore').classList.toggle('hidden');
+    if (!$('ld-restore').classList.contains('hidden')) $('ld-restore-input').focus();
+  };
+  $('btn-ld-restore-go').onclick = async () => {
+    const btn = $('btn-ld-restore-go'), st = $('ld-status'), code = $('ld-restore-input').value.trim();
+    st.className = 'small';
+    if (!code) { st.className = 'small warn'; st.textContent = 'Enter your restore code first.'; return; }
+    btn.disabled = true; st.textContent = 'Restoring…';
+    try {
+      await Online.restore(code);
+      Online.Store.set(WELCOMED, true);
+      $('ld-restore-input').value = '';
+      showMenu();
+      toast('Welcome back. Your stars are restored.', 2);
+    } catch (e) {
+      st.className = 'small warn';
+      st.textContent = e.offline ? 'You\'re offline. Try again when you\'re connected.' : e.message;
+    }
+    btn.disabled = false;
+  };
+  $('ld-restore-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('btn-ld-restore-go').click(); e.stopPropagation(); });
+  // In the app, a returning pilot can also sign in with Apple.
+  $('btn-ld-apple').style.display = Online.appleAvailable() ? '' : 'none';
+  $('btn-ld-apple').onclick = async () => {
+    const btn = $('btn-ld-apple'), st = $('ld-status');
+    btn.disabled = true; st.className = 'small'; st.textContent = 'Signing in…';
+    try {
+      const p = await Online.signInWithApple();
+      Online.Store.set(WELCOMED, true);
+      showMenu();
+      toast(`Welcome back, ${p.name}. Your stars are restored.`, 2.5);
+    } catch (e) {
+      st.className = 'small warn';
+      st.textContent = e.offline ? 'You\'re offline. Try again when you\'re connected.' : e.message;
+    }
+    btn.disabled = false;
+  };
+
   // ---------------------------------------------------------------- boot
   const qs = new URLSearchParams(location.search);
+  const firstVisit = () => Object.keys(progress.stars).length === 0 && !Online.Store.get(VISITED) && !Online.Store.get(WELCOMED);
   if (qs.has('level')) {
     const i = Math.max(0, Math.min(LEVELS.length - 1, (+qs.get('level') || 1) - 1));
     progress.unlocked = Math.max(progress.unlocked, i);
+    leaveLanding();
     startLevel(i);
-  } else showMenu();
+  } else if (qs.has('landing') || (firstVisit() && !navigator.webdriver && !qs.has('unlock'))) showLanding();
+  else showMenu();
   updateGate();
   requestAnimationFrame(frame);
 
@@ -3224,5 +3711,7 @@
   window.__reportCrash = reportCrash;
 
   // Expose for debugging / automated testing.
-  window.Thrusterz = { state, startLevel, showMenu, showBriefing, levelCount: LEVELS.length };
+  window.Thrusterz = { state, startLevel, showMenu, showBriefing, levelCount: LEVELS.length, controls, tiltAngle, settings,
+    // Tests: redraw the HUD now, without waiting for an animation frame.
+    refreshHud: () => { if (state.mission) updateHud(); } };
 })();

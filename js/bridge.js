@@ -1,7 +1,7 @@
 // Talks to the native app shell (Expo, mobile/App.js) when the game runs
 // inside it. The shell injects window.__THRUSTERZ_NATIVE before the page
 // loads (platform, a snapshot of saved data, whether Sign in with Apple and
-// in-app purchases are available) and answers requests sent with postMessage.
+// in-app purchases and Game Center are available) and answers requests sent with postMessage.
 (function (root) {
   'use strict';
   const host = root.__THRUSTERZ_NATIVE || null;
@@ -38,12 +38,16 @@
     appleSignIn: inApp && !!host.appleSignIn,
     // App Store purchases (StoreKit, through the shell).
     iap: inApp && !!host.iap,
+    gameCenter: inApp && !!host.gameCenter,
     // Saved values as the app had them at launch (strings, as stored).
     stored: (key) => (inApp && host.store && typeof host.store[key] === 'string' ? host.store[key] : null),
     save: (key, value) => send('set', { key, value }),
     haptic: (kind) => send('haptic', { kind }),
     open: (url) => send('open', { url }),
     audio: (ignoreSilent) => send('audio', { ignoreSilent }),
+    // The App Store's rating prompt (the OS decides whether it appears).
+    review: () => send('review'),
     call,
+    send,
   };
 })(window);

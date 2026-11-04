@@ -4,5 +4,5 @@ window.THRUSTERZ_CONFIG = {
   // app (mobile/) runs the game from a bundled file and needs the full
   // address of the Vercel deployment.
   apiBase: 'https://thrusterz.com',
-  version: '1.0.0', // keep in step with mobile/app.json
+  version: '1.1.0', // keep in step with mobile/app.json
 };

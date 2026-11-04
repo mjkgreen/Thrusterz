@@ -35,8 +35,14 @@ const check = (name, ok, info) => { console.log((ok ? 'ok   ' : 'FAIL ') + name 
     await p.goto(URL + '?unlock');
     await p.waitForTimeout(300);
     const n = await p.evaluate(() => window.Thrusterz.levelCount);
+    const levelIds = await p.evaluate(() => window.Levels.LEVELS.map(l => l.id));
     let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
     const stalled = [];
+    // Headless WebKit can take a moment to start delivering animation frames
+    // on a fresh page: wait for the first mission's clock to move once before
+    // checking that it never stops.
+    await p.evaluate(() => { window.Thrusterz.startLevel(0); document.getElementById('gate').classList.add('hidden'); });
+    await p.waitForFunction(() => window.Thrusterz.state.mission.t > 0, null, { timeout: 5000 }).catch(() => {});
     for (let i = 0; i < n; i++) {
       await p.evaluate((i) => { window.Thrusterz.startLevel(i); document.getElementById('gate').classList.add('hidden'); }, i);
       const t0 = await p.evaluate(() => window.Thrusterz.state.mission.t);
@@ -45,12 +51,45 @@ const check = (name, ok, info) => { console.log((ok ? 'ok   ' : 'FAIL ') + name 
         const key = r < 0.3 ? 'Space' : r < 0.45 ? 'KeyA' : r < 0.6 ? 'KeyD' : r < 0.72 ? 'KeyE' : r < 0.82 ? 'Period' : r < 0.9 ? 'KeyV' : 'KeyO';
         await p.keyboard.down(key); await p.waitForTimeout(30 + rnd() * 150); await p.keyboard.up(key);
       }
-      const r = await p.evaluate(() => { const S = window.Thrusterz.state; return { t: S.mission.t, status: S.mission.status }; });
-      if (r.status === 'flying' && !(r.t > t0)) stalled.push(i);
-      // Fast-forward whatever state the random input left, and draw it.
-      await p.evaluate(() => { const S = window.Thrusterz.state, m = S.mission; for (let t = 0; t < 20 && m.status === 'flying'; t++) m.advance(20, { thrust: false, throttle: 1, rotate: 0 }); S.predDirty = true; });
-      await p.waitForTimeout(60);
-      await p.evaluate(() => { const S = window.Thrusterz.state; S.paused = false; ['pause', 'result', 'help'].forEach(id => document.getElementById(id).classList.add('hidden')); });
+      let r = await p.evaluate(() => { const S = window.Thrusterz.state; return { t: S.mission.t, status: S.mission.status, paused: S.paused }; });
+      // A stray window blur (headless WebKit sends them) pauses the mission on
+      // purpose. That isn't a stall, but the loop must run again once unpaused.
+      if (r.status === 'flying' && !(r.t > t0) && r.paused) {
+        await p.evaluate(() => { window.Thrusterz.state.paused = false; document.getElementById('pause').classList.add('hidden'); });
+        await p.waitForTimeout(400);
+        r = await p.evaluate(() => { const S = window.Thrusterz.state; return { t: S.mission.t, status: S.mission.status, paused: S.paused }; });
+      }
+      // Slow frames aren't a stall (headless WebKit on CI can run the first
+      // mission at a few frames a second): give the clock a few seconds.
+      if (r.status === 'flying' && !(r.t > t0)) {
+        await p.waitForFunction((t0) => { const m = window.Thrusterz.state.mission; return m.status !== 'flying' || m.t > t0; }, t0, { timeout: 3000 }).catch(() => {});
+        r = await p.evaluate(() => { const S = window.Thrusterz.state; return { t: S.mission.t, status: S.mission.status, paused: S.paused }; });
+      }
+      if (r.status === 'flying' && !(r.t > t0)) {
+        // Say why: which screen, overlays, and whether frames are arriving.
+        const why = await p.evaluate(async () => {
+          const S = window.Thrusterz.state, vis = (id) => !document.getElementById(id).classList.contains('hidden');
+          let frames = 0; const t1 = S.mission.t;
+          await new Promise(res => { const end = performance.now() + 500; const f = () => { frames++; if (performance.now() < end) requestAnimationFrame(f); else res(); }; requestAnimationFrame(f); });
+          return { screen: S.screen, paused: S.paused, gate: vis('gate'), pause: vis('pause'), result: vis('result'), resultShown: S.resultShown,
+            t0: t1, t: S.mission.t, warp: S.warp, frames, hidden: document.hidden, focus: document.hasFocus() };
+        });
+        stalled.push(i + ' ' + JSON.stringify(why));
+      }
+      // Fast-forward whatever state the random input left, and draw it: 20
+      // short steps rather than one long blocking call (WebKit on CI has
+      // crashed the page here), naming the mission if the page dies anyway.
+      try {
+        for (let t = 0; t < 20; t++) {
+          const flying = await p.evaluate(() => { const m = window.Thrusterz.state.mission; if (m.status === 'flying') m.advance(20, { thrust: false, throttle: 1, rotate: 0 }); return m.status === 'flying'; });
+          if (!flying) break;
+        }
+        await p.evaluate(() => { window.Thrusterz.state.predDirty = true; });
+        await p.waitForTimeout(60);
+        await p.evaluate(() => { const S = window.Thrusterz.state; S.paused = false; ['pause', 'result', 'help'].forEach(id => document.getElementById(id).classList.add('hidden')); });
+      } catch (e) {
+        throw new Error(`page died fast-forwarding mission ${i} (${levelIds[i]}): ${e.message}`);
+      }
     }
     check(`all ${n} missions load and run under random input`, errors.length === 0, errors.slice(0, 3).join(' | '));
     check('the game loop never stalls', stalled.length === 0, stalled.join(','));
@@ -177,6 +216,35 @@ const check = (name, ok, info) => { console.log((ok ? 'ok   ' : 'FAIL ') + name 
     errors.length = 0;
   }
 
+  // 3. First visit (as a real browser, not an automated one): the landing
+  //    page, Play straight into the first mission, the pilot name asked only
+  //    after the first win, then on to the next mission; a return visit goes
+  //    straight to the menu.
+  {
+    const ctx = await browser.newContext({ viewport: { width: 1000, height: 600 } });
+    await ctx.addInitScript(() => Object.defineProperty(Navigator.prototype, 'webdriver', { get: () => false }));
+    // The win below is faked, so the server's replay check would refuse the run.
+    await ctx.route('**/api/runs', r => r.fulfill({ contentType: 'application/json', body: '{}' }));
+    const p = await ctx.newPage();
+    watch(p);
+    await p.goto(URL);
+    await p.waitForTimeout(300);
+    const landing = await p.isVisible('#landing') && !(await p.isVisible('#menu'));
+    await p.click('#btn-ld-play');
+    const flying = await p.evaluate(() => window.Thrusterz.state.screen === 'flight' && window.Thrusterz.state.levelIndex === 0 && document.getElementById('landing').classList.contains('hidden'));
+    await p.evaluate(() => { const m = window.Thrusterz.state.mission; m.status = 'won'; });
+    await p.waitForSelector('#result:not(.hidden)', { timeout: 5000 }).catch(() => {});
+    await p.click('#btn-res-next');
+    const asked = await p.isVisible('#welcome');
+    await p.click('#btn-wl-skip');
+    const nextBrief = await p.isVisible('#briefing') && await p.evaluate(() => window.Thrusterz.state.levelIndex === 1);
+    await p.reload(); await p.waitForTimeout(300);
+    const back = await p.isVisible('#menu') && !(await p.isVisible('#landing'));
+    check('first visit: landing, Play flies mission 1, name asked after the first win, return visit goes to the menu', landing && flying && asked && nextBrief && back && errors.length === 0, JSON.stringify({ landing, flying, asked, nextBrief, back }) + ' ' + errors.slice(0, 2).join(' | '));
+    await ctx.close();
+    errors.length = 0;
+  }
+
   // 3a. First launch: a new pilot is asked for a name and gets a restore code.
   {
     const p = await browser.newPage({ viewport: { width: 1000, height: 600 } });
@@ -238,6 +306,56 @@ const check = (name, ok, info) => { console.log((ok ? 'ok   ' : 'FAIL ') + name 
     check('app shell: no page errors', real.length === 0, real.slice(0, 3).join(' | '));
     errors.length = 0;
     await ctx.close();
+
+    // Game Center and the rating prompt, with a shell that has Game Center
+    // signed in and a player who has flown eight missions.
+    const ctx2 = await browser.newContext({ viewport: { width: 844, height: 390 }, isMobile: true, hasTouch: true });
+    const p2 = await ctx2.newPage();
+    watch(p2);
+    await p2.route('https://app.thrusterz.game/', r => r.fulfill({ contentType: 'text/html', body: html }));
+    await p2.route(cfg.THRUSTERZ_CONFIG.apiBase.replace(/\/$/, '') + '/**', r => r.fulfill({ status: 503, contentType: 'application/json',
+      headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'Content-Type, Authorization', 'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS' },
+      body: '{"error":"offline in test"}' }));
+    const flown = Object.fromEntries(require('../js/levels.js').LEVELS.filter(l => !l.test).slice(0, 8).map((l, i) => [l.id, i === 0 ? 3 : 2]));
+    await p2.addInitScript((flown) => {
+      window.__sent = [];
+      window.__THRUSTERZ_NATIVE = { platform: 'ios', appleSignIn: true, gameCenter: true, store: { 'thrusterz.progress.v1': JSON.stringify({ stars: flown, best: {}, unlocked: 8 }) } };
+      window.ReactNativeWebView = { postMessage: (s) => {
+        const m = JSON.parse(s); window.__sent.push(m);
+        if (m.type === 'gcAuth') setTimeout(() => window.__nativeReply(m.id, true, true), 10);
+        if (m.type === 'gcAchieve') setTimeout(() => window.__nativeReply(m.id, true, m.ids), 10);
+      } };
+    }, flown);
+    await p2.goto('https://app.thrusterz.game/');
+    await p2.waitForTimeout(600);
+    const g = await p2.evaluate(async () => {
+      const at = () => window.__sent.length;
+      const launch = window.__sent.slice();
+      const gcButton = getComputedStyle(document.getElementById('btn-gc-menu')).display !== 'none';
+      const rateShown = getComputedStyle(document.querySelector('#settings .rate-only')).display !== 'none';
+      document.getElementById('btn-gc-menu').click();
+      document.getElementById('set-rate').click();
+      const clicks = window.__sent.slice(launch.length);
+      // A three-star win asks for a rating (once).
+      const n0 = at();
+      window.Thrusterz.startLevel(1);
+      const m = window.Thrusterz.state.mission; m.stars = () => 3; m.status = 'won';
+      await new Promise(res => setTimeout(res, 4000));
+      const won = window.__sent.slice(n0);
+      return { launch, gcButton, rateShown, clicks, won, screen: window.Thrusterz.state.screen, sets: won.filter(x => x.type === 'set').map(x => x.key) };
+    });
+    const ach = g.launch.find(x => x.type === 'gcAchieve'), sc = g.launch.find(x => x.type === 'gcScores');
+    check('game center: signs in at launch and catches up achievements without banners',
+      !!ach && ach.banner === false && ach.ids.includes('thrusterz.first_mission') && ach.ids.includes('thrusterz.first_three_stars') && !ach.ids.includes('thrusterz.world1_complete'), JSON.stringify(ach));
+    check('game center: posts total stars', !!sc && sc.scores.some(x => x.board === 'thrusterz.total_stars' && x.value === 17), JSON.stringify(sc));
+    check('game center: the menu button shows once signed in and opens Game Center', g.gcButton && g.clicks.some(x => x.type === 'gcShow'), JSON.stringify(g.clicks));
+    check('rating: Settings link opens the App Store review page', g.rateShown && g.clicks.some(x => x.type === 'open' && /id6821517941\?action=write-review/.test(x.url)), JSON.stringify(g.clicks));
+    check('rating: a three-star win after eight missions asks for a rating; achievements already sent are not re-sent',
+      g.won.some(x => x.type === 'review') && !g.won.some(x => x.type === 'gcAchieve' && x.ids.includes('thrusterz.first_mission')), JSON.stringify(g.won.map(x => x.type)) + ' ' + g.screen + ' ' + g.sets.join(','));
+    const real2 = errors.filter(e => !/Failed to load resource/.test(e));
+    check('game center: no page errors', real2.length === 0, real2.slice(0, 3).join(' | '));
+    errors.length = 0;
+    await ctx2.close();
   }
 
   // 4. Corrupted or outdated saves.
@@ -277,6 +395,122 @@ const check = (name, ok, info) => { console.log((ok ? 'ok   ' : 'FAIL ') + name 
     });
     check('with Auto frame and Auto zoom off, the frame is fixed and following keeps your zoom',
       typeof r.frame === 'number' && r.tzoom === 0.05 && r.follow && errors.length === 0, JSON.stringify(r) + ' ' + errors.slice(0, 2).join(' | '));
+    errors.length = 0;
+    await p.close();
+  }
+
+  // 6. Tilt to steer: on by default (said once); tipping the phone fires the side
+  //    thrusters like holding ⟲ / ⟳, the buttons still work and win, and
+  //    the steering maths reads a landscape phone the right way round.
+  {
+    const ctx = await browser.newContext({ viewport: { width: 844, height: 390 }, isMobile: true, hasTouch: true });
+    const p = await ctx.newPage();
+    watch(p);
+    await p.goto(URL + '?unlock');
+    await p.waitForTimeout(300);
+    const r = await p.evaluate(async () => {
+      const T = window.Thrusterz, S = T.state, wait = (ms) => new Promise(res => setTimeout(res, ms));
+      const deg = Math.PI / 180, out = {};
+      // Beta/gamma that steer by phi on this screen (search; for fake readings).
+      const steerOf = (phi, screen) => {
+        let best = null;
+        for (let b = -180; b < 180; b += 1) for (let g = -90; g < 90; g += 1) {
+          const a = T.tiltAngle(b, g, screen);
+          if (a == null) continue;
+          const err = Math.abs(a - phi);
+          if (!best || err < best.err) best = { b, g, err };
+        }
+        return best;
+      };
+      // Screen turned 90° (landscape): the device's +x edge points up. Held
+      // upright with the right side 20° down, gravity in device axes is
+      // (-cos 20°, -sin 20°, 0); invert the spec's gravity = (cos b sin g,
+      // -sin b, -cos b cos g) for the beta/gamma that give it.
+      const gx = -Math.cos(20 * deg), gy = -Math.sin(20 * deg); // device axes, gz = 0
+      const b = Math.asin(-gy) / deg, g = Math.asin(gx / Math.cos(b * deg)) / deg;
+      out.landscapeRight = T.tiltAngle(b, g, 90) / deg;
+      out.flat = T.tiltAngle(0, 0, 0);
+      out.portraitRight = T.tiltAngle(60, 20, 0) / deg;
+      // In flight, with tilt on: fake readings for the current screen angle.
+      const sa = screen.orientation ? screen.orientation.angle : 0;
+      const right = steerOf(25 * deg, sa), level = steerOf(0, sa);
+      T.startLevel(window.Levels.LEVELS.findIndex(l => l.id === 'point'));
+      document.getElementById('gate').classList.add('hidden');
+      const send = (o) => window.dispatchEvent(Object.assign(new Event('deviceorientation'), { alpha: 0, beta: o.b, gamma: o.g }));
+      out.onByDefault = T.settings.tilt === true;
+      // With readings coming in, the first mission says once that tilt is on.
+      const keep = setInterval(() => send(level), 50);
+      await wait(2800);
+      out.noticeShown = /Tilt to steer is on/.test(document.getElementById('toast').textContent);
+      // Off and back on the way a player does (readings must arrive to keep it on).
+      const sw = document.querySelector('#settings .toggle[data-set="tilt"]');
+      sw.click(); await wait(50);
+      out.switchedOff = T.settings.tilt === false && sw.getAttribute('aria-pressed') === 'false';
+      sw.click(); await wait(1700);
+      clearInterval(keep);
+      out.switchedOn = T.settings.tilt === true && sw.getAttribute('aria-pressed') === 'true';
+      const keepR = setInterval(() => send(right), 30);
+      await wait(100);
+      out.tiltRotate = T.controls().rotate;
+      const w0 = S.mission.ship.omega;
+      await wait(500);
+      out.spunRight = S.mission.ship.omega < w0 - 0.05;
+      out.buttonLit = document.querySelector('#touch [data-key="rotR"]').classList.contains('tilt-on');
+      out.buttonsVisible = getComputedStyle(document.querySelector('#touch [data-key="rotL"]')).visibility !== 'hidden';
+      // A held button wins over tilt.
+      window.dispatchEvent(new KeyboardEvent('keydown', { code: 'ArrowLeft' }));
+      out.buttonWins = T.controls().rotate === 1;
+      window.dispatchEvent(new KeyboardEvent('keyup', { code: 'ArrowLeft' }));
+      clearInterval(keepR);
+      // Readings stop (or the switch goes off): no rotation.
+      await wait(600);
+      out.staleIsZero = T.controls().rotate === 0;
+      sw.click(); await wait(50);
+      send(right);
+      out.offIsZero = T.settings.tilt === false && T.controls().rotate === 0;
+      return out;
+    });
+    check('tilt: the steering angle reads a landscape phone the right way round',
+      Math.abs(r.landscapeRight - 20) < 0.5 && Math.abs(r.portraitRight - 0) > 5 && r.portraitRight > 0 && r.flat === null, JSON.stringify(r));
+    check('tilt: on by default with a one-time note, and switches off and on in Settings', r.onByDefault && r.noticeShown && r.switchedOff && r.switchedOn, JSON.stringify(r));
+    check('tilt: tipping right fires the right thruster and lights ⟳', r.tiltRotate === -1 && r.spunRight && r.buttonLit && r.buttonsVisible, JSON.stringify(r));
+    check('tilt: the buttons still work and win', r.buttonWins, JSON.stringify(r));
+    check('tilt: no readings or switched off means no rotation', r.staleIsZero && r.offIsZero, JSON.stringify(r));
+    check('no page errors with tilt', errors.length === 0, errors.slice(0, 3).join(' | '));
+    errors.length = 0;
+    await ctx.close();
+  }
+
+  // 7. Storm Warning: the bottom-centre warning escalates (steady, then
+  //    flashing in the last minute) and reports the storm while it blows.
+  {
+    const p = await browser.newPage({ viewport: { width: 1000, height: 600 } });
+    watch(p);
+    await p.goto(URL + '?unlock');
+    await p.waitForTimeout(300);
+    const r = await p.evaluate(async () => {
+      const T = window.Thrusterz, S = T.state, wait = (ms) => new Promise(res => setTimeout(res, ms));
+      T.startLevel(window.Levels.LEVELS.findIndex(l => l.id === 'test-storm'));
+      document.querySelectorAll('.screen').forEach(e => e.classList.add('hidden'));
+      const el = document.getElementById('alert'), out = {};
+      // The HUD normally refreshes on animation frames, which headless WebKit
+      // doesn't always deliver in time (and a stray blur pauses the mission):
+      // unpause and refresh it directly before reading the warning.
+      const at = async (t) => {
+        const m = S.mission;
+        while (m.t < t) m.advance(0.25, { thrust: false, throttle: 1, rotate: 0 });
+        S.paused = false; document.getElementById('pause').classList.add('hidden');
+        T.refreshHud();
+        await wait(50);
+        return [el.className, el.textContent];
+      };
+      out.far = await at(5); out.soon = await at(30); out.on = await at(76);
+      out.row = document.getElementById('mech-text').textContent;
+      return out;
+    });
+    check('storm warning: steady, then flashing, then the storm itself, bottom-centre (not in the HUD row)',
+      r.far[0] === 'far' && /STORM IN 1:1/.test(r.far[1]) && r.soon[0] === 'soon' && /STORM IN 0:4/.test(r.soon[1]) && r.on[0] === 'on' && /LEFT/.test(r.on[1]) && !/storm in/i.test(r.row), JSON.stringify(r));
+    check('no page errors in Storm Warning', errors.length === 0, errors.slice(0, 3).join(' | '));
     errors.length = 0;
     await p.close();
   }

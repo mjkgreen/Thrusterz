@@ -54,6 +54,7 @@ const check = (name, ok, info) => { console.log((ok ? 'ok   ' : 'FAIL ') + name 
 // 3. Every orbital level's parking orbit is stable while coasting.
 for (const L of LEVELS) {
   if (!L.ship.start.orbit || L.ship.start.orbit.speed || L.ship.sail) continue; // a sail always pushes
+  if (L.unstableStart) continue; // the level says why (a moon sweeps past early, on purpose)
   // Radiation levels make parking deadly on purpose: check the orbit alone.
   const m = new Mission(L.bodies.some(b => b.radiation)
     ? Object.assign({}, L, { bodies: L.bodies.map(b => b.radiation ? Object.assign({}, b, { radiation: Object.assign({}, b.radiation, { dose: 1e9 }) }) : b) }) : L);
@@ -566,6 +567,45 @@ for (const L of LEVELS) {
     'test-ion': {
       'hold the burn with the nose fixed': [{ control: () => ({ thrust: true, angle: Math.PI / 2 }) }],
     },
+    'test-storm': (() => {
+      const o = (m) => AP.orb(m, 'halde');
+      const down = [{ burn: 'retro', until: (m) => o(m).pe <= 55 }, { coast: (m) => o(m).r < 59 && o(m).rising }, { burn: 'retro', until: (m) => o(m).ap <= 66 }];
+      return {
+        'stay put': [],
+        'wait for the storm, then go down': [{ wait: 76 }, ...down],
+        'only lower the low point (orbit keeps crossing the belt)': [down[0]],
+        'slow two-step descent through the belt': [{ burn: 'retro', until: (m) => o(m).pe <= 100 }, { coast: (m) => o(m).r < 104 && o(m).rising }, { burn: 'retro', until: (m) => o(m).ap <= 104 }, { wait: 5 }, ...down],
+        'climb above the storm': [{ burn: 'pro', until: (m) => o(m).ap >= 260 }, { coast: (m) => !o(m).rising }, { burn: 'pro', until: (m) => o(m).pe >= 250 }],
+      };
+    })(),
+    'test-front': (() => {
+      const F = PROOFS['test-front'], go = F.script(F.p, AP);
+      return {
+        'stay at Cinder Outpost (no magnetosphere)': [],
+        'leave a minute later (the front catches you)': [{ wait: 60 }, ...go],
+        'a slow cruise (speed 3)': F.script([3, F.p[1], F.p[2]], AP),
+      };
+    })(),
+    'test-shield': (() => {
+      const o = (m) => AP.orb(m, 'kiln');
+      const up = [{ burn: 'pro', until: (m) => o(m).ap >= 650 }], top = [{ coast: (m) => !o(m).rising }], round = [{ burn: 'pro', until: (m) => o(m).pe >= 640 }];
+      return {
+        'keep the shield all the way (runs out of fuel)': [...up, ...top, ...round],
+        'drop it at once (too much dose)': [{ drop: true }, ...up, ...top, ...round],
+        'drop it after the first burn (hot transfer unshielded)': [...up, { drop: true }, ...top, ...round],
+      };
+    })(),
+    'test-slot': (() => {
+      const o = (m) => AP.orb(m, 'gauss');
+      const P = PROOFS['test-slot'], dock = P.script(P.p, AP)[4];
+      const down = (pe, ap) => [{ burn: 'retro', until: (m) => o(m).pe <= pe }, { coast: (m) => o(m).r < pe + 2 && o(m).rising }, { burn: 'retro', until: (m) => o(m).ap <= ap }];
+      return {
+        'go down at once and catch up in the slot': [...down(100, 104), dock],
+        'dip into the inner belt (low point 80)': [{ wait: 24.5 }, ...down(80, 90), dock],
+        'phase higher up, past the magnetosphere': [{ burn: 'pro', until: (m) => o(m).ap >= 300 }, { coast: (m) => !o(m).rising }, ...down(100, 104), dock],
+        'slow two-step descent through the outer belt': [{ wait: 24.5 }, ...down(150, 154), { wait: 3 }, ...down(100, 104), dock],
+      };
+    })(),
   };
   const wins = [];
   for (const [id, plans] of Object.entries(NAIVE)) for (const [name, steps] of Object.entries(plans)) if (AP.fly(lv(id), steps).won) wins.push(id + ': ' + name);
@@ -689,6 +729,45 @@ for (const L of LEVELS) {
     L.ship.start.orbit.r = 280;
     const q = coast(new Mission(L), 30);
     check('radiation belt: parked inside it, the dose runs out', q.status === 'crashed' && /Radiation/.test(q.message) && Math.abs(q.t - 17) < 0.5, `${q.message} at ${q.t.toFixed(1)}s`);
+  }
+  // Magnetospheres: particles are turned away inside the bubble and its
+  // tail, light isn't; a storm squeezes the nose in; belts can be listed.
+  {
+    const L = JSON.parse(JSON.stringify(LEVELS.find(l => l.id === 'test-storm')));
+    const m = new Mission(L), sys = m.sys, pos = (i) => [sys.px[i], sys.py[i]];
+    sys.update(0);
+    const rate = (x, y, t) => m.radiationAt(x, y, t, pos).rate;
+    const calm = { nose: rate(-150, 0, 0), tail: rate(600, 0, 0), out: rate(-300, 0, 0) };
+    const storm = { nose: rate(-150, 0, 100), side: rate(0, 150, 100) };
+    check('magnetosphere: no particles inside, in the tail too; outside you take the wind',
+      calm.nose === 0 && calm.tail === 0 && calm.out > 0, JSON.stringify(calm));
+    check('magnetosphere: a storm squeezes the nose in past a 150 k orbit, not the flanks',
+      storm.nose > 1 && storm.side === 0, JSON.stringify(storm));
+    L.bodies[0].radiation.particles = 0.25;
+    const half = new Mission(L);
+    half.sys.update(0);
+    const inside = half.radiationAt(-150, 0, 0, (i) => [half.sys.px[i], half.sys.py[i]]).rate, open = half.radiationAt(-300, 0, 0, (i) => [half.sys.px[i], half.sys.py[i]]).rate;
+    // Inside (1350 from the star) only the light share (75%) arrives; outside (1200) all of it.
+    check('magnetosphere: only the particle share is stopped (light gets in)', Math.abs(inside / open - 0.75 * (1200 / 1350) ** 2) < 1e-9, inside.toFixed(4) + ' vs ' + open.toFixed(4));
+    // A storm with a speed moves out as a shell: at 14 k/s it reaches 1400
+    // from Pyre at 100 s and Vale (2400) at about 171 s, and only squeezes
+    // Vale's magnetosphere once it's there.
+    const F = new Mission(LEVELS.find(l => l.id === 'test-front')), fs = F.sys, pyre = fs.byId.pyre;
+    fs.update(0);
+    const fpos = (i) => [fs.px[i], fs.py[i]], spF = fpos(pyre.index);
+    check('storm front: reaches each distance at distance / speed, and lasts as long as the storm',
+      !F.stormOn(pyre, 99, 1400) && F.stormOn(pyre, 101, 1400) && F.stormOn(pyre, 199, 1400) && !F.stormOn(pyre, 201, 1400) && !F.stormOn(pyre, 170, 2400) && F.stormOn(pyre, 172, 2400));
+    check('storm front: a magnetosphere is squeezed only once the front reaches its planet',
+      F.insideField(800, 0, spF, fpos, pyre, 150) >= 0 && F.insideField(800, 0, spF, fpos, pyre, 200) < 0);
+    // A water shield aboard stops 75% of the dose; dropped, it stops nothing.
+    const W = new Mission(LEVELS.find(l => l.id === 'test-shield'));
+    W.advance(0.5, { thrust: false, throttle: 1, rotate: 0 });
+    const shielded = W.radRate;
+    W.release(); W.advance(0.5, { thrust: false, throttle: 1, rotate: 0 });
+    check('shield: carried, it cuts the dose rate to a quarter; dropped, the full rate is back',
+      Math.abs(shielded / W.radRate - 0.25) < 0.01 && W.shieldFactor() === 1, shielded.toFixed(3) + ' vs ' + W.radRate.toFixed(3));
+    const S = new Mission(LEVELS.find(l => l.id === 'test-slot'));
+    check('belts: a planet can have several, each counted', S.belts.length === 2 && S.doseRateAt(70, 0, 0) === 1 && S.doseRateAt(105, 0, 0) === 0 && S.doseRateAt(150, 0, 0) === 1);
   }
   // Depot: a rendezvous refuels once; flying past doesn't.
   {

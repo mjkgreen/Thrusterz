@@ -63,7 +63,9 @@ gravity). Its 30 missions are five chapters of six:
 | **Prototype** | **Solar sail** | Steer with sunlight, no fuel at all | Push along the nose ×cos²×1/r²; a spin matched to your orbit holds the sail angle. Test level: *Sunward Sail* (spiral out from 300 to 450–520). |
 | **Prototype** | **Ion engine** | Very low thrust for very long burns | Spirals instead of impulsive burns; time warp up to 10× while it fires. Test level: *Long Burn*. |
 | Idea | Precision docking | Fine translation thrusters for the last few meters | More buttons; needs a careful mobile design. |
-| **Prototype → World 4** | **Radiation** | Where and when you're exposed: hide, time it, or keep your distance | Belts: a dose meter, shown on the predicted path too (*Radiation Belt*). Sources: inverse-square falloff, shadows behind planets, moons and rocks, and a pulsar's two sweeping beams (*Sunshade*, *Lighthouse*). The path glows where it would take dose. Solar flares and debris still ideas. |
+| **Prototype → World 4** | **Radiation** | Where and when you're exposed: hide, time it, or keep your distance | Belts: a dose meter, shown on the predicted path too (*Radiation Belt*). Sources: inverse-square falloff, shadows behind planets, moons and rocks, and a pulsar's two sweeping beams (*Sunshade*, *Lighthouse*). The path glows where it would take dose. Debris still an idea. |
+| **Prototype** | **Magnetospheres and storms** | Where a planet's field shelters you from a star's particles, and getting there before a scheduled storm | A bubble with a blunt sunward nose and a long tail (`magnetosphere`); sources split into particles (stopped inside it) and light (only solid shadows stop it); belts sit inside, several per planet. A scheduled storm adds particles and squeezes the nose in. Test levels: *Storm Warning* (get under the belt before the storm squeezes the bubble past your orbit), *The Slot* (phase above the outer belt, drop once into the slot between two belts and dock), *Storm Front* (a storm moving out from the star at a finite speed: beat it to the only magnetosphere). |
+| **Prototype** | **Droppable shield** | How long to carry a heavy shield before dropping it for Δv | A cargo item with `shield` (a water tank on the hull) stops a share of all radiation while aboard. Test level: *Heavy Water* (keep it through the hot climb, drop it before the last burn). A candidate to replace World 4's L2-heavy chapter 3. |
 | **Prototype** | **Tether / grapple** | Swing around an anchor and release at the right moment | Latch / release on the contextual E button (LATCH / RELEASE); inelastic rope, slack allowed. Test level: *Swing* (zero-G: turn round with no fuel). |
 | **Prototype** | **Wormholes** | Enter one, exit another with the same velocity | The predicted path follows through. Test level: *Shortcut* (the entry angle aims the exit at an out-of-reach planet). Sci-fi, so late or never as a world. |
 | Idea | Collectible stars | Fly a route that grabs three stars along the way | Cut the Rope-style replay layer that works in every world, including World 1. |
@@ -244,12 +246,13 @@ on mass, so dropping cargo makes the ship nimbler?
 **v3 (after the second playtest).** Every mission is multi-part (2 to 4
 goals sharing one tank, side-thruster budget and dose limit), so errors
 accumulate across the parts. Pulsar beams are sprinkled through chapters 2
-to 5 instead of having a chapter of their own. Chapter 3 is now **Shadow
-Lanes**: holding in a planet's L2 shadow, the game's first planets on
-elliptical orbits, and hopping between L2 points when planets line up.
+to 5 instead of having a chapter of their own. Chapter 3 is now **Magnetic
+Shelter**: magnetospheres, radiation belts, scheduled and moving storms,
+and a moon's pocket inside its planet's belt (it replaced Shadow Lanes,
+whose L2-shadow missions played too alike).
 Every mission sits in the difficulty band of `tools/w4/robust.js`: an
 average player wins 10–35% of tries, a good one ≥ 40%, an expert ≥ 80%.
-Chapters: 1 Sunburn, 2 Shadows and Beams, 3 Shadow Lanes, 4 Deep Gravity,
+Chapters: 1 Sunburn, 2 Shadows and Beams, 3 Magnetic Shelter, 4 Deep Gravity,
 5 Grand Missions. Details in `tools/w4/README.md`.
 
 Engine follow-ups the chapter work found: a craft passing inside a strong-

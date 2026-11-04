@@ -1,493 +1,337 @@
 'use strict';
-// World 4 · Chapter 3 · Shadow Lanes: hanging in a planet's L2 shadow while
-// it orbits a star, planets on elliptical orbits, and timing the hop from one
-// planet's shadow to the next. See tools/w4/README.md ("Redesign v3").
+// World 4 · Chapter 3 · Magnetic Shelter: a planet's magnetosphere turns a
+// star's particles away (light still gets through), radiation belts sit
+// inside it, and scheduled storms squeeze it in or sweep outward as a front.
+// See tools/w4/README.md ("Magnetic Shelter") and the experimental
+// prototypes Storm Warning, The Slot and Storm Front (js/levels.js).
 //
-// L2 sits behind a planet, inside its umbra: the star is a disc, so the umbra
-// narrows behind the planet (its half-width at L2 is about
-// Rc − (k − 1)(Rs − Rc), the same at any distance from the star, since the
-// L2 point and the umbra both scale with it). L2 is unstable: a coasting ship
-// drifts off, so holding there costs small corrections. On an elliptical orbit
-// the L2 point keeps the same scale k (the pulsating L2 of the elliptic
-// three-body problem), but it races and the drift grows fast near periapsis,
-// and the sunlight outside the shadow is far hotter there.
+// Rules used here (js/flight.js): radiation.particles is the share of a
+// source a magnetosphere stops; radiation.storm { start, end, rate, squeeze,
+// speed?, ramp? } adds particles and squeezes every nose in (builds and dies
+// away over `ramp` s); belts are rings of 1 Sv/s (or `rate`); an orbit goal
+// with `after` only counts once the clock passes it.
 const { ship, C } = require('../../js/levels.js');
 const Phys = require('../../js/physics.js');
 
-// ---------------------------------------------------------------- geometry
+// ---------------------------------------------------------------- helpers
 
-// L2 (or L1) of body `id` in a set of body definitions, as the lagrange
-// goal's `scale` (a multiple of the star-to-planet distance): the point on
-// the star-planet line where the pull of both (with the star's wobble about
-// the barycentre) is exactly what co-rotating needs. Solved on a circular
-// copy of the orbit; the same scale is the L2 of an elliptical orbit too.
-function l2Scale(defs, id, inner) {
-  const circ = defs.map((d) => (d.orbit ? Object.assign({}, d, { orbit: Object.assign({}, d.orbit, { e: 0 }) }) : d));
-  const sys = new Phys.System(circ), b = sys.byId[id], P = sys.bodies[b.parent];
-  sys.update(0);
-  const n = b.orbit.n, a = [0, 0];
-  const err = (k) => {
-    const x = sys.px[P.index] + (sys.px[b.index] - sys.px[P.index]) * k, y = sys.py[P.index] + (sys.py[b.index] - sys.py[P.index]) * k;
-    sys.accel(x, y, 0, a);
-    // centripetal toward the barycentre of the star and planet
-    const bx = sys.nx[P.index], by = sys.ny[P.index], rx = x - bx, ry = y - by, r = Math.hypot(rx, ry);
-    return (a[0] * rx + a[1] * ry) / r + n * n * r; // > 0: gravity too weak here
+const orb = (AP, id) => (m) => AP.orb(m, id);
+// One transfer: burn (pro or retro) until the low/high point reaches `target`,
+// coast to that point, then round off until the other side is within `round`.
+function transfer(AP, body, down, target, round) {
+  const o = orb(AP, body);
+  return [
+    { burn: down ? 'retro' : 'pro', rel: body, until: (m) => (down ? o(m).pe <= target : o(m).ap >= target) },
+    { coast: (m) => (down ? o(m).r < target + 1.5 && o(m).rising : o(m).r > target - 1.5 && !o(m).rising) },
+    { burn: down ? 'retro' : 'pro', rel: body, until: (m) => (down ? o(m).ap <= round : o(m).pe >= round) },
+  ];
+}
+// Close in on a station (by id) and match its speed: aim at it (or, with
+// `off`, at a point that far out from it, away from the body it circles,
+// so the approach never clips it) with a closing speed that tapers as you
+// get near, correcting only when the error is worth it.
+// With `near`, it coasts (letting a slightly lower or higher orbit drift
+// it in) until the station is that close, then closes gently.
+function dock(id, gain, cap, off, near) {
+  return {
+    control: (m, c) => {
+      if (m.status !== 'flying' || m.goalIndex !== c.dockGoal) { if (c.dockGoal == null) c.dockGoal = m.goalIndex; else return { done: true }; }
+      m.sys.update(m.t);
+      const i = m.sys.byId[id].index, b = m.sys.bodies[i];
+      let tx = m.sys.px[i], ty = m.sys.py[i];
+      if (off && b.parent != null) { const ux = tx - m.sys.px[b.parent], uy = ty - m.sys.py[b.parent], u = Math.hypot(ux, uy) || 1; tx += off * ux / u; ty += off * uy / u; }
+      const dx = tx - m.ship.x, dy = ty - m.ship.y, d = Math.hypot(dx, dy);
+      if (near && d > near) return { thrust: false, dt: 0.1 };
+      const sp = Math.min(cap, gain * Math.max(0, d - (off ? 1 : 6)));
+      const ex = m.sys.vx[i] + sp * dx / d - m.ship.vx, ey = m.sys.vy[i] + sp * dy / d - m.ship.vy, e = Math.hypot(ex, ey);
+      if (c.b ? e < 0.03 : e < 0.12) { c.b = false; return { thrust: false, dt: 0.05 }; }
+      c.b = true;
+      return { thrust: true, angle: Math.atan2(ey, ex) };
+    },
   };
-  let lo = inner ? 0.6 : 1.0005, hi = inner ? 0.9995 : 1.8;
-  for (let it = 0; it < 80; it++) {
-    const k = (lo + hi) / 2, e = err(k);
-    if (inner ? e > 0 : e < 0) lo = k; else hi = k;
-  }
-  return +((lo + hi) / 2).toFixed(5);
 }
 
-// A start near goal-style point (scale k of `id`'s distance from its star),
-// offset `out` k further out and `ahead` k along the orbit, moving with the
-// point plus (vOut, vAhead) k/s: e.g. drifting in a planet's shadow.
-function nearPoint(defs, id, k, out, ahead, vOut, vAhead, t) {
-  const sys = new Phys.System(defs), b = sys.byId[id], i = b.index, p = b.parent;
-  sys.update(t || 0);
-  const rx = sys.px[i] - sys.px[p], ry = sys.py[i] - sys.py[p], r = Math.hypot(rx, ry), ux = rx / r, uy = ry / r;
-  const kk = k + out / r;
-  const x = sys.px[p] + rx * kk - uy * ahead, y = sys.py[p] + ry * kk + ux * ahead;
-  // co-moving with the star-planet line (its rotation and its stretching)
-  const wx = sys.vx[i] - sys.vx[p], wy = sys.vy[i] - sys.vy[p];
-  const om = (rx * wy - ry * wx) / (r * r), rdot = (rx * wx + ry * wy) / r;
-  const qx = x - sys.px[p], qy = y - sys.py[p];
-  const vx = sys.vx[p] + qx * rdot / r - om * qy + ux * vOut - uy * vAhead;
-  const vy = sys.vy[p] + qy * rdot / r + om * qx + uy * vOut + ux * vAhead;
-  const f = (v) => +v.toFixed(4);
-  return { free: { x: f(x), y: f(y), vx: f(vx), vy: f(vy) } };
-}
-
-// Distance from the ship (or an object) to a body.
-const dist = (m, id, o) => { const s = o || m.ship; m.sys.update(m.t); const i = m.sys.byId[id].index; return Math.hypot(s.x - m.sys.px[i], s.y - m.sys.py[i]); };
-// Distance from the ship to goal gi's point, and the point.
-const gp = (m, gi) => m.goalPoint(m.level.goals[gi]);
-const dGoal = (m, gi) => { const P = gp(m, gi); return Math.hypot(P.x - m.ship.x, P.y - m.ship.y); };
-// Planet's distance from its star (or a body from its parent).
-const rOf = (m, id) => { const sys = m.sys; sys.update(m.t); const b = sys.byId[id], i = b.index, p = b.parent; return Math.hypot(sys.px[i] - sys.px[p], sys.py[i] - sys.py[p]); };
-
-// Coast with the nose held still (no side thrusters spent chasing a target).
-const hold = (pred) => ({ control: (m, c) => pred(m, c) ? { done: true } : { thrust: false, angle: null, dt: 0.25 } });
-
-// Keep station on goal gi's moving point the way a player does: aim at where
-// you think the marker is (off by `off` = [out, ahead] k in the planet's
-// frame), wanting to close in at up to vMax; once the velocity is off by more
-// than the dead band `db` k/s, make one tap: turn to the error (off by `aim`
-// rad), and burn the error's size times (1 + `over`), then coast again.
-// Runs until pred (or the mission ends).
-const park = (gi, opt, pred) => {
-  const o = Object.assign({ k: 0.04, vMax: 0.5, db: 0.1, off: [0, 0], aim: 0, over: 0 }, opt);
-  return { control: (m, c) => {
-    if (m.status !== 'flying' || (pred && pred(m, c))) return { done: true };
-    const g = m.level.goals[gi], P = m.goalPoint(g), s = m.ship, sys = m.sys;
-    if (c.tap) {
-      if (m.dvUsed() - c.tap.dv0 < c.tap.dv && m.stageSpec && m.stageSpec.fuel > 1e-9) return { thrust: true, angle: c.tap.a, tol: 0.08 };
-      c.tap = null;
-    }
-    let ux = 1, uy = 0;
-    if (g.lagrange) { const b = sys.byId[g.lagrange.body], i = b.index, p = b.parent; const rx = sys.px[i] - sys.px[p], ry = sys.py[i] - sys.py[p], r = Math.hypot(rx, ry); ux = rx / r; uy = ry / r; }
-    else if (g.body) { const i = sys.byId[g.body].index, p = sys.bodies[i].parent; if (p != null) { const rx = sys.px[i] - sys.px[p], ry = sys.py[i] - sys.py[p], r = Math.hypot(rx, ry); ux = rx / r; uy = ry / r; } }
-    const tx = P.x + o.off[0] * ux - o.off[1] * uy, ty = P.y + o.off[0] * uy + o.off[1] * ux;
-    const dx = tx - s.x, dy = ty - s.y, d = Math.hypot(dx, dy) || 1;
-    const sp = Math.min(o.vMax, o.k * d);
-    const ex = P.vx + sp * dx / d - s.vx, ey = P.vy + sp * dy / d - s.vy, e = Math.hypot(ex, ey);
-    if (e < o.db) return { thrust: false, angle: null, dt: 0.1 };
-    c.tap = { a: Math.atan2(ey, ex) + o.aim, dv: e * (1 + o.over), dv0: m.dvUsed() };
-    return { thrust: false, angle: c.tap.a, dt: 1 / 60 };
-  } };
-};
-// The first move toward goal gi's marker, by eye: one burn to set off toward
-// it at closing speed vc (aim off by `aim`, burn off by `over`), coast until
-// within `near` k (or the gap stops closing), then keep station with taps.
-const approach = (gi, vc, near, err, popt, pred) => {
-  let a = null, dv = 0, dv0 = 0;
-  const e = Object.assign({ aim: 0, over: 0 }, err);
-  return [
-    { fn: (m) => {
-      const P = gp(m, gi), s = m.ship, off = (popt && popt.off) || [0, 0], sys = m.sys;
-      const g = m.level.goals[gi], bi = sys.byId[g.lagrange ? g.lagrange.body : g.body], pi = bi.parent;
-      if (pi != null && (off[0] || off[1])) { const rx = sys.px[bi.index] - sys.px[pi], ry = sys.py[bi.index] - sys.py[pi], r = Math.hypot(rx, ry); P.x += off[0] * rx / r - off[1] * ry / r; P.y += off[0] * ry / r + off[1] * rx / r; }
-      const dx = P.x - s.x, dy = P.y - s.y, d = Math.hypot(dx, dy) || 1;
-      const ex = P.vx + vc * dx / d - s.vx, ey = P.vy + vc * dy / d - s.vy;
-      a = Math.atan2(ey, ex) + e.aim; dv = Math.hypot(ex, ey) * (1 + e.over); dv0 = m.dvUsed();
-    } },
-    { burn: () => a, until: (m) => m.dvUsed() - dv0 >= dv },
-    { coast: (m, c) => { const d = dGoal(m, gi), r = d < near || (c.dl != null && d > c.dl + 0.05); c.dl = d; return r; } },
-    park(gi, popt, pred),
-  ];
-};
-// Close in on a body and match its velocity (as park, for a station).
-const meet = (id, k, vMax) => ({ control: (m, c) => {
-  if (m.status !== 'flying' || m.goalIndex > (c.g0 == null ? (c.g0 = m.goalIndex) : c.g0)) return { done: true };
-  const sys = m.sys; sys.update(m.t);
-  const i = sys.byId[id].index, s = m.ship;
-  const dx = sys.px[i] - s.x, dy = sys.py[i] - s.y, d = Math.hypot(dx, dy) || 1;
-  const sp = Math.min(vMax, k * d);
-  const ex = sys.vx[i] + sp * dx / d - s.vx, ey = sys.vy[i] + sp * dy / d - s.vy;
-  if (Math.hypot(ex, ey) < (c.burning ? 0.02 : 0.06)) { c.burning = false; return { thrust: false, angle: null, dt: 0.05 }; }
-  c.burning = true;
-  return { thrust: true, angle: Math.atan2(ey, ex), tol: 0.1 };
-} });
-// A burn held in the direction dir gives as it starts: flip once, then hold.
-const held = (AP, dir, rel, until) => {
-  let a = null;
-  return [{ fn: (m) => { a = null; m._dv0 = m.dvUsed(); } }, { burn: (m) => (a == null ? (a = AP.aim(m, dir, rel)) : a), until }];
-};
-// Closest approach of a coasting state to goal gi's point within H s:
-// { d, t } (as the closest approach marker shows it).
-function closest(m, gi, st, H) {
-  const g = m.level.goals[gi];
-  const p = Phys.predict(m.sys, st, m.t, H, { maxSteps: 4000, dtMax: 1 });
-  let best = { d: Infinity, t: m.t };
-  for (let i = 0; i < p.ts.length; i++) {
-    const q = m.goalPoint(g, p.ts[i]), d = Math.hypot(p.xs[i] - q.x, p.ys[i] - q.y);
-    if (d < best.d) best = { d, t: p.ts[i] };
-  }
-  // a path that ends on a planet is no good, however close it passes first
-  if (p.hit >= 0) best.d += 300;
-  m.sys.update(m.t);
-  return best;
-}
-// A mid-course correction the way a player makes one: nudge until the
-// closest approach marker reads near zero. Finds the nudge (a small Δv
-// vector) that zeroes the predicted miss, then burns it with the player's
-// errors (aim off by err.aim rad, size off by err.over).
-const fix = (gi, H, err, look) => {
-  let a = 0, dv = 0, dv0 = 0;
-  const e = Object.assign({ aim: 0, over: 0 }, err);
-  return [
-    { fn: (m) => {
-      const s = m.ship, miss = (ux, uy) => closest(m, gi, { x: s.x, y: s.y, vx: s.vx + ux, vy: s.vy + uy }, H).d;
-      let ux = 0, uy = 0, f = miss(0, 0);
-      // look around first (a player tries a nudge or two each way)
-      if (look) for (const r of [0.25, 0.6]) for (let j = 0; j < 8; j++) {
-        const cx = r * Math.cos(j * Math.PI / 4), cy = r * Math.sin(j * Math.PI / 4), cf = miss(cx, cy);
-        if (cf < f) { ux = cx; uy = cy; f = cf; }
-      }
-      for (let it = 0; it < 6; it++) {
-        const h = 0.02, fx = miss(ux + h, uy), fy = miss(ux, uy + h);
-        const gx = (fx - f) / h, gy = (fy - f) / h, g2 = gx * gx + gy * gy;
-        if (g2 < 1e-9) break;
-        // the miss distance is about linear in the nudge: step to its zero
-        let k = f / g2, nx = ux - k * gx, ny = uy - k * gy, nf = miss(nx, ny);
-        while (nf > f && k > 1e-4) { k /= 2; nx = ux - k * gx; ny = uy - k * gy; nf = miss(nx, ny); }
-        if (nf >= f) break;
-        ux = nx; uy = ny; f = nf;
-        // a nudge, not a new transfer: a player never burns more than this
-        const u = Math.hypot(ux, uy);
-        if (u > 1) { ux /= u; uy /= u; f = miss(ux, uy); }
-      }
-      a = Math.atan2(uy, ux) + e.aim; dv = Math.hypot(ux, uy) * (1 + e.over); dv0 = m.dvUsed();
-      m._ca = closest(m, gi, { x: s.x, y: s.y, vx: s.vx + ux, vy: s.vy + uy }, H);
-    } },
-    { burn: () => a, until: (m) => m.dvUsed() - dv0 >= dv },
-  ];
-};
-// A hop from one shadow to the next, as a player flies it: keep station on
-// goal g0's point until time T, push off (aim off prograde about `center`,
-// Δv), after tf s fix the aim on the closest approach marker, coast until
-// within `brake` k of goal g1's point (or the closest approach), then match
-// its speed and keep station there.
-// q: { T, dir, dv, tf, fa, fo, brake, vc, near, ta, to } (fa/fo: the fix's
-// aim and size errors, ta/to: the taps').
-const hop = (AP, g0, g1, center, q, pred) => [
-  park(g0, { aim: q.ta, over: q.to }, (m) => m.goalIndex > g0 && m.t >= q.T),
-  ...held(AP, q.dir, center, (m) => m.dvUsed() >= m._dv0 + q.dv),
-  { wait: q.tf },
-  ...fix(g1, 200, { aim: q.fa, over: q.fo }, q.look),
-  { coast: (m) => dGoal(m, g1) < q.brake || m.t >= m._ca.t },
-  ...approach(g1, q.vc, q.near, {}, { aim: q.ta, over: q.to, off: q.off || [0, 0] }, pred),
-];
-// The climb from a low orbit about `body` to goal gi's L2 marker: wait,
-// burn prograde to a high point, coast to the closest approach, then the
-// first closing burn (with errors) and the taps. q: { w, ap, vc, near, ca,
-// co, ta, to }.
-const climb = (AP, gi, body, q, pred) => [
-  { wait: q.w },
-  { burn: 'pro', rel: body, until: (m) => AP.orb(m, body).ap >= q.ap },
-  { coast: (m, c) => { const d = dGoal(m, gi), r = d < 15 || (c.dl != null && d > c.dl); c.dl = d; return r; } },
-  ...approach(gi, q.vc, q.near, { aim: q.ca, over: q.co }, { aim: q.ta, over: q.to }, pred),
-];
-const CLIMB_KEYS = ['w', 'ap', 'vc', 'near', 'ca', 'co'];
-const CLIMB_TOL = [2, 2, 0.1, 2, 0.06, 0.04];
-const CLIMB_SCALE = [1, 3, 0.1, 2, 0, 0];
-const climbQ = (p, k, ta, to) => { const q = { ta, to }; CLIMB_KEYS.forEach((key, i) => { q[key] = p[(k || 0) + i]; }); return q; };
-// Proof parameters of a hop, in order, with honest tolerances.
-const HOP_KEYS = ['T', 'dir', 'dv', 'tf', 'fa', 'fo', 'brake', 'vc', 'near', 'ta', 'to'];
-const HOP_TOL = [2, 0.06, 0.1, 3, 0.06, 0.15, 4, 0.1, 2, 0.1, 0.15];
-const HOP_SCALE = [3, 0.1, 0.1, 3, 0, 0, 5, 0.1, 2, 0, 0];
-const hopQ = (p, k) => { const q = {}; HOP_KEYS.forEach((key, i) => { q[key] = p[(k || 0) + i]; }); return q; };
-// Has goal gi been completed?
-const doneGoal = (gi) => (m) => m.goalIndex > gi;
-
-// ------------------------------------------------------------------ levels
-
-// 1 · Night Watch: Lamp and Vesper, the L2 hold taught gently.
-const NW = [
-  { id: 'lamp', name: 'Lamp', gm: 40000, radius: 45, color: C.sun, kind: 'star', radiation: { rate: 0.05, at: 550, dose: 4 } },
-  { id: 'vesper', name: 'Vesper', gm: 1000, radius: 12, color: '#6f86b8', orbit: { parent: 'lamp', a: 550, phase: 0 } },
-];
-const NW_K = l2Scale(NW, 'vesper');
-
-// 3 · Close Pass: Hale on a circle, Tallow on an ellipse whose perihelion
-// swings it in just outside Hale.
-const CP_N = Math.sqrt(40000 / 760 ** 3);
-const CP = [
-  { id: 'brazier', name: 'Brazier', gm: 40000, radius: 50, color: C.sun, kind: 'star', radiation: { rate: 0.06, at: 550, dose: 13 } },
-  { id: 'hale', name: 'Hale', gm: 300, radius: 10, color: C.grey, orbit: { parent: 'brazier', a: 480, phase: 0 } },
-  { id: 'wend', name: 'Tallow', gm: 300, radius: 10, color: C.tan, orbit: { parent: 'brazier', a: 760, e: 0.16, argp: 3.74, phase: -CP_N * 230, reflex: false } },
-];
-const CP_KH = l2Scale(CP, 'hale'), CP_KW = l2Scale(CP, 'wend');
-
-// 5 · Down the Lane: a pass like Close Pass at Kiln (the same orbits turned
-// round), then down Loam's shadow into a low orbit.
-const DL_R = 2.0;
-const DL = [
-  { id: 'kiln', name: 'Kiln', gm: 40000, radius: 50, color: C.sun2, kind: 'star', radiation: { rate: 0.06, at: 550, dose: 12.5 } },
-  { id: 'peat', name: 'Peat', gm: 300, radius: 10, color: C.green, orbit: { parent: 'kiln', a: 480, phase: DL_R } },
-  { id: 'loam', name: 'Loam', gm: 300, radius: 10, color: C.red, orbit: { parent: 'kiln', a: 760, e: 0.16, argp: 3.74 + DL_R, phase: -CP_N * 230, reflex: false } },
-];
-const DL_KP = l2Scale(DL, 'peat'), DL_KL = l2Scale(DL, 'loam');
-
-// 2 · Perihelion: Wend on an ellipse, about a minute before its closest
-// pass by Pyre; its umbra is thin and the sunlight there is fierce.
-const PH_N = Math.sqrt(40300 / 600 ** 3);
-const PH = [
-  { id: 'pyre', name: 'Pyre', gm: 40000, radius: 50, color: C.sun2, kind: 'star', radiation: { rate: 0.12, at: 550, dose: 5.55 } },
-  { id: 'wend', name: 'Wend', gm: 300, radius: 9, color: C.tan, orbit: { parent: 'pyre', a: 600, e: 0.4, argp: 0, phase: -PH_N * 45 } },
-];
-const PH_K = l2Scale(PH, 'wend');
-
-// 4 · Between Sweeps: Corax, a pulsar, with Tarn and Skerry on circular
-// orbits; the hop crosses open space where the beams sweep.
-const BS = [
-  { id: 'corax', name: 'Corax', gm: 40000, radius: 8, color: '#e4dcff', kind: 'pulsar', radiation: { rate: 1, at: 500, dose: 10, beam: { width: 0.3, period: 70, phase: 0 } } },
-  { id: 'tarn', name: 'Tarn', gm: 300, radius: 10, color: C.blue, orbit: { parent: 'corax', a: 480, phase: 0 } },
-  { id: 'skerry', name: 'Skerry', gm: 300, radius: 10, color: C.ice, orbit: { parent: 'corax', a: 640, phase: 0.9, reflex: false } },
-];
-const BS_KT = l2Scale(BS, 'tarn'), BS_KS = l2Scale(BS, 'skerry');
-
-// 6 · Lantern: Mirk, a pulsar, with Fen and Moor, and Lantern Station
-// riding in Moor's shadow beyond its L2 on its own rail (stable, unlike you).
-const LT_R = -1.0, LT_A = 640, LT_N = Math.sqrt(40000 / LT_A ** 3);
-const LT_ORB = { parent: 'mirk', a: LT_A, phase: 0.9 + LT_R, reflex: false };
-const LT0 = [
-  { id: 'mirk', name: 'Mirk', gm: 40000, radius: 8, color: '#d8e4ff', kind: 'pulsar', radiation: { rate: 1, at: 500, dose: 10.2, beam: { width: 0.3, period: 70, phase: LT_R } } },
-  { id: 'fen', name: 'Fen', gm: 300, radius: 10, color: C.purple, orbit: { parent: 'mirk', a: 480, phase: LT_R } },
-  { id: 'moor', name: 'Moor', gm: 300, radius: 10, color: C.green, orbit: LT_ORB },
-];
-const LT_KF = l2Scale(LT0, 'fen'), LT_KM = l2Scale(LT0, 'moor');
-const LT = [...LT0, { id: 'lantern', name: 'Lantern Station', gm: 0, radius: 3, color: C.station, kind: 'station', orbit: Object.assign({}, LT_ORB, { a: LT_A * LT_KM + 30, n: LT_N }) }];
+// ---------------------------------------------------------------- levels
 
 const levels = [
   {
-    id: 'nightwatch',
-    name: 'Night Watch',
-    intro: 'Vesper\'s L2 point is the marker in the dark cone behind it, keeping pace as Vesper goes round Lamp. Climb to it: burn prograde as you come round the day side so the top of your climb lands on the marker (the closest approach readout shows how near you will pass), then brake to match its speed. Nothing stays at L2 on its own, so keep station with small taps whenever your path starts to curl away, and turn sparingly: the side thrusters are short. Then nudge sunward, fall back and brake into a low orbit.',
-    objective: 'Hold within 4 k of Vesper\'s L2 (moving with it to within 0.2 k/s) for 60 s, then orbit Vesper between 15 and 35 k from its centre, taking under 4 Sv of radiation, with 19.5 s of side-thruster propellant.',
-    teaches: 'Keep station at L2',
-    bodies: NW,
-    ship: ship({ start: { orbit: { body: 'vesper', r: 30, angle: Math.PI } }, heading: 'prograde', dv: 4.47, accel: 0.6, rcs: { fuel: 19.5 } }),
-    goals: [
-      { type: 'hold', lagrange: { body: 'vesper', lead: 0, scale: NW_K }, r: 4, relVel: 0.2, hold: 60, label: 'L2' },
-      { type: 'orbit', body: 'vesper', rMin: 15, rMax: 35, label: 'Low orbit' },
+    id: 'stormwarn',
+    name: 'Storm Warning',
+    intro: 'Corona\'s wind is charged particles, and Halde\'s magnetic field turns them away: inside its magnetosphere, the blue bubble, you take none. A storm hits at T+1:15 and squashes the bubble\'s nose in past your orbit; the red dotted line shows where to. Get down under the radiation belt before it hits, crossing the belt quickly, and wait there until the storm has passed. Then climb back up through the belt to your work orbit. Both crossings come out of the same dose budget.',
+    objective: 'Orbit Halde between 13 and 29 k up when the storm ends (T+2:45), then between 102 and 114 k up, taking under 20 Sv.',
+    teaches: 'Magnetospheres · a scheduled storm',
+    bodies: [
+      { id: 'corona', name: 'Corona', gm: 0, radius: 60, color: C.sun, kind: 'star', x: -1500, y: 0, radiation: { rate: 0.3, at: 1500, dose: 20, particles: 1, storm: { start: 75, end: 165, rate: 1.5, squeeze: 0.5 } } },
+      { id: 'halde', name: 'Halde', gm: 8000, radius: 35, color: C.blue, magnetosphere: { nose: 170, width: 230, tail: 1200 }, belt: { rMin: 75, rMax: 110 } },
     ],
-    par: 4.1, bounds: 3000, tMax: 400, predict: 150, view: { x: 640, y: 0, span: 320 },
+    ship: ship({ start: { orbit: { body: 'halde', r: 150, angle: -0.51 } }, heading: 'prograde', dv: 10.5, accel: 1 }),
+    goals: [
+      { type: 'orbit', body: 'halde', rMin: 48, rMax: 64, after: 165, label: 'Under the belt' },
+      { type: 'orbit', body: 'halde', rMin: 137, rMax: 149, label: 'Work orbit' },
+    ],
+    par: 9.5, bounds: 2500, tMax: 500, predict: 200, view: { x: -150, y: 0, span: 700 },
   },
   {
-    id: 'perihelion',
-    name: 'Perihelion',
-    intro: 'Wend is on an ellipse, and it is falling toward Pyre: in a minute it swings through perihelion, its closest pass, where the sunlight on your low orbit is fiercest. Climb into the dark behind it before then: burn prograde as you come round the day side so the top of your climb meets the L2 marker. Watch it: near perihelion the marker races in toward Wend and back out, and your corrections have to keep up. Then push off sunward and a little ahead (the glow on your path fades as you push), fall down the shadow and brake into a low orbit at the bottom: push too far ahead and the fall clips Wend.',
-    objective: 'Hold within 2 k of Wend\'s L2 (moving with it to within 0.1 k/s) for 40 s, then orbit Wend between 10 and 30 k from its centre, taking under 5.55 Sv of radiation, with 18.9 s of side-thruster propellant.',
-    teaches: 'Elliptical orbits · L2 at perihelion',
-    bodies: PH,
-    ship: ship({ start: { orbit: { body: 'wend', r: 16, angle: 1.7 } }, heading: 'prograde', dv: 5.15, accel: 0.8, rcs: { fuel: 18.9 } }),
-    goals: [
-      { type: 'hold', lagrange: { body: 'wend', lead: 0, scale: PH_K }, r: 2, relVel: 0.1, hold: 40, label: 'L2' },
-      { type: 'orbit', body: 'wend', rMin: 10, rMax: 30, label: 'Low orbit' },
+    id: 'slot',
+    name: 'The Slot',
+    intro: 'Gauss has two radiation belts with a narrow slot of clean space between them, and Slot Station rides in it. Above the outer belt you are safe inside Gauss\'s magnetosphere, but only up to its edge on the sunward side, where Ferro\'s wind gets in. Every second in a belt costs 1 Sv. Phase up here until the station is in the right place, drop through the outer belt once without dipping into the inner one, and dock. Then climb back out through the outer belt to your parking orbit.',
+    objective: 'Rendezvous with Slot Station (within 10 k, relative speed under 0.3 k/s), then orbit Gauss between 155 and 180 k up, taking under 25 Sv.',
+    teaches: 'Belts and magnetospheres · a narrow slot',
+    bodies: [
+      { id: 'ferro', name: 'Ferro', gm: 0, radius: 60, color: C.sun2, kind: 'star', x: -1800, y: 0, radiation: { rate: 1.5, at: 1800, dose: 25, particles: 1 } },
+      { id: 'gauss', name: 'Gauss', gm: 20000, radius: 35, color: C.purple, magnetosphere: { nose: 230, width: 300, tail: 1500 }, belt: [{ rMin: 55, rMax: 85 }, { rMin: 130, rMax: 170 }] },
+      { id: 'slotst', name: 'Slot Station', gm: 0, radius: 4, color: C.station, kind: 'station', orbit: { parent: 'gauss', a: 105, phase: 2.0 } },
     ],
-    par: 4.9, bounds: 3000, tMax: 450, predict: 150, view: { x: 400, y: 0, span: 300 },
+    ship: ship({ start: { orbit: { body: 'gauss', r: 200, angle: 0 } }, heading: 'prograde', dv: 11, accel: 1 }),
+    goals: [
+      { type: 'rendezvous', body: 'slotst', dist: 10, relVel: 0.3 },
+      { type: 'orbit', body: 'gauss', rMin: 190, rMax: 215, label: 'Parking orbit' },
+    ],
+    par: 9, bounds: 2500, tMax: 600, predict: 200, view: { x: -150, y: 0, span: 800 },
   },
   {
-    id: 'closepass',
-    name: 'Close Pass',
-    intro: 'Tallow\'s orbit is an ellipse: most of the year it is far out, but at perihelion it swings in close outside Hale and moves almost level with it for a while. Climb from your low orbit to Hale\'s L2 (burn prograde as you pass the day side so the top of your climb meets the marker) and keep station in the dark while Tallow comes in. Hop across when its marker is near: push off outward, fix your aim with the closest approach marker, and brake to match Tallow\'s L2 as you arrive. Wait too long and it is already pulling away.',
-    objective: 'Hold within 6 k of Hale\'s L2 (moving with it to within 0.25 k/s) for 15 s, then within 8 k of Tallow\'s L2 (to within 0.3 k/s) for 10 s, taking under 13 Sv of radiation, with 24 s of side-thruster propellant.',
-    teaches: 'Elliptical orbits · hop between shadows',
-    bodies: CP,
-    ship: ship({ start: { orbit: { body: 'hale', r: 17, angle: 1.7 } }, heading: 'prograde', dv: 6.72, accel: 0.8, rcs: { fuel: 24 } }),
-    goals: [
-      { type: 'hold', lagrange: { body: 'hale', lead: 0, scale: CP_KH }, r: 6, relVel: 0.25, hold: 15, label: 'Hale L2' },
-      { type: 'hold', lagrange: { body: 'wend', lead: 0, scale: CP_KW }, r: 8, relVel: 0.3, hold: 10, label: 'Tallow L2' },
+    id: 'stormfront',
+    name: 'Storm Front',
+    intro: 'Pyre has just thrown out a storm, and its front is racing outward: the red ring. It reaches Cinder Outpost, a bare rock with no magnetic field, at T+1:47, and Vale further out a minute later. Vale\'s magnetosphere is the only shelter. Head for Vale now, fast enough to beat the front there (aim a little to one side of it), and brake into a low orbit inside Vale\'s bubble. Caught in the open, the front takes ages to pass you. Once it has passed, head back to the outpost: whatever fuel you spent racing the front isn\'t there for the trip home.',
+    objective: 'Orbit Vale between 19 and 55 k up once the storm has passed it (T+4:31), then fly back to within 40 k of Cinder Outpost, taking under 15 Sv.',
+    teaches: 'A storm front moving out · outrun it',
+    bodies: [
+      { id: 'pyre', name: 'Pyre', gm: 0, radius: 60, color: C.sun, kind: 'star', x: -1500, y: 0, radiation: { rate: 0.05, at: 1500, dose: 15, particles: 1, storm: { start: 0, end: 100, rate: 3, squeeze: 0.7, speed: 14 } } },
+      { id: 'cinder', name: 'Cinder Outpost', gm: 0, radius: 14, color: C.red, kind: 'rock', x: 0, y: 0 },
+      { id: 'vale', name: 'Vale', gm: 3000, radius: 25, color: C.green, x: 900, y: 0, magnetosphere: { nose: 130, width: 170, tail: 900 } },
     ],
-    par: 5.8, bounds: 3000, tMax: 600, predict: 250, view: { x: -200, y: 400, span: 1500 }, startCam: 'overview',
+    ship: ship({ start: { free: { x: 0, y: -30 } }, heading: 0, dv: 15.2, accel: 1 }),
+    goals: [
+      { type: 'orbit', body: 'vale', rMin: 44, rMax: 80, after: 271, label: 'In Vale\'s bubble' },
+      { type: 'reach', body: 'cinder', r: 40, label: 'Back at the outpost' },
+    ],
+    par: 14, bounds: 3000, tMax: 800, predict: 260, view: { x: 200, y: 0, span: 1700 }, startCam: 'overview',
   },
   {
-    id: 'sweeps',
-    name: 'Between Sweeps',
-    intro: 'Corax is a pulsar: its two beams sweep round, and only a planet\'s shadow stops them, so Tarn\'s and Skerry\'s L2 points sit in dark lanes the beams never reach. Climb from your low orbit to Tarn\'s L2 (burn prograde as you pass the day side so the top of your climb meets the marker) and keep station there while Skerry comes round behind you. Then hop across: push off outward, fix your aim with the closest approach marker, and brake to match Skerry\'s L2 as you arrive. Out in the open the beams will catch you, and the glow on your path shows where: leave when it shows the fewest, faintest hits.',
-    objective: 'Hold within 6 k of Tarn\'s L2 (moving with it to within 0.25 k/s) for 15 s, then within 8 k of Skerry\'s L2 (to within 0.3 k/s) for 10 s, taking under 10 Sv of radiation, with 24 s of side-thruster propellant.',
-    teaches: 'Hop between shadows · between sweeps',
-    bodies: BS,
-    ship: ship({ start: { orbit: { body: 'tarn', r: 17, angle: 1.7 } }, heading: 'prograde', dv: 5.58, accel: 0.8, rcs: { fuel: 24 } }),
-    goals: [
-      { type: 'hold', lagrange: { body: 'tarn', lead: 0, scale: BS_KT }, r: 6, relVel: 0.25, hold: 15, label: 'Tarn L2' },
-      { type: 'hold', lagrange: { body: 'skerry', lead: 0, scale: BS_KS }, r: 8, relVel: 0.3, hold: 10, label: 'Skerry L2' },
+    id: 'moontail',
+    name: 'Moon in the Tail',
+    intro: 'A storm is blowing, and only Tor\'s magnetosphere keeps it off you; its tail stretches far behind Tor, away from Brand. Wick Base needs a supply pod, but Wick has no field of its own, and the pod can take only 3 Sv once you let it go. Watch Wick swing round into Tor\'s tail, and time your climb so the pod drops onto it while it\'s in there. Drop the pod right after your burn so it coasts up on its own, then steer yourself off the collision course and back down into a low orbit, inside the bubble.',
+    objective: 'Land the pod on Wick (it may take under 3 Sv), then orbit Tor between 41 and 57 k up, taking under 12 Sv yourself.',
+    teaches: 'Magnetotails · a moon passing through',
+    bodies: [
+      { id: 'brand', name: 'Brand', gm: 0, radius: 60, color: C.sun, kind: 'star', x: -1600, y: 0, radiation: { rate: 0.2, at: 1600, dose: 12, particles: 1, storm: { start: 0, end: 400, rate: 2, squeeze: 0.6, ramp: 0 } } },
+      { id: 'tor', name: 'Tor', gm: 6000, radius: 30, color: C.blue, magnetosphere: { nose: 160, width: 200, tail: 1400 } },
+      { id: 'wick', name: 'Wick', gm: 250, radius: 13, color: C.grey, orbit: { parent: 'tor', a: 260, phase: -2.0 } },
     ],
-    par: 5, bounds: 3000, tMax: 450, predict: 250, view: { x: 300, y: 400, span: 1100 }, startCam: 'overview',
+    ship: ship({ start: { orbit: { body: 'tor', r: 75, angle: 0 } }, heading: 'prograde', dv: 6, accel: 1, cargo: [{ id: 'pod', name: 'Supply pod', mass: 0.3, dose: 3 }] }),
+    goals: [
+      { type: 'hit', body: 'wick', craft: 'pod', label: 'Pod to Wick Base' },
+      { type: 'orbit', body: 'tor', rMin: 71, rMax: 87, label: 'Back in the bubble' },
+    ],
+    par: 5, bounds: 2500, tMax: 500, predict: 220, view: { x: 150, y: 0, span: 800 },
   },
   {
-    id: 'lanedown',
-    name: 'Down the Lane',
-    intro: 'Loam is on an ellipse that brings it in close outside Peat once a year, and its supply drop is due at the bottom of its shadow. Climb from your low orbit to Peat\'s L2 and keep station while Loam comes in, then hop across: push off outward, fix your aim with the closest approach marker and brake to match Loam\'s L2. Hold there, then push off sunward and a little ahead so you fall down the dark lane behind Loam (the glow on your path fades as you angle it), and brake into a low orbit at the bottom. Angle the push too far and the fall clips Loam.',
-    objective: 'Hold within 4 k of Peat\'s L2 (moving with it to within 0.15 k/s) for 25 s, then within 5 k of Loam\'s L2 (to within 0.2 k/s) for 10 s, then orbit Loam between 13 and 30 k from its centre, taking under 12.5 Sv of radiation, with 35.7 s of side-thruster propellant.',
-    teaches: 'Hop, then down the shadow',
-    bodies: DL,
-    ship: ship({ start: { orbit: { body: 'peat', r: 17, angle: 1.7 + DL_R } }, heading: 'prograde', dv: 8.43, accel: 0.8, rcs: { fuel: 35.7 } }),
-    goals: [
-      { type: 'hold', lagrange: { body: 'peat', lead: 0, scale: DL_KP }, r: 4, relVel: 0.15, hold: 25, label: 'Peat L2' },
-      { type: 'hold', lagrange: { body: 'loam', lead: 0, scale: DL_KL }, r: 5, relVel: 0.2, hold: 10, label: 'Loam L2' },
-      { type: 'orbit', body: 'loam', rMin: 13, rMax: 30, label: 'Low orbit' },
+    id: 'lightwind',
+    name: 'Light and Wind',
+    intro: 'Wisp is a pulsar: its wind is particles, which Gale\'s magnetosphere keeps off you, but its two sweeping beams are light, and the bubble does nothing about those. Only Gale itself blocks the beams, in the narrow shadow on its far side. A beam crosses Gale\'s line every 40 s, and so does your orbit if you set it right: an orbit 40 s round, timed so each sweep finds you behind Gale. Lower your orbit to the band at the right moment, stay in it while the beams go by, then climb back to the high orbit.',
+    objective: 'Orbit Gale between 25 and 33 k up (about 40 s round) and still be there at T+6:00, then orbit between 52 and 64 k up, taking under 13 Sv.',
+    teaches: 'Light and wind · an orbit timed to the beam',
+    bodies: [
+      { id: 'wisp', name: 'Wisp', gm: 0, radius: 8, color: '#e4dcff', kind: 'pulsar', x: -1500, y: 0, radiation: { rate: 1.2, at: 1500, dose: 13, beam: { width: 0.35, period: 80, phase: 0.3 } } },
+      { id: 'wispwind', name: 'Wisp\'s wind', gm: 0, radius: 2, color: '#e4dcff', hidden: true, x: -1500, y: 0, radiation: { rate: 0.4, at: 1500, dose: 13, particles: 1 } },
+      { id: 'gale', name: 'Gale', gm: 8000, radius: 40, color: C.purple, magnetosphere: { nose: 115, width: 150, tail: 900 } },
     ],
-    par: 8, bounds: 3000, tMax: 800, predict: 250, view: { x: 0, y: 0, span: 1600 }, startCam: 'overview',
+    ship: ship({ start: { orbit: { body: 'gale', r: 95, angle: 2.0 } }, heading: 'prograde', dv: 4, accel: 1 }),
+    goals: [
+      { type: 'orbit', body: 'gale', rMin: 65, rMax: 73, after: 360, label: 'Timed to the beam' },
+      { type: 'orbit', body: 'gale', rMin: 92, rMax: 104, label: 'Back to the high orbit' },
+    ],
+    par: 3.8, bounds: 2500, tMax: 600, predict: 200, view: { x: -100, y: 0, span: 700 },
   },
   {
-    id: 'lantern',
-    name: 'Lantern',
-    intro: 'Lantern Station rides in Moor\'s shadow, a little beyond its L2: a station on its own rail stays put, but you do not. Climb from your low orbit to Fen\'s L2 (burn prograde as you pass the day side so the top of your climb meets the marker) and keep station while Moor comes round behind you. Hop across between Mirk\'s sweeps: push off outward, fix your aim with the closest approach marker, brake to match Moor\'s L2 and hold there. Then let the drift carry you out to Lantern and match its speed, gently: the station is solid.',
-    objective: 'Hold within 4 k of Fen\'s L2 (moving with it to within 0.15 k/s) for 25 s, then within 3 k of Moor\'s L2 (to within 0.15 k/s) for 30 s, then rendezvous with Lantern Station (within 10 k, relative speed under 0.4 k/s), taking under 10.2 Sv of radiation, with 30.2 s of side-thruster propellant.',
-    teaches: 'Shadow to shadow · a station at L2',
-    bodies: LT,
-    ship: ship({ start: { orbit: { body: 'fen', r: 14, angle: 1.7 + LT_R } }, heading: 'prograde', dv: 7.07, accel: 0.8, rcs: { fuel: 30.2 } }),
-    goals: [
-      { type: 'hold', lagrange: { body: 'fen', lead: 0, scale: LT_KF }, r: 4, relVel: 0.15, hold: 25, label: 'Fen L2' },
-      { type: 'hold', lagrange: { body: 'moor', lead: 0, scale: LT_KM }, r: 3, relVel: 0.15, hold: 30, label: 'Moor L2' },
-      { type: 'rendezvous', body: 'lantern', dist: 10, relVel: 0.4, label: 'Lantern Station' },
+    id: 'pocket',
+    name: 'Pocket',
+    intro: 'Jovan\'s radiation belt is thick, but its moon Gan has a magnetic field of its own, and inside Gan\'s little magnetosphere the belt can\'t reach you: a clean pocket in the middle of it. You need to call at Gan and wait there until T+5:20. Drop from your high orbit down to Gan, letting it catch you up, and settle into a tight orbit inside the pocket. Don\'t wait about: Gan passes close under your orbit at about T+1:15 and its pull will throw you off it. Then leave it, cross the rest of the belt and park in the clear space beneath it. Leave Gan at the right point of your loop: too early and Gan flings you into Jovan, too late and you fall back into the belt. Both crossings come out of the same dose budget, and an orbit round Gan that strays out of the pocket takes the belt\'s full dose.',
+    objective: 'Orbit Gan between 14 and 21 k up and still be there at T+5:20, then get down under the belt and park in an orbit round Jovan whose high point is under 114 k up, taking under 23.5 Sv.',
+    teaches: 'A moon\'s own magnetosphere · a pocket in the belt',
+    bodies: [
+      { id: 'helion', name: 'Helion', gm: 0, radius: 60, color: C.sun, kind: 'star', x: -3000, y: 0, radiation: { rate: 0.05, at: 3000, dose: 23.5, particles: 1 } },
+      { id: 'jovan', name: 'Jovan', gm: 30000, radius: 66, color: C.tan, magnetosphere: { nose: 1200, width: 1400, tail: 4000 }, belt: { rMin: 200, rMax: 380, rate: 0.6 } },
+      { id: 'gan', name: 'Gan', gm: 2000, radius: 14, color: C.grey, magnetosphere: { nose: 55, width: 65, tail: 160 }, orbit: { parent: 'jovan', a: 330, phase: -0.92 } },
     ],
-    par: 7.3, bounds: 3000, tMax: 600, predict: 250, view: { x: 0, y: 0, span: 1500 }, startCam: 'overview',
+    ship: ship({ start: { orbit: { body: 'jovan', r: 445, angle: 0 } }, heading: 'prograde', dv: 15.4, accel: 1 }),
+    goals: [
+      { type: 'orbit', body: 'gan', rMin: 28, rMax: 35, after: 320, label: 'In Gan\'s pocket' },
+      { type: 'reach', body: 'jovan', r: 190, label: 'Under the belt' },
+      { type: 'orbit', body: 'jovan', rMin: 66, rMax: 180, label: 'Parked under the belt' },
+    ],
+    // Gan (a heavy moon) passes close under the starting orbit at T+1:15
+    // and wrecks it: waiting where you start is not an option, on purpose.
+    unstableStart: 'Gan passes close at T+1:15',
+    par: 13.5, bounds: 3000, tMax: 800, predict: 250, view: { x: 0, y: 0, span: 1100 },
   },
 ];
 
+// ---------------------------------------------------------------- proofs
+
 const proofs = {
-  nightwatch: {
-    // Close in on the marker and keep station (aiming a little off it), then
-    // climb to the parking orbit and round off at the top.
-    // p: park aim error out/ahead (k), aim off prograde (rad), Δv of the escape burn.
-    // p: park aim error out/ahead (k), high point of the climb, low point
-    // to round off to, tap aim error (rad), tap over/undershoot, closing speed of
-    // the first burn (k/s), distance to start the taps (k), first burn aim, over.
-    p: [0, 0, 0, 0.072, 0, 0, 0.772, 14.777, 0, 0, 30.348, 3.036, 87.141], scale: [0, 0, 0, 0.1, 0, 0, 0.1, 3, 0, 0, 1, 1, 4], tol: [1.5, 1.5, 0, 0.04, 0.1, 0.15, 0.1, 2, 0.06, 0.04, 1.4, 2, 4.4], opts: { turn: true, turnRate: 0.4 },
+  stormwarn: {
+    // Down before the storm: low point p[0], round off with the high point
+    // under p[1]; after the storm, up: high point p[2], low point over p[3].
+    p: [56, 61.683, 144.314, 137.684], scale: [3, 2, 4, 4],
+    tol: [2.3, 2.6, 5.8, 5.4],
     script: (p, AP) => [
-      { wait: p[11] },
-      { burn: 'pro', rel: 'vesper', until: (m) => AP.orb(m, 'vesper').ap >= p[12] },
-      { coast: (m, c) => { const d = dGoal(m, 0), r = d < 25 || (c.dl != null && d > c.dl); c.dl = d; return r; } },
-      ...approach(0, p[6], p[7], { aim: p[8], over: p[9] }, { off: [p[0], p[1]], aim: p[4], over: p[5] }, doneGoal(0)),
-      ...held(AP, 'in', 'vesper', (m) => m.dvUsed() >= m._dv0 + p[3]),
-      { coast: (m) => AP.orb(m, 'vesper').rising },
-      { burn: 'retro', rel: 'vesper', until: (m) => AP.orb(m, 'vesper').ap <= p[10] },
+      ...transfer(AP, 'halde', true, p[0], p[1]),
+      { coast: (m) => m.goalIndex >= 1 },
+      ...transfer(AP, 'halde', false, p[2], p[3]),
     ],
   },
-  perihelion: {
-    // Climb to L2 before perihelion, keep station through it, then push
-    // sunward, fall down the shadow and brake into a low orbit at the bottom.
-    // p: wait, high point of the climb, closing speed, distance to start the
-    // taps, tap aim error, over, when to let go, push Δv, low orbit high
-    // point, push aim (off 'in'), first closing burn aim error, over.
-    p: [4, 42, 0.6, 6, 0, 0, 120, 1.0, 22, 0.15, 0, 0], scale: [1, 3, 0.1, 2, 0, 0, 5, 0.1, 1, 0.03, 0, 0], tol: [2, 2, 0.1, 2, 0.1, 0.15, 3, 0.1, 1, 0.06, 0.06, 0.04], opts: { turn: true, turnRate: 0.4 },
+  slot: {
+    // Phase above the outer belt for p[0] s, one transfer down to a low point
+    // p[1] in the slot, round off under p[2], dock; then climb: high point
+    // p[3], low point over p[4].
+    p: [24.565, 99.317, 105.008, 207.041, 198.343], scale: [1, 2, 2, 4, 4],
+    tol: [2, 4, 4, 8, 8],
     script: (p, AP) => [
-      { wait: p[0] },
-      { burn: 'pro', rel: 'wend', until: (m) => AP.orb(m, 'wend').ap >= p[1] },
-      { coast: (m, c) => { const d = dGoal(m, 0), r = d < 15 || (c.dl != null && d > c.dl); c.dl = d; return r; } },
-      ...approach(0, p[2], p[3], { aim: p[10], over: p[11] }, { aim: p[4], over: p[5] }, (m) => m.goalIndex > 0 && m.t >= p[6]),
-      ...held(AP, (m) => AP.aim(m, 'in', 'wend') + p[9], null, (m) => m.dvUsed() >= m._dv0 + p[7]),
-      { coast: (m, c) => { const o = AP.orb(m, 'wend'); if (o.r < 40) c.low = true; return c.low && o.rising; } },
-      { burn: 'retro', rel: 'wend', until: (m) => AP.orb(m, 'wend').ap <= p[8] },
+      { wait: Math.max(0, p[0]) },
+      ...transfer(AP, 'gauss', true, p[1], p[2]),
+      dock('slotst', 0.1, 1),
+      ...transfer(AP, 'gauss', false, p[3], p[4]),
     ],
   },
-  sweeps: {
-    // p: the climb (CLIMB_KEYS), then the hop (HOP_KEYS).
-    p: [8.219, 45.609, 0.755, 5.709, 0, 0, 111.71, -1.571, 0.05, 5.772, 0, 0, 31.333, 0.546, 10.949, 0, 0], scale: [...CLIMB_SCALE, ...HOP_SCALE], tol: [...CLIMB_TOL, ...HOP_TOL], opts: { turn: true, turnRate: 0.4 },
+  stormfront: {
+    // Out at once toward a point p[1] beside Vale at speed p[0], brake at
+    // radius p[2] into an orbit with the high point under p[5], round off the
+    // low point over p[6]; after the storm, leave when your
+    // direction of travel points p[3] rad off the way home, burn until the
+    // speed left at infinity is p[4], then steer home at that speed (aimed
+    // p[7] rad off: nobody points exactly).
+    p: [5, 140, 70, 0.8, 2.5, 74, 50, 0], scale: [0.5, 15, 10, 0.2, 0.3, 2, 2, 0.02],
+    tol: [0.1, 6, 6, 0.06, 0.12, 3, 2, 0.06],
+    script: (p, AP) => {
+      const v = orb(AP, 'vale');
+      const aim = (m) => { m.sys.update(m.t); const i = m.sys.byId.vale.index; return Math.atan2(m.sys.py[i] + p[1] - m.ship.y, m.sys.px[i] - m.ship.x); };
+      const home = (m) => { m.sys.update(m.t); const i = m.sys.byId.cinder.index; return Math.atan2(m.sys.py[i] - m.ship.y, m.sys.px[i] - m.ship.x) + (p[7] || 0); };
+      const wrap = (a) => ((a % (2 * Math.PI)) + 3 * Math.PI) % (2 * Math.PI) - Math.PI;
+      return [
+        { burn: aim, until: (m) => Math.hypot(m.ship.vx, m.ship.vy) >= p[0] },
+        { coast: (m) => v(m).r < p[2] },
+        { burn: 'retro', rel: 'vale', until: (m) => { const o = v(m); return o.bound && o.ap <= p[5]; } },
+        { coast: (m) => !v(m).rising },
+        { burn: 'pro', rel: 'vale', until: (m) => v(m).pe >= p[6] },
+        { coast: (m) => m.goalIndex >= 1 && Math.abs(wrap(v(m).pro - home(m) - p[3])) < 0.05 },
+        { burn: 'pro', rel: 'vale', until: (m) => { const o = v(m); return !o.bound && Math.sqrt(Math.max(0, o.v * o.v - 2 * 3000 / o.r)) >= p[4]; } },
+        { coast: (m) => v(m).r > 250 },
+        // Course correction: point the velocity at the outpost, keeping the speed.
+        { control: (m, c) => {
+          const sp = Math.hypot(m.ship.vx, m.ship.vy), h = home(m), ex = sp * Math.cos(h) - m.ship.vx, ey = sp * Math.sin(h) - m.ship.vy, e = Math.hypot(ex, ey);
+          if (c.b ? e < 0.03 : e < 0.15) { c.b = false; return { thrust: false, dt: 0.2 }; }
+          c.b = true;
+          return { thrust: true, angle: Math.atan2(ey, ex) };
+        } },
+      ];
+    },
+  },
+  moontail: {
+    // Wait p[0] s, climb until the high point is p[1] (Wick's orbit), drop
+    // the pod, then pull the high point down to p[2] (missing Wick, staying
+    // in the tail), and round off at the bottom with the high point under p[3].
+    p: [29, 256, 200, 85], scale: [2, 4, 15, 3],
+    tol: [2, 4, 8, 3.4],
+    script: (p, AP) => {
+      const t = orb(AP, 'tor');
+      return [
+        { wait: Math.max(0, p[0]) },
+        { burn: 'pro', rel: 'tor', until: (m) => t(m).ap >= p[1] },
+        { drop: true },
+        { burn: 'retro', rel: 'tor', until: (m) => t(m).ap <= p[2] },
+        { coast: (m) => t(m).r < 80 && t(m).rising },
+        { burn: 'retro', rel: 'tor', until: (m) => t(m).ap <= p[3] },
+      ];
+    },
+  },
+  lightwind: {
+    // Wait p[0] s, one transfer down to a low point p[1], round off with the
+    // high point under p[2]: an orbit about 40 s round, phased to the beam.
+    p: [2, 69, 70, 100, 96], scale: [1, 1, 1, 2, 2],
+    tol: [2, 2.8, 2.8, 4, 4],
     script: (p, AP) => [
-      ...climb(AP, 0, 'tarn', climbQ(p, 0, p[15], p[16]), doneGoal(0)),
-      ...hop(AP, 0, 1, 'corax', hopQ(p, 6)),
+      { wait: Math.max(0, p[0]) },
+      ...transfer(AP, 'gale', true, p[1], p[2]),
+      { coast: (m) => m.goalIndex >= 1 },
+      ...transfer(AP, 'gale', false, p[3], p[4]),
     ],
   },
-
-  lanedown: {
-    // As Close Pass, then push sunward and a little ahead, fall down Loam's
-    // shadow and brake into a low orbit at the bottom.
-    // p: the climb (CLIMB_KEYS), the hop (HOP_KEYS), then when to let go,
-    // push Δv, push aim (off 'in'), low orbit high point.
-    p: [7.845, 45.535, 0.768, 5.786, 0, 0, 109.967, -1.476, 0.087, 8.448, 0, 0, 29.262, 0.416, 10.404, 0, 0, 430, 1.0, 0.2, 22], scale: [...CLIMB_SCALE, ...HOP_SCALE, 5, 0.1, 0.03, 1], tol: [...CLIMB_TOL, ...HOP_TOL, 3, 0.1, 0.06, 1], opts: { turn: true, turnRate: 0.4 },
-    script: (p, AP) => [
-      ...climb(AP, 0, 'peat', climbQ(p, 0, p[15], p[16]), doneGoal(0)),
-      ...hop(AP, 0, 1, 'kiln', hopQ(p, 6), (m) => m.goalIndex > 1 && m.t >= p[17]),
-      ...held(AP, (m) => AP.aim(m, 'in', 'loam') + p[19], null, (m) => m.dvUsed() >= m._dv0 + p[18]),
-      { coast: (m, c) => { const o = AP.orb(m, 'loam'); if (o.r < 40) c.low = true; return c.low && o.rising; } },
-      { burn: 'retro', rel: 'loam', until: (m) => AP.orb(m, 'loam').ap <= p[20] },
-    ],
+  pocket: {
+    // Wait p[0] s, burn retrograde until the low point is p[1] (Gan catches
+    // you up), at p[2] from Gan turn the arrival into a circular orbit round
+    // it; after T+5:20, at the slowest point of your loop round Gan (+p[3] s),
+    // burn retrograde (round Jovan) until clear of Gan with the low point
+    // under p[4], fall under the belt, and at the low point brake the high
+    // point down to p[5].
+    p: [31, 320, 32, 1.5, 160, 160], scale: [2, 4, 3, 1, 4, 4],
+    tol: [2, 13, 3, 2, 6, 7],
+    script: (p, AP) => {
+      const j = orb(AP, 'jovan'), g = orb(AP, 'gan');
+      return [
+        { wait: Math.max(0, p[0]) },
+        { burn: 'retro', rel: 'jovan', until: (m) => j(m).pe <= p[1] },
+        { coast: (m) => g(m).r < p[2] },
+        // Capture: turn the arrival into a circular orbit round Gan at this
+        // distance (match Gan's motion plus a sideways circular speed).
+        { control: (m) => {
+          m.sys.update(m.t);
+          const i = m.sys.byId.gan.index, rx = m.ship.x - m.sys.px[i], ry = m.ship.y - m.sys.py[i], r = Math.hypot(rx, ry);
+          const rvx = m.ship.vx - m.sys.vx[i], rvy = m.ship.vy - m.sys.vy[i], dir = rx * rvy - ry * rvx >= 0 ? 1 : -1, vc = Math.sqrt(m.sys.byId.gan.gm / r);
+          const ex = m.sys.vx[i] - dir * vc * ry / r - m.ship.vx, ey = m.sys.vy[i] + dir * vc * rx / r - m.ship.vy, e = Math.hypot(ex, ey);
+          if (e < 0.05) return { done: true };
+          return { thrust: true, angle: Math.atan2(ey, ex) };
+        } },
+        { coast: (m) => m.goalIndex >= 1 },
+        // Leave when your loop round Gan is carrying you backwards (slowest
+        // round Jovan), p[3] s past that point.
+        { coast: (m) => { const o = g(m); return j(m).v < Math.sqrt(30000 / 330) - 0.8 * Math.sqrt(m.sys.byId.gan.gm / o.r); } },
+        { wait: Math.max(0, p[3]) },
+        { burn: 'retro', rel: 'jovan', until: (m) => !g(m).bound && j(m).pe <= p[4] },
+        { coast: (m) => j(m).r < j(m).pe + 1.5 && j(m).rising },
+        { burn: 'retro', rel: 'jovan', until: (m) => j(m).ap <= p[5] },
+      ];
+    },
   },
-  lantern: {
-    // Climb to Fen's L2 and keep station, hop across between sweeps to
-    // Moor's L2, hold, then close in on Lantern Station further out.
-    // p: the climb (CLIMB_KEYS), the hop (HOP_KEYS), then the closing speed
-    // and the distance to start the taps toward Lantern.
-    p: [5.691, 45.593, 0.74, 6.4, 0, 0, 119.178, -1.57, 0.031, 13.423, 0, 0, 24.172, 0.494, 7.302, 0, 0, 0.457, 2.645, 0, 0], scale: [...CLIMB_SCALE, ...HOP_SCALE, 0.1, 1, 0, 0], tol: [...CLIMB_TOL, ...HOP_TOL, 0.1, 2, 0.06, 0.04], opts: { turn: true, turnRate: 0.4 },
-    script: (p, AP) => [
-      ...climb(AP, 0, 'fen', climbQ(p, 0, p[15], p[16]), doneGoal(0)),
-      ...hop(AP, 0, 1, 'mirk', hopQ(p, 6), doneGoal(1)),
-      ...approach(2, p[17], p[18], { aim: p[19], over: p[20] }, { aim: p[15], over: p[16], off: [-8, 0] }),
-    ],
-  },
-  closepass: {
-    // Climb from the low orbit to Hale's L2 and keep station until Wend
-    // swings in, hop across (fixing the aim on the way) and keep station
-    // at Wend's L2. p: the climb (CLIMB_KEYS), then the hop (HOP_KEYS).
-    p: [7.845, 45.535, 0.768, 5.786, 0, 0, 109.967, -1.476, 0.087, 8.448, 0, 0, 29.262, 0.416, 10.404, 0, 0], scale: [...CLIMB_SCALE, ...HOP_SCALE], tol: [...CLIMB_TOL, ...HOP_TOL], opts: { turn: true, turnRate: 0.4 },
-    script: (p, AP) => [
-      ...climb(AP, 0, 'hale', climbQ(p, 0, p[15], p[16]), doneGoal(0)),
-      ...hop(AP, 0, 1, 'brazier', hopQ(p, 6)),
-    ],
-  },
-
-
 };
+
+// ---------------------------------------------------------------- fails
 
 const fails = {
-  nightwatch: [
-    { name: 'coast and watch', steps: () => [] },
-    { name: 'climb from under the night side', opts: proofs.nightwatch.opts, steps: (AP) => { const p = proofs.nightwatch.p.slice(); p[11] += 16; return proofs.nightwatch.script(p, AP); } },
-    { name: 'match the marker once and let it ride', opts: proofs.nightwatch.opts, steps: (AP) => {
-      const p = proofs.nightwatch.p, s = proofs.nightwatch.script(p, AP);
-      return [s[0], s[1], s[2], s[3], s[4], s[5], park(0, { db: 99 }, doneGoal(0)), ...s.slice(7)];
-    } },
-  ],  perihelion: [
-    { name: 'coast and watch', steps: () => [] },
-    { name: 'sit out perihelion in low orbit, climb after', opts: proofs.perihelion.opts, steps: (AP) => { const p = proofs.perihelion.p.slice(); p[0] += 46; p[6] += 46; return proofs.perihelion.script(p, AP); } },
-    { name: 'fall straight sunward', opts: proofs.perihelion.opts, steps: (AP) => { const p = proofs.perihelion.p.slice(); p[9] = 0; return proofs.perihelion.script(p, AP); } },
+  stormwarn: [
+    { name: 'stay put', steps: () => [] },
+    { name: 'wait for the storm, then go down', steps: (AP) => [{ wait: 76 }, ...transfer(AP, 'halde', true, 55, 66)] },
+    { name: 'slow two-step descent through the belt', steps: (AP) => [...transfer(AP, 'halde', true, 100, 104), { wait: 5 }, ...transfer(AP, 'halde', true, 55, 66)] },
+    { name: 'climb above the storm', steps: (AP) => [...transfer(AP, 'halde', false, 260, 250)] },
   ],
-  sweeps: [
-    { name: 'coast and watch', steps: () => [] },
-    { name: 'hop as soon as the hold is done', opts: proofs.sweeps.opts, steps: (AP) => { const p = proofs.sweeps.p.slice(); p[6] = 0; return proofs.sweeps.script(p, AP); } },
-    { name: 'wait for Skerry to come level, then hop', opts: proofs.sweeps.opts, steps: (AP) => { const p = proofs.sweeps.p.slice(); p[6] += 35; return proofs.sweeps.script(p, AP); } },
+  slot: [
+    { name: 'go down at once and catch up in the slot', steps: (AP) => [...transfer(AP, 'gauss', true, 100, 104), dock('slotst', 0.1, 1)] },
+    { name: 'dip into the inner belt (low point 80)', steps: (AP) => [{ wait: 24.5 }, ...transfer(AP, 'gauss', true, 80, 90), dock('slotst', 0.1, 1)] },
+    { name: 'phase higher up, past the magnetosphere', steps: (AP) => [...transfer(AP, 'gauss', false, 300, 290), ...transfer(AP, 'gauss', true, 100, 104), dock('slotst', 0.1, 1)] },
+    { name: 'slow two-step descent through the outer belt', steps: (AP) => [{ wait: 24.5 }, ...transfer(AP, 'gauss', true, 150, 154), { wait: 3 }, ...transfer(AP, 'gauss', true, 100, 104), dock('slotst', 0.1, 1)] },
   ],
-  closepass: [
-    { name: 'coast and watch', steps: () => [] },
-    { name: 'climb from under the night side', opts: proofs.closepass.opts, steps: (AP) => { const p = proofs.closepass.p.slice(); p[0] += 12.5; return proofs.closepass.script(p, AP); } },
-    { name: 'wait until Tallow is level, then hop', opts: proofs.closepass.opts, steps: (AP) => { const p = proofs.closepass.p.slice(); p[6] += 30; return proofs.closepass.script(p, AP); } },
+  stormfront: [
+    { name: 'stay at Cinder Outpost (no magnetosphere)', steps: () => [] },
+    { name: 'leave a minute later (the front catches you)', steps: (AP) => [{ wait: 60 }, ...proofs.stormfront.script(proofs.stormfront.p, AP)] },
+    { name: 'a slow cruise (speed 3)', steps: (AP) => proofs.stormfront.script([3, 140, 70, 0.8, 2.5, 74, 50, 0], AP) },
   ],
-  lanedown: [
-    { name: 'coast and watch', steps: () => [] },
-    { name: 'climb from under the night side', opts: proofs.lanedown.opts, steps: (AP) => { const p = proofs.lanedown.p.slice(); p[0] += 12.5; return proofs.lanedown.script(p, AP); } },
-    { name: 'fall straight sunward from Loam\'s L2', opts: proofs.lanedown.opts, steps: (AP) => { const p = proofs.lanedown.p.slice(); p[19] = -0.05; return proofs.lanedown.script(p, AP); } },
+  moontail: [
+    { name: 'drop straight away (Wick is out in the storm)', steps: (AP) => proofs.moontail.script([0, 256, 200, 85], AP) },
+    { name: 'follow the pod up, no dodge', steps: (AP) => [{ wait: 29 }, { burn: 'pro', rel: 'tor', until: (m) => AP.orb(m, 'tor').ap >= 256 }, { drop: true }] },
+    { name: 'drop a lap late (Wick has left the tail)', steps: (AP) => proofs.moontail.script([60, 256, 200, 85], AP) },
   ],
-  lantern: [
-    { name: 'coast and watch', steps: () => [] },
-    { name: 'climb from under the night side', opts: proofs.lantern.opts, steps: (AP) => { const p = proofs.lantern.p.slice(); p[0] += 9.5; return proofs.lantern.script(p, AP); } },
-    { name: 'wait for Moor to come level, then hop', opts: proofs.lantern.opts, steps: (AP) => { const p = proofs.lantern.p.slice(); p[6] += 35; return proofs.lantern.script(p, AP); } },
+  pocket: [
+    { name: 'stay put (Gan\'s pull wrecks the orbit)', steps: () => [] },
+    { name: 'orbit Gan wide, outside the pocket', steps: (AP) => proofs.pocket.script([31, 320, 45, 1.5, 160, 160], AP) },
+    { name: 'leave Gan at once, at the fast point of the loop', steps: (AP) => proofs.pocket.script([31, 320, 32, -6, 160, 160], AP) },
+    { name: 'linger in the pocket a few loops longer', steps: (AP) => proofs.pocket.script([31, 320, 32, 12, 160, 160], AP) },
+  ],
+  lightwind: [
+    { name: 'stay in the starting orbit (the beams catch you)', steps: () => [] },
+    { name: 'an orbit too low (out of step with the beam)', steps: (AP) => proofs.lightwind.script([2, 60, 61, 100, 96], AP) },
+    { name: 'an orbit too high (out of step with the beam)', steps: (AP) => proofs.lightwind.script([2, 80, 81, 100, 96], AP) },
+    { name: 'leave half a lap later (out of phase)', steps: (AP) => proofs.lightwind.script([22, 69, 70, 100, 96], AP) },
   ],
 };
 
-module.exports = { levels, proofs, fails, l2Scale, nearPoint };
+module.exports = { levels, proofs, fails };

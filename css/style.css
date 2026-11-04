@@ -121,6 +121,46 @@ button { font-family: var(--sans); }
 }
 #toast.show { opacity: 1; transform: translate(-50%, 0); }
 
+/* Alert: a big warning bottom-centre (a storm on its way). far: steady;
+   soon: flashing; now: flashing fast; on: while it blows; over: fades. */
+#alert {
+  position: absolute; left: 50%; bottom: 36px; transform: translate(-50%, 0);
+  padding: 10px 20px; border-radius: 12px; white-space: nowrap;
+  font-family: var(--mono); font-size: clamp(15px, calc(2.2 * var(--vw)), 20px); font-weight: 700; letter-spacing: 0.06em;
+  background: rgba(30, 12, 10, 0.82); border: 1.5px solid rgba(255, 179, 90, 0.7); color: #ffd29a;
+  opacity: 0; pointer-events: none; transition: opacity 0.3s;
+  max-width: calc(calc(100 * var(--vw)) - 32px); overflow: hidden; text-overflow: ellipsis;
+}
+#alert .small { display: block; font-size: 0.62em; font-weight: 500; letter-spacing: 0.02em; opacity: 0.85; }
+#alert.far, #alert.soon, #alert.now, #alert.on, #alert.over { opacity: 1; }
+#alert.soon, #alert.now { border-color: rgba(255, 107, 107, 0.9); color: #ffb0a0; animation: alert-flash 1s steps(2, jump-none) infinite; }
+#alert.now { animation-duration: 0.4s; }
+#alert.on { border-color: #ff6b6b; background: rgba(60, 10, 10, 0.88); color: #ffc2b5; }
+#alert.over { border-color: rgba(124, 247, 212, 0.6); color: #9ff5dc; background: rgba(10, 30, 26, 0.8); }
+@keyframes alert-flash { 0% { background: rgba(120, 20, 15, 0.92); box-shadow: 0 0 24px rgba(255, 90, 70, 0.55); } 100% { background: rgba(30, 12, 10, 0.82); box-shadow: none; } }
+@media (prefers-reduced-motion: reduce) { #alert.soon, #alert.now { animation: none; } }
+/* Phones: a one-line chip just above the middle buttons (bottom set from
+   their position in JS), so nothing on the playfield is covered. */
+body.touch #alert { bottom: var(--alert-bottom, 64px); font-size: 12px; padding: 3px 12px; border-radius: 999px; border-width: 1px; }
+body.touch #alert .small { display: none; }
+body.touch.alerting #coach { bottom: calc(var(--alert-bottom, 64px) + 30px); }
+/* The screen's rim glows red as a storm nears (pulsing in the last minute,
+   fast in the last 10 s) and stays red while it blows. Nothing is covered. */
+#edge-alert { position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity 0.4s; box-shadow: inset 0 0 70px 14px rgba(255, 70, 50, 0.55); }
+#edge-alert.soon, #edge-alert.now { opacity: 1; animation: edge-pulse 1.4s ease-in-out infinite; }
+#edge-alert.now { animation-duration: 0.5s; }
+#edge-alert.on { opacity: 0.55; }
+body.touch #edge-alert { box-shadow: inset 0 0 44px 8px rgba(255, 70, 50, 0.55); }
+/* A storm reaching you washes the screen red for a moment; one passing,
+   a cool cyan. Nothing stays covered. */
+#storm-wash { position: absolute; inset: 0; pointer-events: none; opacity: 0; }
+#storm-wash.hit { background: radial-gradient(ellipse at center, rgba(255, 80, 50, 0.08), rgba(255, 60, 40, 0.45)); animation: wash 1.1s ease-out forwards; }
+#storm-wash.clear { background: radial-gradient(ellipse at center, rgba(120, 220, 255, 0.04), rgba(120, 220, 255, 0.25)); animation: wash 1.6s ease-out forwards; }
+@keyframes wash { 0% { opacity: 0; } 15% { opacity: 1; } 100% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { #storm-wash.hit, #storm-wash.clear { animation-duration: 0.4s; } }
+@keyframes edge-pulse { 0%, 100% { opacity: 0.25; } 50% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { #edge-alert.soon, #edge-alert.now { animation: none; opacity: 0.6; } }
+
 /* Coach: big contextual control prompts */
 #coach {
   position: absolute; left: 50%; bottom: 120px; transform: translate(-50%, 12px);
@@ -168,7 +208,7 @@ body.touch #touch {
   background: rgba(255, 140, 50, 0.28); border-color: rgba(255, 170, 90, 0.6);
   font-weight: 800; font-size: 16px; letter-spacing: 0.1em;
 }
-#touch button.on { background: rgba(124, 247, 212, 0.35); }
+#touch button.on, #touch button.tilt-on { background: rgba(124, 247, 212, 0.35); }
 
 /* ------------------------------------------------------------ screens */
 .screen {
@@ -176,7 +216,7 @@ body.touch #touch {
   padding-left: max(16px, var(--sa-left)); padding-right: max(16px, var(--sa-right));
   align-items: center; justify-content: center; padding-block: 24px; overflow-y: auto;
 }
-#pause, #result, #briefing, #help { background: rgba(3, 4, 10, 0.55); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); }
+#pause, #result, #briefing, #help, #welcome { background: rgba(3, 4, 10, 0.55); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); }
 .card {
   background: rgba(12, 16, 32, 0.92); border: 1px solid var(--panel-border);
   border-radius: 16px; padding: 26px 28px; width: min(520px, 100%);
@@ -456,7 +496,7 @@ html.short #world-tabs { margin-bottom: 8px; }
 /* Online: leaderboard, pilot profile, result rank */
 .online-only { display: none; }
 body.online .online-only { display: inline-block; }
-.menu-foot { display: flex; gap: 10px; justify-content: center; }
+.menu-foot { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
 .board-card, .profile-card { width: min(560px, 100%); }
 #board-pick { width: 100%; margin-top: 10px; padding: 9px 12px; border-radius: 10px; border: 1px solid var(--panel-border); background: rgba(255,255,255,0.06); color: var(--text); font: 600 14px var(--sans); }
 #board-pick option, #board-pick optgroup { background: #0b1020; color: #e8eefc; }
@@ -542,6 +582,10 @@ html.narrow .pause-card { grid-template-columns: 1fr; }
 body.in-app .app-only { display: flex; }
 .ios-only { display: none; }
 body.ios .ios-only { display: flex; }
+/* In the iPhone app: Game Center (once signed in) and the App Store rating link. */
+.gc-only, .rate-only { display: none; }
+body.gc .gc-only { display: inline-block; }
+body.rate .rate-only { display: inline; }
 button.toggle { flex: 0 0 auto; width: 52px; height: 30px; border-radius: 15px; border: 1px solid var(--panel-border); background: rgba(255,255,255,0.08); position: relative; cursor: pointer; padding: 0; }
 button.toggle::after { content: ''; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: var(--muted); transition: transform 0.15s, background 0.15s; }
 button.toggle[aria-pressed="true"] { background: rgba(124, 247, 212, 0.25); border-color: rgba(124, 247, 212, 0.6); }
@@ -596,6 +640,65 @@ html.rotated body.touch .pf-inline.lifted {
 }
 html.rotated body.touch .pf-inline.lifted::before { bottom: auto; top: calc(100% + 8px); }
 
+/* ----------------------------------------------------------- landing */
+/* First visit only. A web page over the menu backdrop: the hero fills the
+   first screen, and the details below it scroll. */
+#landing { justify-content: flex-start; padding-block: 0; scroll-behavior: smooth; }
+.ld-hero {
+  min-height: 100%; width: min(640px, 100%); flex-shrink: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 14px; padding: max(24px, var(--sa-top)) 0 24px; text-align: center;
+}
+.ld-hero h1.logo { margin: 0; line-height: 1.05; }
+.ld-pitch { margin: 0; max-width: 34em; font-size: clamp(16px, 2.2vw, 19px); line-height: 1.5; color: #c4cdee; }
+.ld-cta { display: flex; flex-direction: column; align-items: center; gap: 8px; margin-top: 8px; }
+.ld-cta .small, .ld-hero .small { font-size: 13px; color: var(--muted); }
+button.ld-play {
+  padding: 16px 40px; border-radius: 14px; font: 800 20px var(--sans); letter-spacing: 0.02em; cursor: pointer;
+  box-shadow: 0 0 0 0 rgba(124, 247, 212, 0.4), 0 12px 40px rgba(0,0,0,0.45);
+  animation: coach-pulse 2.4s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) { button.ld-play { animation: none; } #landing { scroll-behavior: auto; } }
+.ld-alt { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 8px; }
+.ld-alt button {
+  padding: 8px 12px; border-radius: 10px; border: 1px solid transparent; color: var(--muted);
+  font: 600 14px var(--sans); cursor: pointer;
+}
+.ld-alt button:hover { color: var(--text); border-color: var(--panel-border); }
+#ld-restore { width: min(380px, 100%); margin-top: 0; text-align: left; }
+#ld-restore .small { margin: 0; }
+#ld-status.warn { color: var(--warn); }
+.ld-more { margin-top: 10px; font: 12px var(--mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); text-decoration: none; }
+.ld-more:hover { color: var(--text); }
+.ld-info { width: min(720px, 100%); padding: 8px 0 max(32px, var(--sa-bottom)); -webkit-user-select: text; user-select: text; }
+.ld-info section {
+  margin-bottom: 18px; padding: 22px 24px; border-radius: 16px;
+  background: rgba(12, 16, 32, 0.85); border: 1px solid var(--panel-border);
+}
+.ld-info h2 { margin: 0 0 10px; font-size: 22px; font-weight: 800; }
+.ld-info p, .ld-info li { color: #c4cdee; line-height: 1.55; font-size: 15px; }
+.ld-info ul, .ld-info ol { margin: 0; padding-left: 20px; }
+.ld-info li { margin: 6px 0; }
+.ld-info b { color: var(--text); }
+.ld-info details { border-top: 1px solid rgba(255,255,255,0.06); padding: 10px 0; }
+.ld-info details:first-of-type { border-top: 0; }
+.ld-info summary { cursor: pointer; font-weight: 700; }
+.ld-info details p { margin: 8px 0 0; }
+.ld-foot { text-align: center; }
+body.in-app .web-only { display: none; }
+html.short .ld-hero { gap: 8px; }
+html.short button.ld-play { padding: 12px 32px; font-size: 18px; }
+/* App Store badge (Apple's artwork; web only, the app hides it). */
+a.appstore { display: inline-block; line-height: 0; border-radius: 8px; }
+a.appstore img { height: 48px; width: auto; }
+a.appstore:hover img { filter: brightness(1.25); }
+.menu-foot a {
+  padding: 10px 18px; border-radius: 10px; border: 1px solid var(--panel-border);
+  color: var(--text); font-size: 15px; font-weight: 600; text-decoration: none;
+}
+.menu-foot a:hover { background: rgba(255,255,255,0.1); }
+.ld-info a { color: var(--accent); }
+
 /* ------------------------------------------------------------- skins */
 .newtag { margin-left: 8px; padding: 1px 6px; border-radius: 6px; background: var(--accent-2); color: #2a0830; font: 700 10px var(--mono); letter-spacing: 0.06em; text-transform: uppercase; vertical-align: middle; }
 /* World rewards under the world's star count */
@@ -648,6 +751,3 @@ html.short #hangar-preview { height: 70px; }
 .shop-tile.gold .sk-name { color: var(--gold); }
 .shop-tile.gold .buy:not(:disabled) { border-color: rgba(255, 209, 102, 0.7); background: rgba(255, 209, 102, 0.16); }
 .skin-tile.gold-skin .sk-name { color: var(--gold); }
-/* Welcome: returning pilots */
-.wl-back { display: flex; flex-direction: column; gap: 8px; margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--panel-border); }
-.wl-back .k { font-size: 12px; }

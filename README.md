@@ -14,6 +14,13 @@ No build step. Open `index.html` in a browser, or serve the folder:
 npm start            # http://localhost:8080
 ```
 
+A first visit (no stars, never been past it) opens on a landing page: what
+the game is, **Play now** straight into Training's first mission, a way to
+skip Training, and a restore code for pilots on a new device. The pilot
+name is asked after the first mission you win, when there are stars worth
+saving. `?landing` shows the landing page again. The page's text is plain
+HTML in `index.html`, so search engines and link previews can read it.
+
 The menu shows one world per tab. World 1 is open from the start; each later
 world opens once the world before it has earned enough stars (World 2 needs
 50 of World 1's 90). Every mission inside an open world is playable, and the
@@ -37,7 +44,12 @@ in menu order.
 | `R` · `Esc` | Restart · pause |
 
 Touch devices get on-screen controls: rotate on the left thumb, BURN on the right,
-warp / frame / gyro in the middle. Pinch to zoom.
+warp / frame / gyro in the middle. Pinch to zoom. **Tilt to steer** (on by
+default, with a one-time note that Settings can switch it off; iOS asks for
+motion access on the first tap) fires the side thrusters when you tip the phone left or right
+like a steering wheel, exactly as if ⟲ / ⟳ were held (past 12°, letting go
+below 7°; lying flat counts as level). The buttons keep working alongside it
+and win if they disagree, and light up while tilt is firing them.
 
 On phones the game plays in landscape and fullscreen: a portrait phone gets a
 "rotate your phone" screen, and leaving fullscreen, rotating back or switching
@@ -131,8 +143,29 @@ you do it, and stops appearing after you've mastered it.
   - *Event horizon* (`horizon`, `pw` on a black hole): a horizon bigger than
     the hole, and strong gravity (gm/(r − pw)²) with no stable orbits inside
     3·pw, so a close pass can whirl you round more than half a turn.
-  - *Radiation belt* (`belt: { rMin, rMax, dose }`): a limited number of
-    seconds inside, shown as a dose meter and on the predicted path.
+  - *Radiation belt* (`belt: { rMin, rMax, dose, rate? }`, or a list for
+    several): `rate` Sv per second inside (default 1), shown as a dose meter
+    and on the predicted path.
+  - *Magnetospheres* (`magnetosphere: { nose, width, tail }` on a planet):
+    a bubble pointing away from each source, with a blunt nose sunward and a
+    long tail, inside which a source's particles (`radiation.particles`, its
+    share 0 to 1) don't reach you; light still does. A scheduled storm
+    (`radiation.storm: { start, end, rate, squeeze }`) adds particles and
+    squeezes every nose in while it blows (with `speed`, it's a front
+    moving out from the star, reaching each planet and your ship in turn,
+    drawn as a red ring). A cargo item with `shield` (a water tank, drawn
+    as a blue jacket on the hull) stops that share of all radiation while
+    aboard; it's heavy, so dropping it (E) leaves more Δv. Before a storm, a red dotted line
+    shows where each magnetosphere will shrink to (the strip it loses is
+    tinted), a warning bottom-centre counts down (flashing in the last
+    minute; on phones a one-line chip just above the middle buttons), the
+    screen's rim glows red, and the star flickers and flares; a rumble
+    builds. When it hits, the screen washes red with a whoosh (and the app
+    buzzes); it builds and dies away over a few seconds (`ramp`), so
+    magnetospheres squeeze in and spring back smoothly, and while it blows
+    you hear it roar, muffled inside a magnetosphere. During it, particles stream
+    off the star toward the planets. An
+    orbit goal with `after` only counts once the clock passes that time.
   - *Refuelling depot* (`depot: { dv, dist, relVel }` on a station): a
     rendezvous refills the current stage once.
   - *Soft landing* (`maxSpeed` on a hit goal): touching down faster fails;
@@ -217,7 +250,7 @@ influence you're in, or the star you're orbiting when you're in none.
 
 World 2 flies through a green nebula with distant planets in the background,
 World 3 through an ember-red one, so you can always tell the worlds apart.
-**Experimental levels** (the menu's last tab) try out new mechanics that may or may not grow into a world, one level each: fuel pickups (*Fuel Run*), atmospheres and aerobraking (*Aerobrake*), wormholes (*Shortcut*), tethers (*Swing*), solar sails (*Sunward Sail*), event horizons and strong gravity (*Whirl*), radiation belts (*Radiation Belt*), refuelling depots (*Top Up*), soft landings (*Touchdown*) and ion engines (*Long Burn*). World 3's
+**Experimental levels** (the menu's last tab) try out new mechanics that may or may not grow into a world, one level each: fuel pickups (*Fuel Run*), atmospheres and aerobraking (*Aerobrake*), wormholes (*Shortcut*), tethers (*Swing*), solar sails (*Sunward Sail*), event horizons and strong gravity (*Whirl*), radiation belts (*Radiation Belt*), magnetospheres and storms (*Storm Warning*, *The Slot*, *Storm Front*), droppable shields (*Heavy Water*), refuelling depots (*Top Up*), soft landings (*Touchdown*) and ion engines (*Long Burn*). World 3's
 missions are built in `tools/w3/` (levels, proofs and naive plans that must
 lose, one file per chapter) and written into `js/levels.js` with
 `npm run build:w3`. See [docs/ROADMAP.md](docs/ROADMAP.md) for

@@ -7,7 +7,7 @@
   let ctx = null, master = null, sfxBus = null, musicBus = null, noise = null;
   let sfxVol = 0.8, musicVol = 0.5;
   const musicOn = () => musicVol > 0.001;
-  let engine = null, rcs = null, crunch = null, jingle = null;
+  let engine = null, rcs = null, crunch = null, jingle = null, storm = null, stormHiss = null;
 
   function setup() {
     if (ctx || !AC) return !!ctx;
@@ -30,6 +30,9 @@
     for (let i = 0; i < d.length; i++) { x = (x * 16807) % 2147483647; d[i] = x / 1073741823.5 - 1; }
     engine = loop(320, 'lowpass', 0.9);
     rcs = loop(2600, 'highpass', 0.6);
+    // A solar storm: a deep rumble plus a high, gusty hiss.
+    storm = loop(180, 'lowpass', 0.8);
+    stormHiss = loop(1400, 'bandpass', 0.7);
     return true;
   }
 
@@ -322,6 +325,24 @@
       rcs.on = v;
       rcs.g.gain.setTargetAtTime(v * 0.07, now(), 0.02);
     },
+    // Storm, set every frame: level 0..1 (0 = silent: a quiet rumble
+    // building before it, a roar while it blows), muffled inside a
+    // magnetosphere (darker, quieter hiss).
+    storm(level, muffled) {
+      if (!ctx || !storm) return;
+      const v = Math.max(0, Math.min(1, level || 0)), mf = !!muffled;
+      if (Math.abs(v - storm.on) < 0.01 && mf === storm.mf) return;
+      storm.on = v; storm.mf = mf;
+      const t = now(), gust = 0.8 + 0.2 * Math.sin(t * 1.7) * Math.sin(t * 0.63);
+      storm.g.gain.setTargetAtTime(v * 0.3, t, 0.4);
+      storm.f.frequency.setTargetAtTime(mf ? 140 : 160 + 260 * v, t, 0.5);
+      stormHiss.g.gain.setTargetAtTime(v * (mf ? 0.012 : 0.06) * gust, t, 0.5);
+      stormHiss.f.frequency.setTargetAtTime(mf ? 700 : 1100 + 900 * v, t, 0.6);
+    },
+    // The storm reaching you: a falling whoosh over a deep thump.
+    stormHit() { burst('lowpass', 3200, 160, 0.5, 1.1); tone('sine', 90, 40, 0.5, 0.01, 0.9); },
+    // The storm passing: a soft rising breath.
+    stormEnd() { burst('bandpass', 400, 1600, 0.12, 1.2); },
     // One-shots.
     click() { tone('triangle', 1100, 900, 0.05, 0.002, 0.05); },
     stage() { tone('sine', 140, 38, 0.6, 0.005, 0.35); burst('lowpass', 1800, 200, 0.35, 0.25); },

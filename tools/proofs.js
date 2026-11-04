@@ -520,6 +520,74 @@ Object.assign(module.exports, {
       { burn: 'pro', rel: 'terra', until: (m) => { const o = AP.orb(m, 'terra'); return o.pe >= p[0] && o.ap <= p[1]; } },
     ],
   },
+
+  'test-storm': {
+    // Before the storm: one transfer down from 150 to a low point p[0] under
+    // the belt (crossing it near the bottom, where you're fastest), then
+    // round off below the belt and sit out the storm there.
+    p: [58, 66], scale: [3, 2],
+    script: (p, AP) => [
+      { burn: 'retro', until: (m) => AP.orb(m, 'halde').pe <= p[0] },
+      { coast: (m) => AP.orb(m, 'halde').r < p[0] + 4 && AP.orb(m, 'halde').rising },
+      { burn: 'retro', until: (m) => AP.orb(m, 'halde').ap <= p[1] },
+    ],
+  },
+
+  'test-front': {
+    // Head out at once: burn toward a point p[1] to the side of Vale until
+    // the speed is p[0], coast, then brake at radius p[2] from Vale into an
+    // orbit inside its magnetosphere, well before the front gets there.
+    p: [5, 140, 70], scale: [0.5, 15, 10],
+    script: (p, AP) => {
+      const v = (m) => AP.orb(m, 'vale');
+      const aim = (m) => { m.sys.update(m.t); const i = m.sys.byId.vale.index; return Math.atan2(m.sys.py[i] + p[1] - m.ship.y, m.sys.px[i] - m.ship.x); };
+      return [
+        { burn: aim, until: (m) => Math.hypot(m.ship.vx, m.ship.vy) >= p[0] },
+        { coast: (m) => v(m).r < p[2] },
+        { burn: 'retro', rel: 'vale', until: (m) => { const o = v(m); return o.bound && o.ap <= 80; } },
+        { coast: (m) => !v(m).rising },
+        { burn: 'pro', rel: 'vale', until: (m) => v(m).pe >= 45 },
+      ];
+    },
+  },
+
+  'test-shield': {
+    // Keep the shield through the hot transfer out from Kiln, drop it at the
+    // top, then round off: the empty-handed ship gets far more from its fuel.
+    p: [650, 640], scale: [10, 10],
+    script: (p, AP) => {
+      const o = (m) => AP.orb(m, 'kiln');
+      return [
+        { burn: 'pro', until: (m) => o(m).ap >= p[0] },
+        { coast: (m) => !o(m).rising },
+        { drop: true },
+        { burn: 'pro', until: (m) => o(m).pe >= p[1] },
+      ];
+    },
+  },
+
+  'test-slot': {
+    // Phase above the outer belt for p[0] s (the station needs to be about
+    // 3.9 rad ahead), one transfer down through it to a low point p[1] in
+    // the slot, round off, then close in on the station and match its speed.
+    p: [24.5, 100, 104], scale: [1, 2, 2],
+    script: (p, AP) => [
+      { wait: Math.max(0, p[0]) },
+      { burn: 'retro', until: (m) => AP.orb(m, 'gauss').pe <= p[1] },
+      { coast: (m) => AP.orb(m, 'gauss').r < p[1] + 2 && AP.orb(m, 'gauss').rising },
+      { burn: 'retro', until: (m) => AP.orb(m, 'gauss').ap <= p[2] },
+      { control: (m, c) => {
+        if (m.status !== 'flying') return { done: true };
+        m.sys.update(m.t);
+        const i = m.sys.byId.slot.index, dx = m.sys.px[i] - m.ship.x, dy = m.sys.py[i] - m.ship.y, d = Math.hypot(dx, dy);
+        const sp = Math.min(1, 0.1 * Math.max(0, d - 3));
+        const ex = m.sys.vx[i] + sp * dx / d - m.ship.vx, ey = m.sys.vy[i] + sp * dy / d - m.ship.vy, e = Math.hypot(ex, ey);
+        if (c.b ? e < 0.03 : e < 0.12) { c.b = false; return { thrust: false, dt: 0.05 }; }
+        c.b = true;
+        return { thrust: true, angle: Math.atan2(ey, ex) };
+      } },
+    ],
+  },
 });
 
 // Training (world 0). 0G missions steer by absolute angles: there is no

@@ -218,12 +218,19 @@ Chapters:
 2. **Shadows and Beams**: shadows (umbra, penumbra, eclipses by moons and
    rocks); the pulsar beam is introduced here (about mission 3 or 4) and
    combined with shadows.
-3. **Shadow Lanes** (new, replaces the Beams chapter): hanging in a
-   planet's L2 shadow while it orbits (the `lagrange` goal with `hold`),
-   planets on **elliptical orbits** (`orbit: { e, argp }`; nothing has used
-   them yet), timing the transfer from one planet to the next for when
-   they line up, passing through a beam on the way. Hold, then transfer,
-   then arrive.
+3. **Magnetic Shelter** (replaces Shadow Lanes, whose six L2-shadow
+   missions played too alike): planets' magnetospheres (`magnetosphere:
+   { nose, width, tail }`) keep the star's particles out, radiation belts
+   (`belt`, several per planet) dose you inside them, and scheduled storms
+   (`radiation.storm`) squeeze the nose in; a storm with `speed` is a front
+   moving out from the star. A moon's own magnetosphere keeps its parent's
+   belt out too (a pocket). Missions: Storm Warning (get under a nose before
+   the storm), The Slot (dock in the gap between two belts), Storm Front
+   (outrun the front to a planet's shelter, then fly home), Moon in the
+   Tail (deliver a pod to a moon while it sits in the magnetotail),
+   Light and Wind (a pulsar's beam and wind: an orbit in step with the
+   beam), Pocket (wait out the clock in a moon's pocket inside a belt).
+   L2 holds stay in chapter 5 (Dark Constellation).
 4. **Deep Gravity**: strong gravity and horizons, with beams and shadows.
 5. **Grand Missions**: three or four parts each, everything combined.
 
