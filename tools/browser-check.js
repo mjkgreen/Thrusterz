@@ -59,7 +59,17 @@ const check = (name, ok, info) => { console.log((ok ? 'ok   ' : 'FAIL ') + name 
         await p.waitForTimeout(400);
         r = await p.evaluate(() => { const S = window.Thrusterz.state; return { t: S.mission.t, status: S.mission.status, paused: S.paused }; });
       }
-      if (r.status === 'flying' && !(r.t > t0)) stalled.push(i);
+      if (r.status === 'flying' && !(r.t > t0)) {
+        // Say why: which screen, overlays, and whether frames are arriving.
+        const why = await p.evaluate(async () => {
+          const S = window.Thrusterz.state, vis = (id) => !document.getElementById(id).classList.contains('hidden');
+          let frames = 0; const t1 = S.mission.t;
+          await new Promise(res => { const end = performance.now() + 500; const f = () => { frames++; if (performance.now() < end) requestAnimationFrame(f); else res(); }; requestAnimationFrame(f); });
+          return { screen: S.screen, paused: S.paused, gate: vis('gate'), pause: vis('pause'), result: vis('result'), resultShown: S.resultShown,
+            t0: t1, t: S.mission.t, warp: S.warp, frames, hidden: document.hidden, focus: document.hasFocus() };
+        });
+        stalled.push(i + ' ' + JSON.stringify(why));
+      }
       // Fast-forward whatever state the random input left, and draw it: 20
       // short steps rather than one long blocking call (WebKit on CI has
       // crashed the page here), naming the mission if the page dies anyway.
