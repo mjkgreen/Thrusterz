@@ -85,6 +85,7 @@
     if (JSON.stringify(merged) === JSON.stringify(Sync.mergeProgress(progress, {}))) return false;
     Object.assign(progress, merged);
     Online.Store.set(STORE, progress);
+    gcSync(false);
     // Stars turning up from the app's native copy or the cloud mean this
     // isn't a first visit after all.
     if ((state.screen === 'menu' && !$('menu').classList.contains('hidden')) || (state.screen === 'landing' && Object.keys(progress.stars).length)) showMenu();
@@ -2838,6 +2839,8 @@
       state.newBest = m.score() > (progress.score[L.id] || 0);
       if (state.newBest) progress.score[L.id] = m.score();
       saveProgress();
+      gcSync(true);
+      maybeAskReview(stars);
     }
     state.screen = 'result';
     $('res-title').textContent = won ? 'Mission complete' : 'Mission failed';
@@ -3272,6 +3275,85 @@
       const a = $(id), url = ((window.THRUSTERZ_CONFIG || {}).apiBase || '') + '/' + a.getAttribute('href');
       a.href = url; a.onclick = (e) => { e.preventDefault(); Bridge.open(url); };
     }
+  }
+
+  // ------------------------------------------------ Game Center, App Store
+  // In the iPhone app: sign in to Game Center at launch, post totals to its
+  // leaderboards and unlock achievements from the stars you hold (so stars
+  // won before Game Center, or synced from another device, count too). The
+  // IDs match App Store Connect. Our own leaderboards stay the checked ones.
+  const GC_BOARDS = {
+    stars: 'thrusterz.total_stars',
+    score: 'thrusterz.total_score',
+    world: (n) => `thrusterz.world${n}_score`,
+  };
+  const GC_STAR_MARKS = [50, 150, 300];
+  const GC_DONE = 'thrusterz.gc';   // achievements already reported from here
+  const gcDone = new Set(((Online.Store.get(GC_DONE) || {}).done) || []);
+  let gcOn = false;
+  const sumOf = (o) => Object.values(o).reduce((a, b) => a + b, 0);
+  function gcEarned() {
+    const ids = [], P = 'thrusterz.';
+    const stars = progress.stars, total = sumOf(stars);
+    if (Object.keys(stars).length) ids.push(P + 'first_mission');
+    if (Object.values(stars).some(s => s >= 3)) ids.push(P + 'first_three_stars');
+    for (const w of WORLDS) {
+      const ls = worldLevels(w.n);
+      if (!ls.length) continue;
+      const tag = w.n === 0 ? 'training' : 'world' + w.n;
+      if (ls.every(l => stars[l.id])) ids.push(P + tag + '_complete');
+      if (ls.every(l => stars[l.id] >= 3)) ids.push(P + tag + '_perfect');
+    }
+    // No "every star" achievement: the total grows with each new world.
+    for (const n of GC_STAR_MARKS) if (total >= n) ids.push(P + 'stars_' + n);
+    return ids;
+  }
+  function gcScores() {
+    const out = [{ board: GC_BOARDS.stars, value: sumOf(progress.stars) }, { board: GC_BOARDS.score, value: Math.round(sumOf(progress.score)) }];
+    for (const w of WORLDS) {
+      if (w.n === 0) continue;
+      const v = worldLevels(w.n).reduce((a, l) => a + (progress.score[l.id] || 0), 0);
+      if (v > 0) out.push({ board: GC_BOARDS.world(w.n), value: Math.round(v) });
+    }
+    return out.filter(x => x.value > 0);
+  }
+  // Post totals and any achievements not yet reported (banner: show Apple's
+  // "achievement unlocked" banner; off for the catch-up at launch).
+  function gcSync(banner) {
+    if (!gcOn) return;
+    Bridge.send('gcScores', { scores: gcScores() });
+    const todo = gcEarned().filter(id => !gcDone.has(id));
+    if (!todo.length) return;
+    Bridge.call('gcAchieve', { ids: todo, banner }).then((done) => {
+      for (const id of done || []) gcDone.add(id);
+      Online.Store.set(GC_DONE, { done: [...gcDone] });
+    }).catch(() => {});
+  }
+  if (Bridge.gameCenter) {
+    Bridge.call('gcAuth').then((ok) => {
+      gcOn = !!ok;
+      document.body.classList.toggle('gc', gcOn);
+      gcSync(false);
+    }).catch(() => {});
+  }
+  $('btn-gc-menu').onclick = () => Bridge.send('gcShow', { view: 'dashboard' });
+
+  // Rating: the App Store's own prompt, asked at a good moment (a three-star
+  // win, once you've flown a fair few missions), at most once every four
+  // months from here; iOS itself shows it at most three times a year. And a
+  // "Rate Thrusterz" link in Settings that opens the App Store's review page.
+  const APP_STORE_REVIEW = 'https://apps.apple.com/app/id6821517941?action=write-review';
+  const REVIEW = 'thrusterz.review';
+  const REVIEW_AFTER = 8, REVIEW_GAP = 120 * 86400e3;
+  const canRate = Bridge.inApp && Bridge.platform === 'ios';
+  if (canRate) document.body.classList.add('rate');
+  $('set-rate').onclick = (e) => { e.preventDefault(); Bridge.open(APP_STORE_REVIEW); };
+  function maybeAskReview(stars) {
+    if (!canRate || stars < 3 || Object.keys(progress.stars).length < REVIEW_AFTER) return;
+    const last = (Online.Store.get(REVIEW) || {}).at || 0;
+    if (Date.now() - last < REVIEW_GAP) return;
+    Online.Store.set(REVIEW, { at: Date.now() });
+    setTimeout(() => { if (state.screen === 'result') Bridge.review(); }, 1500);
   }
 
   // After the first mission you win, ask for a pilot name and hand out the
