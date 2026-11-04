@@ -101,23 +101,9 @@ server only allows this on its in-memory store, never on a real deployment.
 
 ## To launch it
 
-1. **App Store Connect:**
-   - Agreements → accept the **Paid Apps** agreement and fill in banking and
-     tax. In-app purchases don't work until this is done.
-   - Your app → In-App Purchases → create each product in the table as
-     **Non-Consumable**, with the exact id, a display name, a price, a
-     description and a review screenshot (a Shop screenshot works).
-   - Add the products to the next version for review.
-2. **Server env (Vercel):** `APPLE_BUNDLE_ID` defaults to `com.thrusterz.app`;
-   set it only if the bundle id changes.
-3. **Build:** `expo-iap` is a native module. Make a new EAS build
-   (`eas build -p ios`); the Expo Go/dev client from before won't have it.
-4. **Test on TestFlight with a Sandbox account:** Settings → App Store →
-   Sandbox Account. Try buy, cancel, Restore purchases, a purchase made with
-   flight mode on, and reinstall then Restore.
-5. **App Store listing:** turn on "In-App Purchases" in the listing. Privacy
-   answers, review notes and the privacy policy already mention the Shop
-   (`docs/APP_STORE.md`, `privacy.html`).
+Follow [`RELEASE_1.2.md`](RELEASE_1.2.md): the Paid Apps agreement, all 27
+products with their exact IDs, prices and store descriptions, the EAS build,
+TestFlight checks and submission, in order.
 
 ## Not built yet (next steps)
 

@@ -1,5 +1,9 @@
 # Shipping Thrusterz to the App Store (no Mac needed)
 
+> Releasing the Shop and Game Center (version 1.2)? Follow
+> [`RELEASE_1.2.md`](RELEASE_1.2.md): it puts every App Store Connect step
+> in order, with the exact IDs, prices and images.
+
 The iOS app is built with **Expo**: `mobile/` is a small React Native app
 that runs the game full screen in a WebView. **EAS Build** compiles and
 signs it in Expo's cloud (on their Macs), and **EAS Submit** uploads it to
