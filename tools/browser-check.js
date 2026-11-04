@@ -38,6 +38,11 @@ const check = (name, ok, info) => { console.log((ok ? 'ok   ' : 'FAIL ') + name 
     const levelIds = await p.evaluate(() => window.Levels.LEVELS.map(l => l.id));
     let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
     const stalled = [];
+    // Headless WebKit can take a moment to start delivering animation frames
+    // on a fresh page: wait for the first mission's clock to move once before
+    // checking that it never stops.
+    await p.evaluate(() => { window.Thrusterz.startLevel(0); document.getElementById('gate').classList.add('hidden'); });
+    await p.waitForFunction(() => window.Thrusterz.state.mission.t > 0, null, { timeout: 5000 }).catch(() => {});
     for (let i = 0; i < n; i++) {
       await p.evaluate((i) => { window.Thrusterz.startLevel(i); document.getElementById('gate').classList.add('hidden'); }, i);
       const t0 = await p.evaluate(() => window.Thrusterz.state.mission.t);
