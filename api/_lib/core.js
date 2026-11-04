@@ -12,6 +12,8 @@ const { Mission } = require('../../js/flight.js');
 const { LEVELS } = require('../../js/levels.js');
 const Replay = require('../../js/replay.js');
 const { mergeProgress } = require('../../js/sync.js');
+const Skins = require('../../js/skins.js');
+const AppleIap = require('./apple-iap.js');
 
 const LEVEL_BY_ID = Object.fromEntries(LEVELS.filter(l => !l.test).map(l => [l.id, l]));
 const HASHES = Object.fromEntries(Object.values(LEVEL_BY_ID).map(l => [l.id, Replay.levelHash(l)]));
@@ -108,7 +110,33 @@ function cleanName(name) {
   return n;
 }
 
-function publicPlayer(p) { return { id: p.id, name: p.name, code: p.code, apple: !!p.appleSub, created: p.created }; }
+function publicPlayer(p) { return { id: p.id, name: p.name, code: p.code, apple: !!p.appleSub, created: p.created, skins: p.skins || [], owns: p.owns || [], look: Skins.cleanLook(p.look) }; }
+
+// ----------------------------------------------------------------- skins
+// Skins are earned by finishing worlds (js/skins.js). The server keeps each
+// pilot's best verified stars per mission ("vstars:<id>") and grants skins
+// from those, so a skin on the leaderboard was really earned. Once granted a
+// skin stays, even if a mission later changes and its board starts over.
+const LEVEL_LIST = Object.values(LEVEL_BY_ID);
+async function grantSkins(store, p, vstars) {
+  const have = new Set(p.skins || []);
+  const fresh = Skins.earned(vstars, LEVEL_LIST).filter(id => !Skins.standard(Skins.byId(id)) && !have.has(id));
+  if (fresh.length) { p.skins = [...have, ...fresh]; await store.set('player:' + p.id, p); }
+  return fresh;
+}
+// Verified stars, filled in from the replays kept for runs flown before the
+// server tracked them (only for missions it has no stars for yet).
+async function verifiedStars(store, p) {
+  const vstars = (await store.get('vstars:' + p.id)) || {};
+  const missing = LEVEL_LIST.filter(L => !vstars[L.id]);
+  if (!missing.length || p.vstarsFilled) return vstars;
+  const bests = await store.mget(missing.map(L => 'best:' + boardKey(L) + ':' + p.id));
+  missing.forEach((L, i) => { const s = bests[i] && bests[i].run && bests[i].run.stars; if (s) vstars[L.id] = s; });
+  p.vstarsFilled = true;
+  await store.set('vstars:' + p.id, vstars);
+  await store.set('player:' + p.id, p);
+  return vstars;
+}
 
 // A device session: "<playerId>.<secret>". Only the secret's hash is stored.
 async function newSession(store, p) {
@@ -214,14 +242,25 @@ const routes = {
       await store.zremAll(boards.flatMap(k => [k + ':score', k + ':time']), p.id);
       for (const L of Object.values(LEVEL_BY_ID)) await store.del('best:' + boardKey(L) + ':' + p.id);
       await store.del('progress:' + p.id);
+      await store.del('vstars:' + p.id);
       await store.del('code:' + p.code);
       if (p.appleSub) await store.del('apple:' + p.appleSub);
       await store.del('player:' + p.id);
       return { deleted: true, appleRevoked: revoked };
     }
     if (req.method === 'PATCH') {
-      await limit(store, 'name:' + p.id, 10, 3600);
-      p.name = cleanName(body.name);
+      if (body.name !== undefined) {
+        await limit(store, 'name:' + p.id, 10, 3600);
+        p.name = cleanName(body.name);
+      }
+      // The look a pilot wants on the leaderboards. Parts not earned yet (say,
+      // the runs that earn them are still queued offline) are kept but shown
+      // as the defaults until the server has verified them.
+      if (body.look !== undefined) {
+        await limit(store, 'look:' + p.id, 60, 3600);
+        p.look = Skins.cleanLook(body.look);
+        await grantSkins(store, p, await verifiedStars(store, p));
+      }
       await store.set('player:' + p.id, p);
     }
     return { player: publicPlayer(p) };
@@ -291,8 +330,11 @@ const routes = {
     await store.zadd(key + ':time', p.id, run.time, 'LT');
     if (prevScore == null || run.score > prevScore) await store.set('best:' + key + ':' + p.id, { run, log }); // replay kept for ghosts / audits
     const world = await updateWorld(store, worldOf(L), p.id);
+    const vstars = await verifiedStars(store, p);
+    if (!(vstars[L.id] >= run.stars)) { vstars[L.id] = run.stars; await store.set('vstars:' + p.id, vstars); }
+    const skins = await grantSkins(store, p, vstars);
     const rank = async (kind) => { const r = await store.zrank(key + ':' + kind, p.id, kind === 'score'); return r == null ? null : r + 1; };
-    return { world, run, best: { score: Math.max(run.score, prevScore || 0), time: prevTime == null ? run.time : Math.min(prevTime, run.time) }, rank: { score: await rank('score'), time: await rank('time') }, total: await store.zcard(key + ':score') };
+    return { world, run, skins, best: { score: Math.max(run.score, prevScore || 0), time: prevTime == null ? run.time : Math.min(prevTime, run.time) }, rank: { score: await rank('score'), time: await rank('time') }, total: await store.zcard(key + ':score') };
   }),
 
   // Leaderboard for one mission (?level=id) or a whole world (?world=n),
@@ -312,15 +354,55 @@ const routes = {
     let mine = null;
     if (me) {
       const r = await store.zrank(key, me.id, desc);
-      if (r != null) mine = { rank: r + 1, value: await store.zscore(key, me.id), name: me.name };
+      if (r != null) mine = { rank: r + 1, value: await store.zscore(key, me.id), name: me.name, look: Skins.shownLook(me.look, me.skins) };
     }
     return {
       level: L ? L.id : undefined, world: L ? undefined : +query.world, missions: L ? undefined : WORLD_LEVELS[query.world].length, kind, total: await store.zcard(key),
-      top: top.map(([id, value], i) => ({ rank: i + 1, id, name: players[i] ? players[i].name : 'Pilot', value, me: !!me && me.id === id })),
+      top: top.map(([id, value], i) => ({ rank: i + 1, id, name: players[i] ? players[i].name : 'Pilot', value, me: !!me && me.id === id, look: players[i] ? Skins.shownLook(players[i].look, players[i].skins) : Skins.DEFAULT })),
       me: mine, progress,
     };
   }),
 };
+
+// Shop purchases. The app sends the signed App Store transactions it holds
+// (after a purchase, at launch for unfinished ones, and on Restore); each is
+// verified (api/_lib/apple-iap.js) and its product added to the pilot's
+// account, with the skins it brings. Locally (the in-memory store, never on
+// a real server) { dev: productId } grants a product without paying, for
+// building and testing the Shop.
+routes.purchase = route(['POST'], async ({ req, body, store }) => {
+  const p = await authed(req, store);
+  await limit(store, 'purchase:' + p.id, 30, 600);
+  const bundleId = process.env.APPLE_BUNDLE_ID || 'com.thrusterz.app';
+  const granted = [], rejected = [];
+  const give = async (productId, txn) => {
+    if (txn) p.txns = [...new Set((p.txns || []).concat(String(txn)))].slice(-200); // for support
+    p.owns = [...new Set((p.owns || []).concat(productId))];
+    granted.push(productId);
+  };
+  if (body.dev !== undefined) {
+    if (store.kind !== 'memory') throw new HttpError(403, 'Test purchases only work on a local server');
+    if (!Object.hasOwn(Skins.PRODUCT, body.dev)) throw new HttpError(404, 'Unknown product');
+    await give(body.dev, null);
+  }
+  const list = Array.isArray(body.transactions) ? body.transactions.slice(0, 50) : [];
+  for (const jws of list) {
+    try {
+      const t = AppleIap.verifyTransaction(jws, { bundleId, products: Skins.PRODUCT });
+      await give(t.productId, t.originalTransactionId || t.transactionId);
+    } catch (e) {
+      if (!(e instanceof AppleIap.IapError)) throw e;
+      rejected.push(e.message);
+    }
+  }
+  if (granted.length) {
+    const skins = Skins.entitlements(p.owns).skins;
+    p.skins = [...new Set((p.skins || []).concat(skins))];
+    await store.set('player:' + p.id, p);
+  }
+  if (!granted.length && rejected.length) throw new HttpError(422, rejected[0]);
+  return { player: publicPlayer(p), granted, rejected };
+});
 
 // Pilot names other players find offensive: each account may report a name
 // once; after REPORTS_TO_RESET different reporters the name goes back to the

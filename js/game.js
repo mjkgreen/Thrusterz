@@ -77,13 +77,14 @@
     return p;
   }
   // Saved locally (and to native storage in the app), then to the cloud.
-  function saveProgress() { Online.Store.set(STORE, progress); Online.saveProgressSoon(); }
+  function saveProgress() { ownedCache = null; Online.Store.set(STORE, progress); Online.saveProgressSoon(); }
   // Fold in progress from elsewhere (cloud, native copy, another device).
   // Only ever adds: more stars, better bests.
   function mergeIn(other) {
     const merged = Sync.mergeProgress(progress, cleanProgress(other));
     if (JSON.stringify(merged) === JSON.stringify(Sync.mergeProgress(progress, {}))) return false;
     Object.assign(progress, merged);
+    ownedCache = null;
     Online.Store.set(STORE, progress);
     gcSync(false);
     // Stars turning up from the app's native copy or the cloud mean this
@@ -92,6 +93,36 @@
     return true;
   }
   const progress = loadProgress();
+
+  // ---------------------------------------------------------------- skins
+  // The rocket's look (js/skins.js): hull, flame, trail and thruster puffs,
+  // earned by finishing worlds and collecting stars, or bought in the Shop.
+  // Kept on this device and on the pilot's account, which shows it on the
+  // leaderboards. Null until a pilot picks one.
+  const LOOK = 'thrusterz.look', SEEN = 'thrusterz.skinsSeen';
+  let look = Online.Store.get(LOOK);
+  let ownedCache = null;
+  // What the Shop has sold this pilot (on the account, or bought on this
+  // device and not yet confirmed by the server).
+  const bought = () => Skins.entitlements(Online.ownedProducts());
+  // Skins earned here, bought, or granted to this account by the server.
+  function owned() {
+    if (!ownedCache) {
+      const a = Online.state.account, server = (a && a.player && a.player.skins) || [];
+      ownedCache = new Set(Skins.earned(progress.stars, LEVELS).concat(bought().skins, server.filter(id => Skins.byId(id))));
+    }
+    return ownedCache;
+  }
+  const myLook = () => Skins.shownLook(look, [...owned()]);
+  const newSkins = () => { const seen = Online.Store.get(SEEN) || []; return [...owned()].filter(id => !Skins.standard(Skins.byId(id)) && !seen.includes(id)); };
+  const SLOT_NAME = { hull: 'hull', flame: 'flame', trail: 'trail', rcs: 'thrusters', sat: 'satellite' };
+  function equip(id) {
+    const it = Skins.byId(id), l = Skins.cleanLook(look || myLook());
+    l[Skins.slotOf(id)] = id;
+    look = l; Online.Store.set(LOOK, look);
+    Online.setLook().catch(() => { /* pushed on the next sync */ });
+    return it;
+  }
   if (/[?&]unlock/.test(location.search)) progress.unlocked = LEVELS.length - 1;
   // ?unlock opens every world (for testing).
   const UNLOCK_ALL = /[?&]unlock/.test(location.search);
@@ -201,7 +232,7 @@
     if (level.startCam === 'overview') { overview(true); state.cam.x = state.cam.tx; state.cam.y = state.cam.ty; state.cam.zoom = state.cam.tzoom; }
     setupHud();
     show('hud');
-    hide('menu'); hide('briefing'); hide('result'); hide('pause'); hide('help'); hide('board'); hide('profile');
+    hide('menu'); hide('briefing'); hide('result'); hide('pause'); hide('help'); hide('board'); hide('profile'); hide('hangar'); hide('shop');
     state.screen = 'flight';
     $('coach').classList.remove('show');
   }
@@ -920,14 +951,14 @@
     }
   }
   function spawnRcs(dir) {
-    const s = state.mission.ship, z = state.cam.zoom;
+    const s = state.mission.ship, z = state.cam.zoom, r = Skins.RCS[myLook().rcs];
     for (const side of [1, -1]) {
       const fwd = side; // nose and tail fire opposite ways
       const ox = Math.cos(s.angle) * 6 * fwd / z, oy = Math.sin(s.angle) * 6 * fwd / z;
       const a = s.angle + Math.PI / 2 * -dir * fwd;
       state.particles.push({
         x: s.x + ox, y: s.y + oy, vx: Math.cos(a) * 50 / z, vy: Math.sin(a) * 50 / z,
-        life: 0.18, age: 0, size: 1.6, kind: 'rcs',
+        life: r.life, age: 0, size: r.size, kind: 'rcs',
       });
     }
   }
@@ -1227,20 +1258,15 @@
     });
   }
 
+  // Where the ship has been, in the pilot's trail skin.
   function drawTrail(disp) {
     const tr = state.trail;
     if (tr.length < 2) return;
-    ctx.lineWidth = 1.5;
-    ctx.strokeStyle = 'rgba(255,190,110,0.35)';
-    ctx.beginPath();
-    tr.forEach((p, i) => {
-      const [sx, sy] = disp(p.x, p.y, p.t);
-      if (i && !p.gap) ctx.lineTo(sx, sy); else ctx.moveTo(sx, sy);
-    });
+    const pts = [];
+    for (const p of tr) { if (p.gap) pts.push(null); pts.push(disp(p.x, p.y, p.t)); }
     const s = state.mission.ship;
-    const [sx, sy] = w2s(s.x, s.y);
-    ctx.lineTo(sx, sy);
-    ctx.stroke();
+    pts.push(w2s(s.x, s.y));
+    Skins.drawTrail(ctx, pts, Skins.TRAIL[myLook().trail], performance.now() / 1000);
   }
 
   function drawPrediction(disp) {
@@ -1858,13 +1884,13 @@
   }
 
   function drawParticles() {
+    const flameSkin = Skins.FLAME[myLook().flame], rcsSkin = Skins.RCS[myLook().rcs];
     for (const p of state.particles) {
       const [sx, sy] = w2s(p.x, p.y);
       const k = 1 - p.age / p.life;
+      if (p.kind === 'rcs') { Skins.drawRcsParticle(ctx, sx, sy, k, rcsSkin); continue; }
       if (p.kind === 'fire') {
-        ctx.fillStyle = `rgba(255,${Math.floor(150 + 100 * k)},${Math.floor(60 * k)},${k * 0.8})`;
-      } else if (p.kind === 'rcs') {
-        ctx.fillStyle = `rgba(220,235,255,${k * 0.9})`;
+        ctx.fillStyle = Skins.sparkColor(flameSkin, k, k * 0.8);
       } else {
         ctx.fillStyle = hexA(p.color, k);
       }
@@ -1947,18 +1973,37 @@
     }
   }
 
+  // Stacked hulls (Saturn V, Shuttle) shed pieces as the mission drops
+  // stages: which pieces the rocket has while flying stage k, and which
+  // stage k took away when dropped. Satellite stages don't count.
+  function stackPieces(m, k) {
+    const hull = Skins.HULL[myLook().hull];
+    if (!hull.custom) return null;
+    return Skins.piecesFor(hull, k, m.stages.filter(st => st.sprite !== 'satellite').length);
+  }
+
+  // After a drop, what's left grows to full size over 0.4 s (in real time,
+  // so it reads the same at any warp).
+  function stackGrow(m, pc) {
+    if (!pc || !pc.ship[0]) return 0;
+    if (m._growStage !== m.stage) { m._growStage = m.stage; m._growAt = performance.now(); }
+    const u = Math.min(1, (performance.now() - m._growAt) / 400);
+    return u * u * (3 - 2 * u);
+  }
+
   function drawShip() {
-    const m = state.mission, s = m.ship;
-    for (const d of m.debris) {
+    const m = state.mission, s = m.ship, hull = Skins.HULL[myLook().hull];
+    m.debris.forEach((d, k) => {
       if (!d.alive) {
         if (!d.exploded) { d.exploded = true; explode(d.x, d.y, '#ffb35a'); }
-        continue;
+        return;
       }
-      const [dx, dy] = w2s(d.x, d.y);
+      const [dx, dy] = w2s(d.x, d.y), pc = stackPieces(m, k);
       ctx.save(); ctx.globalAlpha = 0.75; ctx.translate(dx, dy); ctx.rotate(-d.angle);
-      drawRocketBody(9, false);
+      if (pc) Skins.drawRocket(ctx, 9, false, hull, pc.dropped[0], pc.dropped[1], pc.ship[0], k ? 1 : 0);
+      else drawRocketBody(9, false);
       ctx.restore();
-    }
+    });
     if (m.status === 'crashed' || (m.status === 'won' && shipImpactWin(m))) return;
     const [sx, sy] = w2s(s.x, s.y);
     if (m.tether) drawRope(sx, sy);
@@ -1976,18 +2021,16 @@
       ctx.fillStyle = g;
       ctx.beginPath(); ctx.moveTo(x0, -1.6); ctx.lineTo(x0 - len, -0.4); ctx.lineTo(x0 - len, 0.4); ctx.lineTo(x0, 1.6); ctx.fill();
     } else if (m.thrusting) {
-      // Two-tone flame like the icon: orange outside, pale yellow core.
-      const f = (0.75 + Math.random() * 0.45) * state.throttle, x0 = -L - 0.5, len = 24 * f;
-      const g = ctx.createLinearGradient(x0, 0, x0 - len, 0);
-      g.addColorStop(0, 'rgba(255,200,70,0.95)'); g.addColorStop(0.55, 'rgba(255,122,26,0.85)'); g.addColorStop(1, 'rgba(255,90,20,0)');
-      ctx.fillStyle = g;
-      ctx.beginPath(); ctx.moveTo(x0, -2.6); ctx.quadraticCurveTo(x0 - len * 0.35, -2.4, x0 - len, 0); ctx.quadraticCurveTo(x0 - len * 0.35, 2.4, x0, 2.6); ctx.fill();
-      const c = ctx.createLinearGradient(x0, 0, x0 - len * 0.6, 0);
-      c.addColorStop(0, 'rgba(255,248,200,0.95)'); c.addColorStop(1, 'rgba(255,230,140,0)');
-      ctx.fillStyle = c;
-      ctx.beginPath(); ctx.moveTo(x0, -1.3); ctx.quadraticCurveTo(x0 - len * 0.25, -1.1, x0 - len * 0.6, 0); ctx.quadraticCurveTo(x0 - len * 0.25, 1.1, x0, 1.3); ctx.fill();
+      // Two-tone flame like the icon, in the pilot's chosen colours.
+      const pc = sat ? null : stackPieces(m, m.stage);
+      Skins.drawFlame(ctx, L, (0.75 + Math.random() * 0.45) * state.throttle, Skins.FLAME[myLook().flame], performance.now() / 1000, sat ? null : hull, pc && pc.ship[0], stackGrow(m, pc));
     }
-    if (sat) drawSatelliteBody(); else drawRocketBody(L, m.canDeploy() || (m.landed && m.stages.length > 1));
+    const pc = sat ? null : stackPieces(m, m.stage);
+    if (sat) drawSatelliteBody();
+    // A stacked rocket shows its stages as pieces and keeps its real
+    // colours: no payload marker.
+    else if (pc) Skins.drawRocket(ctx, L, false, hull, pc.ship[0], pc.ship[1], pc.ship[0], stackGrow(m, pc));
+    else drawRocketBody(L, m.canDeploy() || (m.landed && m.stages.length > 1));
     if (m.shieldFactor() < 1) drawShieldJacket(L);
     ctx.restore();
   }
@@ -2032,64 +2075,12 @@
     ctx.fill(); ctx.stroke(); ctx.lineWidth = 1;
   }
 
-  // Satellite: a gold-foil box with two solar panels and a small nozzle.
-  function drawSatelliteBody() {
-    ctx.fillStyle = '#4f7fd8'; ctx.strokeStyle = '#9fc0ff'; ctx.lineWidth = 0.8;
-    ctx.fillRect(-2.5, -13, 5, 8); ctx.strokeRect(-2.5, -13, 5, 8);
-    ctx.fillRect(-2.5, 5, 5, 8); ctx.strokeRect(-2.5, 5, 5, 8);
-    ctx.fillStyle = '#e8c45a'; ctx.strokeStyle = '#8a6a1a'; ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.rect(-4, -4.5, 8, 9); ctx.fill(); ctx.stroke();
-    ctx.fillStyle = '#c9ced8'; ctx.beginPath(); ctx.moveTo(-4, -2); ctx.lineTo(-6.5, -3); ctx.lineTo(-6.5, 3); ctx.lineTo(-4, 2); ctx.fill();
-    ctx.strokeStyle = '#e9edf7'; ctx.beginPath(); ctx.moveTo(4, 0); ctx.lineTo(7, 0); ctx.stroke();
-  }
+  // The satellite in the pilot's chosen satellite skin.
+  function drawSatelliteBody() { Skins.drawSatellite(ctx, Skins.SAT[myLook().sat]); }
 
-  // `payload`: draw the gold fairing that holds the payload on the nose.
-  // The rocket, nose along +x, matching the app icon: white hull with a
-  // pointed nose, porthole, swept fins and a dark nozzle. With a payload
-  // aboard, the nose is the gold fairing.
-  function drawRocketBody(L, payload) {
-    const W = 3.4, tail = -L + 1;
-    // Fins (behind the hull)
-    ctx.fillStyle = '#d9e0ee'; ctx.strokeStyle = '#7f8aa8'; ctx.lineWidth = 0.8;
-    for (const sgn of [-1, 1]) {
-      ctx.beginPath();
-      ctx.moveTo(-L * 0.15, sgn * W * 0.9);
-      ctx.lineTo(tail - 2.6, sgn * (W + 4.2));
-      ctx.lineTo(tail - 2.2, sgn * (W + 1.6));
-      ctx.lineTo(tail + 1, sgn * W);
-      ctx.closePath(); ctx.fill(); ctx.stroke();
-    }
-    // Hull
-    const g = ctx.createLinearGradient(0, -W, 0, W);
-    g.addColorStop(0, '#ffffff'); g.addColorStop(0.55, '#eef2fa'); g.addColorStop(1, '#b9c4dc');
-    ctx.fillStyle = g; ctx.strokeStyle = '#7f8aa8'; ctx.lineWidth = 0.9;
-    ctx.beginPath();
-    ctx.moveTo(L + 4, 0);
-    ctx.bezierCurveTo(L + 1, -W * 0.9, L * 0.2, -W * 1.08, -L * 0.3, -W);
-    ctx.lineTo(tail, -W * 0.86);
-    ctx.lineTo(tail, W * 0.86);
-    ctx.lineTo(-L * 0.3, W);
-    ctx.bezierCurveTo(L * 0.2, W * 1.08, L + 1, W * 0.9, L + 4, 0);
-    ctx.fill(); ctx.stroke();
-    // Nozzle
-    ctx.fillStyle = '#3a4a72';
-    ctx.fillRect(tail - 1.6, -W * 0.62, 1.8, W * 1.24);
-    if (payload) {
-      ctx.fillStyle = '#e8c45a'; ctx.strokeStyle = '#8a6a1a';
-      ctx.beginPath();
-      ctx.moveTo(L + 4, 0); ctx.bezierCurveTo(L + 1, -W * 0.9, L * 0.45, -W * 1.06, L * 0.15, -W * 1.04);
-      ctx.lineTo(L * 0.15, W * 1.04); ctx.bezierCurveTo(L * 0.45, W * 1.06, L + 1, W * 0.9, L + 4, 0);
-      ctx.fill(); ctx.stroke();
-      ctx.strokeStyle = 'rgba(0,0,0,0.35)'; ctx.beginPath(); ctx.moveTo(L * 0.15, -W); ctx.lineTo(L * 0.15, W); ctx.stroke();
-      ctx.lineWidth = 1;
-      return;
-    }
-    // Porthole
-    ctx.fillStyle = '#0b1338'; ctx.beginPath(); ctx.arc(L * 0.3, 0, 2.1, 0, TAU); ctx.fill();
-    ctx.fillStyle = '#2fb8d8'; ctx.beginPath(); ctx.arc(L * 0.3, 0, 1.45, 0, TAU); ctx.fill();
-    ctx.fillStyle = 'rgba(220,250,255,0.9)'; ctx.beginPath(); ctx.arc(L * 0.3 + 0.5, -0.5, 0.5, 0, TAU); ctx.fill();
-    ctx.lineWidth = 1;
-  }
+  // The rocket in the pilot's chosen hull (see js/skins.js). With a payload
+  // aboard, the nose is a fairing in the hull's colours.
+  function drawRocketBody(L, payload) { Skins.drawRocket(ctx, L, payload, Skins.HULL[myLook().hull]); }
 
   // Prograde / retrograde / target markers around the ship.
   function drawNavMarkers() {
@@ -2684,9 +2675,11 @@
   const worldStars = (n) => worldLevels(n).reduce((a, l) => a + (progress.stars[l.id] || 0), 0);
   function worldOpen(n) {
     const w = WORLDS.find(x => x.n === n);
-    if (!w || !w.unlock || UNLOCK_ALL) return true;
+    if (!w || !w.unlock || UNLOCK_ALL || worldBought(n)) return true;
     return worldOpen(n - 1) && worldStars(n - 1) >= w.unlock;
   }
+  // Bought early in the Shop (the stars still count, and still open it).
+  function worldBought(n) { const b = bought(); return b.allWorlds || b.worlds.includes(n); }
   function levelOpen(i) { return LEVELS[i].test || worldOpen(worldOf(LEVELS[i])); }
 
   function defaultTab() {
@@ -2703,12 +2696,13 @@
   function showMenu() {
     state.screen = 'menu';
     state.flow = false;
-    hide('hud'); hide('briefing'); hide('result'); hide('pause'); hide('help'); hide('board'); hide('profile');
+    hide('hud'); hide('briefing'); hide('result'); hide('pause'); hide('help'); hide('board'); hide('profile'); hide('hangar'); hide('shop');
     leaveLanding();
     show('menu');
     const hasTests = LEVELS.some(l => l.test);
     if (state.menuTab == null || (state.menuTab !== TEST_TAB && !WORLDS.some(w => w.n === state.menuTab))) state.menuTab = progress.tab != null ? progress.tab : defaultTab();
     renderMenuTop();
+    $('hangar-new').classList.toggle('hidden', !newSkins().length);
     const tabs = $('world-tabs');
     tabs.innerHTML = '';
     for (const w of WORLDS) {
@@ -2760,14 +2754,18 @@
       const w = WORLDS.find(x => x.n === t), have = worldStars(t - 1);
       info.innerHTML = `<span class="lock">🔒 Earn ${w.unlock} ★ in ${worldName(t - 1)} to open ${w.name}</span>`
         + `<div class="unlockbar"><div style="width:${Math.min(100, 100 * have / w.unlock)}%"></div></div>`
-        + `<span class="k">${have} / ${w.unlock} ★ · ${Math.max(0, w.unlock - have)} to go</span>`;
+        + `<span class="k">${have} / ${w.unlock} ★ · ${Math.max(0, w.unlock - have)} to go</span>`
+        + (Skins.PRODUCTS.some(p => p.world === t) ? '<button class="wi-shop">Open it now in the Shop</button>' : '');
     }
+    if (t !== TEST_TAB && Skins.ALL.some(x => x.world === t)) info.appendChild(worldRewards(t));
     if (t !== TEST_TAB) {
       const b = document.createElement('button');
       b.className = 'wi-board online-only'; b.textContent = '🏆 World leaderboard';
       b.onclick = () => showBoard({ world: t }, 'menu');
       info.prepend(b);
     }
+    const wiShop = info.querySelector('.wi-shop');
+    if (wiShop) wiShop.onclick = () => showShop('menu', Skins.PRODUCTS.find(p => p.world === t).id);
     grid.classList.toggle('locked', !open);
     const nextUp = open ? list.find(([L]) => !progress.stars[L.id]) : null;
     for (const [L, i] of list) {
@@ -2785,6 +2783,48 @@
       grid.appendChild(card);
     }
   }
+
+  // The skins a world awards, with how close you are to each; tap for the Hangar.
+  function worldRewards(n) {
+    const row = document.createElement('div');
+    row.className = 'rewards';
+    for (const it of Skins.ALL.filter(x => x.world === n)) {
+      const got = owned().has(it.id), pr = Skins.progressOf(it, progress.stars, LEVELS);
+      const b = document.createElement('button');
+      b.className = 'reward' + (got ? ' got' : '');
+      b.innerHTML = `<canvas class="rw-icon"></canvas><span class="rw-txt"><span class="rw-name"></span><span class="rw-req">${got ? '✓ Earned' : (it.need === 'three' ? '★★★ every mission' : 'Clear every mission') + ` · ${pr.have}/${pr.of}`}</span></span>`;
+      b.querySelector('.rw-name').textContent = it.name + ' ' + SLOT_NAME[Skins.slotOf(it.id)];
+      b.onclick = () => showHangar('menu');
+      row.appendChild(b);
+      requestAnimationFrame(() => skinIcon(b.querySelector('canvas'), it.id));
+    }
+    return row;
+  }
+  // A small picture of a skin on your rocket: hulls and flames with the
+  // flame lit, trails behind it, thruster puffs firing.
+  // `id` may list several skins ("gold,goldflame") to show a set together.
+  function skinIcon(canvas, id, t) {
+    const ids = id.split(','), l = myLook();
+    for (const x of ids) l[Skins.slotOf(x)] = x;
+    const slot = ids.length > 1 ? 'hull' : Skins.slotOf(id);
+    canvas.dataset.skin = id;
+    Skins.drawIcon(canvas, l, { show: ['trail', 'rcs', 'sat'].includes(slot) ? slot : 'flame', t, f: t == null ? null : 0.8 + 0.2 * Math.sin(t * 23 + id.length) });
+  }
+  // While the Hangar or Shop is open, its pictures move: flames flicker and
+  // pulse, trails flow, thruster puffs fire. About 30 frames a second.
+  let iconRaf = 0, iconLast = 0;
+  function animateIcons(now) {
+    const scr = ['hangar', 'shop'].find(id => !$(id).classList.contains('hidden'));
+    if (!scr) { iconRaf = 0; return; }
+    if (now - iconLast > 33) {
+      iconLast = now;
+      const t = now / 1000;
+      if (scr === 'hangar') Skins.drawIcon($('hangar-preview'), hangarPreview || myLook(), { show: hangarShow, f: 0.75 + Math.random() * 0.3, t });
+      for (const c of $(scr).querySelectorAll('canvas[data-skin]')) skinIcon(c, c.dataset.skin, t);
+    }
+    iconRaf = requestAnimationFrame(animateIcons);
+  }
+  const startIcons = () => { if (!iconRaf) iconRaf = requestAnimationFrame(animateIcons); };
 
   // Missions are numbered within their world: "World 2 · Mission 5 of 30".
   const worldOf = (L) => L.world != null ? L.world : 1;
@@ -2828,8 +2868,9 @@
     const won = m.status === 'won';
     const stars = m.stars();
     state.worldUnlocked = null;
+    state.skinsEarned = [];
     if (won) {
-      const wasOpen = WORLDS.map(w => worldOpen(w.n));
+      const wasOpen = WORLDS.map(w => worldOpen(w.n)), hadSkins = owned();
       progress.unlocked = Math.max(progress.unlocked, Math.min(LEVELS.length - 1, state.levelIndex + 1));
       progress.stars[L.id] = Math.max(progress.stars[L.id] || 0, stars);
       const opened = WORLDS.find((w, k) => !wasOpen[k] && worldOpen(w.n));
@@ -2839,6 +2880,7 @@
       state.newBest = m.score() > (progress.score[L.id] || 0);
       if (state.newBest) progress.score[L.id] = m.score();
       saveProgress();
+      state.skinsEarned = [...owned()].filter(id => !hadSkins.has(id));
       gcSync(true);
       maybeAskReview(stars);
     }
@@ -2854,6 +2896,15 @@
       : m.assisted && m.dvUsed() <= L.par ? 'Gyro assist was on, so this run tops out at two stars. Fly without it for three.'
       : `Use ≤ ${L.par} Δv${m.assisted ? ' without gyro assist' : ''} for three stars.`;
     if (state.worldUnlocked) $('res-msg').innerHTML += `<span class="unlocked">🔓 World ${state.worldUnlocked.n} · ${state.worldUnlocked.name} is open!</span>`;
+    for (const id of state.skinsEarned) {
+      const it = Skins.byId(id), el = document.createElement('button');
+      el.className = 'unlocked skin-earned';
+      el.innerHTML = `<canvas class="rw-icon" data-skin="${id}"></canvas><span></span>`;
+      el.querySelector('span').textContent = `New ${SLOT_NAME[Skins.slotOf(id)]}: ${it.name}! Tap to equip it in the Hangar.`;
+      el.onclick = () => showHangar('result');
+      $('res-msg').appendChild(el);
+      requestAnimationFrame(() => skinIcon(el.querySelector('canvas'), id));
+    }
     $('res-stats').innerHTML = `<span><span class="k">Δv used</span> ${m.dvUsed().toFixed(2)} k/s</span>
       <span><span class="k">Time</span> ${fmtT(m.t)}</span>
       ${progress.best[L.id] ? `<span><span class="k">Best</span> ${progress.best[L.id].toFixed(2)} k/s</span>` : ''}`;
@@ -2985,6 +3036,14 @@
 
   // ---------------------------------------------------------- online
   document.body.classList.toggle('online', Online.available());
+  Online.bindLook(() => (look ? Skins.cleanLook(look) : null));
+  // A pilot restoring their account on a new device gets their rocket back,
+  // and skins the server has granted count here too.
+  Online.onChange((st) => {
+    ownedCache = null;
+    const p = st.account && st.account.player;
+    if (!look && p && p.look && (p.look.hull !== Skins.DEFAULT.hull || p.look.flame !== Skins.DEFAULT.flame)) { look = Skins.cleanLook(p.look); Online.Store.set(LOOK, look); }
+  });
   Online.bindProgress(() => ({ unlocked: progress.unlocked, stars: progress.stars, best: progress.best, score: progress.score, learned: progress.learned }), mergeIn);
   const fmtVal = (kind, v) => (kind === 'time' ? fmtT(v) : Math.round(v).toLocaleString());
 
@@ -3057,12 +3116,14 @@
         const hiddenName = !e.me && hiddenNames[e.id] === e.name;
         if (e.me) li.className = 'me';
         else li.classList.add('reportable');
-        li.innerHTML = `<span class="rk">#${e.rank}</span><span class="nm"></span><span>${fmtVal(kind, e.value)}</span>`;
-        li.querySelector('.nm').textContent = hiddenName ? 'Hidden pilot' : e.name;
+        li.innerHTML = `<span class="rk">#${e.rank}</span><span class="nm"><canvas class="lb-ship" aria-hidden="true"></canvas><span class="nmt"></span></span><span>${fmtVal(kind, e.value)}</span>`;
+        li.querySelector('.nmt').textContent = hiddenName ? 'Hidden pilot' : e.name;
         if (hiddenName) li.querySelector('.nm').classList.add('hidden-name');
         // Tap someone else's name to report it.
         if (!e.me && e.id && !hiddenName) li.onclick = () => askReport(e);
         list.appendChild(li);
+        // Your own row shows the look you've picked, even before the server has it.
+        Skins.drawIcon(li.querySelector('.lb-ship'), e.me ? myLook() : e.look);
       }
       if (r.me) me.textContent = `You: #${r.me.rank} of ${r.total} · ${fmtVal(kind, r.me.value)}`;
       else if (sel.world != null) {
@@ -3105,6 +3166,147 @@
   $('btn-boards-menu').onclick = () => showBoard({ world: typeof state.menuTab === 'number' ? state.menuTab : 1 }, 'menu');
   $('btn-brief-board').onclick = () => showBoard({ level: state.levelIndex }, 'briefing');
   $('btn-res-board').onclick = () => showBoard({ level: state.levelIndex }, 'result');
+
+  // Hangar: every hull and flame, how to earn the ones you haven't, and
+  // which you're flying. Tap an earned one to equip it, a locked one to
+  // preview it.
+  let hangarReturn = null, hangarPreview = null, hangarShow = 'flame';
+  function showHangar(from) {
+    if (from !== 'shop') hangarReturn = from;
+    hangarPreview = null;
+    hide(from); show('hangar');
+    renderHangar();
+    Online.Store.set(SEEN, [...owned()]);
+    $('hangar-new').classList.add('hidden');
+    startIcons();
+  }
+  const SLOT_TITLES = { hull: 'Hulls', flame: 'Flames', trail: 'Trails', rcs: 'Thrusters', sat: 'Satellites' };
+  // How an item is earned, in words.
+  function howToEarn(it) {
+    if (it.shop) return 'In the Shop';
+    if (it.stars != null) return `Collect ${it.stars} ★`;
+    if (it.world == null) return 'Standard issue';
+    return (it.need === 'three' ? '★★★ every mission in ' : 'Clear every mission in ') + worldName(it.world);
+  }
+  function renderHangar() {
+    const fresh = new Set(newSkins()), cur = myLook(), wrap = $('hangar-slots');
+    wrap.innerHTML = '';
+    for (const [slot, items] of Object.entries(Skins.SLOTS)) {
+      const h = document.createElement('div'); h.className = 'hg-h'; h.textContent = SLOT_TITLES[slot];
+      const grid = document.createElement('div'); grid.className = 'skin-grid';
+      wrap.append(h, grid);
+      for (const it of items) {
+        const got = owned().has(it.id), on = cur[slot] === it.id;
+        const pr = Skins.progressOf(it, progress.stars, LEVELS);
+        const t = document.createElement('button');
+        t.className = 'skin-tile' + (got ? '' : ' locked') + (on ? ' on' : '') + (it.shop ? ' shop' : '') + (it.gold ? ' gold-skin' : '');
+        const req = howToEarn(it);
+        t.innerHTML = `<canvas class="sk-icon"></canvas><span class="sk-name"></span>`
+          + `<span class="sk-req">${got && !Skins.standard(it) ? '✓ ' : ''}${got && it.shop ? 'Bought' : req}</span>`
+          + (got ? `<span class="sk-state">${on ? 'Equipped' : 'Tap to equip'}</span>`
+            : it.shop ? '<span class="sk-state">🛒 See the Shop</span>'
+            : `<span class="sk-state">🔒 ${pr.have} / ${pr.of}</span><span class="sk-bar"><span style="width:${pr.of ? 100 * pr.have / pr.of : 0}%"></span></span>`)
+          + (fresh.has(it.id) ? '<span class="newtag">New</span>' : '');
+        t.querySelector('.sk-name').textContent = it.name;
+        t.title = it.desc;
+        t.onclick = () => {
+          hangarShow = ['trail', 'rcs', 'sat'].includes(slot) ? slot : 'flame';
+          if (got) { equip(it.id); hangarPreview = null; renderHangar(); return; }
+          hangarPreview = Object.assign(myLook(), { [slot]: it.id });
+          if (it.shop) showShop('hangar');
+          else toast(`${it.name}: ${req.charAt(0).toLowerCase() + req.slice(1)} to earn it`, 2.2);
+        };
+        grid.appendChild(t);
+        requestAnimationFrame(() => skinIcon(t.querySelector('canvas'), it.id));
+      }
+    }
+  }
+  $('btn-hangar-menu').onclick = () => showHangar('menu');
+  $('btn-hangar-close').onclick = () => {
+    hide('hangar');
+    if (hangarReturn === 'result') { show('result'); for (const c of document.querySelectorAll('#res-msg canvas[data-skin]')) skinIcon(c, c.dataset.skin); }
+    else showMenu();
+  };
+
+  // Shop: skins and early world openings, bought once each through the App
+  // Store (js/online.js; the server verifies every purchase). Everything in
+  // the game can still be earned by flying: worlds open with stars, and the
+  // skins sold here are extras, never the ones earned in play.
+  let shopReturn = null, shopPrices = {}, shopBusy = null;
+  function showShop(from, focus) {
+    if (from !== 'hangar' || !shopReturn) shopReturn = from;
+    if (from === 'hangar') hide('hangar');
+    else hide(from);
+    show('shop');
+    $('shop-status').className = 'small'; $('shop-status').textContent = '';
+    renderShop();
+    startIcons();
+    if (focus) { const el = document.querySelector(`#shop [data-product="${focus}"]`); if (el) el.scrollIntoView({ block: 'center' }); }
+    const ids = Skins.PRODUCTS.map(p => p.id);
+    Online.prices(ids).then((p) => { shopPrices = p; if (!$('shop').classList.contains('hidden')) renderShop(); }).catch(() => {});
+  }
+  function renderShop() {
+    const mine = new Set(Online.ownedProducts()), can = Online.shopAvailable();
+    $('btn-shop-restore').style.display = Online.iapAvailable() ? '' : 'none';
+    $('shop-note').textContent = can ? '' : Bridge.inApp ? 'Purchases aren\'t available on this device.' : 'Purchases are made in the Thrusterz app for iPhone and iPad. Anything you buy there shows up here once you restore your account.';
+    const kindOf = (p) => (p.gold ? 'gold' : p.skins ? 'skins' : 'worlds');
+    for (const kind of ['skins', 'gold', 'worlds']) {
+      const grid = $('shop-' + kind);
+      grid.innerHTML = '';
+      for (const pr of Skins.PRODUCTS.filter(p => kindOf(p) === kind)) {
+        const have = mine.has(pr.id), alreadyOpen = pr.world != null && worldOpen(pr.world) && !have;
+        const t = document.createElement('div');
+        t.className = 'skin-tile shop-tile' + (have ? ' on' : '') + (pr.bundle ? ' bundle' : '') + (pr.gold ? ' gold' : '');
+        t.dataset.product = pr.id;
+        const sub = pr.desc || (pr.skins ? Skins.byId(pr.skins[0]).desc : `Every mission in ${worldName(pr.world)}, without waiting for the stars`);
+        t.innerHTML = (pr.skins ? '<canvas class="sk-icon"></canvas>' : `<span class="shop-world w${pr.world != null ? pr.world : 'all'}">${pr.world != null ? pr.world : '∞'}</span>`)
+          + '<span class="sk-name"></span><span class="sk-req"></span>'
+          + `<button class="buy">${have ? '✓ Owned' : alreadyOpen ? '✓ Open' : shopBusy === pr.id ? '…' : (shopPrices[pr.id] || pr.price)}</button>`;
+        t.querySelector('.sk-name').textContent = pr.name;
+        t.querySelector('.sk-req').textContent = sub;
+        const btn = t.querySelector('.buy');
+        btn.disabled = have || alreadyOpen || !can || !!shopBusy;
+        btn.onclick = () => buyProduct(pr);
+        grid.appendChild(t);
+        // A gold set shows all its pieces together; other bundles their first skin.
+        if (pr.skins) requestAnimationFrame(() => skinIcon(t.querySelector('canvas'), pr.gold && pr.bundle ? pr.skins.join(',') : pr.skins[0]));
+      }
+    }
+  }
+  async function buyProduct(pr) {
+    const st = $('shop-status');
+    shopBusy = pr.id; renderShop();
+    st.className = 'small'; st.textContent = '';
+    try {
+      const wasOpen = WORLDS.map(w => worldOpen(w.n));
+      await Online.buy(pr.id);
+      ownedCache = null;
+      const opened = WORLDS.find((w, k) => !wasOpen[k] && worldOpen(w.n));
+      if (opened) { progress.tab = opened.n; saveProgress(); }
+      toast(pr.skins ? `Thanks! ${pr.name} is in your Hangar.` : opened ? `Thanks! ${worldName(opened.n)} · ${opened.name} is open.` : 'Thanks!', 2.5);
+      if (Bridge.inApp) Bridge.haptic('success');
+    } catch (e) {
+      if (!/cancel/i.test(e.message)) { st.className = 'small warn'; st.textContent = e.offline ? 'You\'re offline. Try again when you\'re connected.' : e.message; }
+    }
+    shopBusy = null; renderShop();
+  }
+  $('btn-shop-menu').onclick = () => showShop('menu');
+  $('btn-shop-hangar').onclick = () => showShop('hangar');
+  $('btn-shop-restore').onclick = async () => {
+    const st = $('shop-status'), btn = $('btn-shop-restore');
+    btn.disabled = true; st.className = 'small'; st.textContent = 'Restoring…';
+    try {
+      const n = await Online.restorePurchases();
+      ownedCache = null;
+      st.textContent = n ? `✓ Restored ${n} purchase${n === 1 ? '' : 's'}.` : 'No purchases to restore on this Apple ID.';
+    } catch (e) { st.className = 'small warn'; st.textContent = e.message; }
+    btn.disabled = false; renderShop();
+  };
+  $('btn-shop-close').onclick = () => {
+    hide('shop');
+    if (shopReturn === 'hangar') { showHangar('shop'); shopReturn = null; }
+    else { shopReturn = null; showMenu(); }
+  };
 
   // Pilot profile: name, Sign in with Apple, restore code.
   function renderProfile() {
@@ -3469,6 +3671,22 @@
     btn.disabled = false;
   };
   $('ld-restore-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('btn-ld-restore-go').click(); e.stopPropagation(); });
+  // In the app, a returning pilot can also sign in with Apple.
+  $('btn-ld-apple').style.display = Online.appleAvailable() ? '' : 'none';
+  $('btn-ld-apple').onclick = async () => {
+    const btn = $('btn-ld-apple'), st = $('ld-status');
+    btn.disabled = true; st.className = 'small'; st.textContent = 'Signing in…';
+    try {
+      const p = await Online.signInWithApple();
+      Online.Store.set(WELCOMED, true);
+      showMenu();
+      toast(`Welcome back, ${p.name}. Your stars are restored.`, 2.5);
+    } catch (e) {
+      st.className = 'small warn';
+      st.textContent = e.offline ? 'You\'re offline. Try again when you\'re connected.' : e.message;
+    }
+    btn.disabled = false;
+  };
 
   // ---------------------------------------------------------------- boot
   const qs = new URLSearchParams(location.search);
