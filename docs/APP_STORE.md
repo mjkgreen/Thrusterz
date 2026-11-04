@@ -142,26 +142,32 @@ Leaderboards (Classic, High Score first, Integer, best score kept):
 | `thrusterz.world3_score` | No-Fly Zones |
 | `thrusterz.world4_score` | Pulsar |
 
-Achievements (not hidden, achievable once; 920 of Apple's 1000 points):
+Achievements (not hidden, achievable once). Apple allows 1000 points per
+game in all (at most 100 each); these use 390, leaving about 600 for future
+worlds (75 each: 25 for finishing a world, 50 for three stars on all of it):
 
 | ID | Name | Description | Points |
 | --- | --- | --- | --- |
-| `thrusterz.first_mission` | Liftoff | Complete your first mission | 10 |
-| `thrusterz.first_three_stars` | Textbook | Earn three stars on a mission | 10 |
-| `thrusterz.training_complete` | Cadet | Complete every Training mission | 20 |
-| `thrusterz.training_perfect` | Top Cadet | Three stars on every Training mission | 20 |
-| `thrusterz.world1_complete` | Flight School Graduate | Complete every mission in World 1 | 40 |
-| `thrusterz.world1_perfect` | Flight School Ace | Three stars on every mission in World 1 | 80 |
-| `thrusterz.world2_complete` | Payload Specialist | Complete every mission in World 2 | 50 |
-| `thrusterz.world2_perfect` | Payload Ace | Three stars on every mission in World 2 | 90 |
-| `thrusterz.world3_complete` | Zone Runner | Complete every mission in World 3 | 60 |
-| `thrusterz.world3_perfect` | No-Fly Ace | Three stars on every mission in World 3 | 100 |
-| `thrusterz.world4_complete` | Pulsar Pilot | Complete every mission in World 4 | 80 |
-| `thrusterz.world4_perfect` | Pulsar Ace | Three stars on every mission in World 4 | 100 |
-| `thrusterz.stars_50` | Fifty Stars | Hold 50 stars | 30 |
-| `thrusterz.stars_150` | Star Collector | Hold 150 stars | 50 |
-| `thrusterz.stars_300` | Constellation | Hold 300 stars | 80 |
-| `thrusterz.stars_all` | Every Star | Hold every star in the game | 100 |
+| `thrusterz.first_mission` | Liftoff | Complete your first mission | 5 |
+| `thrusterz.first_three_stars` | Textbook | Earn three stars on a mission | 5 |
+| `thrusterz.training_complete` | Cadet | Complete every Training mission | 10 |
+| `thrusterz.training_perfect` | Top Cadet | Three stars on every Training mission | 10 |
+| `thrusterz.world1_complete` | Flight School Graduate | Complete every mission in World 1 | 25 |
+| `thrusterz.world1_perfect` | Flight School Ace | Three stars on every mission in World 1 | 50 |
+| `thrusterz.world2_complete` | Payload Specialist | Complete every mission in World 2 | 25 |
+| `thrusterz.world2_perfect` | Payload Ace | Three stars on every mission in World 2 | 50 |
+| `thrusterz.world3_complete` | Zone Runner | Complete every mission in World 3 | 25 |
+| `thrusterz.world3_perfect` | No-Fly Ace | Three stars on every mission in World 3 | 50 |
+| `thrusterz.world4_complete` | Pulsar Pilot | Complete every mission in World 4 | 25 |
+| `thrusterz.world4_perfect` | Pulsar Ace | Three stars on every mission in World 4 | 50 |
+| `thrusterz.stars_50` | Fifty Stars | Hold 50 stars | 10 |
+| `thrusterz.stars_150` | Star Collector | Hold 150 stars | 20 |
+| `thrusterz.stars_300` | Constellation | Hold 300 stars | 30 |
+
+A new world N gets `thrusterz.worldN_complete` and `thrusterz.worldN_perfect`
+automatically from the code; create them in App Store Connect when it ships.
+There's no "every star" achievement on purpose: the total grows with each
+world. Star milestones can be added (e.g. 500) by extending `GC_STAR_MARKS`.
 
 An ID that isn't set up yet is simply skipped (and tried again later).
 
