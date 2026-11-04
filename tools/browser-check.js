@@ -59,6 +59,12 @@ const check = (name, ok, info) => { console.log((ok ? 'ok   ' : 'FAIL ') + name 
         await p.waitForTimeout(400);
         r = await p.evaluate(() => { const S = window.Thrusterz.state; return { t: S.mission.t, status: S.mission.status, paused: S.paused }; });
       }
+      // Slow frames aren't a stall (headless WebKit on CI can run the first
+      // mission at a few frames a second): give the clock a few seconds.
+      if (r.status === 'flying' && !(r.t > t0)) {
+        await p.waitForFunction((t0) => { const m = window.Thrusterz.state.mission; return m.status !== 'flying' || m.t > t0; }, t0, { timeout: 3000 }).catch(() => {});
+        r = await p.evaluate(() => { const S = window.Thrusterz.state; return { t: S.mission.t, status: S.mission.status, paused: S.paused }; });
+      }
       if (r.status === 'flying' && !(r.t > t0)) {
         // Say why: which screen, overlays, and whether frames are arriving.
         const why = await p.evaluate(async () => {
