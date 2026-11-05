@@ -15,7 +15,9 @@ What's in the app:
   `tools/brand/render-mobile.js`).
 - Native storage for progress and the account (AsyncStorage, not cleared by
   iOS like web storage can be), **Sign in with Apple**, haptics, links open
-  in Safari. The web side of this is `js/bridge.js`.
+  in Safari, **Game Center** (`mobile/modules/game-center`) and the App
+  Store rating prompt (`expo-store-review`). The web side of this is
+  `js/bridge.js`.
 - Privacy manifest and "no encryption" export answer in `mobile/app.json`.
 
 The online side (accounts, cloud save, restore codes, leaderboards with
@@ -115,6 +117,58 @@ just run the build and submit commands again.
 - Export compliance is already answered in the app (`ITSAppUsesNonExemptEncryption = NO`).
 
 Then **Add for Review → Submit**.
+
+## 6. Game Center and ratings
+
+The app signs in to Game Center at launch (`com.apple.developer.game-center`
+entitlement in `mobile/app.json`; EAS turns the capability on), posts totals
+to leaderboards and unlocks achievements from the stars a player holds, so
+stars won before Game Center, or synced from another device, count too
+(`js/game.js`, "Game Center, App Store"). A **Game Center** button shows on
+the menu once signed in. Our own leaderboards stay the replay-checked ones.
+
+In App Store Connect: the app → **Features → Game Center**, create these
+with exactly these IDs, then on the version page tick **Game Center** and
+add them. Test with a Game Center sandbox account on a TestFlight build.
+
+Leaderboards (Classic, High Score first, Integer, best score kept):
+
+| ID | Name |
+| --- | --- |
+| `thrusterz.total_stars` | Total Stars |
+| `thrusterz.total_score` | Total Score |
+| `thrusterz.world1_score` | Flight School |
+| `thrusterz.world2_score` | Payloads |
+| `thrusterz.world3_score` | No-Fly Zones |
+| `thrusterz.world4_score` | Pulsar |
+
+Achievements (not hidden, achievable once; 920 of Apple's 1000 points):
+
+| ID | Name | Description | Points |
+| --- | --- | --- | --- |
+| `thrusterz.first_mission` | Liftoff | Complete your first mission | 10 |
+| `thrusterz.first_three_stars` | Textbook | Earn three stars on a mission | 10 |
+| `thrusterz.training_complete` | Cadet | Complete every Training mission | 20 |
+| `thrusterz.training_perfect` | Top Cadet | Three stars on every Training mission | 20 |
+| `thrusterz.world1_complete` | Flight School Graduate | Complete every mission in World 1 | 40 |
+| `thrusterz.world1_perfect` | Flight School Ace | Three stars on every mission in World 1 | 80 |
+| `thrusterz.world2_complete` | Payload Specialist | Complete every mission in World 2 | 50 |
+| `thrusterz.world2_perfect` | Payload Ace | Three stars on every mission in World 2 | 90 |
+| `thrusterz.world3_complete` | Zone Runner | Complete every mission in World 3 | 60 |
+| `thrusterz.world3_perfect` | No-Fly Ace | Three stars on every mission in World 3 | 100 |
+| `thrusterz.world4_complete` | Pulsar Pilot | Complete every mission in World 4 | 80 |
+| `thrusterz.world4_perfect` | Pulsar Ace | Three stars on every mission in World 4 | 100 |
+| `thrusterz.stars_50` | Fifty Stars | Hold 50 stars | 30 |
+| `thrusterz.stars_150` | Star Collector | Hold 150 stars | 50 |
+| `thrusterz.stars_300` | Constellation | Hold 300 stars | 80 |
+| `thrusterz.stars_all` | Every Star | Hold every star in the game | 100 |
+
+An ID that isn't set up yet is simply skipped (and tried again later).
+
+**Ratings:** after a three-star win, once a player has flown 8 missions,
+the app asks iOS for its rating prompt, at most once every four months (iOS
+itself shows it at most three times a year, and never in TestFlight).
+Settings also has a **Rate Thrusterz** link to the App Store review page.
 
 ## Android later
 
