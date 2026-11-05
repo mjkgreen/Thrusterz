@@ -23,6 +23,7 @@ const REELS = {
     { id: 'nofly', from: 30, to: 70, secs: 3.2, eyebrow: 'Live trajectory prediction', title: 'See your path before you burn.' },
     { id: 'asteroidrun', from: 22, to: 50, secs: 3.2, eyebrow: 'No-Fly Zones', title: 'Weave through asteroid fields.' },
     { id: 'granddeploy', from: 120, to: 175, secs: 3.2, eyebrow: 'Payloads', title: 'Deploy satellites. Drop stages.' },
+    { id: 'widdershins', from: 5, to: 160, secs: 3.4, eyebrow: 'World 4 · Pulsar', title: 'Outrun the radiation beams.' },
     { card: 'end', secs: 2.6 },
   ],
   liftoff: [
@@ -32,7 +33,7 @@ const REELS = {
   ],
   deep: [
     { id: 'longhaul', from: 60, to: 160, secs: 4.5, eyebrow: 'The Long Haul', title: 'Thread the no-fly zones.' },
-    { id: 'test-horizon', from: 10, to: 136, secs: 5, eyebrow: 'Experimental missions', title: 'Black holes and wormholes.' },
+    { id: 'beacon', from: 2, to: 140, secs: 5, eyebrow: 'World 4 · Pulsar', title: 'Hide in the shadow. Dodge the beam.' },
     { card: 'end', secs: 2.4 },
   ],
 };

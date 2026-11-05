@@ -34,14 +34,14 @@ Five worlds of missions, from your first launch to grand tours:
 01 Flight School: orbit, land, dock, go interplanetary
 02 Payloads: staging and satellites
 03 No-Fly Zones: keep-out areas and asteroids
-04 Pulsar: hide from sweeping radiation beams
+04 Pulsar: hide from sweeping radiation beams, storms and belts
 No physics knowledge needed: Training teaches you as you fly.
 
-**post-08.png · Experimental**
-Black holes and wormholes. The experimental missions are for pilots who've mastered everything else. Can you thread the gate?
+**post-08.png · World 4: Pulsar**
+Hide in the shadow. Dodge the beam. In World 4, pulsars sweep radiation round like a lighthouse: duck into a moon's shadow, time your pass between sweeps, and keep your dose under the limit. Storms, radiation belts and magnetotails join in later.
 
 **post-09.png · Play**
-Your first flight takes 20 seconds. Free, no ads, no tracking, no sign-up. Play in your browser at thrusterz.com, sideways on any phone, or get the iPhone app. Link in bio.
+Your first flight takes 20 seconds. Free, no tracking, no sign-up. Play in your browser at thrusterz.com, sideways on any phone, or get the iPhone app. Link in bio.
 
 ---
 
@@ -52,11 +52,11 @@ gameplay, flown by the game's own mission autopilot. The top of each frame
 holds the caption; the bottom ~25% is kept clear for Instagram's buttons.
 To rebuild: `node tools/brand/reel.js [trailer|liftoff|deep]` (needs ffmpeg).
 
-**reel-trailer.mp4 · 17s · the launch trailer**
-Real orbital physics, one burn at a time. Launch, orbit, thread asteroid fields and drop satellites into place. Free in your browser at thrusterz.com 🚀
+**reel-trailer.mp4 · 20s · the launch trailer**
+Real orbital physics, one burn at a time. Launch, orbit, thread asteroid fields, drop satellites into place and outrun a pulsar's radiation beams. Free in your browser at thrusterz.com, and on iPhone 🚀
 
 **reel-liftoff.mp4 · 11s · launch to orbit**
 From the launch pad to orbit. Burn up, tip over, and let gravity curve your path into an orbit. Use less fuel, earn more stars. Can you do it in under par?
 
-**reel-deep.mp4 · 11s · no-fly zones and a black hole**
-Thread the no-fly zones, then slingshot around a black hole to hit the gate. The experimental missions are for pilots who've mastered everything else.
+**reel-deep.mp4 · 12s · no-fly zones and World 4**
+Thread the no-fly zones, then take on World 4: a pulsar sweeps its beams round like a lighthouse, and the only safe place is the sharp shadow behind a moon. Arrive as the beam does and the shadow hides you.
