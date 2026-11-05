@@ -3294,7 +3294,7 @@
   const sumOf = (o) => Object.values(o).reduce((a, b) => a + b, 0);
   function gcEarned() {
     const ids = [], P = 'thrusterz.';
-    const stars = progress.stars, total = sumOf(stars), all = LEVELS.filter(l => !l.test).length * 3;
+    const stars = progress.stars, total = sumOf(stars);
     if (Object.keys(stars).length) ids.push(P + 'first_mission');
     if (Object.values(stars).some(s => s >= 3)) ids.push(P + 'first_three_stars');
     for (const w of WORLDS) {
@@ -3304,8 +3304,8 @@
       if (ls.every(l => stars[l.id])) ids.push(P + tag + '_complete');
       if (ls.every(l => stars[l.id] >= 3)) ids.push(P + tag + '_perfect');
     }
+    // No "every star" achievement: the total grows with each new world.
     for (const n of GC_STAR_MARKS) if (total >= n) ids.push(P + 'stars_' + n);
-    if (total >= all) ids.push(P + 'stars_all');
     return ids;
   }
   function gcScores() {
