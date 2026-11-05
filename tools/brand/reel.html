@@ -1,0 +1,66 @@
+<!doctype html>
+<!-- Overlays and cards for the Instagram reels (1080×1920). tools/brand/reel.js
+     renders each element by id: #card-* as full frames, #cap as a transparent
+     caption overlay whose text it fills in per clip. -->
+<html><head><meta charset="utf-8">
+<link rel="stylesheet" href="../../fonts/fonts.css">
+<style>
+:root { --bg: #05060d; --text: #dfe6ff; --body: #c4cdee; --muted: #8592b8; --accent: #7cf7d4; --on-accent: #04211a; --gold: #ffd166;
+  --sans: "Exo 2", system-ui, sans-serif; --mono: "JetBrains Mono", ui-monospace, monospace; }
+html, body { margin: 0; background: transparent; }
+.frame { position: relative; width: 1080px; height: 1920px; overflow: hidden; font-family: var(--sans); color: var(--text); }
+.card { background: var(--bg); display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 48px; padding: 0 90px; box-sizing: border-box; }
+.logo { font-weight: 800; font-size: 150px; letter-spacing: .12em; line-height: 1; background: linear-gradient(180deg, #fff 0%, #9fc0ff 60%, #6a7dff 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.tag { font: 400 32px var(--mono); letter-spacing: .22em; text-transform: uppercase; color: var(--muted); }
+.big { font-weight: 800; font-size: 96px; line-height: 1.05; margin: 0; }
+.sub { font-size: 42px; line-height: 1.4; color: var(--body); margin: 0; }
+.btn { padding: 34px 70px; border-radius: 22px; background: var(--accent); color: var(--on-accent); font: 800 52px var(--sans); }
+.chips { display: flex; gap: 16px; flex-wrap: wrap; justify-content: center; }
+.chips span { padding: 12px 26px; border-radius: 999px; border: 1px solid rgba(140,170,255,.16); background: rgba(10,14,30,.8); font: 400 28px var(--mono); }
+.icon { border-radius: 22%; box-shadow: 0 30px 100px rgba(0,0,0,.6); }
+.stars { position: absolute; inset: 0; }
+.stars i { position: absolute; border-radius: 50%; background: #fff; }
+/* Caption overlay: kept inside the reel safe zone (clear of the top bar and the bottom UI). */
+#cap .shade { position: absolute; inset: 0 0 auto 0; height: 760px; background: linear-gradient(rgba(5,6,13,.92) 0%, rgba(5,6,13,.75) 55%, rgba(5,6,13,0) 100%); }
+#cap .txt { position: absolute; left: 80px; right: 120px; top: 250px; }
+#cap .eyebrow { font: 400 30px var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--accent); }
+#cap h1 { margin: 20px 0 0; font-weight: 800; font-size: 92px; line-height: 1.02; }
+#cap .mark { position: absolute; left: 80px; top: 120px; display: flex; align-items: center; gap: 16px; font: 600 32px var(--sans); }
+#cap .mark img { width: 60px; height: 60px; border-radius: 22%; }
+</style></head><body>
+
+<div class="frame card" id="card-open">
+  <div class="stars"></div>
+  <img class="icon" src="../../icon.svg" width="380" height="380" alt="">
+  <div class="logo">THRUSTERZ</div>
+  <div class="tag">Orbital mechanics flight</div>
+</div>
+
+<div class="frame card" id="card-score">
+  <div class="stars"></div>
+  <p class="big">Fuel is<br>your score.</p>
+  <div style="font-size:200px;color:var(--gold);letter-spacing:.08em;line-height:1">★★★</div>
+  <p class="sub">Fly under par Δv for three stars.<br>Then race other pilots.</p>
+</div>
+
+<div class="frame card" id="card-end">
+  <div class="stars"></div>
+  <img class="icon" src="../../icon.svg" width="240" height="240" alt="">
+  <p class="big">Your first flight takes 20 seconds.</p>
+  <div class="chips"><span>Free</span><span>No ads</span><span>No tracking</span></div>
+  <div class="btn">thrusterz.com</div>
+  <p class="sub" style="font-size:34px;color:var(--muted)">Browser · any phone · iPhone app</p>
+</div>
+
+<div class="frame" id="cap">
+  <div class="shade"></div>
+  <div class="mark"><img src="../../icon.svg" alt=""><span>Thrusterz</span></div>
+  <div class="txt"><div class="eyebrow"></div><h1></h1></div>
+</div>
+
+<script>
+let s = 7; const rnd = () => (s = (s * 16807) % 2147483647) / 2147483647;
+document.querySelectorAll('.stars').forEach(f => { for (let i = 0; i < 140; i++) { const d = document.createElement('i'); const r = 1 + rnd() * 3.5; Object.assign(d.style, { left: rnd() * 100 + '%', top: rnd() * 100 + '%', width: r + 'px', height: r + 'px', opacity: .15 + rnd() * .6 }); f.appendChild(d); } });
+window.setCaption = (eyebrow, title) => { document.querySelector('#cap .eyebrow').textContent = eyebrow; document.querySelector('#cap h1').textContent = title; };
+</script>
+</body></html>

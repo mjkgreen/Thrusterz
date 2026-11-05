@@ -42,3 +42,21 @@ Black holes and wormholes. The experimental missions are for pilots who've maste
 
 **post-09.png · Play**
 Your first flight takes 20 seconds. Free, no ads, no tracking, no sign-up. Play in your browser at thrusterz.com, sideways on any phone, or get the iPhone app. Link in bio.
+
+---
+
+# Reels
+
+1080×1920, 30 fps, no audio: add a track in Instagram when posting. Real
+gameplay, flown by the game's own mission autopilot. The top of each frame
+holds the caption; the bottom ~25% is kept clear for Instagram's buttons.
+To rebuild: `node tools/brand/reel.js [trailer|liftoff|deep]` (needs ffmpeg).
+
+**reel-trailer.mp4 · 17s · the launch trailer**
+Real orbital physics, one burn at a time. Launch, orbit, thread asteroid fields and drop satellites into place. Free in your browser at thrusterz.com 🚀
+
+**reel-liftoff.mp4 · 11s · launch to orbit**
+From the launch pad to orbit. Burn up, tip over, and let gravity curve your path into an orbit. Use less fuel, earn more stars. Can you do it in under par?
+
+**reel-deep.mp4 · 11s · no-fly zones and a black hole**
+Thread the no-fly zones, then slingshot around a black hole to hit the gate. The experimental missions are for pilots who've mastered everything else.
