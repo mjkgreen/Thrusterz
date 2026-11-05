@@ -1,8 +1,7 @@
 // Thrusterz native shell: runs the web game (bundled as one HTML file, see
 // tools/build-mobile.js) full screen in a WebView and gives it what a web
 // page can't have on its own: storage the OS won't clear, Sign in with
-// Apple, haptics, opening links in Safari, Game Center and the App Store's
-// rating prompt. Messages from the game arrive
+// Apple, haptics and opening links in Safari. Messages from the game arrive
 // through postMessage (js/bridge.js on the web side).
 import { useEffect, useRef, useState } from 'react';
 import { AppState, Linking, Platform, StyleSheet, View } from 'react-native';
@@ -15,8 +14,6 @@ import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Haptics from 'expo-haptics';
 import { setAudioModeAsync, setIsAudioActiveAsync } from 'expo-audio';
 import * as SplashScreen from 'expo-splash-screen';
-import * as StoreReview from 'expo-store-review';
-import GameCenter from './modules/game-center';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -52,8 +49,7 @@ export default function App() {
       const store = {};
       for (const [k, v] of await AsyncStorage.multiGet(KEYS)) if (v != null) store[k] = v;
       const appleSignIn = Platform.OS === 'ios' && (await AppleAuthentication.isAvailableAsync().catch(() => false));
-      const gameCenter = Platform.OS === 'ios' && !!GameCenter;
-      const boot = `window.__THRUSTERZ_NATIVE = ${JSON.stringify({ platform: Platform.OS, store, appleSignIn, gameCenter })}; true;`;
+      const boot = `window.__THRUSTERZ_NATIVE = ${JSON.stringify({ platform: Platform.OS, store, appleSignIn })}; true;`;
       setPage({ html, boot });
     })().catch((e) => {
       setPage({ html: `<body style="background:${BG};color:#dfe6ff;font:16px system-ui;padding:40px">Thrusterz could not start: ${String(e && e.message)}</body>`, boot: 'true;' });
@@ -90,30 +86,6 @@ export default function App() {
         break;
       case 'open':
         if (typeof msg.url === 'string' && /^https:\/\//.test(msg.url)) Linking.openURL(msg.url).catch(() => {});
-        break;
-      // The App Store's own rating prompt. iOS decides whether it shows (at
-      // most three times a year, never in TestFlight).
-      case 'review':
-        if (await StoreReview.hasAction().catch(() => false)) StoreReview.requestReview().catch(() => {});
-        break;
-      case 'gcAuth':
-        if (!GameCenter) { reply(msg.id, true, false); break; }
-        GameCenter.authenticate().then((ok) => reply(msg.id, true, ok), () => reply(msg.id, true, false));
-        break;
-      case 'gcScores':
-        if (GameCenter && Array.isArray(msg.scores)) {
-          for (const s of msg.scores) {
-            if (s && typeof s.board === 'string' && Number.isFinite(s.value)) GameCenter.submitScore(s.board, Math.round(s.value)).catch(() => {});
-          }
-        }
-        break;
-      case 'gcAchieve':
-        if (!GameCenter || !Array.isArray(msg.ids)) { reply(msg.id, true, []); break; }
-        GameCenter.reportAchievements(msg.ids.filter((x) => typeof x === 'string'), msg.banner !== false)
-          .then((done) => reply(msg.id, true, done), () => reply(msg.id, true, []));
-        break;
-      case 'gcShow':
-        if (GameCenter) GameCenter.show(String(msg.view || 'dashboard')).catch(() => {});
         break;
       default:
     }

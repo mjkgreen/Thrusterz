@@ -306,56 +306,6 @@ const check = (name, ok, info) => { console.log((ok ? 'ok   ' : 'FAIL ') + name 
     check('app shell: no page errors', real.length === 0, real.slice(0, 3).join(' | '));
     errors.length = 0;
     await ctx.close();
-
-    // Game Center and the rating prompt, with a shell that has Game Center
-    // signed in and a player who has flown eight missions.
-    const ctx2 = await browser.newContext({ viewport: { width: 844, height: 390 }, isMobile: true, hasTouch: true });
-    const p2 = await ctx2.newPage();
-    watch(p2);
-    await p2.route('https://app.thrusterz.game/', r => r.fulfill({ contentType: 'text/html', body: html }));
-    await p2.route(cfg.THRUSTERZ_CONFIG.apiBase.replace(/\/$/, '') + '/**', r => r.fulfill({ status: 503, contentType: 'application/json',
-      headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'Content-Type, Authorization', 'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS' },
-      body: '{"error":"offline in test"}' }));
-    const flown = Object.fromEntries(require('../js/levels.js').LEVELS.filter(l => !l.test).slice(0, 8).map((l, i) => [l.id, i === 0 ? 3 : 2]));
-    await p2.addInitScript((flown) => {
-      window.__sent = [];
-      window.__THRUSTERZ_NATIVE = { platform: 'ios', appleSignIn: true, gameCenter: true, store: { 'thrusterz.progress.v1': JSON.stringify({ stars: flown, best: {}, unlocked: 8 }) } };
-      window.ReactNativeWebView = { postMessage: (s) => {
-        const m = JSON.parse(s); window.__sent.push(m);
-        if (m.type === 'gcAuth') setTimeout(() => window.__nativeReply(m.id, true, true), 10);
-        if (m.type === 'gcAchieve') setTimeout(() => window.__nativeReply(m.id, true, m.ids), 10);
-      } };
-    }, flown);
-    await p2.goto('https://app.thrusterz.game/');
-    await p2.waitForTimeout(600);
-    const g = await p2.evaluate(async () => {
-      const at = () => window.__sent.length;
-      const launch = window.__sent.slice();
-      const gcButton = getComputedStyle(document.getElementById('btn-gc-menu')).display !== 'none';
-      const rateShown = getComputedStyle(document.querySelector('#settings .rate-only')).display !== 'none';
-      document.getElementById('btn-gc-menu').click();
-      document.getElementById('set-rate').click();
-      const clicks = window.__sent.slice(launch.length);
-      // A three-star win asks for a rating (once).
-      const n0 = at();
-      window.Thrusterz.startLevel(1);
-      const m = window.Thrusterz.state.mission; m.stars = () => 3; m.status = 'won';
-      await new Promise(res => setTimeout(res, 4000));
-      const won = window.__sent.slice(n0);
-      return { launch, gcButton, rateShown, clicks, won, screen: window.Thrusterz.state.screen, sets: won.filter(x => x.type === 'set').map(x => x.key) };
-    });
-    const ach = g.launch.find(x => x.type === 'gcAchieve'), sc = g.launch.find(x => x.type === 'gcScores');
-    check('game center: signs in at launch and catches up achievements without banners',
-      !!ach && ach.banner === false && ach.ids.includes('thrusterz.first_mission') && ach.ids.includes('thrusterz.first_three_stars') && !ach.ids.includes('thrusterz.world1_complete'), JSON.stringify(ach));
-    check('game center: posts total stars', !!sc && sc.scores.some(x => x.board === 'thrusterz.total_stars' && x.value === 17), JSON.stringify(sc));
-    check('game center: the menu button shows once signed in and opens Game Center', g.gcButton && g.clicks.some(x => x.type === 'gcShow'), JSON.stringify(g.clicks));
-    check('rating: Settings link opens the App Store review page', g.rateShown && g.clicks.some(x => x.type === 'open' && /id6821517941\?action=write-review/.test(x.url)), JSON.stringify(g.clicks));
-    check('rating: a three-star win after eight missions asks for a rating; achievements already sent are not re-sent',
-      g.won.some(x => x.type === 'review') && !g.won.some(x => x.type === 'gcAchieve' && x.ids.includes('thrusterz.first_mission')), JSON.stringify(g.won.map(x => x.type)) + ' ' + g.screen + ' ' + g.sets.join(','));
-    const real2 = errors.filter(e => !/Failed to load resource/.test(e));
-    check('game center: no page errors', real2.length === 0, real2.slice(0, 3).join(' | '));
-    errors.length = 0;
-    await ctx2.close();
   }
 
   // 4. Corrupted or outdated saves.

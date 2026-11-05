@@ -13,9 +13,6 @@
       "supportsTablet": true,
       "requireFullScreen": true,
       "usesAppleSignIn": true,
-      "entitlements": {
-        "com.apple.developer.game-center": true
-      },
       "infoPlist": {
         "UIStatusBarHidden": true,
         "UIViewControllerBasedStatusBarAppearance": false,
