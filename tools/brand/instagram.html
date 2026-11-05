@@ -1,0 +1,129 @@
+<!doctype html>
+<!-- Instagram launch posts, 1080×1350 each. Rendered by tools/brand/instagram.js,
+     which passes ?frames=<dir> holding real game frames from tools/store/capture.js. -->
+<html><head><meta charset="utf-8">
+<link rel="stylesheet" href="../../fonts/fonts.css">
+<style>
+:root {
+  --bg: #05060d; --card: rgba(12, 16, 32, 0.92); --panel-border: rgba(140, 170, 255, 0.16);
+  --text: #dfe6ff; --body: #c4cdee; --muted: #8592b8; --accent: #7cf7d4; --on-accent: #04211a;
+  --accent-2: #f78cff; --gold: #ffd166; --warn: #ffb35a; --world-2: #b4f06a; --world-3: #ffaa5a; --world-4: #c8a8ff;
+  --sans: "Exo 2", system-ui, sans-serif; --mono: "JetBrains Mono", ui-monospace, monospace;
+}
+body { margin: 0; background: #000; }
+.post { position: relative; width: 1080px; height: 1350px; overflow: hidden; background: var(--bg); color: var(--text); font-family: var(--sans); margin-bottom: 20px; }
+.copy { position: absolute; left: 72px; right: 72px; top: 84px; }
+.eyebrow { font: 400 24px var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--accent); }
+h1 { margin: 22px 0 0; font-weight: 800; font-size: 84px; line-height: 1.02; letter-spacing: -0.005em; }
+.sub { margin-top: 24px; font-size: 34px; line-height: 1.4; color: var(--body); max-width: 900px; }
+.shot { position: absolute; left: 0; right: 0; bottom: 0; height: 810px; background-size: 132% auto; background-position: 50% 30%; }
+.shot::after { content: ''; position: absolute; inset: auto 0 0 0; height: 200px; background: linear-gradient(rgba(5, 6, 13, 0), var(--bg)); }
+.shot::before { content: ''; position: absolute; inset: 0 0 auto 0; height: 140px; background: linear-gradient(var(--bg), rgba(5, 6, 13, 0)); }
+.foot { position: absolute; left: 72px; right: 72px; bottom: 56px; display: flex; align-items: center; gap: 18px; font: 600 28px var(--sans); }
+.foot img { width: 64px; height: 64px; border-radius: 22%; box-shadow: 0 12px 40px rgba(0,0,0,.5); }
+.foot .url { margin-left: auto; font: 400 26px var(--mono); color: var(--muted); letter-spacing: .06em; }
+.chip { display: inline-block; padding: 10px 22px; border-radius: 999px; border: 1px solid var(--panel-border); background: rgba(10, 14, 30, .8); font: 400 24px var(--mono); letter-spacing: .06em; }
+.logo { font-weight: 800; letter-spacing: .12em; background: linear-gradient(180deg, #fff 0%, #9fc0ff 60%, #6a7dff 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.stars { position: absolute; inset: 0; }
+.stars i { position: absolute; width: 4px; height: 4px; border-radius: 50%; background: #fff; }
+.list { margin-top: 56px; display: grid; gap: 22px; }
+.row { display: grid; grid-template-columns: 72px 1fr; gap: 24px; align-items: baseline; padding: 26px 30px; border-radius: 16px; background: var(--card); border: 1px solid var(--panel-border); }
+.row .n { font: 400 26px var(--mono); }
+.row b { font-size: 38px; font-weight: 800; display: block; }
+.row span { font-size: 26px; color: var(--muted); line-height: 1.35; display: block; margin-top: 6px; }
+.btn { display: inline-block; padding: 30px 64px; border-radius: 20px; background: var(--accent); color: var(--on-accent); font: 800 44px var(--sans); letter-spacing: .02em; box-shadow: 0 12px 40px rgba(0,0,0,.45); }
+</style></head><body>
+
+<!-- 1 · Hello -->
+<section class="post" id="p1">
+  <div class="stars" id="stars1"></div>
+  <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:40px;padding:0 80px">
+    <img src="../../icon.svg" style="width:360px;height:360px;border-radius:22%;box-shadow:0 30px 100px rgba(0,0,0,.6)" alt="">
+    <div class="logo" style="font-size:132px;line-height:1">THRUSTERZ</div>
+    <div style="font:400 28px var(--mono);letter-spacing:.22em;color:var(--muted);text-transform:uppercase">Orbital mechanics flight</div>
+    <div class="sub" style="margin:10px 0 0;font-size:38px">Fly a rocket under real orbital physics. Launch, orbit, slingshot past moons and land, one burn at a time.</div>
+  </div>
+</section>
+
+<!-- 2 · Real physics -->
+<section class="post" id="p2">
+  <div class="shot" data-frame="ipad-apollo-20-b.png"></div>
+  <div class="copy"><div class="eyebrow">Real Newtonian gravity</div><h1>Every planet and moon pulls on you.</h1>
+  <div class="sub">One engine, two side thrusters and a limited fuel tank. Gravity does the rest.</div></div>
+</section>
+
+<!-- 3 · Prediction -->
+<section class="post" id="p3">
+  <div class="shot" data-frame="ipad-nofly-50.png"></div>
+  <div class="copy"><div class="eyebrow">Live trajectory prediction</div><h1>See your path before you burn.</h1>
+  <div class="sub">Burn the wrong way and watch your orbit drift. Burn at the right moment and a tiny nudge carries you to another planet.</div></div>
+</section>
+
+<!-- 4 · Fuel is your score -->
+<section class="post" id="p4">
+  <div class="stars" id="stars4"></div>
+  <div class="copy" style="top:150px">
+    <div class="eyebrow">How you're scored</div>
+    <h1 style="font-size:120px">Fuel is<br>your score.</h1>
+    <div style="margin:64px 0 40px;font-size:180px;color:var(--gold);letter-spacing:.08em;line-height:1">★★★</div>
+    <div class="sub">Three stars for flying under par <span style="font-family:var(--mono)">Δv</span>. Then race other pilots on the leaderboards. Every run is checked and replayed.</div>
+  </div>
+</section>
+
+<!-- 5 · Asteroids -->
+<section class="post" id="p5">
+  <div class="shot" data-frame="ipad-asteroidrun-40.png"></div>
+  <div class="copy"><div class="eyebrow" style="color:var(--world-3)">No-Fly Zones</div><h1>Weave through asteroid fields.</h1>
+  <div class="sub">Keep-out areas, flip burns and a tight side-thruster budget.</div></div>
+</section>
+
+<!-- 6 · Staging -->
+<section class="post" id="p6">
+  <div class="shot" data-frame="ipad-granddeploy-150.png"></div>
+  <div class="copy"><div class="eyebrow" style="color:var(--world-2)">Payloads</div><h1>Deploy satellites. Drop stages.</h1>
+  <div class="sub">Rockets that come apart, and the debris they leave behind. Plan where every piece ends up.</div></div>
+</section>
+
+<!-- 7 · Five worlds -->
+<section class="post" id="p7">
+  <div class="copy" style="top:96px">
+    <div class="eyebrow">From first launch to grand tours</div><h1>Five worlds of missions</h1>
+    <div class="list">
+      <div class="row"><div class="n" style="color:var(--accent)">00</div><div><b>Training</b><span>One control at a time. No physics knowledge needed.</span></div></div>
+      <div class="row"><div class="n" style="color:var(--accent)">01</div><div><b>Flight School</b><span>Orbit, land, dock, transfer between planets.</span></div></div>
+      <div class="row"><div class="n" style="color:var(--world-2)">02</div><div><b>Payloads</b><span>Staging, satellites and debris.</span></div></div>
+      <div class="row"><div class="n" style="color:var(--world-3)">03</div><div><b>No-Fly Zones</b><span>Keep-out areas and asteroid fields.</span></div></div>
+      <div class="row"><div class="n" style="color:var(--world-4)">04</div><div><b>Pulsar</b><span>Hide from sweeping radiation beams.</span></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- 8 · Experimental -->
+<section class="post" id="p8">
+  <div class="shot" data-frame="ipad-test-horizon-30.png" style="background-size:190% auto;background-position:45% 45%"></div>
+  <div class="copy"><div class="eyebrow" style="color:var(--accent-2)">Experimental missions</div><h1>Black holes and wormholes.</h1>
+  <div class="sub">For pilots who've mastered everything else.</div></div>
+</section>
+
+<!-- 9 · Play -->
+<section class="post" id="p9">
+  <div class="stars" id="stars9"></div>
+  <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:44px;padding:0 80px">
+    <img src="../../icon.svg" style="width:220px;height:220px;border-radius:22%;box-shadow:0 20px 70px rgba(0,0,0,.6)" alt="">
+    <h1 style="margin:0;font-size:104px">Your first flight takes 20 seconds.</h1>
+    <div style="display:flex;gap:16px;flex-wrap:wrap;justify-content:center"><span class="chip">Free</span><span class="chip">No ads</span><span class="chip">No tracking</span><span class="chip">No sign-up</span></div>
+    <span class="btn">Play at thrusterz.com</span>
+    <div class="sub" style="margin:0;font-size:30px;color:var(--muted)">In your browser, on any phone, and in the iPhone app.</div>
+  </div>
+</section>
+
+<script>
+const frames = new URLSearchParams(location.search).get('frames') || 'frames';
+document.querySelectorAll('[data-frame]').forEach(el => { el.style.backgroundImage = `url("${frames}/${el.dataset.frame}")`; });
+// Footer with the mark and the URL on every gameplay post.
+document.querySelectorAll('.post').forEach(p => { if (p.querySelector('.shot')) p.insertAdjacentHTML('beforeend', '<div class="foot"><img src="../../icon.svg" alt=""><span>Thrusterz</span><span class="url">thrusterz.com</span></div>'); });
+// A fixed starfield (seeded, so renders are repeatable).
+let s = 7; const rnd = () => (s = (s * 16807) % 2147483647) / 2147483647;
+document.querySelectorAll('.stars').forEach(f => { for (let i = 0; i < 90; i++) { const d = document.createElement('i'); const r = 1 + rnd() * 3; Object.assign(d.style, { left: rnd() * 100 + '%', top: rnd() * 100 + '%', width: r + 'px', height: r + 'px', opacity: .15 + rnd() * .6 }); f.appendChild(d); } });
+</script>
+</body></html>
