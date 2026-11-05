@@ -44,11 +44,15 @@ const PREVIEW = [
   ['widdershins', 5, 200, 4.5, 'Outrun the radiation'],
 ];
 
+// Copy sits in the upper part, on the side away from the ship: the App Store
+// lays the icon, name and Get button along the bottom.
+const PULSAR_COPY = { side: 'right', eyebrow: 'Orbital mechanics flight game', title: 'Real gravity.<br>Real orbits.', sub: 'Launch, slingshot past moons and dodge pulsar beams across 124 missions.', tags: 'Free to play · No tracking' };
+const LAUNCH_COPY = { side: 'left', eyebrow: 'Orbital mechanics flight game', title: 'Every planet<br>pulls on you.', sub: 'Launch, orbit, slingshot and land, one burn at a time.', tags: '124 missions · Free to play' };
 const HEADERS = [
-  { file: 'header-5244x2950.png', w: 5244, h: 2950, vp: [874, 492], dpr: 6, scene: { id: 'beacon', t: 62 } },
-  { file: 'header-3840x1646.png', w: 3840, h: 1646, vp: [960, 412], dpr: 4, scene: { id: 'beacon', t: 62 } },
-  { file: 'header-alt-5244x2950.png', w: 5244, h: 2950, vp: [874, 492], dpr: 6, scene: { id: 'apollo', t: 20, burn: 300 } },
-  { file: 'header-alt-3840x1646.png', w: 3840, h: 1646, vp: [960, 412], dpr: 4, scene: { id: 'apollo', t: 20, burn: 300 } },
+  { file: 'header-5244x2950.png', w: 5244, h: 2950, vp: [874, 492], dpr: 6, scene: { id: 'beacon', t: 62 }, copy: PULSAR_COPY },
+  { file: 'header-3840x1646.png', w: 3840, h: 1646, vp: [960, 412], dpr: 4, scene: { id: 'beacon', t: 62 }, copy: PULSAR_COPY },
+  { file: 'header-alt-5244x2950.png', w: 5244, h: 2950, vp: [874, 492], dpr: 6, scene: { id: 'apollo', t: 20, burn: 300 }, copy: LAUNCH_COPY },
+  { file: 'header-alt-3840x1646.png', w: 3840, h: 1646, vp: [960, 412], dpr: 4, scene: { id: 'apollo', t: 20, burn: 300 }, copy: LAUNCH_COPY },
 ];
 
 // Some progress so the menu looks lived in (as tools/store/make.js).
@@ -175,6 +179,28 @@ async function preview(out, tmp) {
   console.log(file);
 }
 
+function headerPage(a, raw) {
+  const c = a.copy, u = (v) => Math.round(v * a.h) + 'px', right = c.side === 'right';
+  return `<!doctype html><html><head><meta charset="utf-8"><style>${fontCss()}
+  body { margin: 0; width: ${a.w}px; height: ${a.h}px; overflow: hidden; background: #05060d; font-family: "Exo 2", system-ui, sans-serif; color: #dfe6ff; }
+  .scene { position: absolute; inset: 0; background: url(data:image/png;base64,${b64(raw)}) center / cover; }
+  .shade { position: absolute; inset: 0; background:
+    linear-gradient(${right ? 270 : 90}deg, rgba(5,6,13,.9) 0%, rgba(5,6,13,.72) ${right ? 34 : 26}%, rgba(5,6,13,0) ${right ? 58 : 44}%),
+    radial-gradient(110% 80% at 0% 100%, rgba(5,6,13,.7), rgba(5,6,13,0) 55%); }
+  .copy { position: absolute; top: ${u(0.11)}; ${right ? 'right' : 'left'}: ${Math.round(a.w * 0.06)}px; width: ${Math.round(a.w * (right ? 0.42 : 0.36))}px; }
+  .eb { font: 400 ${u(0.03)} "JetBrains Mono", monospace; letter-spacing: .16em; text-transform: uppercase; color: #7cf7d4; }
+  .eb::before { content: ''; display: inline-block; width: ${u(0.014)}; height: ${u(0.014)}; border-radius: 50%; background: #7cf7d4; box-shadow: 0 0 ${u(0.02)} #7cf7d4; margin-right: ${u(0.018)}; vertical-align: ${u(0.004)}; }
+  h1 { margin: ${u(0.03)} 0 0; font-weight: 800; font-size: ${u(0.115)}; line-height: .98; letter-spacing: -.005em;
+    background: linear-gradient(180deg, #fff 0%, #dbe6ff 60%, #a9bcff 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .sub { margin-top: ${u(0.035)}; font-size: ${u(0.042)}; line-height: 1.35; color: #c4cdee; }
+  .tags { margin-top: ${u(0.03)}; font: 400 ${u(0.028)} "JetBrains Mono", monospace; letter-spacing: .08em; color: #ffd166; }
+  </style></head><body><div class="scene"></div><div class="shade"></div>
+  <div class="copy"><div class="eb">${c.eyebrow}</div><h1>${c.title}</h1><div class="sub">${c.sub}</div><div class="tags">${c.tags}</div></div>
+  <script>for (const sel of ['h1', '.eb']) { const e = document.querySelector(sel); e.style.whiteSpace = 'nowrap'; let z = parseFloat(getComputedStyle(e).fontSize);
+    while (e.scrollWidth > e.clientWidth && z > 10) e.style.fontSize = (z -= 2) + 'px'; }</script>
+  </body></html>`;
+}
+
 async function header(out, tmp) {
   for (const a of HEADERS) {
     cap.DEVICES.art = { viewport: { width: a.vp[0], height: a.vp[1] }, deviceScaleFactor: a.dpr };
@@ -184,12 +210,11 @@ async function header(out, tmp) {
     const raw = path.join(tmp, 'header.png');
     await cap.shot(page, a.scene.id, a.scene.t, 0, raw, a.scene.burn);
     await close();
-    // Exact size, plus a soft darkening at the lower left where the App Store sets the name.
+    // Exact size, the copy, and a soft darkening at the lower left where the App Store sets the name.
     const browser = await playwright.chromium.launch();
     const p = await browser.newPage({ viewport: { width: a.w, height: a.h }, deviceScaleFactor: 1 });
-    await p.setContent(`<body style="margin:0;background:#05060d;overflow:hidden">
-      <div style="position:absolute;inset:0;background:url(data:image/png;base64,${b64(raw)}) center / cover"></div>
-      <div style="position:absolute;inset:0;background:radial-gradient(120% 90% at 0% 100%, rgba(5,6,13,.75), rgba(5,6,13,0) 55%)"></div></body>`);
+    await p.setContent(headerPage(a, raw));
+    await p.evaluate(() => document.fonts.ready);
     await p.waitForTimeout(200);
     await p.screenshot({ path: path.join(out, a.file) });
     await browser.close();
