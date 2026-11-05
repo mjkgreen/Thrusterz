@@ -60,3 +60,11 @@ From the launch pad to orbit. Burn up, tip over, and let gravity curve your path
 
 **reel-deep.mp4 · 12s · no-fly zones and World 4**
 Thread the no-fly zones, then take on World 4: a pulsar sweeps its beams round like a lighthouse, and the only safe place is the sharp shadow behind a moon. Arrive as the beam does and the shadow hides you.
+
+**reel-husband.mp4 · 16.5s · cut to "Where Is My Husband!" (RAYE)**
+Cut on a 116.5 BPM beat grid: 8 bars, 32 beats, every cut on a beat. The file is
+silent: in Instagram, tap the music button, pick "Where Is My Husband!" by RAYE,
+and slide the start so a strong downbeat (the start of a bar) lands on frame one.
+The fast cuts start at bar 3 (4.1s), "Wait… is that him?" at bar 5 (8.2s),
+"FOUND HIM." at bar 7 (12.4s).
+Caption: When your rocket loses its other half 🚀💔 Every orbit, every asteroid field, every pulsar beam… until you finally line up the rendezvous. Free to play at thrusterz.com and on iPhone.

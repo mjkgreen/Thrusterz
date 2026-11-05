@@ -36,12 +36,28 @@ const REELS = {
     { id: 'beacon', from: 2, to: 140, secs: 5, eyebrow: 'World 4 · Pulsar', title: 'Hide in the shadow. Dodge the beam.' },
     { card: 'end', secs: 2.4 },
   ],
+  // Cut to a song's beat (add the song in Instagram): 116.5 BPM, 8 bars. Lengths
+  // are in beats; every cut lands on a frame of the beat grid.
+  husband: { bpm: 116.5, segs: [
+    { id: 'beamrescue', from: 270, to: 330, beats: 8, eyebrow: 'POV', title: 'Your rocket lost its other half' },
+    { id: 'nofly', from: 40, to: 52, beats: 1, punch: 'Not here.' },
+    { id: 'asteroidrun', from: 30, to: 40, beats: 1, punch: 'Not here.' },
+    { id: 'granddeploy', from: 140, to: 156, beats: 1, punch: 'Not here.' },
+    { id: 'longhaul', from: 100, to: 124, beats: 1, punch: 'Not here.' },
+    { id: 'beacon', from: 50, to: 70, beats: 1, punch: 'NOT HERE.' },
+    { id: 'widdershins', from: 60, to: 90, beats: 1, punch: 'NOT HERE.' },
+    { id: 'apollo', from: 10, to: 20, beats: 1, punch: 'Where is he?!' },
+    { id: 'satellite', from: 20, to: 32, beats: 1, punch: 'Where is he?!' },
+    { id: 'stationstop', from: 0, to: 25.5, beats: 8, eyebrow: 'Wait…', title: 'is that him?' },
+    { id: 'stationstop', from: 25.5, to: 30.2, beats: 4, punch: 'FOUND HIM.', punchClass: 'found' },
+    { card: 'end', beats: 4, fadeOut: false },
+  ] },
 };
 
 cap.DEVICES.reel = { viewport: { width: 540, height: 960 }, deviceScaleFactor: 2 };
 
 const run = (args) => execFileSync('ffmpeg', ['-y', '-loglevel', 'error', ...args]);
-const encode = (input, out, secs) => run([...input, '-t', String(secs), '-r', String(FPS), '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-crf', '18', out]);
+const encode = (input, out, frames) => run([...input, '-frames:v', String(frames), '-r', String(FPS), '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-crf', '18', out]);
 
 (async () => {
   const argv = process.argv.slice(2);
@@ -66,16 +82,25 @@ const encode = (input, out, secs) => run([...input, '-t', String(secs), '-r', St
 
   for (const name of names) {
     const parts = [];
-    for (const [k, seg] of REELS[name].entries()) {
+    const reel = Array.isArray(REELS[name]) ? { segs: REELS[name] } : REELS[name];
+    // Frames per segment: on a beat grid, cut at the frame nearest each beat (no drift).
+    let beat = 0;
+    const frames = reel.segs.map(seg => {
+      if (!reel.bpm) return Math.round(seg.secs * FPS);
+      const a = Math.round(beat * FPS * 60 / reel.bpm); beat += seg.beats;
+      return Math.round(beat * FPS * 60 / reel.bpm) - a;
+    });
+    for (const [k, seg] of reel.segs.entries()) {
       const part = path.join(tmp, `${name}-${k}.mp4`);
+      const n = frames[k], secs = n / FPS, fade = !reel.bpm;
       if (seg.card) {
         const png = path.join(tmp, `card-${seg.card}.png`);
         if (!fs.existsSync(png)) await still('card-' + seg.card, png);
-        encode(['-loop', '1', '-i', png, '-vf', `fade=in:st=0:d=0.25,fade=out:st=${seg.secs - 0.25}:d=0.25`], part, seg.secs);
+        const fades = [`fade=in:st=0:d=0.25`].concat(seg.fadeOut === false ? [] : [`fade=out:st=${secs - 0.25}:d=0.25`]);
+        encode(['-loop', '1', '-i', png, '-vf', fades.join(',')], part, n);
       } else {
         const dir = path.join(tmp, `${name}-${k}`);
         fs.mkdirSync(dir);
-        const n = Math.round(seg.secs * FPS);
         for (let f = 0; f < n; f++) {
           const t = seg.from + (seg.to - seg.from) * f / (n - 1);
           const burning = await page.evaluate(([id, t]) => { window.__stage(id, t, 0); return !!window.Thrusterz.state.mission.__thrust; }, [seg.id, t]);
@@ -84,11 +109,23 @@ const encode = (input, out, secs) => run([...input, '-t', String(secs), '-r', St
           await page.screenshot({ path: path.join(dir, `f${String(f).padStart(4, '0')}.png`) });
           if (burning) await page.keyboard.up('Space');
         }
-        await ov.evaluate(([a, b]) => window.setCaption(a, b), [seg.eyebrow, seg.title]);
-        const capPng = path.join(tmp, `${name}-${k}-cap.png`);
-        await still('cap', capPng);
-        encode(['-framerate', String(FPS), '-i', path.join(dir, 'f%04d.png'), '-i', capPng,
-          '-filter_complex', `[0][1]overlay,fade=in:st=0:d=0.2,fade=out:st=${seg.secs - 0.2}:d=0.2`], part, seg.secs);
+        // Overlays: the caption at the top and/or a word on the beat.
+        const inputs = ['-framerate', String(FPS), '-i', path.join(dir, 'f%04d.png')];
+        const pngs = [];
+        for (const [kind, on] of [['cap', seg.title], ['punch', seg.punch]]) {
+          if (!on) continue;
+          if (kind === 'cap') await ov.evaluate(([a, b]) => window.setCaption(a, b), [seg.eyebrow, seg.title]);
+          else await ov.evaluate(([a, b]) => window.setPunch(a, b), [seg.punch, seg.punchClass]);
+          const png = path.join(tmp, `${name}-${k}-${kind}.png`);
+          await still(kind, png);
+          pngs.push(png);
+        }
+        pngs.forEach(p => inputs.push('-i', p));
+        // [0][1]overlay[o1];[o1][2]overlay[o2] … then the fades.
+        let vf = '', last = '[0]';
+        pngs.forEach((p, i) => { vf += `${last}[${i + 1}]overlay[o${i + 1}];`; last = `[o${i + 1}]`; });
+        vf += `${last}${fade ? `fade=in:st=0:d=0.2,fade=out:st=${secs - 0.2}:d=0.2` : 'null'}`;
+        encode([...inputs, '-filter_complex', vf], part, n);
       }
       parts.push(part);
       console.log(name, k, seg.card || seg.id);
