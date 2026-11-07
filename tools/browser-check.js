@@ -12,7 +12,19 @@ try { playwright = require('playwright'); } catch (e) { playwright = require('/o
 // Served over HTTP like the website and app (WebKit won't load fonts from file://).
 let URL = '';
 let failed = 0;
-const check = (name, ok, info) => { console.log((ok ? 'ok   ' : 'FAIL ') + name + (info ? '  ' + info : '')); if (!ok) failed++; };
+let lastCheck = '(none yet)';
+const check = (name, ok, info) => { console.log((ok ? 'ok   ' : 'FAIL ') + name + (info ? '  ' + info : '')); if (!ok) failed++; lastCheck = name; };
+// A hung page (headless WebKit on CI has stalled mid-run with no output
+// until the job's time limit) fails fast and says where, instead.
+const within = (ms, what, fn) => {
+  let timer;
+  return Promise.race([fn(), new Promise((_, no) => { timer = setTimeout(() => no(new Error(what + ': no answer from the page in ' + ms / 1000 + ' s')), ms); })])
+    .finally(() => clearTimeout(timer));
+};
+setTimeout(() => {
+  console.error('FAIL browser checks still running after 8 minutes; the last check that finished was: ' + lastCheck);
+  process.exit(1);
+}, 8 * 60e3).unref();
 
 (async () => {
   const server = require('./dev-server.js');
@@ -43,7 +55,7 @@ const check = (name, ok, info) => { console.log((ok ? 'ok   ' : 'FAIL ') + name 
     // checking that it never stops.
     await p.evaluate(() => { window.Thrusterz.startLevel(0); document.getElementById('gate').classList.add('hidden'); });
     await p.waitForFunction(() => window.Thrusterz.state.mission.t > 0, null, { timeout: 5000 }).catch(() => {});
-    for (let i = 0; i < n; i++) {
+    for (let i = 0; i < n; i++) await within(60e3, `mission ${i} (${levelIds[i]})`, async () => {
       await p.evaluate((i) => { window.Thrusterz.startLevel(i); document.getElementById('gate').classList.add('hidden'); }, i);
       const t0 = await p.evaluate(() => window.Thrusterz.state.mission.t);
       for (let k = 0; k < 8; k++) {
@@ -90,7 +102,7 @@ const check = (name, ok, info) => { console.log((ok ? 'ok   ' : 'FAIL ') + name 
       } catch (e) {
         throw new Error(`page died fast-forwarding mission ${i} (${levelIds[i]}): ${e.message}`);
       }
-    }
+    });
     check(`all ${n} missions load and run under random input`, errors.length === 0, errors.slice(0, 3).join(' | '));
     check('the game loop never stalls', stalled.length === 0, stalled.join(','));
     errors.length = 0;
