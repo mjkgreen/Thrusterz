@@ -58,6 +58,9 @@ const HEADERS = [
 const CLIPS = [
   { file: 'imessage-2622x1206.png', w: 2622, h: 1206, vp: [874, 402], dpr: 3, scene: { id: 'beacon', t: 62 }, copy: PULSAR_COPY },
   { file: 'imessage-2556x1179.png', w: 2556, h: 1179, vp: [852, 393], dpr: 3, scene: { id: 'beacon', t: 62 }, copy: PULSAR_COPY },
+  // 13" iPad, framed like the iPad screenshots (tools/store/capture.js).
+  { file: 'imessage-ipad-2752x2064.png', w: 2752, h: 2064, vp: [1100, 825], dpr: 2752 / 1100, scene: { id: 'beacon', t: 62 }, copy: PULSAR_COPY },
+  { file: 'imessage-ipad-2732x2048.png', w: 2732, h: 2048, vp: [1092, 819], dpr: 2732 / 1092, scene: { id: 'beacon', t: 62 }, copy: PULSAR_COPY },
 ];
 
 // Some progress so the menu looks lived in (as tools/store/make.js).
