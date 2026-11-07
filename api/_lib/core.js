@@ -117,25 +117,12 @@ function publicPlayer(p) { return { id: p.id, name: p.name, code: p.code, apple:
 // pilot's best verified stars per mission ("vstars:<id>") and grants skins
 // from those, so a skin on the leaderboard was really earned. Once granted a
 // skin stays, even if a mission later changes and its board starts over.
-const LEVEL_LIST = Object.values(LEVEL_BY_ID);
+// (verifiedStars, below, keeps those stars.)
 async function grantSkins(store, p, vstars) {
   const have = new Set(p.skins || []);
   const fresh = Skins.earned(vstars, LEVEL_LIST).filter(id => !Skins.standard(Skins.byId(id)) && !have.has(id));
   if (fresh.length) { p.skins = [...have, ...fresh]; await store.set('player:' + p.id, p); }
   return fresh;
-}
-// Verified stars, filled in from the replays kept for runs flown before the
-// server tracked them (only for missions it has no stars for yet).
-async function verifiedStars(store, p) {
-  const vstars = (await store.get('vstars:' + p.id)) || {};
-  const missing = LEVEL_LIST.filter(L => !vstars[L.id]);
-  if (!missing.length || p.vstarsFilled) return vstars;
-  const bests = await store.mget(missing.map(L => 'best:' + boardKey(L) + ':' + p.id));
-  missing.forEach((L, i) => { const s = bests[i] && bests[i].run && bests[i].run.stars; if (s) vstars[L.id] = s; });
-  p.vstarsFilled = true;
-  await store.set('vstars:' + p.id, vstars);
-  await store.set('player:' + p.id, p);
-  return vstars;
 }
 
 // A device session: "<playerId>.<secret>". Only the secret's hash is stored.
@@ -171,6 +158,27 @@ async function limit(store, key, max, seconds) {
 }
 
 function clientIp(req) { return String(req.headers['x-forwarded-for'] || req.socket && req.socket.remoteAddress || 'local').split(',')[0].trim(); }
+
+// ------------------------------------------------------- verified stars
+// Each pilot's best verified stars per mission ("vstars:<id>"), kept from
+// the runs the server re-flies, so a pilot's profile can't be faked. Runs
+// flown before this was kept are filled in once from the replays stored for
+// leaderboards (only for missions it has no stars for yet).
+const LEVEL_LIST = Object.values(LEVEL_BY_ID);
+async function verifiedStars(store, p) {
+  const vstars = (await store.get('vstars:' + p.id)) || {};
+  if (p.vstarsFilled) return vstars;
+  const missing = LEVEL_LIST.filter(L => !vstars[L.id]);
+  for (let i = 0; i < missing.length; i += 25) {
+    const part = missing.slice(i, i + 25);
+    const bests = await store.mget(part.map(L => 'best:' + boardKey(L) + ':' + p.id));
+    part.forEach((L, k) => { const s = bests[k] && bests[k].run && bests[k].run.stars; if (s) vstars[L.id] = s; });
+  }
+  p.vstarsFilled = true;
+  await store.set('vstars:' + p.id, vstars);
+  await store.set('player:' + p.id, p);
+  return vstars;
+}
 
 // --------------------------------------------------------- Sign in with Apple
 let appleKeys = null, appleKeysAt = 0;
@@ -402,6 +410,36 @@ routes.purchase = route(['POST'], async ({ req, body, store }) => {
   }
   if (!granted.length && rejected.length) throw new HttpError(422, rejected[0]);
   return { player: publicPlayer(p), granted, rejected };
+});
+
+// A pilot's public profile, opened from the leaderboards (?id=<player id>):
+// name, when they started, verified stars and missions cleared, and for each
+// world its stars, total score and place on the world board.
+routes.pilot = route(['GET'], async ({ req, query, store }) => {
+  await limit(store, 'pilot:' + clientIp(req), 120, 60);
+  const id = typeof query.id === 'string' && query.id.length < 40 ? query.id : '';
+  const p = id && await store.get('player:' + id);
+  if (!p) throw new HttpError(404, 'No such pilot');
+  const me = await authed(req, store, true);
+  const vstars = await verifiedStars(store, p);
+  const worlds = [];
+  for (const [n, ls] of Object.entries(WORLD_LEVELS)) {
+    const key = WORLD_KEYS[n] + ':score';
+    const score = await store.zscore(key, p.id), r = score == null ? null : await store.zrank(key, p.id, true);
+    worlds.push({
+      world: +n, missions: ls.length,
+      cleared: ls.filter(L => vstars[L.id]).length,
+      stars: ls.reduce((a, L) => a + (vstars[L.id] || 0), 0),
+      score, rank: r == null ? null : r + 1, pilots: score == null ? null : await store.zcard(key),
+    });
+  }
+  return {
+    pilot: { id: p.id, name: p.name, created: p.created, look: Skins.shownLook(p.look, p.skins) },
+    me: !!me && me.id === p.id,
+    stars: worlds.reduce((a, w) => a + w.stars, 0), maxStars: LEVEL_LIST.length * 3,
+    cleared: worlds.reduce((a, w) => a + w.cleared, 0), missions: LEVEL_LIST.length,
+    worlds,
+  };
 });
 
 // Pilot names other players find offensive: each account may report a name

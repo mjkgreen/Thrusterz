@@ -153,6 +153,22 @@ function signedTxn(payload, pki) {
   check('unknown worlds are refused', (await call('GET', 'board', null, null, { world: 9 })).status === 404 && (await call('GET', 'board', null, null, { world: '__proto__' })).status === 404);
   check('world 2 board starts empty', (await call('GET', 'board', null, tokA, { world: 2, kind: 'score' })).body.total === 0);
 
+  // Pilot profiles: verified stars only, per-world score and place.
+  let pf = await call('GET', 'pilot', null, b.body.token, { id: a.body.player.id });
+  const w1row = pf.body.worlds && pf.body.worlds.find(w => w.world === 1);
+  check('a pilot profile shows verified stars and world standing', pf.status === 200 && pf.body.pilot.name === 'Ace Pilot' && !pf.body.me
+    && pf.body.stars === win.m.stars() && pf.body.cleared === 1 && w1row.score > 0 && w1row.rank === 1 && w1row.pilots === 2, JSON.stringify(pf.body));
+  await call('PUT', 'progress', { progress: { stars: Object.fromEntries(LEVELS.filter(l => !l.test).map(l => [l.id, 3])) } }, tokA);
+  pf = await call('GET', 'pilot', null, null, { id: a.body.player.id });
+  check('claimed stars that were never flown don\'t count', pf.status === 200 && pf.body.stars === win.m.stars(), JSON.stringify({ stars: pf.body.stars }));
+  check('your own profile is marked as yours', (await call('GET', 'pilot', null, tokA, { id: a.body.player.id })).body.me === true);
+  check('unknown pilots are refused', (await call('GET', 'pilot', null, null, { id: 'nobody' })).status === 404 && (await call('GET', 'pilot', null, null, {})).status === 404);
+  // Runs flown before verified stars were kept are filled in from their replays.
+  await store.del('vstars:' + b.body.player.id);
+  const pb = await store.get('player:' + b.body.player.id); delete pb.vstarsFilled; await store.set('player:' + b.body.player.id, pb);
+  pf = await call('GET', 'pilot', null, null, { id: b.body.player.id });
+  check('older runs are counted from their stored replays', pf.body.cleared === 1 && pf.body.stars >= 1, JSON.stringify({ stars: pf.body.stars, cleared: pf.body.cleared }));
+
   // Skins: granted from verified stars only, shown on the boards once earned.
   const look = (body, id) => (body.top.find(e => e.id === id) || {}).look;
   const lookA = await call('PATCH', 'player', { look: { hull: 'checker', flame: 'crimson' } }, tokA);
@@ -186,6 +202,9 @@ function signedTxn(payload, pki) {
   await call('PATCH', 'player', { look: { hull: 'tiger' } }, b.body.token);
   lb = await call('GET', 'board', null, tokA, { level: 'deorbit', kind: 'score' });
   check('a bought skin shows on the leaderboard', look(lb.body, b.body.player.id).hull === 'tiger', JSON.stringify(look(lb.body, b.body.player.id)));
+  await call('PATCH', 'player', { look: { hull: 'tiger', flame: 'pulsar' } }, b.body.token);
+  const pfLook = (await call('GET', 'pilot', null, tokA, { id: b.body.player.id })).body.pilot.look;
+  check('a pilot profile shows their rocket, earned or bought parts only', pfLook.hull === 'tiger' && pfLook.flame === Skins.DEFAULT.flame, JSON.stringify(pfLook));
   const forgedTxn = txn({}).split('.'); forgedTxn[1] = Buffer.from(JSON.stringify({ bundleId: 'com.thrusterz.app', productId: 'com.thrusterz.app.world.all', signedDate: Date.now() })).toString('base64url');
   check('an edited transaction is refused', (await call('POST', 'purchase', { transactions: [forgedTxn.join('.')] }, b.body.token)).status === 422);
   check('a purchase for another app is refused', (await call('POST', 'purchase', { transactions: [txn({ bundleId: 'com.other.app' })] }, b.body.token)).status === 422);

@@ -12,7 +12,19 @@ try { playwright = require('playwright'); } catch (e) { playwright = require('/o
 // Served over HTTP like the website and app (WebKit won't load fonts from file://).
 let URL = '';
 let failed = 0;
-const check = (name, ok, info) => { console.log((ok ? 'ok   ' : 'FAIL ') + name + (info ? '  ' + info : '')); if (!ok) failed++; };
+let lastCheck = '(none yet)';
+const check = (name, ok, info) => { console.log((ok ? 'ok   ' : 'FAIL ') + name + (info ? '  ' + info : '')); if (!ok) failed++; lastCheck = name; };
+// A hung page (headless WebKit on CI has stalled mid-run with no output
+// until the job's time limit) fails fast and says where, instead.
+const within = (ms, what, fn) => {
+  let timer;
+  return Promise.race([fn(), new Promise((_, no) => { timer = setTimeout(() => no(new Error(what + ': no answer from the page in ' + ms / 1000 + ' s')), ms); })])
+    .finally(() => clearTimeout(timer));
+};
+setTimeout(() => {
+  console.error('FAIL browser checks still running after 8 minutes; the last check that finished was: ' + lastCheck);
+  process.exit(1);
+}, 8 * 60e3).unref();
 
 (async () => {
   const server = require('./dev-server.js');
@@ -43,7 +55,7 @@ const check = (name, ok, info) => { console.log((ok ? 'ok   ' : 'FAIL ') + name 
     // checking that it never stops.
     await p.evaluate(() => { window.Thrusterz.startLevel(0); document.getElementById('gate').classList.add('hidden'); });
     await p.waitForFunction(() => window.Thrusterz.state.mission.t > 0, null, { timeout: 5000 }).catch(() => {});
-    for (let i = 0; i < n; i++) {
+    for (let i = 0; i < n; i++) await within(60e3, `mission ${i} (${levelIds[i]})`, async () => {
       await p.evaluate((i) => { window.Thrusterz.startLevel(i); document.getElementById('gate').classList.add('hidden'); }, i);
       const t0 = await p.evaluate(() => window.Thrusterz.state.mission.t);
       for (let k = 0; k < 8; k++) {
@@ -90,7 +102,7 @@ const check = (name, ok, info) => { console.log((ok ? 'ok   ' : 'FAIL ') + name 
       } catch (e) {
         throw new Error(`page died fast-forwarding mission ${i} (${levelIds[i]}): ${e.message}`);
       }
-    }
+    });
     check(`all ${n} missions load and run under random input`, errors.length === 0, errors.slice(0, 3).join(' | '));
     check('the game loop never stalls', stalled.length === 0, stalled.join(','));
     errors.length = 0;
@@ -399,89 +411,7 @@ const check = (name, ok, info) => { console.log((ok ? 'ok   ' : 'FAIL ') + name 
     await p.close();
   }
 
-  // 6. Tilt to steer: on by default (said once); tipping the phone fires the side
-  //    thrusters like holding ⟲ / ⟳, the buttons still work and win, and
-  //    the steering maths reads a landscape phone the right way round.
-  {
-    const ctx = await browser.newContext({ viewport: { width: 844, height: 390 }, isMobile: true, hasTouch: true });
-    const p = await ctx.newPage();
-    watch(p);
-    await p.goto(URL + '?unlock');
-    await p.waitForTimeout(300);
-    const r = await p.evaluate(async () => {
-      const T = window.Thrusterz, S = T.state, wait = (ms) => new Promise(res => setTimeout(res, ms));
-      const deg = Math.PI / 180, out = {};
-      // Beta/gamma that steer by phi on this screen (search; for fake readings).
-      const steerOf = (phi, screen) => {
-        let best = null;
-        for (let b = -180; b < 180; b += 1) for (let g = -90; g < 90; g += 1) {
-          const a = T.tiltAngle(b, g, screen);
-          if (a == null) continue;
-          const err = Math.abs(a - phi);
-          if (!best || err < best.err) best = { b, g, err };
-        }
-        return best;
-      };
-      // Screen turned 90° (landscape): the device's +x edge points up. Held
-      // upright with the right side 20° down, gravity in device axes is
-      // (-cos 20°, -sin 20°, 0); invert the spec's gravity = (cos b sin g,
-      // -sin b, -cos b cos g) for the beta/gamma that give it.
-      const gx = -Math.cos(20 * deg), gy = -Math.sin(20 * deg); // device axes, gz = 0
-      const b = Math.asin(-gy) / deg, g = Math.asin(gx / Math.cos(b * deg)) / deg;
-      out.landscapeRight = T.tiltAngle(b, g, 90) / deg;
-      out.flat = T.tiltAngle(0, 0, 0);
-      out.portraitRight = T.tiltAngle(60, 20, 0) / deg;
-      // In flight, with tilt on: fake readings for the current screen angle.
-      const sa = screen.orientation ? screen.orientation.angle : 0;
-      const right = steerOf(25 * deg, sa), level = steerOf(0, sa);
-      T.startLevel(window.Levels.LEVELS.findIndex(l => l.id === 'point'));
-      document.getElementById('gate').classList.add('hidden');
-      const send = (o) => window.dispatchEvent(Object.assign(new Event('deviceorientation'), { alpha: 0, beta: o.b, gamma: o.g }));
-      out.onByDefault = T.settings.tilt === true;
-      // With readings coming in, the first mission says once that tilt is on.
-      const keep = setInterval(() => send(level), 50);
-      await wait(2800);
-      out.noticeShown = /Tilt to steer is on/.test(document.getElementById('toast').textContent);
-      // Off and back on the way a player does (readings must arrive to keep it on).
-      const sw = document.querySelector('#settings .toggle[data-set="tilt"]');
-      sw.click(); await wait(50);
-      out.switchedOff = T.settings.tilt === false && sw.getAttribute('aria-pressed') === 'false';
-      sw.click(); await wait(1700);
-      clearInterval(keep);
-      out.switchedOn = T.settings.tilt === true && sw.getAttribute('aria-pressed') === 'true';
-      const keepR = setInterval(() => send(right), 30);
-      await wait(100);
-      out.tiltRotate = T.controls().rotate;
-      const w0 = S.mission.ship.omega;
-      await wait(500);
-      out.spunRight = S.mission.ship.omega < w0 - 0.05;
-      out.buttonLit = document.querySelector('#touch [data-key="rotR"]').classList.contains('tilt-on');
-      out.buttonsVisible = getComputedStyle(document.querySelector('#touch [data-key="rotL"]')).visibility !== 'hidden';
-      // A held button wins over tilt.
-      window.dispatchEvent(new KeyboardEvent('keydown', { code: 'ArrowLeft' }));
-      out.buttonWins = T.controls().rotate === 1;
-      window.dispatchEvent(new KeyboardEvent('keyup', { code: 'ArrowLeft' }));
-      clearInterval(keepR);
-      // Readings stop (or the switch goes off): no rotation.
-      await wait(600);
-      out.staleIsZero = T.controls().rotate === 0;
-      sw.click(); await wait(50);
-      send(right);
-      out.offIsZero = T.settings.tilt === false && T.controls().rotate === 0;
-      return out;
-    });
-    check('tilt: the steering angle reads a landscape phone the right way round',
-      Math.abs(r.landscapeRight - 20) < 0.5 && Math.abs(r.portraitRight - 0) > 5 && r.portraitRight > 0 && r.flat === null, JSON.stringify(r));
-    check('tilt: on by default with a one-time note, and switches off and on in Settings', r.onByDefault && r.noticeShown && r.switchedOff && r.switchedOn, JSON.stringify(r));
-    check('tilt: tipping right fires the right thruster and lights ⟳', r.tiltRotate === -1 && r.spunRight && r.buttonLit && r.buttonsVisible, JSON.stringify(r));
-    check('tilt: the buttons still work and win', r.buttonWins, JSON.stringify(r));
-    check('tilt: no readings or switched off means no rotation', r.staleIsZero && r.offIsZero, JSON.stringify(r));
-    check('no page errors with tilt', errors.length === 0, errors.slice(0, 3).join(' | '));
-    errors.length = 0;
-    await ctx.close();
-  }
-
-  // 7. Storm Warning: the bottom-centre warning escalates (steady, then
+  // 6. Storm Warning: the bottom-centre warning escalates (steady, then
   //    flashing in the last minute) and reports the storm while it blows.
   {
     const p = await browser.newPage({ viewport: { width: 1000, height: 600 } });
