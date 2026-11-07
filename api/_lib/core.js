@@ -144,6 +144,27 @@ async function limit(store, key, max, seconds) {
 
 function clientIp(req) { return String(req.headers['x-forwarded-for'] || req.socket && req.socket.remoteAddress || 'local').split(',')[0].trim(); }
 
+// ------------------------------------------------------- verified stars
+// Each pilot's best verified stars per mission ("vstars:<id>"), kept from
+// the runs the server re-flies, so a pilot's profile can't be faked. Runs
+// flown before this was kept are filled in once from the replays stored for
+// leaderboards (only for missions it has no stars for yet).
+const LEVEL_LIST = Object.values(LEVEL_BY_ID);
+async function verifiedStars(store, p) {
+  const vstars = (await store.get('vstars:' + p.id)) || {};
+  if (p.vstarsFilled) return vstars;
+  const missing = LEVEL_LIST.filter(L => !vstars[L.id]);
+  for (let i = 0; i < missing.length; i += 25) {
+    const part = missing.slice(i, i + 25);
+    const bests = await store.mget(part.map(L => 'best:' + boardKey(L) + ':' + p.id));
+    part.forEach((L, k) => { const s = bests[k] && bests[k].run && bests[k].run.stars; if (s) vstars[L.id] = s; });
+  }
+  p.vstarsFilled = true;
+  await store.set('vstars:' + p.id, vstars);
+  await store.set('player:' + p.id, p);
+  return vstars;
+}
+
 // --------------------------------------------------------- Sign in with Apple
 let appleKeys = null, appleKeysAt = 0;
 async function verifyAppleToken(idToken) {
@@ -214,6 +235,7 @@ const routes = {
       await store.zremAll(boards.flatMap(k => [k + ':score', k + ':time']), p.id);
       for (const L of Object.values(LEVEL_BY_ID)) await store.del('best:' + boardKey(L) + ':' + p.id);
       await store.del('progress:' + p.id);
+      await store.del('vstars:' + p.id);
       await store.del('code:' + p.code);
       if (p.appleSub) await store.del('apple:' + p.appleSub);
       await store.del('player:' + p.id);
@@ -291,6 +313,8 @@ const routes = {
     await store.zadd(key + ':time', p.id, run.time, 'LT');
     if (prevScore == null || run.score > prevScore) await store.set('best:' + key + ':' + p.id, { run, log }); // replay kept for ghosts / audits
     const world = await updateWorld(store, worldOf(L), p.id);
+    const vstars = await verifiedStars(store, p);
+    if (!(vstars[L.id] >= run.stars)) { vstars[L.id] = run.stars; await store.set('vstars:' + p.id, vstars); }
     const rank = async (kind) => { const r = await store.zrank(key + ':' + kind, p.id, kind === 'score'); return r == null ? null : r + 1; };
     return { world, run, best: { score: Math.max(run.score, prevScore || 0), time: prevTime == null ? run.time : Math.min(prevTime, run.time) }, rank: { score: await rank('score'), time: await rank('time') }, total: await store.zcard(key + ':score') };
   }),
@@ -321,6 +345,36 @@ const routes = {
     };
   }),
 };
+
+// A pilot's public profile, opened from the leaderboards (?id=<player id>):
+// name, when they started, verified stars and missions cleared, and for each
+// world its stars, total score and place on the world board.
+routes.pilot = route(['GET'], async ({ req, query, store }) => {
+  await limit(store, 'pilot:' + clientIp(req), 120, 60);
+  const id = typeof query.id === 'string' && query.id.length < 40 ? query.id : '';
+  const p = id && await store.get('player:' + id);
+  if (!p) throw new HttpError(404, 'No such pilot');
+  const me = await authed(req, store, true);
+  const vstars = await verifiedStars(store, p);
+  const worlds = [];
+  for (const [n, ls] of Object.entries(WORLD_LEVELS)) {
+    const key = WORLD_KEYS[n] + ':score';
+    const score = await store.zscore(key, p.id), r = score == null ? null : await store.zrank(key, p.id, true);
+    worlds.push({
+      world: +n, missions: ls.length,
+      cleared: ls.filter(L => vstars[L.id]).length,
+      stars: ls.reduce((a, L) => a + (vstars[L.id] || 0), 0),
+      score, rank: r == null ? null : r + 1, pilots: score == null ? null : await store.zcard(key),
+    });
+  }
+  return {
+    pilot: { id: p.id, name: p.name, created: p.created },
+    me: !!me && me.id === p.id,
+    stars: worlds.reduce((a, w) => a + w.stars, 0), maxStars: LEVEL_LIST.length * 3,
+    cleared: worlds.reduce((a, w) => a + w.cleared, 0), missions: LEVEL_LIST.length,
+    worlds,
+  };
+});
 
 // Pilot names other players find offensive: each account may report a name
 // once; after REPORTS_TO_RESET different reporters the name goes back to the

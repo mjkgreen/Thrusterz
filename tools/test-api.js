@@ -119,6 +119,22 @@ function winningLog(wait = 0) {
   check('unknown worlds are refused', (await call('GET', 'board', null, null, { world: 9 })).status === 404 && (await call('GET', 'board', null, null, { world: '__proto__' })).status === 404);
   check('world 2 board starts empty', (await call('GET', 'board', null, tokA, { world: 2, kind: 'score' })).body.total === 0);
 
+  // Pilot profiles: verified stars only, per-world score and place.
+  let pf = await call('GET', 'pilot', null, b.body.token, { id: a.body.player.id });
+  const w1row = pf.body.worlds && pf.body.worlds.find(w => w.world === 1);
+  check('a pilot profile shows verified stars and world standing', pf.status === 200 && pf.body.pilot.name === 'Ace Pilot' && !pf.body.me
+    && pf.body.stars === win.m.stars() && pf.body.cleared === 1 && w1row.score > 0 && w1row.rank === 1 && w1row.pilots === 2, JSON.stringify(pf.body));
+  await call('PUT', 'progress', { progress: { stars: Object.fromEntries(LEVELS.filter(l => !l.test).map(l => [l.id, 3])) } }, tokA);
+  pf = await call('GET', 'pilot', null, null, { id: a.body.player.id });
+  check('claimed stars that were never flown don\'t count', pf.status === 200 && pf.body.stars === win.m.stars(), JSON.stringify({ stars: pf.body.stars }));
+  check('your own profile is marked as yours', (await call('GET', 'pilot', null, tokA, { id: a.body.player.id })).body.me === true);
+  check('unknown pilots are refused', (await call('GET', 'pilot', null, null, { id: 'nobody' })).status === 404 && (await call('GET', 'pilot', null, null, {})).status === 404);
+  // Runs flown before verified stars were kept are filled in from their replays.
+  await store.del('vstars:' + b.body.player.id);
+  const pb = await store.get('player:' + b.body.player.id); delete pb.vstarsFilled; await store.set('player:' + b.body.player.id, pb);
+  pf = await call('GET', 'pilot', null, null, { id: b.body.player.id });
+  check('older runs are counted from their stored replays', pf.body.cleared === 1 && pf.body.stars >= 1, JSON.stringify({ stars: pf.body.stars, cleared: pf.body.cleared }));
+
   // Reporting a pilot name: once per reporter; three different reporters
   // reset it to the neutral default.
   const rowB = (await call('GET', 'board', null, tokA, { level: 'deorbit', kind: 'score' })).body.top.find(e => e.name === 'Second');

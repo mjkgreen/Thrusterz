@@ -152,6 +152,8 @@
     api('POST', 'crash', Object.assign({ version }, info)).catch(() => { /* offline: drop it */ });
   }
 
+  // A pilot's public profile (opened from a leaderboard row).
+  const pilot = (id) => api('GET', 'pilot', null, { id });
   const board = (which, kind) => api('GET', 'board', null, Object.assign({ kind }, typeof which === 'string' ? { level: which } : which));
 
   async function rename(name) {
@@ -223,7 +225,7 @@
 
   const Online = {
     state, Store, start, bindProgress, saveProgressSoon, syncNow, submitRun, board, rename, restore, report, crash,
-    signInWithApple, appleAvailable, ensureAccount, deleteAccount,
+    signInWithApple, appleAvailable, ensureAccount, deleteAccount, pilot,
     available: () => apiBase() != null,
     onChange: (f) => listeners.push(f),
     native,
