@@ -1,5 +1,5 @@
 // Portrait App Store art: screenshots, an app preview and the product-page headers.
-//   node tools/store/vertical.js [shots|preview|header ...] [--out dir]   (default store/vertical, all three)
+//   node tools/store/vertical.js [shots|preview|header|imessage ...] [--out dir]   (default store/vertical, all three)
 // Screenshots (1206×2622 for 6.3", 1179×2556 for 6.1"): the game's own renderer
 // drawing one moment full-bleed, a headline above it, and the real sideways
 // iPhone screen of that same moment as a phone below (the game plays in
@@ -53,6 +53,11 @@ const HEADERS = [
   { file: 'header-3840x1646.png', w: 3840, h: 1646, vp: [960, 412], dpr: 4, scene: { id: 'beacon', t: 62 }, copy: PULSAR_COPY },
   { file: 'header-alt-5244x2950.png', w: 5244, h: 2950, vp: [874, 492], dpr: 6, scene: { id: 'apollo', t: 20, burn: 300 }, copy: LAUNCH_COPY },
   { file: 'header-alt-3840x1646.png', w: 3840, h: 1646, vp: [960, 412], dpr: 4, scene: { id: 'apollo', t: 20, burn: 300 }, copy: LAUNCH_COPY },
+];
+// iMessage art at the landscape iPhone screenshot sizes, in the header style.
+const CLIPS = [
+  { file: 'imessage-2622x1206.png', w: 2622, h: 1206, vp: [874, 402], dpr: 3, scene: { id: 'beacon', t: 62 }, copy: PULSAR_COPY },
+  { file: 'imessage-2556x1179.png', w: 2556, h: 1179, vp: [852, 393], dpr: 3, scene: { id: 'beacon', t: 62 }, copy: PULSAR_COPY },
 ];
 
 // Some progress so the menu looks lived in (as tools/store/make.js).
@@ -201,8 +206,8 @@ function headerPage(a, raw) {
   </body></html>`;
 }
 
-async function header(out, tmp) {
-  for (const a of HEADERS) {
+async function header(out, tmp, list = HEADERS) {
+  for (const a of list) {
     cap.DEVICES.art = { viewport: { width: a.vp[0], height: a.vp[1] }, deviceScaleFactor: a.dpr };
     const { page, close } = await cap.open('art');
     await cap.setup(page);
@@ -230,7 +235,8 @@ if (require.main === module) {
     const what = argv.length ? argv : ['shots', 'header', 'preview'];
     fs.mkdirSync(out, { recursive: true });
     const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'store-'));
-    for (const w of what) await ({ shots, preview, header })[w](out, tmp);
+    const imessage = (o, t) => header(o, t, CLIPS);
+    for (const w of what) await ({ shots, preview, header, imessage })[w](out, tmp);
     fs.rmSync(tmp, { recursive: true, force: true });
   })();
 }
