@@ -590,16 +590,19 @@ button.toggle[aria-pressed="true"]::after { transform: translateX(22px); backgro
 html.short .set-row { padding: 7px 0; }
 
 /* Reporting a name from the leaderboard */
-#board-list li.reportable { cursor: pointer; }
-#board-list li.reportable:hover .nm { text-decoration: underline dotted; }
+#board-list li.tappable { cursor: pointer; }
+#board-list li.tappable:hover .nm { text-decoration: underline dotted; }
 #board-list .hidden-name { color: var(--muted); font-style: italic; }
 .report-bar { margin-top: 10px; padding: 10px 12px; border-radius: 10px; border: 1px solid rgba(255, 107, 107, 0.35); background: rgba(255, 107, 107, 0.08); display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; font-size: 14px; }
 .report-bar .rb { display: flex; gap: 8px; }
 .report-bar button { padding: 7px 12px; border-radius: 9px; border: 1px solid var(--panel-border); background: rgba(255,255,255,0.06); color: var(--text); font: 600 13px var(--sans); cursor: pointer; }
 .board-hint { margin: 8px 0 0; color: var(--muted); }
-html.short #board .report-bar { grid-row: 6; align-self: start; font-size: 12px; padding: 8px; }
 html.short #board .board-hint { grid-row: 6; align-self: end; margin: 0; font-size: 11px; }
-html.short #board .report-bar:not(.hidden) ~ .board-hint { display: none; }
+/* Pilot card on a phone held sideways: the worlds beside the rest. */
+html.short #pilot .card { width: min(880px, 100%); display: grid; grid-template-columns: 1fr 1.15fr; grid-template-rows: auto auto auto auto auto 1fr auto; column-gap: 22px; }
+html.short #pilot .card > * { grid-column: 1; }
+html.short #pilot #pc-worlds { grid-column: 2; grid-row: 1 / -1; margin: 0; align-self: start; max-height: calc(var(--lh, 100vh) - 70px); overflow-y: auto; }
+html.short #pilot .buttons { grid-row: 7; margin-top: 8px; }
 .set-row label { flex: 1; cursor: pointer; }
 .set-row output { width: 3.2em; text-align: right; font-family: var(--mono); font-size: 13px; color: var(--muted); }
 input.vol { -webkit-appearance: none; appearance: none; width: 150px; height: 6px; border-radius: 3px; background: rgba(255,255,255,0.12); outline: none; }
@@ -694,3 +697,15 @@ a.appstore:hover img { filter: brightness(1.25); }
 }
 .menu-foot a:hover { background: rgba(255,255,255,0.1); }
 .ld-info a { color: var(--accent); }
+/* Pilot profile (from a leaderboard row) */
+#pc-name { overflow-wrap: anywhere; }
+#pc-worlds { list-style: none; margin: 12px 0 0; padding: 0; font-family: var(--mono); font-size: 13px; }
+#pc-worlds li { display: grid; grid-template-columns: 1fr 7.5em auto; gap: 4px 12px; align-items: center; padding: 8px 10px; border-radius: 8px; }
+#pc-worlds li:nth-child(odd) { background: rgba(255,255,255,0.03); }
+#pc-worlds .pw-name { font: 700 14px var(--sans); color: var(--text); }
+#pc-worlds .pw-stars { color: var(--gold); white-space: nowrap; }
+#pc-worlds .pw-bar { grid-column: 1 / -1; height: 4px; border-radius: 2px; background: rgba(255,255,255,0.08); overflow: hidden; }
+#pc-worlds .pw-bar span { display: block; height: 100%; background: var(--gold); }
+#pc-worlds .pw-score { text-align: right; color: var(--muted); white-space: nowrap; }
+#pc-worlds .pw-score b { color: var(--text); font-weight: 600; }
+#pc-status.warn { color: var(--warn); }

@@ -196,7 +196,7 @@
     if (level.startCam === 'overview') { overview(true); state.cam.x = state.cam.tx; state.cam.y = state.cam.ty; state.cam.zoom = state.cam.tzoom; }
     setupHud();
     show('hud');
-    hide('menu'); hide('briefing'); hide('result'); hide('pause'); hide('help'); hide('board'); hide('profile');
+    hide('menu'); hide('briefing'); hide('result'); hide('pause'); hide('help'); hide('board'); hide('pilot'); hide('profile');
     state.screen = 'flight';
     $('coach').classList.remove('show');
   }
@@ -2643,7 +2643,7 @@
   function showMenu() {
     state.screen = 'menu';
     state.flow = false;
-    hide('hud'); hide('briefing'); hide('result'); hide('pause'); hide('help'); hide('board'); hide('profile');
+    hide('hud'); hide('briefing'); hide('result'); hide('pause'); hide('help'); hide('board'); hide('pilot'); hide('profile');
     leaveLanding();
     show('menu');
     const hasTests = LEVELS.some(l => l.test);
@@ -2994,12 +2994,11 @@
         const li = document.createElement('li');
         const hiddenName = !e.me && hiddenNames[e.id] === e.name;
         if (e.me) li.className = 'me';
-        else li.classList.add('reportable');
         li.innerHTML = `<span class="rk">#${e.rank}</span><span class="nm"></span><span>${fmtVal(kind, e.value)}</span>`;
         li.querySelector('.nm').textContent = hiddenName ? 'Hidden pilot' : e.name;
         if (hiddenName) li.querySelector('.nm').classList.add('hidden-name');
-        // Tap someone else's name to report it.
-        if (!e.me && e.id && !hiddenName) li.onclick = () => askReport(e);
+        // Tap a pilot to see their profile (reporting a name is in there).
+        if (e.id) { li.classList.add('tappable'); li.onclick = () => showPilot(e, hiddenName); }
         list.appendChild(li);
       }
       if (r.me) me.textContent = `You: #${r.me.rank} of ${r.total} · ${fmtVal(kind, r.me.value)}`;
@@ -3014,21 +3013,56 @@
       const li = document.createElement('li'); li.className = 'empty'; li.textContent = e.offline ? 'You\'re offline.' : e.message; list.appendChild(li);
     }
   }
+  // A pilot's profile, from a leaderboard row: their verified stars,
+  // missions cleared, and each world's stars, score and place. Reporting an
+  // offensive name lives here, behind a confirm, so a stray tap on the board
+  // never reports anyone.
   // Reporting a name hides it for you at once; the server resets names
   // that several pilots report.
   const HIDDEN = 'thrusterz.hiddenNames';
   const hiddenNames = Online.Store.get(HIDDEN) || {};
-  let reporting = null;
-  function askReport(e) {
-    reporting = e;
-    $('board-report-name').textContent = e.name;
-    $('board-report').classList.remove('hidden');
+  let pilotShown = null;
+  async function showPilot(e, hiddenName) {
+    pilotShown = e;
+    hide('board'); show('pilot');
+    $('pc-report').classList.add('hidden');
+    $('pc-eyebrow').textContent = e.me ? 'Pilot · you' : 'Pilot';
+    $('pc-name').textContent = hiddenName ? 'Hidden pilot' : e.name;
+    $('pc-name').classList.toggle('hidden-name', !!hiddenName);
+    $('pc-since').textContent = ''; $('pc-stats').innerHTML = ''; $('pc-worlds').innerHTML = '';
+    $('pc-status').className = 'small'; $('pc-status').textContent = 'Loading…';
+    $('btn-pc-report').style.display = e.me || hiddenName ? 'none' : '';
+    try {
+      const r = await Online.pilot(e.id);
+      if (pilotShown !== e) return;
+      $('pc-status').textContent = '';
+      if (r.pilot.created) $('pc-since').textContent = 'Flying since ' + new Date(r.pilot.created).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+      $('pc-stats').innerHTML = `<span><span class="k">Stars</span> ★ ${r.stars} / ${r.maxStars}</span><span><span class="k">Missions cleared</span> ${r.cleared} / ${r.missions}</span>`;
+      for (const w of r.worlds) {
+        const W = WORLDS.find(x => x.n === w.world), li = document.createElement('li');
+        li.innerHTML = `<span class="pw-name"></span><span class="pw-stars">★ ${w.stars} / ${w.missions * 3}</span>`
+          + `<span class="pw-score">${w.score == null ? '—' : `<b>${Math.round(w.score).toLocaleString()}</b> · #${w.rank} of ${w.pilots}`}</span>`
+          + `<span class="pw-bar"><span style="width:${(100 * w.stars / (w.missions * 3)).toFixed(1)}%"></span></span>`;
+        li.querySelector('.pw-name').textContent = W ? (W.n ? `${W.n}. ${W.name}` : W.name) : 'World ' + w.world;
+        $('pc-worlds').appendChild(li);
+      }
+    } catch (err) {
+      if (pilotShown !== e) return;
+      $('pc-status').className = 'small warn';
+      $('pc-status').textContent = err.offline ? 'You\'re offline.' : err.message;
+    }
   }
-  $('btn-report-cancel').onclick = () => { reporting = null; $('board-report').classList.add('hidden'); };
+  $('btn-pc-close').onclick = () => { pilotShown = null; hide('pilot'); show('board'); };
+  $('btn-pc-report').onclick = () => {
+    if (!pilotShown) return;
+    $('pc-report-name').textContent = pilotShown.name;
+    $('pc-report').classList.remove('hidden');
+  };
+  $('btn-report-cancel').onclick = () => $('pc-report').classList.add('hidden');
   $('btn-report-go').onclick = async () => {
-    const e = reporting; if (!e) return;
+    const e = pilotShown; if (!e) return;
     hiddenNames[e.id] = e.name; Online.Store.set(HIDDEN, hiddenNames);
-    $('board-report').classList.add('hidden'); reporting = null;
+    pilotShown = null; hide('pilot'); show('board');
     loadBoard();
     try { await Online.report(e.id); toast('Thanks. That name is hidden for you and has been reported.', 2.5); }
     catch (err) { toast(err.offline ? 'Hidden for you. You\'re offline, so it wasn\'t reported.' : 'Hidden for you. ' + err.message, 2.5); }

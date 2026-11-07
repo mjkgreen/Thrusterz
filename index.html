@@ -276,9 +276,21 @@
     </div>
     <ol id="board-list"></ol>
     <div id="board-me" class="small"></div>
-    <div id="board-report" class="report-bar hidden"><span>Report “<b id="board-report-name"></b>” as an offensive name?</span><span class="rb"><button id="btn-report-cancel" class="ghost">Cancel</button><button id="btn-report-go" class="danger">Report</button></span></div>
-    <p class="small board-hint">Tap a pilot's name to report it.</p>
+    <p class="small board-hint">Tap a pilot to see their profile.</p>
     <div class="buttons"><button id="btn-board-close" class="primary">Done</button></div>
+  </div>
+</div>
+
+<div id="pilot" class="screen hidden">
+  <div class="card board-card pilot-card">
+    <div class="eyebrow" id="pc-eyebrow">Pilot</div>
+    <h1 id="pc-name"></h1>
+    <p class="small" id="pc-since"></p>
+    <div class="stats" id="pc-stats"></div>
+    <ul id="pc-worlds"></ul>
+    <p class="small" id="pc-status"></p>
+    <div id="pc-report" class="report-bar hidden"><span>Report “<b id="pc-report-name"></b>” as an offensive name?</span><span class="rb"><button id="btn-report-cancel" class="ghost">Cancel</button><button id="btn-report-go" class="danger">Report</button></span></div>
+    <div class="buttons"><button id="btn-pc-report" class="ghost danger">Report name</button><button id="btn-pc-close" class="primary">Back</button></div>
   </div>
 </div>
 
