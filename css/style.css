@@ -593,9 +593,6 @@ html.short .set-row { padding: 7px 0; }
 #board-list li.tappable { cursor: pointer; }
 #board-list li.tappable:hover .nm { text-decoration: underline dotted; }
 #board-list .hidden-name { color: var(--muted); font-style: italic; }
-.report-bar { margin-top: 10px; padding: 10px 12px; border-radius: 10px; border: 1px solid rgba(255, 107, 107, 0.35); background: rgba(255, 107, 107, 0.08); display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; font-size: 14px; }
-.report-bar .rb { display: flex; gap: 8px; }
-.report-bar button { padding: 7px 12px; border-radius: 9px; border: 1px solid var(--panel-border); background: rgba(255,255,255,0.06); color: var(--text); font: 600 13px var(--sans); cursor: pointer; }
 .board-hint { margin: 8px 0 0; color: var(--muted); }
 html.short #board .board-hint { grid-row: 6; align-self: end; margin: 0; font-size: 11px; }
 /* Pilot card on a phone held sideways: the worlds beside the rest. */
@@ -709,3 +706,8 @@ a.appstore:hover img { filter: brightness(1.25); }
 #pc-worlds .pw-score { text-align: right; color: var(--muted); white-space: nowrap; }
 #pc-worlds .pw-score b { color: var(--text); font-weight: 600; }
 #pc-status.warn { color: var(--warn); }
+/* "Are you sure?" before reporting: a dialog over the dimmed pilot card. */
+#report-confirm { z-index: 20; background: rgba(3, 4, 10, 0.7); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); }
+.confirm-card { width: min(420px, 100%); border-color: rgba(255, 107, 107, 0.4); }
+.confirm-card h1 { font-size: 26px; }
+#report-confirm button.danger { background: rgba(255, 107, 107, 0.14) !important; }

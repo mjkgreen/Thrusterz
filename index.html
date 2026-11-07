@@ -289,8 +289,17 @@
     <div class="stats" id="pc-stats"></div>
     <ul id="pc-worlds"></ul>
     <p class="small" id="pc-status"></p>
-    <div id="pc-report" class="report-bar hidden"><span>Report “<b id="pc-report-name"></b>” as an offensive name?</span><span class="rb"><button id="btn-report-cancel" class="ghost">Cancel</button><button id="btn-report-go" class="danger">Report</button></span></div>
     <div class="buttons"><button id="btn-pc-report" class="ghost danger">Report name</button><button id="btn-pc-close" class="primary">Back</button></div>
+  </div>
+</div>
+
+<!-- "Are you sure?" before reporting a pilot's name (over the pilot card). -->
+<div id="report-confirm" class="screen hidden" role="dialog" aria-modal="true" aria-labelledby="rc-title">
+  <div class="card confirm-card">
+    <h1 id="rc-title">Report this pilot?</h1>
+    <p>Are you sure you want to report <b id="rc-name"></b> for an offensive name?</p>
+    <p class="small">Their name is hidden for you straight away. If other pilots report it too, it's reset for everyone.</p>
+    <div class="buttons"><button id="btn-report-cancel" class="ghost">Cancel</button><button id="btn-report-go" class="danger">Report</button></div>
   </div>
 </div>
 

@@ -196,7 +196,7 @@
     if (level.startCam === 'overview') { overview(true); state.cam.x = state.cam.tx; state.cam.y = state.cam.ty; state.cam.zoom = state.cam.tzoom; }
     setupHud();
     show('hud');
-    hide('menu'); hide('briefing'); hide('result'); hide('pause'); hide('help'); hide('board'); hide('pilot'); hide('profile');
+    hide('menu'); hide('briefing'); hide('result'); hide('pause'); hide('help'); hide('board'); hide('pilot'); hide('report-confirm'); hide('profile');
     state.screen = 'flight';
     $('coach').classList.remove('show');
   }
@@ -2643,7 +2643,7 @@
   function showMenu() {
     state.screen = 'menu';
     state.flow = false;
-    hide('hud'); hide('briefing'); hide('result'); hide('pause'); hide('help'); hide('board'); hide('pilot'); hide('profile');
+    hide('hud'); hide('briefing'); hide('result'); hide('pause'); hide('help'); hide('board'); hide('pilot'); hide('report-confirm'); hide('profile');
     leaveLanding();
     show('menu');
     const hasTests = LEVELS.some(l => l.test);
@@ -3025,7 +3025,7 @@
   async function showPilot(e, hiddenName) {
     pilotShown = e;
     hide('board'); show('pilot');
-    $('pc-report').classList.add('hidden');
+    hide('report-confirm');
     $('pc-eyebrow').textContent = e.me ? 'Pilot · you' : 'Pilot';
     $('pc-name').textContent = hiddenName ? 'Hidden pilot' : e.name;
     $('pc-name').classList.toggle('hidden-name', !!hiddenName);
@@ -3053,14 +3053,21 @@
     }
   }
   $('btn-pc-close').onclick = () => { pilotShown = null; hide('pilot'); show('board'); };
+  // Report name → "Are you sure?" pop-up. Cancel, Escape or a tap outside
+  // the dialog backs out.
   $('btn-pc-report').onclick = () => {
     if (!pilotShown) return;
-    $('pc-report-name').textContent = pilotShown.name;
-    $('pc-report').classList.remove('hidden');
+    $('rc-name').textContent = '“' + pilotShown.name + '”';
+    show('report-confirm');
+    $('btn-report-cancel').focus();
   };
-  $('btn-report-cancel').onclick = () => $('pc-report').classList.add('hidden');
+  const cancelReport = () => hide('report-confirm');
+  $('btn-report-cancel').onclick = cancelReport;
+  $('report-confirm').addEventListener('click', (ev) => { if (ev.target === $('report-confirm')) cancelReport(); });
+  $('report-confirm').addEventListener('keydown', (ev) => { if (ev.key === 'Escape') { ev.stopPropagation(); cancelReport(); } });
   $('btn-report-go').onclick = async () => {
     const e = pilotShown; if (!e) return;
+    hide('report-confirm');
     hiddenNames[e.id] = e.name; Online.Store.set(HIDDEN, hiddenNames);
     pilotShown = null; hide('pilot'); show('board');
     loadBoard();
