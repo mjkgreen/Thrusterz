@@ -463,7 +463,7 @@
       teaches: 'Gravity assists',
       bodies: [
         { id: 'terra', name: 'Terra', gm: 20000, radius: 50, color: C.blue },
-        { id: 'goliath', name: 'Goliath', gm: 5000, radius: 26, color: C.tan, orbit: { parent: 'terra', a: 350, phase: 2.0 } },
+        { id: 'goliath', name: 'Goliath', gm: 5000, radius: 26, color: C.tan, orbit: { parent: 'terra', a: 350, phase: 5.5 } },
       ],
       ship: ship({ start: { orbit: { body: 'terra', r: 90, angle: 0 } }, heading: 'prograde', dv: 5.3, accel: 1 }),
       goals: [{ type: 'reach', x: -1500, y: 0, r: 120, label: 'Jump Gate' }],
