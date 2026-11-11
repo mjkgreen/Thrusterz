@@ -114,6 +114,9 @@ const CHECK = {
 };
 for (const l of LEVELS) if (CHECK[l.id]) l.check = CHECK[l.id];
 
+module.exports = { run, decode, CHECK };
+if (require.main !== module) return;
+
 const only = process.argv[2];
 const iters = +process.argv[3] || 1500;
 for (const level of LEVELS) {

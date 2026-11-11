@@ -14,6 +14,12 @@
   const FIXED_DT = 1 / 120;      // step size while engines fire
   const MAX_COAST_DT = 0.25;     // largest coast step
   const TETHER_DT = 1 / 60;      // largest step while on a tether
+  // A predicted path still closing on the objective where it ends is
+  // extended, up to this many times the requested length, within a step
+  // budget (smaller while burning, when the path is redrawn many times a second).
+  const AUTO_EXTEND = 4;
+  const AUTO_EXTEND_STEPS = 8000;
+  const AUTO_EXTEND_STEPS_BURNING = 2000;
 
   // Ship spec (level.ship):
   //   start: { landed: { body, angle } }
@@ -1015,6 +1021,74 @@
     }
 
     currentGoal() { return this.level.goals[this.goalIndex] || null; }
+
+    // The coast path from now (the dashed line), with p.ca the closest
+    // approach to the current goal (farthest point for escape goals).
+    // Experimental forces (drag, a sail turning at the current spin) are part
+    // of the coast; heating past the limit ends the path (p.burn).
+    // If the path is still closing on the objective where it ends, it keeps
+    // going (p.extFrom marks where), so a route that gets there later still
+    // shows: players can't be expected to know they can lengthen the path,
+    // and touch screens have no way to. It stops a little past the closest
+    // approach.
+    predictPath(horizon, burning) {
+      const level = this.level, g = this.currentGoal(), t0 = this.t;
+      const opts = { bounds: level.bounds, maxSteps: 8000, ignore: this.ignoreBody, fx: this.coastFx(), heat: true };
+      const p = Phys.predict(this.sys, this.ship, t0, horizon, opts);
+      p.ca = g ? this.closestApproach(g, p, 0) : null;
+      p.extFrom = -1;
+      if (!g || g.type === 'escape') return p;
+      let budget = burning ? AUTO_EXTEND_STEPS_BURNING : AUTO_EXTEND_STEPS;
+      const tCap = t0 + horizon * AUTO_EXTEND;
+      while (p.ca && p.ca.i === p.ts.length - 1 && p.hit < 0 && !p.burn && budget > 0
+        && p.tEnd >= t0 + horizon - 1e-6 && p.tEnd < tCap - 1e-6) {
+        const from = p.ts.length, want = Math.min(horizon, tCap - p.tEnd), tFrom = p.tEnd;
+        const q = Phys.predict(this.sys, p.end, tFrom, want, Object.assign({}, opts, { maxSteps: budget }));
+        if (q.ts.length < 2) break;
+        budget -= q.ts.length - 1;
+        if (p.extFrom < 0) p.extFrom = from - 1;
+        for (let i = 1; i < q.ts.length; i++) { p.ts.push(q.ts[i]); p.xs.push(q.xs[i]); p.ys.push(q.ys[i]); }
+        for (const j of q.jumps) p.jumps.push(from - 1 + j);
+        if (q.burn) p.burn = { i: from - 1 + q.burn.i, body: q.burn.body };
+        p.hit = q.hit; p.tEnd = q.tEnd; p.end = q.end;
+        p.ca = this.closestApproach(g, p, from - 1, p.ca);
+        if (q.tEnd < tFrom + want - 1e-6) break; // hit, out of bounds or out of budget
+      }
+      // Show the extension only a little past the closest approach.
+      if (p.extFrom >= 0 && p.ca) {
+        const tStop = p.ca.t + horizon * 0.15;
+        let n = p.ts.length;
+        while (n - 1 > Math.max(p.extFrom, p.ca.i) && p.ts[n - 2] >= tStop) n--;
+        if (n < p.ts.length) {
+          p.ts.length = p.xs.length = p.ys.length = n;
+          p.jumps = p.jumps.filter(j => j < n);
+          if (p.burn && p.burn.i >= n) p.burn = null;
+          p.hit = -1; p.tEnd = p.ts[n - 1];
+        }
+      }
+      this.sys.update(this.t);
+      return p;
+    }
+
+    // Closest approach to goal g along path p, from sample i0 on; prev is
+    // the best found before i0 (when the path has been extended).
+    closestApproach(g, p, i0, prev) {
+      // Escape goals care about the farthest point, everything else the nearest.
+      const sign = g.type === 'escape' ? -1 : 1, sys = this.sys;
+      let best = prev ? prev.raw : Infinity, bi = prev ? prev.i : -1;
+      // A body goal only needs that one body's position at each sample.
+      const gi = g.body && !g.lagrange ? sys.byId[g.body].index : -1, q = { x: 0, y: 0 }, qp = [0, 0];
+      for (let i = i0; i < p.ts.length; i++) {
+        if (gi >= 0) { sys.posAt(gi, p.ts[i], qp); q.x = qp[0]; q.y = qp[1]; }
+        else Object.assign(q, this.goalPoint(g, p.ts[i]));
+        const d = Math.hypot(p.xs[i] - q.x, p.ys[i] - q.y);
+        if (sign * d < best) { best = sign * d; bi = i; }
+      }
+      if (bi <= 0) return null;
+      // Shown as altitude above the target's surface (stations and points have none to speak of).
+      const R = g.body && !g.lagrange ? sys.byId[g.body].radius : 0;
+      return { i: bi, t: p.ts[bi], raw: best, d: sign * best - (R > 8 ? R : 0), goal: g, far: sign < 0 };
+    }
 
     // Position/velocity a goal is measured against at the current time.
     goalPoint(g, t) {

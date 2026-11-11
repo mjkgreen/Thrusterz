@@ -10,6 +10,7 @@
     "test:browser": "node tools/browser-check.js",
     "check-levels": "node tools/check-levels.js",
     "check-scripted": "node tools/check-scripted.js",
+    "check-visible": "node tools/check-visible.js",
     "build:w3": "node tools/w3/build.js",
     "build:w4": "node tools/w4/build.js",
     "rcs-report": "node tools/rcs-report.js",

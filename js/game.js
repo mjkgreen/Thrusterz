@@ -672,29 +672,9 @@
     state.predT = m.t;
     if (m.landed || m.status !== 'flying') { state.pred = null; return; }
     const horizon = level.predict * state.predictScale;
-    // Experimental forces (drag, a sail turning at the current spin) are part
-    // of the coast; heating past the limit ends the path (p.burn).
-    const p = Phys.predict(m.sys, m.ship, m.t, horizon, { bounds: level.bounds, maxSteps: 8000, ignore: m.ignoreBody, fx: m.coastFx(), heat: true });
-    // Closest approach to the active goal.
-    const g = m.currentGoal();
-    let ca = null;
-    if (g) {
-      // Escape goals care about the farthest point, everything else the nearest.
-      const sign = g.type === 'escape' ? -1 : 1;
-      let best = Infinity, bi = -1;
-      // A body goal only needs that one body's position at each sample.
-      const gi = g.body && !g.lagrange ? m.sys.byId[g.body].index : -1, q = { x: 0, y: 0 }, qp = [0, 0];
-      for (let i = 0; i < p.ts.length; i++) {
-        if (gi >= 0) { m.sys.posAt(gi, p.ts[i], qp); q.x = qp[0]; q.y = qp[1]; }
-        else Object.assign(q, m.goalPoint(g, p.ts[i]));
-        const d = Math.hypot(p.xs[i] - q.x, p.ys[i] - q.y);
-        if (sign * d < best) { best = sign * d; bi = i; }
-      }
-      // Shown as altitude above the target's surface (stations and points have none to speak of).
-      const R = g.body && !g.lagrange ? m.sys.byId[g.body].radius : 0;
-      if (bi > 0) ca = { i: bi, t: p.ts[bi], d: sign * best - (R > 8 ? R : 0), goal: g, far: sign < 0 };
-    }
-    p.ca = ca;
+    // The coast path, extended while it is still closing on the objective
+    // (see Mission.predictPath).
+    const p = m.predictPath(horizon, m.thrusting), g = m.currentGoal();
     p.pickups = new Set();
     for (const b of m.sys.bodies) {
       if (!b.pickup || m.collected.has(b.index)) continue;
@@ -1214,10 +1194,19 @@
         ctx.beginPath(); ctx.moveTo(sx, sy); lx = sx; ly = sy;
         continue;
       }
+      // Past the usual length (extended because it is still closing on the
+      // objective): fainter, so it reads as looking further ahead.
+      if (i === p.extFrom && i < p.ts.length - 1) {
+        ctx.lineTo(sx, sy); ctx.stroke();
+        ctx.globalAlpha = 0.45;
+        ctx.beginPath(); ctx.moveTo(sx, sy); lx = sx; ly = sy;
+        continue;
+      }
       if (Math.abs(sx - lx) + Math.abs(sy - ly) < 2 && i < p.ts.length - 1) continue;
       ctx.lineTo(sx, sy); lx = sx; ly = sy;
     }
     ctx.stroke();
+    ctx.globalAlpha = 1;
     ctx.setLineDash([]);
     // Radiation along the path: a glowing overlay, brighter where the dose
     // rate is higher (relative to the strongest point ahead).
