@@ -144,6 +144,7 @@
 
   // Crash reports: anonymous, a handful per session, never the same twice.
   const sentCrashes = new Set();
+  const available = () => apiBase() != null;
   function crash(info) {
     const key = String(info.msg).slice(0, 120);
     if (!available() || sentCrashes.size >= 5 || sentCrashes.has(key)) return;
@@ -226,7 +227,7 @@
   const Online = {
     state, Store, start, bindProgress, saveProgressSoon, syncNow, submitRun, board, rename, restore, report, crash,
     signInWithApple, appleAvailable, ensureAccount, deleteAccount, pilot,
-    available: () => apiBase() != null,
+    available,
     onChange: (f) => listeners.push(f),
     native,
   };
