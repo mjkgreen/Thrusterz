@@ -106,7 +106,7 @@ const CHECK = {
   moonshot: { burns: 1, guess: [5, 0, 4.2], scale: [10, 0.2, 1] },
   inertia: { burns: 3, guess: [106, Math.PI, 1.3, 63, Math.PI, 1.45, 2, 0, 0], scale: [10, 0.2, 0.5, 5, 0.2, 0.5, 5, 3, 0.3] },
   capture: { burns: 2, guess: [5, 0, 4.2, 78, Math.PI, 2.5], scale: [5, 0.2, 0.8, 8, 0.3, 0.8] },
-  slingshot: { burns: 2, guess: [18, 0, 2.5, 10, 0, 0], scale: [5, 0.2, 0.5, 40, 3, 0.3] },
+  slingshot: { burns: 2, guess: [22, 0, 3, 10, 0, 0], scale: [5, 0.2, 0.5, 40, 3, 0.3] },
   twins: { burns: 2, guess: [5, 0, 6, 30, 0, 0], scale: [30, 0.5, 2, 60, 3, 1] },
   interplanetary: { burns: 2, guess: [15, 0, 1.9, 60, 0, 0], scale: [5, 0.2, 0.4, 60, 3, 0.3] },
   comet: { burns: 2, guess: [20, 0, 4, 200, 0, 0], scale: [60, 0.5, 2, 200, 3, 1] },
