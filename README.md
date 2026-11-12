@@ -71,11 +71,7 @@ you do it, and stops appearing after you've mastered it.
   you, but switching it on caps that run at ★★.
 - **Trajectory prediction** — the dashed line is your coast path. The magenta
   marker and ghost show the closest approach to your current objective and where
-  the target will be at that moment. Each mission sets how far ahead the line
-  looks; if the path is still closing on the objective where the line would
-  stop, it keeps going (fainter) up to 4× that far, ending just past the
-  closest approach. So a route that only gets there later still shows,
-  without the `[` `]` keys (which touch screens don't have).
+  the target will be at that moment.
 - **Objectives** — impact a body (optionally inside a landing zone on its
   spinning surface), reach a zone, escape past a distance, enter an orbit
   band, park at a point such as L4, or rendezvous (distance *and* relative
@@ -284,9 +280,6 @@ tools/autopilot.js      scripted autopilot (launch, burns, drops, deploys); with
 tools/proofs.js         a winning flight plan for every World 2 mission and the
                         test levels; npm test flies them all
 tools/check-scripted.js re-tunes a proof's parameters    (npm run check-scripted [id] [iters] [opt])
-tools/check-visible.js  can players see the winning route? The dashed line
-                        drawn after the last burn must reach each objective
-                        (npm run check-visible [id] [iters])
 tools/rcs-report.js     RCS seconds each proof needs with honest turning
                                                          (npm run rcs-report [id])
 ```
