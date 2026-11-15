@@ -2344,15 +2344,18 @@
           // After a spin is stopped, that key does nothing until it is let
           // go. Time runs once it is released, so the ship can notice.
           const latch = m.rotLatch, clearing = latch && c.rotate !== latch;
-          if (latch && c.rotate === latch && (r.mustStop ? -Math.sign(r.w) : r.dir) === latch) {
+          if (latch && c.rotate === latch && ((r.mustStop || mem.stopping) && Math.abs(r.w) >= 1e-6 ? -Math.sign(r.w) : r.dir) === latch) {
             const k = keyFor(latch);
             return { text: `Let go of ${kc(k)}, then press it again`, ctl: k, act: 'LET GO', freeze: true, arc, point };
           }
-          if (r.mustStop) {
+          // Once told to stop the spin, see it through to a dead stop:
+          // switching back mid-way would see-saw for ever.
+          if (Math.abs(r.w) < 1e-6) mem.stopping = false;
+          if (r.mustStop || mem.stopping) {
             const d = -Math.sign(r.w), k = keyFor(d);
-            mem.started = true;
+            mem.started = mem.stopping = true;
             return {
-              text: r.away ? `Wrong way! <b>HOLD</b> ${kc(k)} to stop the spin`
+              text: r.away && !r.mustStop ? `Stop the spin! <b>HOLD</b> ${kc(k)} until it stops turning` : r.away ? `Wrong way! <b>HOLD</b> ${kc(k)} to stop the spin`
                 : `<b>STOP THE SPIN!</b> <b>HOLD</b> ${kc(k)} (the other way) until it stops turning`,
               ctl: k, act: 'HOLD', freeze: c.rotate !== d && !clearing, arc, point,
             };
@@ -2479,7 +2482,8 @@
         until: (m) => {
           const b = bodyAt(m, 'terra'), s = m.ship, rx = s.x - b.x, ry = s.y - b.y, r = Math.hypot(rx, ry);
           const vr = (rx * (s.vx - b.vx) + ry * (s.vy - b.vy)) / r;
-          return r > 285 || (vr < -0.05 && r > 200);
+          // Right at the top: just before it, prograde still points upward.
+          return vr <= 0 && r > 200;
         },
         exact: true, point: apoOf('terra'),
       }),
