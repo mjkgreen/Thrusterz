@@ -2337,32 +2337,41 @@
         halt: (m) => read(m).mustStop,
         tick(m, c, mem) {
           const r = read(m), arc = { from: r.s.angle, to: r.want }, point = o.point && o.point(m);
-          if (Math.abs(r.err) < tol && Math.abs(r.w) < 0.05) return DONE;
+          // Done only with the spin fully stopped (holding against a spin
+          // stops it dead): even a slow drift adds up over a long coast.
+          if (Math.abs(r.err) < tol && Math.abs(r.w) < 1e-6) return DONE;
           const keyFor = (d) => (d > 0 ? 'rotL' : 'rotR');
+          // After a spin is stopped, that key does nothing until it is let
+          // go. Time runs once it is released, so the ship can notice.
+          const latch = m.rotLatch, clearing = latch && c.rotate !== latch;
+          if (latch && c.rotate === latch && (r.mustStop ? -Math.sign(r.w) : r.dir) === latch) {
+            const k = keyFor(latch);
+            return { text: `Let go of ${kc(k)}, then press it again`, ctl: k, act: 'LET GO', freeze: true, arc, point };
+          }
           if (r.mustStop) {
             const d = -Math.sign(r.w), k = keyFor(d);
             mem.started = true;
             return {
               text: r.away ? `Wrong way! <b>HOLD</b> ${kc(k)} to stop the spin`
                 : `<b>STOP THE SPIN!</b> <b>HOLD</b> ${kc(k)} (the other way) until it stops turning`,
-              ctl: k, act: 'HOLD', freeze: c.rotate !== d, arc, point,
+              ctl: k, act: 'HOLD', freeze: c.rotate !== d && !clearing, arc, point,
             };
           }
-          if (r.toward) {
+          // A brisk turn for big swings, a gentle one for small fixes.
+          const rate = Math.min(1.2, Math.max(0.15, Math.sqrt(Math.abs(r.err))));
+          const k = keyFor(r.dir);
+          if (r.toward && Math.abs(r.w) >= rate) {
             mem.started = true;
-            return {
-              text: c.rotate ? `Let go! The ship keeps turning on its own: nothing slows a spin out here.`
-                : `Turning… you'll stop it when the nose reaches ${o.name}.`,
-              arc, point,
-            };
+            if (c.rotate === r.dir) return { text: `<b>Let go</b> of ${kc(k)}! The ship keeps turning on its own: nothing slows a spin out here.`, ctl: k, act: 'LET GO', freeze: true, arc, point };
+            return { text: `Turning… you'll stop it when the nose reaches ${o.name}.`, arc, point };
           }
-          const k = keyFor(r.dir), latched = m.rotLatch === r.dir;
+          if (r.toward && c.rotate === r.dir) return { text: `Keep holding ${kc(k)}… picking up spin`, ctl: k, act: 'HOLD', arc, point };
           let text;
-          if (latched) text = `Let go of ${kc(k)}, then press it again to keep turning`;
+          if (r.toward) text = `Too slow! <b>HOLD</b> ${kc(k)} a bit longer to turn faster`;
           else if (!mem.started && o.intro) text = `${o.intro(m)}<br><b>HOLD</b> ${kc(k)} to turn the nose that way`;
           else if (!mem.started) text = `<b>HOLD</b> ${kc(k)} to turn the nose toward ${o.name}`;
-          else text = `Nearly lined up. Tap ${kc(k)} to nudge the nose onto ${o.name}`;
-          return { text, ctl: k, act: mem.started ? 'TAP' : 'HOLD', freeze: !(c.rotate === r.dir && !latched), arc, point };
+          else text = `Nearly lined up. <b>HOLD</b> ${kc(k)} gently to nudge the nose onto ${o.name}`;
+          return { text, ctl: k, act: 'HOLD', freeze: c.rotate !== r.dir && !clearing, arc, point };
         },
       };
     },
@@ -2418,7 +2427,7 @@
         done: (m) => relTo(m, 'beacon').v >= 1.8, exact: true, point: atBody('beacon', 'BEACON'),
       }),
       S.release(() => `<b>Let go</b> of ${kc('burn')}! You'll coast all the way there.`),
-      S.warp(1, () => `It's a long way. ${tapOr('Press')} ${kc('warpUp')} to speed up time`),
+      S.warp(3, () => `It's a long way. ${tapOr('Press')} ${kc('warpUp')} to speed up time: keep going until WARP reads <b>10×</b> (now ${WARPS[state.warp]}×)`),
       S.coast({ text: () => `Coasting to the beacon… ${kc('warpUp')} goes faster, ${kc('warpDown')} slower.`, until: () => false, point: atBody('beacon', 'BEACON') }),
     ],
     stop: [
@@ -2431,7 +2440,7 @@
         done: (m) => relTo(m, 'buoy').v >= 1.5, exact: true, point: atBody('buoy', 'BUOY 7'),
       }),
       S.release(() => `<b>Let go</b> of ${kc('burn')}! You'll keep this speed all the way.`),
-      S.warp(1, () => `${tapOr('Press')} ${kc('warpUp')} to speed up time while you coast`),
+      S.warp(3, () => `${tapOr('Press')} ${kc('warpUp')} to speed up time while you coast: keep going until WARP reads <b>10×</b> (now ${WARPS[state.warp]}×)`),
       ...arrive('buoy', 'Buoy 7'),
     ],
     longcoast: [
@@ -2443,7 +2452,7 @@
         done: (m) => relTo(m, 'outpost').v >= 1.5, exact: true, point: atBody('outpost', 'OUTPOST'),
       }),
       S.release(() => `<b>Let go</b> of ${kc('burn')}!`),
-      S.warp(3, () => `At this speed the trip takes ages. ${tapOr('Press')} ${kc('warpUp')} to speed up time: keep going until WARP reads <b>10×</b> (now ${WARPS[state.warp]}×)`),
+      S.warp(4, () => `At this speed the trip takes ages. ${tapOr('Press')} ${kc('warpUp')} to speed up time: keep going until WARP reads <b>25×</b> (now ${WARPS[state.warp]}×)`),
       ...arrive('outpost', 'the outpost'),
     ],
     bigpicture: [
@@ -2499,7 +2508,7 @@
         done: (m) => missBy(m, 'depot').d < 30, exact: true, point: atBody('depot', 'DEPOT'),
       }),
       S.release(() => `<b>Let go</b> of ${kc('burn')}! The path now passes just beside the depot (straight into it would be a crash).`),
-      S.warp(1, () => `${tapOr('Press')} ${kc('warpUp')} to speed up time while you drift`),
+      S.warp(4, () => `${tapOr('Press')} ${kc('warpUp')} to speed up time while you drift: keep going until WARP reads <b>25×</b> (now ${WARPS[state.warp]}×)`),
       ...arrive('depot', 'the depot'),
     ],
   };
