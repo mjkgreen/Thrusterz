@@ -2410,7 +2410,8 @@
 
   const GUIDES = {
     liftoff: [
-      S.info(() => `This is <b>your ship</b>, sitting on the little asteroid Pebble.<br>Your mission: fly into the green planet <b>Verdant</b>.`, atBody('verdant', 'VERDANT')),
+      S.info(() => `This is <b>your ship</b>, sitting on the little asteroid Pebble.<br>Your mission: fly into the green planet <b>Verdant</b>.`,
+        (m) => [{ x: m.ship.x, y: m.ship.y, label: 'YOUR SHIP' }, atBody('verdant', 'VERDANT')(m)]),
       S.burn({
         text: () => `Press and <b>HOLD</b> ${kc('burn')} to fire your engine`,
         during: () => `Keep holding ${kc('burn')}… building up speed`,
@@ -2588,6 +2589,52 @@
     $('guide-skip').onclick = () => { if (state.guide) { state.guide.over = true; guideRender(null); } };
   }
 
+  // Put the card at the top, bottom or middle, wherever it hides least: never the ship
+  // if it can help it, then the targets and the turn arrow. A step keeps
+  // its spot unless the other one is clearly better, so it doesn't jump.
+  // (Layout sizes, not screen boxes: on a phone held upright the whole page
+  // is drawn sideways.)
+  function placeGuideCard(g, v, sx, sy, pts) {
+    const card = $('guide');
+    if (!card.offsetHeight) return;
+    if (g.placeStep !== g.i) { g.placeStep = g.i; g.place = null; }
+    // Re-check a few times a second (measuring forces a layout).
+    if (g.place && (g.placeTick = (g.placeTick || 0) + 1) % 8) return;
+    const touchUi = isTouch();
+    // Full width at the top / bottom / middle, or narrower at either side.
+    const full = Math.min(touchUi ? 560 : 580, W * (touchUi ? 0.6 : 1) - 32);
+    const side = Math.min(380, W * 0.4);
+    const prev = g.place;
+    card.style.width = full + 'px';
+    const hFull = card.offsetHeight;
+    const hSide = Math.min(H - 40, hFull * full / side);
+    const top0 = touchUi ? 52 : Math.max(60, H * 0.12), bot0 = touchUi ? 98 : 110;
+    const spots = [
+      { k: 'top', x: W / 2, w: full, y: top0, h: hFull, pref: 0 },
+      { k: 'bottom', x: W / 2, w: full, y: H - hFull - bot0, h: hFull, pref: 0.1 },
+      { k: 'left', x: 16 + side / 2, w: side, y: (H - hSide) / 2, h: hSide, pref: 0.2 },
+      { k: 'right', x: W - 16 - side / 2, w: side, y: (H - hSide) / 2, h: hSide, pref: 0.2 },
+      { k: 'middle', x: W / 2, w: full, y: (H - hFull) / 2, h: hFull, pref: 0.3 },
+    ];
+    // What must stay visible: the ship above all, then the turn arrow round
+    // it and the targets.
+    const avoid = [{ x: sx, y: sy, r: 40, w: 10 }];
+    if (v.arc) avoid.push({ x: sx, y: sy, r: 70, w: 4 }, { x: sx + Math.cos(v.arc.to) * 120, y: sy - Math.sin(v.arc.to) * 120, r: 25, w: 2 });
+    for (const q of pts) if (q.on) avoid.push({ x: q.x, y: q.y - 20, r: 40, w: 3 });
+    const cost = (sp) => sp.pref + avoid.reduce((sum, a) => {
+      const dx = Math.max(0, Math.abs(a.x - sp.x) - sp.w / 2), dy = Math.max(0, sp.y - a.y, a.y - (sp.y + sp.h));
+      return sum + (Math.hypot(dx, dy) < a.r ? a.w : 0);
+    }, 0);
+    let best = spots.reduce((x, y) => (cost(y) < cost(x) ? y : x));
+    // Stay put unless the move uncovers something.
+    const cur = prev && spots.find((sp) => sp.k === prev.k);
+    if (cur && cost(cur) - cost(best) < 1) best = cur;
+    g.place = best;
+    card.style.width = best.w + 'px';
+    card.style.left = best.x + 'px';
+    card.style.top = Math.max(8, best.y) + 'px';
+  }
+
   // World-space pointers: a spotlight on what matters, an arrow at the
   // target and, for turns, which way to turn and where to stop.
   function drawGuide() {
@@ -2595,41 +2642,32 @@
     if (!v) return;
     const now = performance.now() / 1000, bob = Math.sin(now * 6) * 5;
     const [sx, sy] = w2s(m.ship.x, m.ship.y);
-    let pt = null;
-    if (v.point) {
-      const [px, py] = w2s(v.point.x, v.point.y);
-      pt = { x: px, y: py, on: px > 30 && px < W - 30 && py > 30 && py < H - 30 };
-    }
-    // The card sits at the top; if it would hide the target, it moves to
-    // the bottom for the rest of this step. (Layout sizes, not screen boxes:
-    // on a phone held upright the whole page is drawn sideways.)
-    const card = $('guide');
-    if (g.lowStep !== g.i) {
-      g.lowStep = g.i;
-      card.classList.remove('low');
-    }
-    if (pt && pt.on && !card.classList.contains('low')) {
-      const top = card.offsetTop, bot = top + card.offsetHeight, half = card.offsetWidth / 2;
-      if (pt.y > top - 50 && pt.y < bot + 60 && Math.abs(pt.x - W / 2) < half + 40) card.classList.add('low');
-    }
+    // One target or several (e.g. "this is your ship" and the planet).
+    const pts = (Array.isArray(v.point) ? v.point : v.point ? [v.point] : []).filter(Boolean).map((q) => {
+      const [px, py] = w2s(q.x, q.y);
+      return { x: px, y: py, label: q.label || '', on: px > 30 && px < W - 30 && py > 30 && py < H - 30 };
+    });
+    const pt = pts[0] || null;
+    placeGuideCard(g, v, sx, sy, pts);
     if (v.freeze) {
-      // Dim everything but the ship and the target.
+      // Dim everything but the ship and the targets.
       ctx.fillStyle = 'rgba(3, 4, 10, 0.5)';
       ctx.beginPath(); ctx.rect(0, 0, W, H);
       ctx.moveTo(sx + 70, sy); ctx.arc(sx, sy, 70, 0, TAU);
-      if (pt && pt.on && Math.hypot(pt.x - sx, pt.y - sy) > 110) { ctx.moveTo(pt.x + 46, pt.y); ctx.arc(pt.x, pt.y, 46, 0, TAU); }
+      for (const q of pts) if (q.on && Math.hypot(q.x - sx, q.y - sy) > 110) { ctx.moveTo(q.x + 46, q.y); ctx.arc(q.x, q.y, 46, 0, TAU); }
       ctx.fill('evenodd');
     }
     ctx.save();
     ctx.strokeStyle = ctx.fillStyle = '#7cf7d4';
     ctx.shadowColor = 'rgba(124, 247, 212, 0.8)'; ctx.shadowBlur = 10;
-    if (pt) {
+    for (const pt of pts) {
       if (pt.on) {
         ctx.lineWidth = 3;
         ctx.beginPath(); ctx.arc(pt.x, pt.y, 20 + Math.sin(now * 5) * 4, 0, TAU); ctx.stroke();
         const ay = pt.y - 30 + bob;
         ctx.beginPath(); ctx.moveTo(pt.x, ay); ctx.lineTo(pt.x - 11, ay - 16); ctx.lineTo(pt.x + 11, ay - 16); ctx.fill();
-        ctx.shadowBlur = 0; label(v.point.label || '', pt.x, ay - 22, '#7cf7d4');
+        ctx.shadowBlur = 0; label(pt.label, pt.x, ay - 22, '#7cf7d4');
+        ctx.shadowBlur = 10;
       } else {
         // Off screen: an arrow at the edge pointing the way.
         const a = Math.atan2(pt.y - H / 2, pt.x - W / 2), rr = Math.min(W, H) / 2 - 50;
@@ -2637,7 +2675,8 @@
         ctx.save(); ctx.translate(ex, ey); ctx.rotate(a);
         ctx.beginPath(); ctx.moveTo(18, 0); ctx.lineTo(-10, -13); ctx.lineTo(-10, 13); ctx.fill();
         ctx.restore();
-        ctx.shadowBlur = 0; label((v.point.label || '') + ' (that way)', ex, ey + 30, '#7cf7d4');
+        ctx.shadowBlur = 0; label(pt.label + ' (that way)', ex, ey + 30, '#7cf7d4');
+        ctx.shadowBlur = 10;
       }
     }
     if (v.arc) {
