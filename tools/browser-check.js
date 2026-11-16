@@ -5,6 +5,7 @@
 //   3. pause and retry work with another finger held down (phones)
 //   4. corrupted saved progress never breaks the menu
 //   5. the game loop never stops (sim time keeps advancing)
+//   6. the Training tutorial freezes until the control it asks for is used
 'use strict';
 let playwright;
 try { playwright = require('playwright'); } catch (e) { playwright = require('/opt/node22/lib/node_modules/playwright'); }
@@ -44,7 +45,7 @@ setTimeout(() => {
   {
     const p = await browser.newPage({ viewport: { width: 1000, height: 600 } });
     watch(p);
-    await p.goto(URL + '?unlock');
+    await p.goto(URL + '?unlock&noguide');
     await p.waitForTimeout(300);
     const n = await p.evaluate(() => window.Thrusterz.levelCount);
     const levelIds = await p.evaluate(() => window.Levels.LEVELS.map(l => l.id));
@@ -118,7 +119,7 @@ setTimeout(() => {
     const Replay = require('../js/replay.js');
     const p = await browser.newPage({ viewport: { width: 1000, height: 600 } });
     watch(p);
-    await p.goto(URL + '?unlock');
+    await p.goto(URL + '?unlock&noguide');
     await p.waitForTimeout(300);
     const bad = [];
     for (const i of [3, 12, 30, 36, 59]) {
@@ -142,7 +143,7 @@ setTimeout(() => {
     const p = await ctx.newPage();
     watch(p);
     const cdp = await ctx.newCDPSession(p);
-    await p.goto(URL + '?unlock');
+    await p.goto(URL + '?unlock&noguide');
     await p.waitForTimeout(300);
     await p.evaluate(() => { window.Thrusterz.startLevel(4); document.getElementById('gate').classList.add('hidden'); });
     await p.waitForTimeout(400);
@@ -182,7 +183,7 @@ setTimeout(() => {
     const ctx = await browser.newContext({ viewport: { width: w, height: h }, isMobile: true, hasTouch: true });
     const p = await ctx.newPage();
     watch(p);
-    await p.goto(URL + '?unlock');
+    await p.goto(URL + '?unlock&noguide');
     await p.waitForTimeout(500);
     const r = await p.evaluate(async () => {
       const T = window.Thrusterz, lh = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--lh')) || innerHeight;
@@ -216,7 +217,7 @@ setTimeout(() => {
     const ctx = await browser.newContext({ viewport: { width: 844, height: 390 }, isMobile: true, hasTouch: true });
     const p = await ctx.newPage();
     watch(p);
-    await p.goto(URL + '?unlock');
+    await p.goto(URL + '?unlock&noguide');
     await p.waitForTimeout(400);
     await p.evaluate(() => { document.getElementById('gate').classList.add('hidden'); document.getElementById('btn-settings-menu').click(); });
     await p.waitForTimeout(200);
@@ -342,7 +343,7 @@ setTimeout(() => {
     const p = await browser.newPage({ viewport: { width: 1000, height: 600 } });
     watch(p);
     await p.addInitScript(() => localStorage.setItem('thrusterz.settings', JSON.stringify({ autoFrame: false, autoZoom: false })));
-    await p.goto(URL + '?unlock');
+    await p.goto(URL + '?unlock&noguide');
     await p.waitForTimeout(300);
     const r = await p.evaluate(async () => {
       const T = window.Thrusterz, S = T.state;
@@ -366,7 +367,7 @@ setTimeout(() => {
   {
     const p = await browser.newPage({ viewport: { width: 1000, height: 600 } });
     watch(p);
-    await p.goto(URL + '?unlock');
+    await p.goto(URL + '?unlock&noguide');
     await p.waitForTimeout(300);
     const r = await p.evaluate(async () => {
       const T = window.Thrusterz, S = T.state, wait = (ms) => new Promise(res => setTimeout(res, ms));
@@ -391,6 +392,36 @@ setTimeout(() => {
     check('storm warning: steady, then flashing, then the storm itself, bottom-centre (not in the HUD row)',
       r.far[0] === 'far' && /STORM IN 1:1/.test(r.far[1]) && r.soon[0] === 'soon' && /STORM IN 0:4/.test(r.soon[1]) && r.on[0] === 'on' && /LEFT/.test(r.on[1]) && !/storm in/i.test(r.row), JSON.stringify(r));
     check('no page errors in Storm Warning', errors.length === 0, errors.slice(0, 3).join(' | '));
+    errors.length = 0;
+    await p.close();
+  }
+
+  // 7. Training tutorial: the first mission waits, frozen, for "Got it" and
+  // then for BURN (highlighted), and time only runs while BURN is held.
+  {
+    const p = await browser.newPage({ viewport: { width: 1000, height: 600 } });
+    watch(p);
+    await p.goto(URL + '?unlock&guide');
+    await p.waitForTimeout(300);
+    await p.evaluate(() => { window.Thrusterz.startLevel(0); document.getElementById('gate').classList.add('hidden'); });
+    await p.waitForTimeout(400);
+    const look = () => p.evaluate(() => {
+      const g = document.getElementById('guide');
+      return { show: g.classList.contains('show'), frozen: g.classList.contains('frozen'), ok: !!document.getElementById('guide-ok'),
+        key: (g.querySelector('.g-key kbd') || {}).textContent || null, t: window.Thrusterz.state.mission.t };
+    });
+    const a = await look();
+    check('tutorial: first step is frozen with a "Got it" button', a.show && a.frozen && a.ok && a.t === 0, JSON.stringify(a));
+    await p.click('#guide-ok');
+    await p.waitForTimeout(400);
+    const b = await look();
+    check('tutorial: then waits, frozen, for SPACE', b.frozen && b.key === 'SPACE' && b.t === 0, JSON.stringify(b));
+    await p.keyboard.down('Space');
+    await p.waitForTimeout(500);
+    const c = await look();
+    await p.keyboard.up('Space');
+    check('tutorial: holding SPACE lets time run', c.t > 0 && !c.frozen, JSON.stringify(c));
+    check('no page errors in the tutorial', errors.length === 0, errors.slice(0, 3).join(' | '));
     errors.length = 0;
     await p.close();
   }
