@@ -421,6 +421,17 @@ setTimeout(() => {
     const c = await look();
     await p.keyboard.up('Space');
     check('tutorial: holding SPACE lets time run', c.t > 0 && !c.frozen, JSON.stringify(c));
+    // A lesson in a later mission (the first two-stage rocket): explains,
+    // then leaves the flying to you, engine and all.
+    await p.evaluate(() => { window.Thrusterz.startLevel(window.Levels.LEVELS.findIndex(l => l.id === 'satellite')); });
+    await p.waitForTimeout(400);
+    const d = await look();
+    await p.click('#guide-ok');
+    await p.keyboard.down('Space');
+    await p.waitForTimeout(500);
+    const e = await p.evaluate(() => ({ t: window.Thrusterz.state.mission.t, thr: window.Thrusterz.state.mission.thrusting, show: document.getElementById('guide').classList.contains('show') }));
+    await p.keyboard.up('Space');
+    check('lesson: first new mechanic explained, frozen, then free flight with the engine', d.frozen && d.ok && e.t > 0 && e.thr && !e.show, JSON.stringify([d, e]));
     check('no page errors in the tutorial', errors.length === 0, errors.slice(0, 3).join(' | '));
     errors.length = 0;
     await p.close();

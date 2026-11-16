@@ -2191,7 +2191,7 @@
     const spinning = Math.abs(s.omega) > 0.3 && !m.landed;
     if (c.key === 'counter' && !spinning) coachDone('counter');
     // The step-by-step tutorial does the talking while it runs.
-    if (guiding()) { if (c.id) { c.id = c.key = null; $('coach').classList.remove('show'); } return; }
+    if (guiding() && state.guide.view && !state.guide.view.hidden) { if (c.id) { c.id = c.key = null; $('coach').classList.remove('show'); } return; }
 
     const grav = m.sys.grav.filter(i => !m.sys.bodies[i].hidden).length;
     let key = null;
@@ -2232,10 +2232,10 @@
   const DONE = { done: true };
   const CTRL = {
     burn: ['SPACE', 'BURN'], rotL: ['A', '⟲'], rotR: ['D', '⟳'], warpUp: ['.', '»'], warpDown: [',', '«'],
-    over: ['O', '◎'], follow: ['F', '◎'], frame: ['V', 'V'],
+    over: ['O', '◎'], follow: ['F', '◎'], frame: ['V', 'V'], deploy: ['E', 'DEPLOY'],
   };
-  const CTRL_BTN = { burn: 'burn', rotL: 'rotL', rotR: 'rotR', warpUp: 'warpUp', warpDown: 'warpDown', over: 'cam', follow: 'cam', frame: 'frame' };
-  const kc = (c) => KEY(CTRL[c][isTouch() ? 1 : 0]);
+  const CTRL_BTN = { burn: 'burn', rotL: 'rotL', rotR: 'rotR', warpUp: 'warpUp', warpDown: 'warpDown', over: 'cam', follow: 'cam', frame: 'frame', deploy: 'deploy' };
+  const kc = (c) => KEY(c === 'deploy' && isTouch() && state.mission && state.mission.canDrop() ? 'DROP' : CTRL[c][isTouch() ? 1 : 0]);
   const tapOr = (press) => (isTouch() ? 'Tap' : press);
   const wrapA = (a) => { a %= TAU; if (a > Math.PI) a -= TAU; if (a < -Math.PI) a += TAU; return a; };
 
@@ -2324,6 +2324,19 @@
     }),
     frame: (id, text) => ({
       tick: (m) => (frameBody() === m.sys.byId[id].index ? DONE : { text: text(m), ctl: 'frame', act: isTouch() ? 'TAP' : 'PRESS', freeze: true, hud: 'hud-frame', point: atBody(id, m.sys.byId[id].name.toUpperCase())(m) }),
+    }),
+    // Nothing shown; time runs until cond(m) (checked every tick with exact).
+    when: (cond, exact) => ({
+      halt: exact ? cond : null,
+      tick: (m) => (cond(m) ? DONE : { hidden: true }),
+    }),
+    // Frozen until the player deploys a stage or drops cargo.
+    deploy: (text, point) => ({
+      tick(m, c, mem) {
+        const n = m.stage * 100 - m.cargo.length;
+        if (mem.n == null) mem.n = n;
+        return n !== mem.n ? DONE : { text: text(m), ctl: 'deploy', act: isTouch() ? 'TAP' : 'PRESS', freeze: true, point: point && point(m) };
+      },
     }),
     // Time runs; the card explains what is happening until until(m).
     coast: (o) => ({
@@ -2557,9 +2570,108 @@
     ],
   };
 
+  // Lessons: the first mission that brings in something new (a control, a
+  // readout or a rule) stops to explain it at the moment it matters,
+  // highlights it and, for a new control, waits until you use it. Between
+  // stops you fly the mission yourself.
+  // Where a goal's landing site is on its (spinning) body right now.
+  const siteOf = (gi, label) => (m) => {
+    const g = m.level.goals[gi], b = bodyAt(m, g.body), B = m.sys.byId[g.body];
+    const a = g.site.angle + B.spin * m.t;
+    return { x: b.x + Math.cos(a) * B.radius, y: b.y + Math.sin(a) * B.radius, label };
+  };
+  // The coast path ends on this goal's body, inside its site.
+  const pathEndsIn = (m, gi) => {
+    const g = m.level.goals[gi], p = state.pred;
+    return !!p && p.hit >= 0 && p.hit === m.sys.byId[g.body].index && m.siteOk(g, p.end.x, p.end.y, p.tEnd);
+  };
+  const tiltOf = (m, id) => {
+    const b = bodyAt(m, id), up = Math.atan2(m.ship.y - b.y, m.ship.x - b.x);
+    return Math.abs(wrapA(m.ship.angle - up));
+  };
+  // The mission's overview, to show something that starts off screen.
+  const overviewCam = (m) => ({ x: m.level.view.x, y: m.level.view.y, span: m.level.view.span });
+  const LESSONS = {
+    reachorbit: [
+      S.info(() => `New: <b>launching</b> from the ground. Orbit means going <b>sideways</b> fast enough that you keep falling round the planet instead of into it.<br>Burn straight up first to clear the ground, and the game will stop you when it's time to tilt.`,
+        (m) => ({ x: m.ship.x, y: m.ship.y, label: 'YOUR SHIP' })),
+      S.when((m) => !m.landed && m.liftoffT != null && m.t - m.liftoffT > 1.2, true),
+      {
+        tick(m, c, mem) {
+          if (tiltOf(m, 'gaia') > 0.6) return DONE;
+          const k = m.sys.byId.gaia.spin >= 0 ? 'rotL' : 'rotR', d = k === 'rotL' ? 1 : -1;
+          return { text: `Clear of the ground. Now tilt toward the horizon, the way Gaia spins (its spin gives you free speed): <b>HOLD</b> ${kc(k)} while you keep burning`, ctl: k, act: 'HOLD', freeze: c.rotate !== d };
+        },
+      },
+      S.info(() => `Keep burning sideways and watch <b>PE</b>, the lowest point of your orbit. While it's below the ground your path still comes down. Once PE is above 30 k, you're in orbit: let go.`, null, 'hud-pe'),
+    ],
+    lagrange: [
+      S.info(() => `New kind of objective: <b>hold</b>. L4 isn't an object, it's a point in space that rides along with Vesta (the game marks it).<br>Get within 40 k of it, moving <b>with</b> it, and stay there: the bar under the objective fills over 30 s.`, atGoal('L4'), 'mission'),
+    ],
+    satellite: [
+      S.info(() => `New: a <b>two-stage</b> rocket. The <b>Booster</b> is at the bottom, the <b>Satellite</b> on top, and each has its own fuel bar.<br>Launch and tilt toward the horizon as in Reach Orbit. The game will stop you when the booster runs dry.`, null, 'stage-gauges'),
+      S.when((m) => m.canDeploy() && m.stageSpec.fuel <= 1e-9, true),
+      S.deploy(() => `Booster empty! Dead weight now. ${tapOr('Press')} ${kc('deploy')} to drop it and fly on with the satellite.`),
+      S.info(() => `Booster away (its path is drawn as it falls). The satellite is much lighter, so its small tank goes a long way: this is its fuel bar. Coast to the top of the arc and burn prograde until PE clears the ground.`, null, 'sg-1'),
+    ],
+    releasepoint: [
+      S.info(() => `New: <b>cargo</b>. The pod has no engine: once dropped it just coasts, so your dashed path is exactly where it will go.<br>Burn retrograde until the path ends in the green drop zone. The game will stop you there.`, siteOf(0, 'DROP ZONE'), 'cargo-row'),
+      S.when((m) => m.canDrop() && pathEndsIn(m, 0)),
+      S.deploy(() => `Your path ends in the drop zone (the label says <b>DROP NOW → IMPACT</b>). ${tapOr('Press')} ${kc('deploy')} to release the pod.`, siteOf(0, 'DROP ZONE')),
+      S.info(() => `Pod away! But <b>your</b> path still hits the ground too. Burn prograde to climb back into a safe orbit.`),
+    ],
+    splashdown: [
+      S.info(() => `Spent boosters fall back to the ground, so they're aimed at a safe <b>splash zone</b>. The label by your path says where a stage dropped right now would come down.<br>Climb steeply. The game will stop you when the booster would land in the zone.`, siteOf(0, 'SPLASH ZONE')),
+      S.when((m) => m.canDeploy() && pathEndsIn(m, 0)),
+      S.deploy(() => `<b>DEPLOY NOW → IMPACT</b>: dropped here, the booster lands in the splash zone. ${tapOr('Press')} ${kc('deploy')} to drop it. Any fuel left in it is lost, so the satellite has to make up the rest.`, siteOf(0, 'SPLASH ZONE')),
+    ],
+    clearstation: [
+      S.info(() => `Spent stages drift <b>forever</b>, and they can hit things. The red dashed line from your ship shows where a stage dropped right now would go, and its label says whether that orbit crosses the station's. If it crosses, they meet eventually.`, atBody('kepler', 'KEPLER STATION'), null, overviewCam),
+      S.follow(() => `${tapOr('Press')} ${kc('follow')} to zoom back in on your ship`),
+    ],
+    fueldepot: [
+      S.info(() => `New: <b>pickups</b>. Fly your path through the fuel canister to top up your tank. It glows green when your dashed path will pass through it.`, atBody('canister', 'FUEL'), null, overviewCam),
+      S.follow(() => `${tapOr('Press')} ${kc('follow')} to zoom back in on your ship`),
+    ],
+    nofly: [
+      S.info(() => `New: a <b>keep-out zone</b>, the red ring round the guard satellite. It moves with the guard, and flying into it fails the mission.<br>Your dashed path turns <b>red</b> where it would cross the zone, and an alarm sounds.`, atBody('guard', 'KEEP OUT'), null, overviewCam),
+      S.follow(() => `${tapOr('Press')} ${kc('follow')} to zoom back in on your ship`),
+      S.when((m) => !!(state.pred && state.pred.zone)),
+      S.info(() => `Your path now crosses the zone: see the red stretch? Don't fly that path. Wait for the guard to move on, or change your burn, until the path stays clear.`, atBody('guard', 'KEEP OUT')),
+    ],
+    cleanzone: [
+      S.info(() => `New: an <b>amber</b> zone is closed to <b>everything</b>: your ship, dropped cargo and spent stages. A stage dropped on an orbit that crosses the zone's band will drift in sooner or later. Before you deploy, the label by your ship says where the stage would end up.`, atBody('haven', 'CLOSED ZONE'), null, overviewCam),
+      S.follow(() => `${tapOr('Press')} ${kc('follow')} to zoom back in on your ship`),
+    ],
+    spinburn: [
+      S.info(() => `Your side thrusters have only <b>1 second</b> of propellant left (the RCS bar). That's a few taps: enough to start a slow spin, not to aim every burn. Make each tap count.`, null, 'gauge-rcs'),
+    ],
+    sunburn: [
+      S.info(() => `New: <b>radiation</b>. Ardent's glow is strongest close in (four times as strong at half the distance).<br>This is your <b>dose</b>: the total radiation you've taken. Hit the limit and the mission fails.`, null, 'gauge-mech'),
+      S.info(() => `The glow along your dashed path shows where you'd take radiation: the brighter, the worse. Plan paths that spend as little time as possible in the bright part.`, atBody('ardent', 'ARDENT')),
+    ],
+    sendrelease: [
+      S.info(() => `New: <b>cargo with its own dose limit</b>. The probe is shielded while it's aboard, but once dropped it has to land before it takes 55 Sv. A mark on your dashed path shows where it would reach its limit if you dropped it now.`, atBody('cinder', 'CINDER')),
+    ],
+    shadedrop: [
+      S.info(() => `New: <b>shadows</b> block radiation. Behind Veil is a dark cone, the <b>umbra</b>, where you take none, inside a lighter penumbra. The glow on your dashed path goes out where it passes through shade.`, atBody('veil', 'VEIL')),
+    ],
+    beacon: [
+      S.info(() => `New: a <b>pulsar</b>. Pharos sweeps two narrow beams round like a lighthouse: inside a beam the dose is huge, outside there's none.<br>Skerry casts a sharp shadow wedge, and Lee Light marks it.`, atBody('leelight', 'LEE LIGHT')),
+    ],
+    stormwarn: [
+      S.info(() => `New: a <b>magnetosphere</b>, Halde's blue bubble. Inside it the star's wind can't reach you. The ring is a <b>radiation belt</b>: 1 Sv every second you're in it, so cross it fast.`, atBody('halde', 'HALDE')),
+      S.info(() => `A <b>storm</b> is scheduled: the warning at the bottom counts down to it. When it hits it squashes the bubble in past your orbit, so be under the belt by then.`, null, 'alert'),
+    ],
+  };
+
+  // Lessons already finished this session (a retry skips them).
+  const lessonsSeen = new Set();
   function startGuide(L) {
-    state.guide = GUIDES[L.id] && !NO_GUIDE && (FORCE_GUIDE || !progress.stars[L.id])
-      ? { steps: GUIDES[L.id], i: 0, mem: [{}], view: null, over: false, sig: null, html: null }
+    const def = GUIDES[L.id] || LESSONS[L.id];
+    const free = !GUIDES[L.id];
+    state.guide = def && !NO_GUIDE && (FORCE_GUIDE || !progress.stars[L.id]) && !(free && lessonsSeen.has(L.id) && !FORCE_GUIDE)
+      ? { id: L.id, steps: def, free, i: 0, mem: [{}], view: null, over: false, sig: null, html: null }
       : null;
     guideRender(null);
   }
@@ -2579,17 +2691,18 @@
         v = null; g.i++; g.mem[g.i] = {};
       }
     }
-    if (!v) g.over = true;
-    // The engine only works when a step asks for a burn, so fuel can't
-    // be spent before it is needed (braking, mostly).
-    if (v) v.locked = !!(c.thrust && !v.allowBurn && !v.freeze);
+    if (!v) { g.over = true; if (g.free && g.i >= g.steps.length) lessonsSeen.add(g.id); }
+    // In Training the engine only works when a step asks for a burn, so
+    // fuel can't be spent before it is needed (braking, mostly). Lessons in
+    // later missions leave the flying to you.
+    if (v) v.locked = !!(!g.free && c.thrust && !v.allowBurn && !v.freeze && !v.hidden);
     g.view = v;
-    guideRender(v);
+    guideRender(v && !v.hidden ? v : null);
     return v;
   }
   // While the tutorial runs, the engine fires only when a step asks for it.
   function guideControls(c) {
-    const v = guiding() && state.guide.view;
+    const v = guiding() && !state.guide.free && state.guide.view;
     if (v && c.thrust && !v.allowBurn) c.thrust = false;
     return c;
   }
@@ -2738,7 +2851,7 @@
   // target and, for turns, which way to turn and where to stop.
   function drawGuide() {
     const g = state.guide, v = g && !g.over && g.view, m = state.mission;
-    if (!v) return;
+    if (!v || v.hidden) return;
     const now = performance.now() / 1000, bob = Math.sin(now * 6) * 5;
     const [sx, sy] = w2s(m.ship.x, m.ship.y);
     // One target or several (e.g. "this is your ship" and the planet).
