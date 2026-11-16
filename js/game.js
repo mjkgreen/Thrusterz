@@ -582,7 +582,7 @@
     let behind = false;
     while (state.acc >= Replay.TICK - 1e-9 && m.status === 'flying') {
       if (performance.now() > budgetEnd) { behind = true; state.acc = 0; break; }
-      const tc = controls();
+      const tc = guiding() ? guideControls(controls()) : controls();
       state.rec.tick(state.warp, tc);
       m.advance(WARPS[state.warp] * Replay.TICK, tc);
       state.acc -= Replay.TICK;
@@ -2283,8 +2283,11 @@
   // every physics tick so a step can stop time at exactly the right moment.
   const S = {
     // An explanation; the game waits for "Got it".
-    info: (text, point) => ({
-      tick: (m, c, mem) => (mem.ok ? DONE : { text: text(m), freeze: true, ok: true, point: point && point(m) }),
+    // hud: id of a HUD element to highlight; cam(m): where to point the
+    // camera while it is shown ({ x, y, span } or 'follow').
+    info: (text, point, hud, cam) => ({
+      enter: cam,
+      tick: (m, c, mem) => (mem.ok ? DONE : { text: text(m), freeze: true, ok: true, point: point && point(m), hud }),
     }),
     // Fire the engine and keep firing until done(m). Letting go early
     // freezes the game again until the burn resumes.
@@ -2294,12 +2297,12 @@
         if (o.done(m) || !(m.stageSpec && m.stageSpec.fuel > 0)) return DONE;
         if (c.thrust) mem.held = true;
         const text = c.thrust ? o.during(m) : mem.held ? o.again(m) : o.text(m);
-        return { text, ctl: 'burn', act: 'HOLD', freeze: !c.thrust, point: o.point && o.point(m) };
+        return { text, ctl: 'burn', act: 'HOLD', freeze: !c.thrust, point: o.point && o.point(m), allowBurn: true, hud: o.hud };
       },
     }),
     // Stop firing: frozen until the engine is off.
     release: (text) => ({
-      tick: (m, c) => (!c.thrust ? DONE : { text: text(m), ctl: 'burn', act: 'LET GO', freeze: true }),
+      tick: (m, c) => (!c.thrust ? DONE : { text: text(m), ctl: 'burn', act: 'LET GO', freeze: true, allowBurn: true }),
     }),
     // Speed up time until WARP reaches WARPS[min].
     warp: (min, text) => ({
@@ -2315,28 +2318,36 @@
     overview: (text) => ({
       tick: (m) => (!state.cam.follow ? DONE : { text: text(m), ctl: 'over', act: isTouch() ? 'TAP' : 'PRESS', freeze: true }),
     }),
+    // Back to following the ship (skipped if already following).
+    follow: (text) => ({
+      tick: (m) => (state.cam.follow ? DONE : { text: text(m), ctl: 'follow', act: isTouch() ? 'TAP' : 'PRESS', freeze: true }),
+    }),
     frame: (id, text) => ({
-      tick: (m) => (frameBody() === m.sys.byId[id].index ? DONE : { text: text(m), ctl: 'frame', act: isTouch() ? 'TAP' : 'PRESS', freeze: true, hud: 'hud-frame' }),
+      tick: (m) => (frameBody() === m.sys.byId[id].index ? DONE : { text: text(m), ctl: 'frame', act: isTouch() ? 'TAP' : 'PRESS', freeze: true, hud: 'hud-frame', point: atBody(id, m.sys.byId[id].name.toUpperCase())(m) }),
     }),
     // Time runs; the card explains what is happening until until(m).
     coast: (o) => ({
       halt: o.exact ? o.until : null,
       tick: (m) => (o.until(m) ? DONE : { text: o.text(m), point: o.point && o.point(m) }),
     }),
-    // Turn the nose to angle(m) and stop the spin there. Walks through
-    // start turning → let it turn → stop the spin (holding the other way),
-    // freezing at each moment a key is needed.
+    // Turn the nose to angle(m) and stop it there: a short push to start a
+    // gentle turn, let it coast, then hold the other way at exactly the
+    // right moment (worked out from the thrusters' own ramp-up) so it stops
+    // dead on target. The game freezes at each moment a key is needed.
     aim: (o) => {
       const tol = o.tol || 0.1;
       const read = (m) => {
         const s = m.ship, want = o.angle(m), err = wrapA(want - s.angle), w = s.omega, dir = err >= 0 ? 1 : -1;
-        const toward = w * dir > 0.02, away = w * dir < -0.02;
-        // Spin left to burn off, allowing for the thrusters' slow start.
-        const stopDist = w * w / 1.6 + Math.abs(w) * 0.08;
-        return { s, want, err, w, dir, toward, away, mustStop: away || (toward && stopDist >= Math.abs(err) - tol * 0.5) };
+        const toward = w * dir > 1e-4, away = w * dir < -1e-4;
+        // How far the nose turns while holding against the spin, plus half
+        // a tick so the stop lands centred on the target.
+        const stop = spinStopDist(w, m.level.ship.rcs ? m.level.ship.rcs.accel : 1.2) + Math.abs(w) * Replay.TICK / 2;
+        // A calm turn: quicker for big swings, slow for small fixes.
+        const rate = Math.min(0.9, Math.max(0.1, 0.6 * Math.sqrt(Math.abs(err))));
+        return { s, want, err, w, dir, toward, away, rate, mustStop: away || (toward && stop >= Math.abs(err)) };
       };
       return {
-        halt: (m) => read(m).mustStop,
+        halt: (m) => { const r = read(m); return r.mustStop || (r.toward && m.rotInput === r.dir && Math.abs(r.w) >= r.rate); },
         tick(m, c, mem) {
           const r = read(m), arc = { from: r.s.angle, to: r.want }, point = o.point && o.point(m);
           // Done only with the spin fully stopped (holding against a spin
@@ -2357,42 +2368,55 @@
             const d = -Math.sign(r.w), k = keyFor(d);
             mem.started = mem.stopping = true;
             return {
-              text: r.away && !r.mustStop ? `Stop the spin! <b>HOLD</b> ${kc(k)} until it stops turning` : r.away ? `Wrong way! <b>HOLD</b> ${kc(k)} to stop the spin`
-                : `<b>STOP THE SPIN!</b> <b>HOLD</b> ${kc(k)} (the other way) until it stops turning`,
+              text: r.away && !r.mustStop ? `Stop the spin! <b>HOLD</b> ${kc(k)} until it stops turning`
+                : r.away ? `Wrong way! <b>HOLD</b> ${kc(k)} to stop the spin`
+                : `<b>NOW!</b> <b>HOLD</b> ${kc(k)} (the other way) to stop on target. It stops by itself at zero, so just hold it.`,
               ctl: k, act: 'HOLD', freeze: c.rotate !== d && !clearing, arc, point,
             };
           }
-          // A brisk turn for big swings, a gentle one for small fixes.
-          const rate = Math.min(1.2, Math.max(0.15, Math.sqrt(Math.abs(r.err))));
           const k = keyFor(r.dir);
-          if (r.toward && Math.abs(r.w) >= rate) {
+          if (r.toward && Math.abs(r.w) >= r.rate) {
             mem.started = true;
-            if (c.rotate === r.dir) return { text: `<b>Let go</b> of ${kc(k)}! The ship keeps turning on its own: nothing slows a spin out here.`, ctl: k, act: 'LET GO', freeze: true, arc, point };
-            return { text: `Turning… you'll stop it when the nose reaches ${o.name}.`, arc, point };
+            if (c.rotate === r.dir) return { text: `<b>Let go</b> of ${kc(k)}! That's enough spin: it keeps turning on its own, nothing slows a spin out here.`, ctl: k, act: 'LET GO', freeze: true, arc, point };
+            return { text: `Turning… the game will stop you at the right moment to hold the other way.`, arc, point };
           }
-          if (r.toward && c.rotate === r.dir) return { text: `Keep holding ${kc(k)}… picking up spin`, ctl: k, act: 'HOLD', arc, point };
+          if (r.toward && c.rotate === r.dir) return { text: `Keep holding ${kc(k)} a moment…`, ctl: k, act: 'HOLD', arc, point };
           let text;
-          if (r.toward) text = `Too slow! <b>HOLD</b> ${kc(k)} a bit longer to turn faster`;
-          else if (!mem.started && o.intro) text = `${o.intro(m)}<br><b>HOLD</b> ${kc(k)} to turn the nose that way`;
-          else if (!mem.started) text = `<b>HOLD</b> ${kc(k)} to turn the nose toward ${o.name}`;
-          else text = `Nearly lined up. <b>HOLD</b> ${kc(k)} gently to nudge the nose onto ${o.name}`;
+          if (r.toward) text = `A bit more: <b>HOLD</b> ${kc(k)} a moment longer to turn faster`;
+          else if (!mem.started && o.intro) text = `${o.intro(m)}<br>Give ${kc(k)} a short push to start turning that way`;
+          else if (!mem.started) text = `Give ${kc(k)} a short push to start turning toward ${o.name}`;
+          else text = `Nearly lined up. A tiny push on ${kc(k)} to nudge the nose onto ${o.name}`;
           return { text, ctl: k, act: 'HOLD', freeze: c.rotate !== r.dir && !clearing, arc, point };
         },
       };
     },
   };
 
+  // How far the nose still turns while holding against a spin of w, the
+  // way the ship's side thrusters ramp up (see Mission#_step).
+  function spinStopDist(w, accel) {
+    const h = 1 / 120;
+    let om = Math.abs(w), held = 0, d = 0;
+    for (let n = 0; n < 2000 && om > 0; n++) {
+      held += h;
+      om -= accel * Math.min(1, 0.3 + held / 0.8) * h;
+      if (om > 0) d += om * h;
+    }
+    return d;
+  }
+
   // Coast in, slow time, flip round and brake to a stop beside a station.
   const arrive = (id, name) => {
     const point = atBody(id, name.replace(/^the /, '').toUpperCase());
     return [
       S.coast({
-        text: () => `Coasting toward ${name}… Stay put, the game will tell you when to brake.`,
+        text: () => `Coasting toward ${name}… Save your fuel: the engine stays off until it's time to brake, and the game will tell you when.`,
         // Leave room for the turn (about 4 s) and the braking burn.
         until: (m) => { const r = relTo(m, id); return r.d < 30 + r.v * 4 + r.v * r.v / 2 || !missBy(m, id).ahead; },
         exact: true, point,
       }),
       S.unwarp(),
+      S.follow(() => `Zoom back in on your ship: ${tapOr('press')} ${kc('follow')}`),
       S.aim({
         angle: (m) => velAngle(m) + Math.PI, name: 'the yellow ✕', tol: 0.15,
         intro: () => `Time to stop! Your engine only pushes forward, so turn round to face the <b>yellow ✕</b>: it points straight back the way you're going.`,
@@ -2412,19 +2436,22 @@
     liftoff: [
       S.info(() => `This is <b>your ship</b>, sitting on the little asteroid Pebble.<br>Your mission: fly into the green planet <b>Verdant</b>.`,
         (m) => [{ x: m.ship.x, y: m.ship.y, label: 'YOUR SHIP' }, atBody('verdant', 'VERDANT')(m)]),
+      S.info(() => `This bar is your <b>fuel</b>. It's counted as <b>Δv</b> ("delta-v"): the total amount you can change your speed by. Every burn uses some, and there's no refuelling.<br>Use less than the mission's par for ★★★.`, null, 'gauge-fuel'),
       S.burn({
         text: () => `Press and <b>HOLD</b> ${kc('burn')} to fire your engine`,
         during: () => `Keep holding ${kc('burn')}… building up speed`,
         again: () => `Not fast enough yet! <b>HOLD</b> ${kc('burn')} until the dashed line (your path) reaches Verdant`,
         // (Until you're clear of Pebble's surface the path ignores Pebble.)
         done: (m) => !m.landed && m.ignoreBody == null && !!state.pred && state.pred.hit === bodyAt(m, 'verdant').i,
-        point: atBody('verdant', 'VERDANT'),
+        point: atBody('verdant', 'VERDANT'), hud: 'gauge-fuel',
       }),
       S.release(() => `Now <b>let go</b> of ${kc('burn')}!<br>The dashed line hits Verdant, so you'll get there without burning more fuel.`),
       S.coast({ text: () => `That's it! The dashed line always shows where you're going. Just watch.`, until: () => false, point: atBody('verdant', 'VERDANT') }),
     ],
     point: [
       S.info(() => `No gravity out here: once you're moving, you keep going in a straight line.<br>Your nose points the wrong way. The <b>beacon</b> is over here.`, atBody('beacon', 'BEACON')),
+      S.info(() => `Your <b>objective</b> is always here. The numbers under it show how you're doing: your distance to the beacon now, and how close you need to get (under 40).`, null, 'mission'),
+      S.info(() => `New this mission: <b>side thrusters</b> (RCS) to turn the ship. This bar is their own fuel, in seconds of firing, separate from the engine's Δv. Turning uses it.<br><b>SPIN</b> shows how fast you're turning.`, null, 'gauge-rcs'),
       S.aim({ angle: (m) => angleTo(m, 'beacon'), name: 'the beacon', tol: 0.06, point: atBody('beacon', 'BEACON') }),
       S.burn({
         text: () => `Nose on target! Now <b>HOLD</b> ${kc('burn')} to fly toward the beacon`,
@@ -2434,39 +2461,41 @@
       }),
       S.release(() => `<b>Let go</b> of ${kc('burn')}! You'll coast all the way there.`),
       S.warp(3, () => `It's a long way. ${tapOr('Press')} ${kc('warpUp')} to speed up time: keep going until WARP reads <b>10×</b> (now ${WARPS[state.warp]}×)`),
-      S.coast({ text: () => `Coasting to the beacon… ${kc('warpUp')} goes faster, ${kc('warpDown')} slower.`, until: () => false, point: atBody('beacon', 'BEACON') }),
+      S.coast({ text: () => `Coasting to the beacon… The pink label on the dashed line says how close your path gets to it, and how long until then. ${kc('warpUp')} goes faster, ${kc('warpDown')} slower.`, until: () => false, point: atBody('beacon', 'BEACON') }),
     ],
     stop: [
       S.info(() => `Your engine only pushes <b>forward</b>, and nothing slows you down out here.<br>To stop, you turn round and burn the other way. First, get moving toward <b>Buoy 7</b>.`, atBody('buoy', 'BUOY 7')),
       S.aim({ angle: (m) => angleTo(m, 'buoy'), name: 'Buoy 7', tol: 0.08, point: atBody('buoy', 'BUOY 7') }),
       S.burn({
-        text: () => `Pointing at the buoy. <b>HOLD</b> ${kc('burn')} to get moving`,
+        text: () => `Pointing at the buoy. <b>HOLD</b> ${kc('burn')} to get moving. Only use about half your fuel (the Δv bar): stopping takes as much as starting.`,
         during: (m) => `Keep holding… speed ${spd(m, 'buoy')} of 1.5`,
         again: (m) => `Keep going! <b>HOLD</b> ${kc('burn')} until your speed reaches 1.5 (now ${spd(m, 'buoy')})`,
-        done: (m) => relTo(m, 'buoy').v >= 1.5, exact: true, point: atBody('buoy', 'BUOY 7'),
+        done: (m) => relTo(m, 'buoy').v >= 1.5, exact: true, point: atBody('buoy', 'BUOY 7'), hud: 'gauge-fuel',
       }),
-      S.release(() => `<b>Let go</b> of ${kc('burn')}! You'll keep this speed all the way.`),
+      S.release(() => `<b>Let go</b> of ${kc('burn')}! You'll keep this speed all the way, and the rest of your fuel is for braking.`),
       S.warp(3, () => `${tapOr('Press')} ${kc('warpUp')} to speed up time while you coast: keep going until WARP reads <b>10×</b> (now ${WARPS[state.warp]}×)`),
       ...arrive('buoy', 'Buoy 7'),
     ],
     longcoast: [
       S.info(() => `The outpost is a <b>long</b> way off, and you're already pointing straight at it.`, atBody('outpost', 'OUTPOST')),
       S.burn({
-        text: () => `<b>HOLD</b> ${kc('burn')} to get moving`,
+        text: () => `<b>HOLD</b> ${kc('burn')} to get moving. Like last time, keep enough fuel to stop at the other end.`,
         during: (m) => `Keep holding… speed ${spd(m, 'outpost')} of 1.5`,
         again: (m) => `Keep going! <b>HOLD</b> ${kc('burn')} until your speed reaches 1.5 (now ${spd(m, 'outpost')})`,
-        done: (m) => relTo(m, 'outpost').v >= 1.5, exact: true, point: atBody('outpost', 'OUTPOST'),
+        done: (m) => relTo(m, 'outpost').v >= 1.5, exact: true, point: atBody('outpost', 'OUTPOST'), hud: 'gauge-fuel',
       }),
-      S.release(() => `<b>Let go</b> of ${kc('burn')}!`),
+      S.release(() => `<b>Let go</b> of ${kc('burn')}! Save the rest for braking.`),
+      S.overview(() => `The outpost is far off screen. ${tapOr('Press')} ${kc('over')} to zoom out and see the whole trip: you, the outpost and the dashed line between`),
       S.warp(4, () => `At this speed the trip takes ages. ${tapOr('Press')} ${kc('warpUp')} to speed up time: keep going until WARP reads <b>25×</b> (now ${WARPS[state.warp]}×)`),
       ...arrive('outpost', 'the outpost'),
     ],
     bigpicture: [
       S.info(() => `You're in orbit round the planet <b>Terra</b>. You need to fly through a <b>gate</b> far out on the other side, too far to see from here.`, atGoal('GATE')),
       S.overview(() => `${tapOr('Press')} ${kc('over')} to zoom out and see the whole picture`),
+      S.info(() => `This panel describes your orbit round Terra:<br><b>ALT</b> your height above the surface · <b>SPD</b> your speed<br><b>AP</b> the highest point of your orbit · <b>PE</b> the lowest point`, null, 'orbit'),
       S.burn({
         text: () => `See the dashed line? That's your path: right now it just circles Terra.<br><b>HOLD</b> ${kc('burn')} and watch it stretch out toward the gate`,
-        during: () => `Keep holding… watch the dashed line grow toward the gate`,
+        during: () => `Keep holding… watch the dashed line grow toward the gate, and <b>AP</b> (your highest point) climb`, hud: 'hud-ap',
         again: () => `Not there yet! <b>HOLD</b> ${kc('burn')} until the dashed line reaches the gate`,
         done: (m) => !!(state.pred && state.pred.ca && state.pred.ca.d < 40),
         point: atGoal('GATE'),
@@ -2476,9 +2505,16 @@
       S.coast({ text: () => `Coasting to the gate… ${tapOr('Press')} ${kc('follow')} any time to follow your ship again.`, until: () => false, point: atGoal('GATE') }),
     ],
     movingframe: [
-      S.info(() => `Terra (blue) is racing round the Sun, and this view is fixed to the distant stars, so your path is a long smear.<br>Let's watch it from Terra's point of view instead.`, atBody('terra', 'TERRA')),
-      S.frame('terra', () => `${tapOr('Press')} ${kc('frame')} until FRAME (top right) reads <b>Terra</b> (now: ${frameName()})`),
-      S.info(() => `Much better! The dashed line now shows your orbit round Terra: a stretched loop.<br>Your job: make the loop <b>round</b>, by burning at its <b>highest point</b>.`, apoOf('terra')),
+      S.info(() => `Let's zoom way out. In the middle is <b>Sol</b>, the Sun, and the big circle is <b>Terra's orbit</b>. Terra races round it, and you're in orbit round Terra, so you get carried along too.`,
+        atBody('terra', 'TERRA (AND YOU)'), null, (m) => ({ x: 0, y: 0, span: 19000 })),
+      S.info(() => `Closer in. See <b>FRAME</b>? It says <b>Inertial</b>: the camera is fixed to the distant stars. Seen that way, Terra drags you along so fast that your path (the dashed line) is a long smear.`,
+        atBody('terra', 'TERRA'), 'hud-frame', (m) => Object.assign(bodyAt(m, 'terra'), { span: 4500 })),
+      S.info(() => `A <b>reference frame</b> is whose point of view you watch from.<br>Toss a ball on a moving train: to someone on the train it just goes up and down. To someone on the platform it streaks along with the train. Same ball, different point of view.`, null, 'hud-frame'),
+      S.frame('terra', () => `Now ride along with Terra: ${tapOr('press')} ${kc('frame')} until FRAME reads <b>Terra</b>, and watch the dashed line (now: ${frameName()})`),
+      S.info(() => `From Terra's point of view Terra stands still, and the smear becomes a <b>loop</b>: your orbit round Terra. Nothing about your flight changed, only the point of view.`, apoOf('terra'), null,
+        (m) => Object.assign(bodyAt(m, 'terra'), { span: 900 })),
+      S.follow(() => `${tapOr('Press')} ${kc('follow')} to zoom back in on your ship`),
+      S.info(() => `The loop is stretched. Your job: make it <b>round</b>, by burning at its <b>highest point</b>.`, apoOf('terra')),
       S.warp(1, () => `${tapOr('Press')} ${kc('warpUp')} to speed up time and coast up there`),
       S.coast({
         text: () => `Coasting up to the highest point… the game will stop you there.`,
@@ -2507,6 +2543,7 @@
     ],
     leanburn: [
       S.info(() => `You're already drifting right, but the dashed line passes <b>below</b> the depot.<br>Stopping and starting again would waste fuel. Instead, nudge your path <b>sideways</b>.`, atBody('depot', 'DEPOT')),
+      S.info(() => `Watch the clock: <b>T+</b> is how long the mission has been running, and after the slash is the time limit. Run out and the mission fails.`, null, 'hud-time'),
       S.aim({ angle: () => Math.PI / 2, name: 'straight up', tol: 0.1, intro: () => `First, point the nose <b>straight up ↑</b>.` }),
       S.burn({
         text: () => `Now a <b>short</b> burn: <b>HOLD</b> ${kc('burn')} and watch the dashed line swing up toward the depot`,
@@ -2535,15 +2572,33 @@
     let v = null;
     if (m.status === 'flying') {
       while (g.i < g.steps.length) {
-        v = g.steps[g.i].tick(m, c, g.mem[g.i]);
+        const st = g.steps[g.i], mem = g.mem[g.i];
+        if (!mem.entered) { mem.entered = true; if (st.enter) guideCam(st.enter(m)); }
+        v = st.tick(m, c, mem);
         if (!v.done) break;
         v = null; g.i++; g.mem[g.i] = {};
       }
     }
     if (!v) g.over = true;
+    // The engine only works when a step asks for a burn, so fuel can't
+    // be spent before it is needed (braking, mostly).
+    if (v) v.locked = !!(c.thrust && !v.allowBurn && !v.freeze);
     g.view = v;
     guideRender(v);
     return v;
+  }
+  // While the tutorial runs, the engine fires only when a step asks for it.
+  function guideControls(c) {
+    const v = guiding() && state.guide.view;
+    if (v && c.thrust && !v.allowBurn) c.thrust = false;
+    return c;
+  }
+  // Point the camera somewhere for a step ({ x, y, span }) or back at the ship.
+  function guideCam(to) {
+    if (!to) return;
+    const c = state.cam;
+    if (to === 'follow') { c.follow = true; return; }
+    c.follow = false; c.tx = to.x; c.ty = to.y; c.tzoom = Math.min(W, H) / to.span;
   }
   // After each physics tick: should time stop right here?
   function guideHalt(m) {
@@ -2555,6 +2610,19 @@
     if (g && !g.over && g.view && g.view.ok) g.mem[g.i].ok = true;
   }
 
+  const guideRowEl = (v) => {
+    const el = v && v.hud && $(v.hud);
+    // A readout in its own row lights the row; one in a grid, just itself.
+    return el ? (/^hud-/.test(el.id) && !el.parentElement.classList.contains('grid') ? el.parentElement : el) : null;
+  };
+  // An element's box in layout pixels relative to the HUD (getBoundingClientRect
+  // would be rotated on a phone held upright).
+  function layoutRect(el) {
+    let x = 0, y = 0;
+    const w = el.offsetWidth, h = el.offsetHeight;
+    for (let e = el; e && e.id !== 'hud'; e = e.offsetParent) { x += e.offsetLeft; y += e.offsetTop; }
+    return { x, y, w, h };
+  }
   function topPanel(el) {
     let p = el && el.closest('.panel');
     while (p && p.parentElement && p.parentElement.closest('.panel')) p = p.parentElement.closest('.panel');
@@ -2572,15 +2640,24 @@
       for (const b of document.querySelectorAll('#touch button')) b.classList.toggle('guide-hl', !!btn && b.dataset.key === btn);
       const hp = v && v.hud ? topPanel($(v.hud)) : null;
       for (const p of document.querySelectorAll('#hud .panel')) p.classList.toggle('guide-hl', p === hp);
+      // The exact readout too (a readout's whole row), with an arrow at it
+      // from whichever side has room.
+      for (const r of document.querySelectorAll('#hud .guide-row')) r.classList.remove('guide-row', 'from-left', 'from-right');
+      const row = guideRowEl(v);
+      if (row) {
+        const rr = layoutRect(row);
+        row.classList.add('guide-row', rr.x + rr.w / 2 > W / 2 ? 'from-left' : 'from-right');
+      }
     }
     if (!v) return;
     const key = v.ctl && !isTouch()
       ? `<div class="g-key"><span class="g-arrow">▼</span><kbd class="big">${CTRL[v.ctl][0]}</kbd><span class="g-act">${v.act || ''}</span></div>`
       : '';
-    const html = `<div class="g-badge">${v.freeze ? (v.ok ? '⏸ PAUSED' : '⏸ PAUSED · DO THIS TO CONTINUE') : 'TUTORIAL'}</div>`
-      + `<div class="g-text">${v.text}</div>${key}`
-      + (v.ok ? `<button id="guide-ok" class="primary">Got it ▸${isTouch() ? '' : ' <span class="g-hint">Enter</span>'}</button>` : '')
-      + `<button id="guide-skip" class="g-skip">Skip tutorial</button>`;
+    const lock = v.locked ? `<div class="g-lock">Engine locked for now: save your fuel. The tutorial will tell you when to burn.</div>` : '';
+    const html = `<div class="g-head"><span class="g-badge">${v.freeze ? (v.ok ? '⏸ PAUSED' : '⏸ PAUSED · YOUR MOVE') : 'TUTORIAL'}</span>`
+      + `<button id="guide-skip" class="g-skip">Skip tutorial</button></div>`
+      + `<div class="g-text">${v.text}</div>${lock}${key}`
+      + (v.ok ? `<button id="guide-ok" class="primary">Got it ▸${isTouch() ? '' : ' <span class="g-hint">Enter</span>'}</button>` : '');
     if (html === g.html) return;
     g.html = html;
     el.innerHTML = html;
@@ -2589,11 +2666,12 @@
     $('guide-skip').onclick = () => { if (state.guide) { state.guide.over = true; guideRender(null); } };
   }
 
-  // Put the card at the top, bottom or middle, wherever it hides least: never the ship
-  // if it can help it, then the targets and the turn arrow. A step keeps
-  // its spot unless the other one is clearly better, so it doesn't jump.
-  // (Layout sizes, not screen boxes: on a phone held upright the whole page
-  // is drawn sideways.)
+  // Place the card wherever it hides least of what matters: the ship above
+  // all, then the turn arrow, the targets, the path between ship and
+  // target, and whatever is highlighted. Phones favour the left side (the
+  // middle of the screen is where the flying happens); a step keeps its spot
+  // unless moving uncovers something. (Layout sizes, not screen boxes: on a
+  // phone held upright the whole page is drawn sideways.)
   function placeGuideCard(g, v, sx, sy, pts) {
     const card = $('guide');
     if (!card.offsetHeight) return;
@@ -2601,32 +2679,53 @@
     // Re-check a few times a second (measuring forces a layout).
     if (g.place && (g.placeTick = (g.placeTick || 0) + 1) % 8) return;
     const touchUi = isTouch();
-    // Full width at the top / bottom / middle, or narrower at either side.
     const full = Math.min(touchUi ? 560 : 580, W * (touchUi ? 0.6 : 1) - 32);
-    const side = Math.min(380, W * 0.4);
+    const side = Math.min(touchUi ? 340 : 380, W * (touchUi ? 0.42 : 0.36));
     const prev = g.place;
     card.style.width = full + 'px';
     const hFull = card.offsetHeight;
-    const hSide = Math.min(H - 40, hFull * full / side);
-    const top0 = touchUi ? 52 : Math.max(60, H * 0.12), bot0 = touchUi ? 98 : 110;
+    card.style.width = side + 'px';
+    const hSide = Math.min(H - 40, card.offsetHeight);
+    const top0 = touchUi ? 52 : Math.max(60, H * 0.12), bot0 = touchUi ? 120 : 110;
+    const midY = Math.max(top0, Math.min((H - hSide) / 2, H - hSide - bot0));
+    const pref = touchUi
+      ? { leftMid: 0, leftLow: 0.05, rightMid: 0.15, top: 0.2, bottom: 0.3, middle: 0.4 }
+      : { top: 0, leftMid: 0.1, rightMid: 0.1, leftLow: 0.15, bottom: 0.2, middle: 0.4 };
     const spots = [
-      { k: 'top', x: W / 2, w: full, y: top0, h: hFull, pref: 0 },
-      { k: 'bottom', x: W / 2, w: full, y: H - hFull - bot0, h: hFull, pref: 0.1 },
-      { k: 'left', x: 16 + side / 2, w: side, y: (H - hSide) / 2, h: hSide, pref: 0.2 },
-      { k: 'right', x: W - 16 - side / 2, w: side, y: (H - hSide) / 2, h: hSide, pref: 0.2 },
-      { k: 'middle', x: W / 2, w: full, y: (H - hFull) / 2, h: hFull, pref: 0.3 },
+      { k: 'top', x: W / 2, w: full, y: top0, h: hFull },
+      { k: 'bottom', x: W / 2, w: full, y: H - hFull - bot0, h: hFull },
+      { k: 'leftMid', x: 12 + side / 2, w: side, y: midY, h: hSide },
+      { k: 'leftLow', x: 12 + side / 2, w: side, y: H - hSide - bot0, h: hSide },
+      { k: 'rightMid', x: W - 12 - side / 2, w: side, y: midY, h: hSide },
+      { k: 'middle', x: W / 2, w: full, y: (H - hFull) / 2, h: hFull },
     ];
-    // What must stay visible: the ship above all, then the turn arrow round
-    // it and the targets.
     const avoid = [{ x: sx, y: sy, r: 40, w: 10 }];
     if (v.arc) avoid.push({ x: sx, y: sy, r: 70, w: 4 }, { x: sx + Math.cos(v.arc.to) * 120, y: sy - Math.sin(v.arc.to) * 120, r: 25, w: 2 });
-    for (const q of pts) if (q.on) avoid.push({ x: q.x, y: q.y - 20, r: 40, w: 3 });
-    const cost = (sp) => sp.pref + avoid.reduce((sum, a) => {
-      const dx = Math.max(0, Math.abs(a.x - sp.x) - sp.w / 2), dy = Math.max(0, sp.y - a.y, a.y - (sp.y + sp.h));
-      return sum + (Math.hypot(dx, dy) < a.r ? a.w : 0);
-    }, 0);
+    for (const q of pts) {
+      if (!q.on) continue;
+      avoid.push({ x: q.x, y: q.y - 20, r: 40, w: 3 });
+      // The stretch of space between ship and target.
+      for (let k = 1; k < 6; k++) avoid.push({ x: sx + (q.x - sx) * k / 6, y: sy + (q.y - sy) * k / 6, r: 15, w: 0.5 });
+    }
+    // Boxes: the highlighted readout, the highlighted button and its arrow,
+    // and the objective panel.
+    const boxes = [];
+    const row = guideRowEl(v);
+    if (row) boxes.push({ ...layoutRect(row), w2: 5 });
+    const btn = v.ctl && touchUi && document.querySelector(`#touch button[data-key="${CTRL_BTN[v.ctl]}"]`);
+    if (btn) { const b = layoutRect(btn); boxes.push({ x: b.x, y: b.y - 50, w: b.w, h: b.h + 50, w2: 5 }); }
+    boxes.push({ ...layoutRect($('mission')), w2: 1 });
+    const cost = (sp) => {
+      const l = sp.x - sp.w / 2, r = sp.x + sp.w / 2, t = sp.y, b = sp.y + sp.h;
+      let sum = pref[sp.k];
+      for (const a of avoid) {
+        const dx = Math.max(0, l - a.x, a.x - r), dy = Math.max(0, t - a.y, a.y - b);
+        if (Math.hypot(dx, dy) < a.r) sum += a.w;
+      }
+      for (const q of boxes) if (q.x < r + 8 && q.x + q.w > l - 8 && q.y < b + 8 && q.y + q.h > t - 8) sum += q.w2;
+      return sum;
+    };
     let best = spots.reduce((x, y) => (cost(y) < cost(x) ? y : x));
-    // Stay put unless the move uncovers something.
     const cur = prev && spots.find((sp) => sp.k === prev.k);
     if (cur && cost(cur) - cost(best) < 1) best = cur;
     g.place = best;

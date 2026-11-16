@@ -396,7 +396,7 @@ setTimeout(() => {
     await p.close();
   }
 
-  // 7. Training tutorial: the first mission waits, frozen, for "Got it" and
+  // 7. Training tutorial: the first mission waits, frozen, for each "Got it" and
   // then for BURN (highlighted), and time only runs while BURN is held.
   {
     const p = await browser.newPage({ viewport: { width: 1000, height: 600 } });
@@ -412,8 +412,8 @@ setTimeout(() => {
     });
     const a = await look();
     check('tutorial: first step is frozen with a "Got it" button', a.show && a.frozen && a.ok && a.t === 0, JSON.stringify(a));
-    await p.click('#guide-ok');
-    await p.waitForTimeout(400);
+    // Click through the explanations to the first thing to do.
+    for (let k = 0; k < 5 && (await look()).ok; k++) { await p.click('#guide-ok'); await p.waitForTimeout(300); }
     const b = await look();
     check('tutorial: then waits, frozen, for SPACE', b.frozen && b.key === 'SPACE' && b.t === 0, JSON.stringify(b));
     await p.keyboard.down('Space');
