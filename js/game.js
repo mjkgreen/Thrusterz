@@ -2225,8 +2225,10 @@
   // arrow on the touch button, or a big keycap on a keyboard). Steps that
   // need an input freeze the game until you use it, and nothing moves on
   // until the step is really done: a burn you let go of too soon freezes
-  // again and asks you to keep holding. ?guide forces it on for any visit.
+  // again and asks you to keep holding. ?guide forces it on for any visit,
+  // ?noguide turns it off (for automated checks that expect time to run).
   const FORCE_GUIDE = /[?&]guide/.test(location.search);
+  const NO_GUIDE = /[?&]noguide/.test(location.search);
   const DONE = { done: true };
   const CTRL = {
     burn: ['SPACE', 'BURN'], rotL: ['A', '⟲'], rotR: ['D', '⟳'], warpUp: ['.', '»'], warpDown: [',', '«'],
@@ -2518,7 +2520,7 @@
   };
 
   function startGuide(L) {
-    state.guide = GUIDES[L.id] && (FORCE_GUIDE || !progress.stars[L.id])
+    state.guide = GUIDES[L.id] && !NO_GUIDE && (FORCE_GUIDE || !progress.stars[L.id])
       ? { steps: GUIDES[L.id], i: 0, mem: [{}], view: null, over: false, sig: null, html: null }
       : null;
     guideRender(null);
