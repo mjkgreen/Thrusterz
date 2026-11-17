@@ -80,7 +80,8 @@ function pace(tl, seconds) {
 function dress(hook) {
   const st = document.createElement('style');
   st.textContent = `
-    #topbtns, #toast { display: none !important; }
+    /* Only what tells the story: fuel, stage, cargo, orbit, time and warp. */
+    #topbtns, #toast, .gauge.throttle, #gyro-row, #clock > div:nth-child(3) { display: none !important; }
     #reel-hook { position: fixed; left: 24px; right: 24px; top: 19%; z-index: 99; text-align: center;
       font: 800 30px/1.15 var(--sans); color: #fff; letter-spacing: 0.01em;
       text-shadow: 0 2px 14px rgba(0,0,0,.9), 0 0 2px #000; transition: opacity .3s; }
