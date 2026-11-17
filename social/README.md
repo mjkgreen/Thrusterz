@@ -1,0 +1,38 @@
+# Thruster Social
+
+Content for @thrustersz (Instagram) and, later, TikTok. A scheduled task runs
+Mon / Wed / Fri / Sat at 6:09pm Eastern, makes one post and puts it in the
+Google Drive folder **Thrusterz social content** (owned by thrusterz.app),
+one subfolder per post (`<date> <pillar> — <Mission>`) holding the media
+(`reel.mp4` + `cover.jpg`, or `still.jpg`), `caption.txt` and `post.json`.
+The `post.json` files together are the record of everything made and posted
+(the Drive connector can't edit a file after upload, so there's no single log).
+
+## Content pillars (rotated so no two posts in a row share one)
+
+| Pillar | What | Made with |
+| --- | --- | --- |
+| gameplay | Real autopilot flight of a mission, 15–30 s reel | `tools/social/record.js <levelId> out.mp4 --hook "…"` |
+| challenge | "Can you do this in one burn?": a mission's setup, cut before the answer | record.js with a shorter `--seconds` |
+| tip | One orbital-mechanics idea the game teaches (prograde, Hohmann, gravity assist…) | still.js or a short reel |
+| still | A striking single frame with a headline, 1080×1350 | `tools/social/still.js <levelId> out.jpg --at 0.5 --hook "…"` |
+| feature | Something new from recent commits | read `git log` since the last feature post |
+
+## Rules
+- Real game footage only: never mock up gameplay.
+- Hook in the first line and first 3 seconds; keep text out of the bottom fifth (app UI covers it).
+- Caption: hook, one line of context, call to action (thrusterz.com), 5–8 hashtags.
+- Check the `post.json` records before choosing: don't repeat a mission within 30 days.
+- Reels are capped at 2.8 MB (`--max-mb`) so they fit a Drive upload from a session.
+
+## No repeats
+`tools/social/plan.js` decides what's allowed, in code rather than by judgement:
+- `plan.js suggest <history.json>` lists what today's post can be: pillars in
+  the order they're due, missions not used recently, tip topics not yet done.
+- `plan.js check <history.json> <post.json>` must print `OK` before anything
+  is uploaded. It refuses a second post on the same date, the same pillar twice
+  in a row, the same pillar + subject again (mission, tip `topic` or feature
+  `commit`) until that pillar has used every subject, any mission within 45
+  days, and a hook that shares most of its meaningful words with an earlier one.
+
+`history.json` is every `post.json` from the Drive folder, as one JSON array.

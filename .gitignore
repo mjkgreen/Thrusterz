@@ -6,3 +6,4 @@ node_modules/
 # Generated App Store images and videos (tools/store/*.js)
 /store/
 screenshots/*
+social/samples/
