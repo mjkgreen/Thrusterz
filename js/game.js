@@ -626,11 +626,12 @@
     Sound.engine(m.thrusting && !state.paused && !frozen ? state.throttle : 0);
     // Alarm while a crash or zone is close: within 20 s of game time or 4 s
     // of real time, beeping faster in the last few seconds.
-    if (state.danger != null && m.status === 'flying' && !m.landed) {
+    if (state.danger != null && m.status === 'flying' && !m.landed && !frozen) {
       const left = state.danger - m.t, real = left / WARPS[state.warp];
       if (left > 0 && (left < 20 || real < 4)) {
         const urgent = left < 6 || real < 1.5, nowMs = performance.now();
         if (nowMs - (state.alarmAt || 0) > (urgent ? 420 : 800)) { state.alarmAt = nowMs; Sound.alarm(urgent); }
+        alarmLesson(m);
       }
     }
     Sound.rcs(!!m.rotInput && !state.paused && !frozen);
@@ -2287,7 +2288,7 @@
     // camera while it is shown ({ x, y, span } or 'follow').
     info: (text, point, hud, cam) => ({
       enter: cam,
-      tick: (m, c, mem) => (mem.ok ? DONE : { text: text(m), freeze: true, ok: true, point: point && point(m), hud }),
+      tick: (m, c, mem) => (mem.ok ? DONE : { text: text(m), freeze: true, ok: true, point: point && point(m), hud: typeof hud === 'function' ? hud() : hud }),
     }),
     // Fire the engine and keep firing until done(m). Letting go early
     // freezes the game again until the burn resumes.
@@ -2478,6 +2479,7 @@
     ],
     stop: [
       S.info(() => `Your engine only pushes <b>forward</b>, and nothing slows you down out here.<br>To stop, you turn round and burn the other way. First, get moving toward <b>Buoy 7</b>.`, atBody('buoy', 'BUOY 7')),
+      S.info(() => `To <b>park</b>, both numbers under the objective must turn green:<br><b>dist</b> how far you are from the buoy (under 60)<br><b>rel v</b> your speed relative to it (under 1). Flying past fast doesn't count.`, null, 'mission'),
       S.aim({ angle: (m) => angleTo(m, 'buoy'), name: 'Buoy 7', tol: 0.08, point: atBody('buoy', 'BUOY 7') }),
       S.burn({
         text: () => `Pointing at the buoy. <b>HOLD</b> ${kc('burn')} to get moving. Only use about half your fuel (the Δv bar): stopping takes as much as starting.`,
@@ -2528,6 +2530,7 @@
         (m) => Object.assign(bodyAt(m, 'terra'), { span: 900 })),
       S.follow(() => `${tapOr('Press')} ${kc('follow')} to zoom back in on your ship`),
       S.info(() => `The loop is stretched. Your job: make it <b>round</b>, by burning at its <b>highest point</b>.`, apoOf('terra')),
+      S.info(() => `How orbit objectives work: under the objective, <b>low</b> and <b>high</b> are your orbit's lowest and highest points right now. <b>Both</b> must sit inside the band (210 to 290 k).<br>Then keep the engine off for 3 s while the game confirms it.`, null, 'mission'),
       S.warp(1, () => `${tapOr('Press')} ${kc('warpUp')} to speed up time and coast up there`),
       S.coast({
         text: () => `Coasting up to the highest point… the game will stop you there.`,
@@ -2552,7 +2555,7 @@
         exact: true,
       }),
       S.release(() => `<b>Let go</b> of ${kc('burn')}! Your orbit is round.`),
-      S.coast({ text: () => `Engine off… confirming your orbit.`, until: () => false }),
+      S.coast({ text: () => `Engine off… the bar under the objective fills as your orbit is confirmed. (If something would break the orbit, such as a moon or the ground, you'd get "Not a real orbit yet" instead.)`, until: () => false }),
     ],
     leanburn: [
       S.info(() => `You're already drifting right, but the dashed line passes <b>below</b> the depot.<br>Stopping and starting again would waste fuel. Instead, nudge your path <b>sideways</b>.`, atBody('depot', 'DEPOT')),
@@ -2604,6 +2607,13 @@
         },
       },
       S.info(() => `Keep burning sideways and watch <b>PE</b>, the lowest point of your orbit. While it's below the ground your path still comes down. Once PE is above 30 k, you're in orbit: let go.`, null, 'hud-pe'),
+    ],
+    deorbit: [
+      S.info(() => `New control: <b>gyro assist</b>. ${tapOr('Press')} ${KEY('G')} and the side thrusters stop any spin for you, so the nose holds still. Handy, but a run that uses it earns at most <b>★★</b>.`,
+        null, () => (isTouch() ? 'btn-gyro' : 'gyro-row')),
+    ],
+    eventhorizon: [
+      S.info(() => `New kind of objective: <b>escape</b>. Instead of reaching something, get far enough away from the black hole (the objective shows how far).<br>The label on your dashed path now says <b>farthest</b>: how far out your path will take you.`, null, 'mission'),
     ],
     lagrange: [
       S.info(() => `New kind of objective: <b>hold</b>. L4 isn't an object, it's a point in space that rides along with Vesta (the game marks it).<br>Get within 40 k of it, moving <b>with</b> it, and stay there: the bar under the objective fills over 30 s.`, atGoal('L4'), 'mission'),
@@ -2664,6 +2674,20 @@
       S.info(() => `A <b>storm</b> is scheduled: the warning at the bottom counts down to it. When it hits it squashes the bubble in past your orbit, so be under the belt by then.`, null, 'alert'),
     ],
   };
+
+  // The first time the crash alarm ever sounds (in any mission, once the
+  // mission's own guide has finished), stop and say what it means.
+  function alarmLesson(m) {
+    if (NO_GUIDE || guiding() || (progress.learned && progress.learned.alarmNote)) return;
+    progress.learned = progress.learned || {};
+    progress.learned.alarmNote = 1;
+    saveProgress();
+    const p = state.pred, crash = p && p.hit >= 0 && p.end ? { x: p.end.x, y: p.end.y, label: 'CRASH HERE' } : null;
+    state.guide = {
+      id: 'alarm', free: true, i: 0, mem: [{}], view: null, over: false, sig: null, html: null,
+      steps: [S.info(() => `Hear that beeping? It's the <b>crash alarm</b>: your dashed path ends in a crash${p && p.zone ? ' or runs into a zone' : ''} that isn't your target. It beeps faster as it gets closer.<br>Change your path in time, or it happens.`, () => crash)],
+    };
+  }
 
   // Lessons already finished this session (a retry skips them).
   const lessonsSeen = new Set();
