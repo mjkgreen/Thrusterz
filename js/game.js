@@ -2310,8 +2310,10 @@
       },
     }),
     // Stop firing: frozen until the engine is off.
-    release: (text) => ({
-      tick: (m, c) => (!c.thrust ? DONE : { text: text(m), ctl: 'burn', act: 'LET GO', freeze: true, allowBurn: true }),
+    // soft: where burning more can't fail the mission (only costs stars),
+    // time keeps running and you let go whenever you like.
+    release: (text, soft) => ({
+      tick: (m, c) => (!c.thrust ? DONE : { text: text(m), ctl: 'burn', act: 'LET GO', freeze: !soft, allowBurn: true }),
     }),
     // Speed up time until WARP reaches WARPS[min].
     warp: (min, text) => ({
@@ -2458,7 +2460,7 @@
     liftoff: [
       S.info(() => `This is <b>your ship</b>, sitting on the little asteroid Pebble.<br>Your mission: fly into the green planet <b>Verdant</b>.`,
         (m) => [{ x: m.ship.x, y: m.ship.y, label: 'YOUR SHIP' }, atBody('verdant', 'VERDANT')(m)]),
-      S.info(() => `This bar is your <b>fuel</b>. It's counted as <b>Δv</b> ("delta-v"): the total amount you can change your speed by. Every burn uses some, and there's no refuelling.<br>Use less than the mission's par for ★★★.`, null, 'gauge-fuel'),
+      S.info(() => `This bar is your <b>fuel</b>. It's counted as <b>Δv</b> ("delta-v"): the total amount you can change your speed by. Every burn uses some, and there's no refuelling.<br>Fuel left over earns stars, but don't worry about that yet: you can come back for ★★★ later.`, null, 'gauge-fuel'),
       S.burn({
         text: () => `Press and <b>HOLD</b> ${kc('burn')} to fire your engine`,
         during: () => `Keep holding ${kc('burn')}… building up speed`,
@@ -2470,7 +2472,7 @@
         done: (m) => !m.landed && m.ignoreBody == null && pathHits(m, 'verdant', 0.95),
         point: atBody('verdant', 'VERDANT'), hud: 'gauge-fuel',
       }),
-      S.release(() => `Now <b>let go</b> of ${kc('burn')}!<br>The dashed line hits Verdant, so you'll get there without burning more fuel.`),
+      S.release(() => `That's enough: the dashed line hits Verdant, so you'll get there. Let go of ${kc('burn')} whenever you like (or burn it all, it's fine).`, true),
       S.coast({ text: () => `That's it! The dashed line always shows where you're going. Just watch.`, until: () => false, point: atBody('verdant', 'VERDANT') }),
     ],
     point: [
@@ -2484,7 +2486,7 @@
         again: (m) => `Keep going! <b>HOLD</b> ${kc('burn')} until your speed reaches 1.8 (now ${spd(m, 'beacon')})`,
         done: (m) => relTo(m, 'beacon').v >= 1.8, exact: true, point: atBody('beacon', 'BEACON'),
       }),
-      S.release(() => `<b>Let go</b> of ${kc('burn')}! You'll coast all the way there.`),
+      S.release(() => `That's enough to coast all the way there. Let go of ${kc('burn')} whenever you like: burning longer just gets you there sooner.`, true),
       S.warp(3, () => `It's a long way. ${tapOr('Press')} ${kc('warpUp')} to speed up time: keep going until WARP reads <b>10×</b> (now ${WARPS[state.warp]}×)`),
       S.coast({ text: () => `Coasting to the beacon… The pink label on the dashed line says how close your path gets to it, and how long until then. ${kc('warpUp')} goes faster, ${kc('warpDown')} slower.`, until: () => false, point: atBody('beacon', 'BEACON') }),
     ],
