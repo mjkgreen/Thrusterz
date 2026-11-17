@@ -3,7 +3,7 @@
 // real speed; coasts speed up so the whole flight fits the target length.
 // A hook line sits over the opening, and an end card closes the clip.
 //   node tools/social/record.js <levelId> <out.mp4> [--hook "text"] [--seconds 24]
-//        [--end "Play free · thrusterz.com"] [--keep-frames]
+//        [--end "Play free · thrusterz.com"] [--max-mb 2.8] [--keep-frames]
 // Also writes <out>.jpg, a cover frame taken mid-flight.
 'use strict';
 const fs = require('fs');
@@ -17,7 +17,7 @@ const FPS = 30;
 cap.DEVICES.reel = { viewport: { width: 432, height: 768 }, deviceScaleFactor: 2.5 };
 
 function args() {
-  const a = process.argv.slice(2), o = { seconds: 24, end: 'Play free · thrusterz.com' };
+  const a = process.argv.slice(2), o = { seconds: 24, end: 'Play free · thrusterz.com', maxMb: 2.8 };
   o.id = a.shift(); o.out = a.shift();
   while (a.length) {
     const k = a.shift();
@@ -25,6 +25,7 @@ function args() {
     else if (k === '--seconds') o.seconds = +a.shift();
     else if (k === '--end') o.end = a.shift();
     else if (k === '--keep-frames') o.keep = true;
+    else if (k === '--max-mb') o.maxMb = +a.shift();     // 0: no cap
     else if (k === '--preview') o.preview = +a.shift();   // contact sheet of every Nth frame, no video
   }
   if (!o.id || !o.out) { console.error('usage: record.js <levelId> <out.mp4> [--hook text] [--seconds n]'); process.exit(1); }
@@ -131,6 +132,22 @@ function direct(first) {
   S.predDirty = true;
 }
 
+// Encode the frames. Quality first (CRF 19); if that comes out over maxMb
+// (Drive uploads from a session cap near 3 MB), re-encode in two passes at
+// the bitrate that just fits.
+function encode(pattern, out, seconds, maxMb) {
+  const base = ['-y', '-loglevel', 'error', '-framerate', String(FPS), '-i', pattern,
+    '-vf', 'scale=1080:1920:flags=lanczos,format=yuv420p', '-c:v', 'libx264', '-profile:v', 'high', '-preset', 'slow', '-r', String(FPS)];
+  execFileSync('ffmpeg', base.concat(['-crf', '19', '-movflags', '+faststart', out]));
+  if (!maxMb || fs.statSync(out).size <= maxMb * 1e6) return;
+  const kbps = Math.floor(maxMb * 8e3 * 0.94 / seconds);
+  const log = path.join(os.tmpdir(), 'x264-' + process.pid);
+  execFileSync('ffmpeg', base.concat(['-b:v', kbps + 'k', '-pass', '1', '-passlogfile', log, '-an', '-f', 'mp4', '/dev/null']));
+  execFileSync('ffmpeg', base.concat(['-b:v', kbps + 'k', '-maxrate', Math.floor(kbps * 1.5) + 'k', '-bufsize', kbps * 2 + 'k',
+    '-pass', '2', '-passlogfile', log, '-movflags', '+faststart', out]));
+  for (const f of fs.readdirSync(os.tmpdir())) if (f.startsWith('x264-' + process.pid)) fs.rmSync(path.join(os.tmpdir(), f), { force: true });
+}
+
 async function nextFrames(page) {
   await page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
 }
@@ -174,16 +191,14 @@ async function record(o) {
     await nextFrames(page);
     for (let k = 0; k < FPS * 2.5; k++) await shoot();
     fs.mkdirSync(path.dirname(path.resolve(o.out)), { recursive: true });
-    execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-framerate', String(FPS), '-i', path.join(dir, '%05d.jpg'),
-      '-vf', 'scale=1080:1920:flags=lanczos,format=yuv420p', '-c:v', 'libx264', '-profile:v', 'high', '-crf', '19',
-      '-preset', 'medium', '-movflags', '+faststart', '-r', String(FPS), o.out]);
+    encode(path.join(dir, '%05d.jpg'), o.out, f / FPS, o.maxMb);
     if (!o.keep) fs.rmSync(dir, { recursive: true, force: true });
-    const info = { level: o.id, name: tl.name, file: o.out, frames: f, seconds: +(f / FPS).toFixed(1), coastSpeed: +speed.toFixed(1), simTime: +tl.tEnd.toFixed(0) };
+    const info = { level: o.id, mb: +(fs.statSync(o.out).size / 1e6).toFixed(2), name: tl.name, file: o.out, frames: f, seconds: +(f / FPS).toFixed(1), coastSpeed: +speed.toFixed(1), simTime: +tl.tEnd.toFixed(0) };
     if (errors.length) info.pageErrors = errors.slice(0, 5);
     return info;
   } finally { await close(); }
 }
 
-module.exports = { record };
+module.exports = { record, timeline, dress, direct, nextFrames };
 
 if (require.main === module) record(args()).then(i => console.log(JSON.stringify(i))).catch(e => { console.error(e); process.exit(1); });
