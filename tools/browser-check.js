@@ -43,20 +43,28 @@ setTimeout(() => {
 
   // 1 + 2 + 5: every mission, plain and with random input.
   {
-    const p = await browser.newPage({ viewport: { width: 1000, height: 600 } });
-    watch(p);
-    await p.goto(URL + '?unlock&noguide');
-    await p.waitForTimeout(300);
+    // Headless WebKit on CI now and then stops answering altogether (a
+    // different mission each time, the same commit passing on the next
+    // run). A mission whose page goes silent is tried once more on a fresh
+    // page; only a second silence fails, which is what a real hang does.
+    const openMissionPage = async () => {
+      const page = await browser.newPage({ viewport: { width: 1000, height: 600 } });
+      watch(page);
+      await page.goto(URL + '?unlock&noguide');
+      await page.waitForTimeout(300);
+      // Headless WebKit can take a moment to start delivering animation frames
+      // on a fresh page: wait for the first mission's clock to move once before
+      // checking that it never stops.
+      await page.evaluate(() => { window.Thrusterz.startLevel(0); document.getElementById('gate').classList.add('hidden'); });
+      await page.waitForFunction(() => window.Thrusterz.state.mission.t > 0, null, { timeout: 5000 }).catch(() => {});
+      return page;
+    };
+    let p = await openMissionPage();
     const n = await p.evaluate(() => window.Thrusterz.levelCount);
     const levelIds = await p.evaluate(() => window.Levels.LEVELS.map(l => l.id));
     let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
-    const stalled = [];
-    // Headless WebKit can take a moment to start delivering animation frames
-    // on a fresh page: wait for the first mission's clock to move once before
-    // checking that it never stops.
-    await p.evaluate(() => { window.Thrusterz.startLevel(0); document.getElementById('gate').classList.add('hidden'); });
-    await p.waitForFunction(() => window.Thrusterz.state.mission.t > 0, null, { timeout: 5000 }).catch(() => {});
-    for (let i = 0; i < n; i++) await within(60e3, `mission ${i} (${levelIds[i]})`, async () => {
+    const stalled = [], retried = [];
+    const runMission = async (i) => {
       await p.evaluate((i) => { window.Thrusterz.startLevel(i); document.getElementById('gate').classList.add('hidden'); }, i);
       const t0 = await p.evaluate(() => window.Thrusterz.state.mission.t);
       for (let k = 0; k < 8; k++) {
@@ -103,7 +111,23 @@ setTimeout(() => {
       } catch (e) {
         throw new Error(`page died fast-forwarding mission ${i} (${levelIds[i]}): ${e.message}`);
       }
-    });
+    };
+    for (let i = 0; i < n; i++) {
+      const what = `mission ${i} (${levelIds[i]})`;
+      try {
+        await within(60e3, what, () => runMission(i));
+      } catch (e) {
+        if (!/no answer from the page/.test(e.message) || retried.length >= 3) throw e;
+        retried.push(what);
+        console.log(`note: ${what}: the page stopped answering; trying it again on a fresh page`);
+        // The silent page may not even close: don't wait on it for long.
+        const old = p;
+        await Promise.race([old.close().catch(() => {}), new Promise(r => setTimeout(r, 5000))]);
+        p = await within(60e3, what + ' (opening a fresh page)', openMissionPage);
+        await within(60e3, what + ' (second try, on a fresh page)', () => runMission(i));
+      }
+    }
+    if (retried.length) console.log('note: retried on a fresh page: ' + retried.join(', '));
     check(`all ${n} missions load and run under random input`, errors.length === 0, errors.slice(0, 3).join(' | '));
     check('the game loop never stalls', stalled.length === 0, stalled.join(','));
     errors.length = 0;
@@ -396,7 +420,7 @@ setTimeout(() => {
     await p.close();
   }
 
-  // 7. Training tutorial: the first mission waits, frozen, for "Got it" and
+  // 7. Training tutorial: the first mission waits, frozen, for each "Got it" and
   // then for BURN (highlighted), and time only runs while BURN is held.
   {
     const p = await browser.newPage({ viewport: { width: 1000, height: 600 } });
@@ -412,8 +436,8 @@ setTimeout(() => {
     });
     const a = await look();
     check('tutorial: first step is frozen with a "Got it" button', a.show && a.frozen && a.ok && a.t === 0, JSON.stringify(a));
-    await p.click('#guide-ok');
-    await p.waitForTimeout(400);
+    // Click through the explanations to the first thing to do.
+    for (let k = 0; k < 5 && (await look()).ok; k++) { await p.click('#guide-ok'); await p.waitForTimeout(300); }
     const b = await look();
     check('tutorial: then waits, frozen, for SPACE', b.frozen && b.key === 'SPACE' && b.t === 0, JSON.stringify(b));
     await p.keyboard.down('Space');
@@ -421,6 +445,17 @@ setTimeout(() => {
     const c = await look();
     await p.keyboard.up('Space');
     check('tutorial: holding SPACE lets time run', c.t > 0 && !c.frozen, JSON.stringify(c));
+    // A lesson in a later mission (the first two-stage rocket): explains,
+    // then leaves the flying to you, engine and all.
+    await p.evaluate(() => { window.Thrusterz.startLevel(window.Levels.LEVELS.findIndex(l => l.id === 'satellite')); });
+    await p.waitForTimeout(400);
+    const d = await look();
+    await p.click('#guide-ok');
+    await p.keyboard.down('Space');
+    await p.waitForTimeout(500);
+    const e = await p.evaluate(() => ({ t: window.Thrusterz.state.mission.t, thr: window.Thrusterz.state.mission.thrusting, show: document.getElementById('guide').classList.contains('show') }));
+    await p.keyboard.up('Space');
+    check('lesson: first new mechanic explained, frozen, then free flight with the engine', d.frozen && d.ok && e.t > 0 && e.thr && !e.show, JSON.stringify([d, e]));
     check('no page errors in the tutorial', errors.length === 0, errors.slice(0, 3).join(' | '));
     errors.length = 0;
     await p.close();
