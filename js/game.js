@@ -2249,6 +2249,13 @@
     const b = bodyAt(m, id), s = m.ship;
     return { d: Math.hypot(s.x - b.x, s.y - b.y), v: Math.hypot(s.vx - b.vx, s.vy - b.vy), b };
   }
+  // Would the coast path hit this body, even with speed scaled by k?
+  function pathHits(m, id, k) {
+    const s = m.ship, c = { x: s.x, y: s.y, vx: s.vx * k, vy: s.vy * k, angle: s.angle, omega: s.omega };
+    const p = Phys.predict(m.sys, c, m.t, m.level.predict, { bounds: m.level.bounds, maxSteps: 8000, ignore: m.ignoreBody, fx: m.coastFx(), heat: true });
+    m.sys.update(m.t);
+    return p.hit === m.sys.byId[id].index;
+  }
   const angleTo = (m, id) => { const b = bodyAt(m, id); return Math.atan2(b.y - m.ship.y, b.x - m.ship.x); };
   // Direction of travel, measured the way the green / yellow markers are.
   function velAngle(m) {
@@ -2456,8 +2463,11 @@
         text: () => `Press and <b>HOLD</b> ${kc('burn')} to fire your engine`,
         during: () => `Keep holding ${kc('burn')}… building up speed`,
         again: () => `Not fast enough yet! <b>HOLD</b> ${kc('burn')} until the dashed line (your path) reaches Verdant`,
-        // (Until you're clear of Pebble's surface the path ignores Pebble.)
-        done: (m) => !m.landed && m.ignoreBody == null && !!state.pred && state.pred.hit === bodyAt(m, 'verdant').i,
+        // A fresh prediction, not the drawn path: that one refreshes only
+        // every few frames while burning, and until you're clear of Pebble's
+        // surface it ignores Pebble, so it can say "Verdant" a moment too
+        // soon. And with margin: it must still hit at 95% of your speed.
+        done: (m) => !m.landed && m.ignoreBody == null && pathHits(m, 'verdant', 0.95),
         point: atBody('verdant', 'VERDANT'), hud: 'gauge-fuel',
       }),
       S.release(() => `Now <b>let go</b> of ${kc('burn')}!<br>The dashed line hits Verdant, so you'll get there without burning more fuel.`),
