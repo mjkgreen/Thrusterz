@@ -24,6 +24,10 @@ The `post.json` files together are the record of everything made and posted
 - Caption: hook, one line of context, call to action (thrusterz.com), 5–8 hashtags.
 - Check the `post.json` records before choosing: don't repeat a mission within 30 days.
 - Reels are capped at 2.8 MB (`--max-mb`) so they fit a Drive upload from a session.
+- Reels carry the game's own sound: its synthesised flight music (started four
+  bars in, so the melody is already playing) and the engine, thrusters,
+  staging, objective and win sounds, in sync with the footage. `--no-audio`
+  makes a silent reel, for adding music in the app instead.
 
 ## No repeats
 `tools/social/plan.js` decides what's allowed, in code rather than by judgement:
