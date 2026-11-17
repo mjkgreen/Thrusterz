@@ -1,6 +1,10 @@
 // Records a vertical (1080×1920) reel of real gameplay: the game itself, in a
 // browser, flying a mission's scripted proof (tools/proofs.js). Burns play at
 // real speed; coasts speed up so the whole flight fits the target length.
+// Like tools/store/preview.js, the game runs its own loop on a virtual clock
+// stepped one video frame at a time, so the ship, exhaust, trail, predicted
+// path and HUD all move every frame. The autopilot's long coast steps are
+// split into small ones (CHUNK) so the ship never jumps between frames.
 // A hook line sits over the opening, and an end card closes the clip.
 // The sound is the game's own: its music and effects are synthesised in code
 // (js/audio.js), so the same code renders them offline, in step with the
@@ -36,25 +40,116 @@ function args() {
   return o;
 }
 
-// In the page: fly the whole proof once and note when the engine fires.
+// Physics chunk (sim seconds): the most the ship moves between two looks at
+// it. The autopilot still decides exactly as in its proof; only its long
+// coast steps are cut into pieces. A few proofs are too finely balanced for
+// that (leavenojunk), and the recorder refuses those.
+const CHUNK = 1 / 60;
+
+// In the page: fly the whole proof once, exactly as it will be filmed, and
+// note when the engine fires and when things happen.
 function timeline(id) {
   const AP = window.__AP, P = window.__PROOFS[id];
   const { LEVELS } = window.Levels;
   const L = LEVELS.find(x => x.id === id);
   const burns = [];
-  const Mission = window.Flight.Mission, adv = Mission.prototype.advance;
-  Mission.prototype.advance = function (dt, c) {
-    const t0 = this.t;
-    adv.call(this, dt, c);
-    if (this.thrusting || (c && c.rotate)) {
-      const last = burns[burns.length - 1];
-      if (last && t0 - last[1] < 0.5) last[1] = this.t; else burns.push([t0, this.t]);
+  let m;
+  if (AP.flyGen) {
+    const g = AP.flyGen(L, P.script(P.p, AP), P.opts || {});
+    m = g.next().value;
+    for (let t0 = m.t; !g.next().done; t0 = m.t) {
+      if (m.thrusting || m.rotInput) {
+        const last = burns[burns.length - 1];
+        if (last && t0 - last[1] < 0.5) last[1] = m.t; else burns.push([t0, m.t]);
+      }
     }
+  } else m = AP.fly(L, P.script(P.p, AP), P.opts || {}).m;   // stills: only the length matters
+  const events = (m.events || []).filter(e => ['goal', 'deploy', 'release', 'pickup', 'refuel', 'jump'].includes(e.type)).map(e => e.t);
+  return { burns, events, tEnd: m.t, status: m.status, name: L.name };
+}
+
+// Before the game loads: a clock and animation frames advanced by hand.
+function virtualClock() {
+  let vt = 0, cbs = [];
+  performance.now = () => vt;
+  window.requestAnimationFrame = (f) => { cbs.push(f); return cbs.length; };
+  window.cancelAnimationFrame = () => {};
+  window.__frame = (ms) => { vt += ms; const q = cbs; cbs = []; for (const f of q) f(vt); };
+  try { localStorage.setItem('thrusterz.welcomed', '1'); } catch (e) { /* ignore */ }
+}
+
+// In the page: load the autopilot and proofs against the game's own objects,
+// with a generator version of AP.fly that yields after every physics chunk.
+function installLoader(chunk) {
+  const globals = { 'js/levels.js': 'Levels', 'js/flight.js': 'Flight', 'js/physics.js': 'Phys', 'js/dmath.js': 'DMath', 'js/replay.js': 'Replay' };
+  const cache = {};
+  const resolve = (from, p) => {
+    const parts = from.split('/').slice(0, -1);
+    for (const s of p.split('/')) { if (s === '..') parts.pop(); else if (s !== '.') parts.push(s); }
+    const f = parts.join('/');
+    return f.endsWith('.js') ? f : f + '.js';
   };
-  let r;
-  try { r = AP.fly(L, P.script(P.p, AP), P.opts || {}); } finally { Mission.prototype.advance = adv; }
-  const events = (r.m.events || []).filter(e => e.type === 'goal' || e.type === 'deploy' || e.type === 'drop' || e.type === 'pickup').map(e => e.t);
-  return { burns, events, tEnd: r.m.t, status: r.m.status, name: L.name };
+  const load = (file) => {
+    for (const k in globals) if (file.endsWith(k)) return window[globals[k]];
+    if (cache[file]) return cache[file].exports;
+    const x = new XMLHttpRequest(); x.open('GET', '/' + file, false); x.send();
+    let src = x.responseText;
+    if (file.endsWith('tools/autopilot.js')) {
+      const a = src.indexOf('function fly('), b = src.indexOf('\nmodule.exports');
+      const call = 'm.advance(dt, { thrust, throttle: 1, rotate: rot });';
+      if (src.indexOf(call) < 0) throw new Error('autopilot changed: no single advance call to step through');
+      const gen = src.slice(a, b).replace('function fly(', 'function* flyGen(')
+        .replace('const m = new Mission(level);', 'const m = new Mission(level); yield m;')
+        .replace(call, 'yield* m.__chunks(dt, { thrust, throttle: 1, rotate: rot });');
+      src += '\n' + gen + '\nmodule.exports.flyGen = flyGen;';
+    }
+    const module = { exports: {} }; cache[file] = module;
+    new Function('module', 'exports', 'require', src)(module, module.exports, (p) => load(resolve(file, p)));
+    return module.exports;
+  };
+  const Mission = window.Flight.Mission, adv = Mission.prototype.advance;
+  Mission.prototype.__chunks = function* (dt, c) {
+    let r = dt;
+    while (r > 1e-12 && this.status === 'flying') { const h = Math.min(r, chunk); adv.call(this, h, c); r -= h; yield this; }
+  };
+  window.__AP = load('tools/autopilot.js');
+  window.__PROOFS = load('tools/proofs.js');
+}
+
+// In the page: start the mission with the autopilot flying it. The game's own
+// loop asks the mission to advance each tick; it flies on to window.__target.
+function begin(id) {
+  const T = window.Thrusterz, S = T.state, AP = window.__AP, P = window.__PROOFS[id];
+  const { LEVELS } = window.Levels;
+  const i = LEVELS.findIndex(L => L.id === id);
+  T.startLevel(i);
+  ['gate', 'help', 'pause', 'result', 'coach', 'welcome'].forEach(x => { const e = document.getElementById(x); if (e) e.classList.add('hidden'); });
+  const gen = AP.flyGen(LEVELS[i], P.script(P.p, AP), P.opts || {});
+  const m = gen.next().value;
+  m.advance = function () {
+    while (this.t < window.__target - 1e-9 && this.status === 'flying') if (gen.next().done) break;
+  };
+  window.__target = 0;
+  S.mission = m; S.trail = []; S.predDirty = true; S.warp = 0;
+  S.eventsSeen = 0; S.paused = false; S.endHandled = false; S.resultShown = false;
+}
+
+// Open the game for filming: virtual clock, no tutorial, autopilot loaded.
+async function openReel() {
+  let playwright;
+  try { playwright = require('playwright'); } catch (e) { playwright = require('/opt/node22/lib/node_modules/playwright'); }
+  const server = require('../dev-server.js');
+  await new Promise(r => server.listen(0, '127.0.0.1', r));
+  const browser = await playwright.chromium.launch(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {});
+  const page = await browser.newPage(Object.assign({}, cap.DEVICES.reel));
+  const errors = [];
+  page.on('pageerror', e => errors.push(e.message));
+  await page.addInitScript(virtualClock);
+  await page.goto('http://127.0.0.1:' + server.address().port + '/index.html?unlock&noguide');
+  for (let k = 0; k < 20; k++) await page.evaluate(() => window.__frame(16));
+  await page.evaluate(installLoader, CHUNK);
+  const close = async () => { await browser.close(); server.close(); };
+  return { page, errors, close };
 }
 
 // Sim time at each video frame. Busy moments (burns, goals) play at 1×;
@@ -70,7 +165,7 @@ function pace(tl, seconds) {
   const busyRate = Math.max(1, busyT / (flight * 0.6));
   const s = Math.min(400, Math.max(1, (tl.tEnd - busyT) / Math.max(0.5, flight - busyT / busyRate)));
   const times = [];
-  let t = 1e-3, v = 1;   // not 0: stage() reads tMax 0 as "fly it all"
+  let t = 1e-3, v = 1;
   while (t < tl.tEnd) {
     times.push(t);
     const want = isBusy(t) ? busyRate : s;
@@ -89,7 +184,7 @@ function dress(hook) {
     #topbtns, #toast, .gauge.throttle, #gyro-row, #clock > div:nth-child(3) { display: none !important; }
     #reel-hook { position: fixed; left: 24px; right: 24px; top: 19%; z-index: 99; text-align: center;
       font: 800 30px/1.15 var(--sans); color: #fff; letter-spacing: 0.01em;
-      text-shadow: 0 2px 14px rgba(0,0,0,.9), 0 0 2px #000; transition: opacity .3s; }
+      text-shadow: 0 2px 14px rgba(0,0,0,.9), 0 0 2px #000; }
     #reel-hook b { color: #7cf7d4; }
     #reel-end { position: fixed; inset: 0; z-index: 100; display: none; flex-direction: column; align-items: center;
       justify-content: center; gap: 18px; background: rgba(6,10,20,.82); color: #fff; text-align: center; }
@@ -106,8 +201,7 @@ function dress(hook) {
 
 // In the page: a camera operator. Follows the ship and zooms so the body that
 // matters right now (the current goal's body, else the one the ship is
-// falling around) stays in shot, eased from frame to frame. The game's own
-// camera only moves while unpaused, and each frame is staged from scratch.
+// falling around) stays in shot, eased from frame to frame.
 function direct(first) {
   const T = window.Thrusterz, S = T.state, m = S.mission, sys = m.sys, s = m.ship;
   const W = innerWidth, H = innerHeight;
@@ -133,7 +227,7 @@ function direct(first) {
   c.follow = false; c.zoom = c.tzoom = P.z;
   // The scene's clear band sits a little above mid-screen.
   c.x = c.tx = P.x; c.y = c.ty = P.y - (H * 0.04) / P.z;
-  S.predDirty = true;
+  if (window.__stage) S.predDirty = true;   // stills stage a frame from scratch
 }
 
 // Encode the frames (and the soundtrack, if any). Quality first (CRF 19); if
@@ -221,45 +315,53 @@ async function soundtrack([track, fps]) {
   return btoa(bin);
 }
 
+// For stills (real rAF): wait until the page has drawn twice.
 async function nextFrames(page) {
   await page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
 }
 
 async function record(o) {
-  const { page, errors, close } = await cap.open('reel');
+  const { page, errors, close } = await openReel();
   try {
-    await cap.setup(page);
     const tl = await page.evaluate(timeline, o.id);
-    if (tl.status !== 'won') throw new Error(o.id + ': proof did not win (' + tl.status + ')');
+    if (tl.status !== 'won') throw new Error(o.id + ': the proof does not win when filmed (' + tl.status + '); pick another mission');
     const { times, speed } = pace(tl, o.seconds);
     await page.evaluate(dress, o.hook);
-    await page.evaluate(`window.__direct = ${direct.toString()}`);
+    await page.evaluate(`window.__direct = ${direct.toString()}; window.__begin = ${begin.toString()}`);
+    await page.evaluate((id) => window.__begin(id), o.id);
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'reel-'));
     const WARPS = [1, 2, 5, 10, 25, 50, 100];
     let f = 0, seen = 0;
     const track = [];   // the sound for each frame shot
     const shoot = async () => page.screenshot({ path: path.join(dir, String(f++).padStart(5, '0') + '.jpg'), type: 'jpeg', quality: 94 });
+    // One video frame: fly on to sim time t, aim the camera, let the game
+    // draw a frame (exhaust, trail, path, HUD), and report what it sounds like.
+    const step = (t, w, hook, first) => page.evaluate(([t, w, hook, first, seen, ms]) => {
+      const S = window.Thrusterz.state, m = S.mission;
+      window.__target = t;
+      if (t != null) { S.warp = w; m.advance(); }
+      // Once the mission ends: no result screen (the reel's own end card
+      // follows), and no predicted path, whose projection of the parked
+      // orbit (e.g. "CRASH Luna in 1m32s") would read wrong over a win.
+      if (m.status !== 'flying') { S.resultShown = true; if (S.predictScale > 1e-3) { S.predictScale = 1e-4; S.predDirty = true; } }
+      window.__direct(first);
+      document.getElementById('reel-hook').style.opacity = hook;
+      window.__frame(ms);
+      const last = m.level.goals.length - 1;
+      const ev = m.events.slice(seen).map(e => e.type === 'goal' ? (e.index < last ? 'objective' : null) : e.type).filter(Boolean);
+      if (m.status === 'won' && !S.__wonHeard) { S.__wonHeard = true; ev.push('win'); }
+      return { th: m.thrusting && m.status === 'flying' ? 1 : 0, rot: m.rotInput && m.status === 'flying' ? 1 : 0, ev, seen: m.events.length, status: m.status };
+    }, [t, w, hook, first, seen, 1000 / FPS]);
+    const hookAt = (i) => { const s = i / FPS; return s < 3 ? 1 : Math.max(0, 1 - (s - 3) / 0.3); };
     for (let i = 0; i < times.length; i++) {
       const sp = i ? (times[i] - times[i - 1]) * FPS : 1;
       const w = WARPS.reduce((b, x, k) => Math.abs(Math.log(x / sp)) < Math.abs(Math.log(WARPS[b] / sp)) ? k : b, 0);
-      const snd = await page.evaluate(([id, t, w, fade, first, seen]) => {
-        window.__stage(id, t, w);
-        const S = window.Thrusterz.state; S.paused = true;
-        window.__direct(first);
-        window.Thrusterz.refreshHud();
-        document.getElementById('reel-hook').style.opacity = fade;
-        // What this frame sounds like, as the game would play it.
-        const m = S.mission, last = m.level.goals.length - 1;
-        const ev = m.events.slice(seen).map(e => e.type === 'goal' ? (e.index < last ? 'objective' : null) : e.type).filter(Boolean);
-        if (m.status === 'won') ev.push('win');
-        return { th: m.thrusting ? 1 : 0, rot: m.rotInput ? 1 : 0, ev, seen: m.events.length };
-      }, [o.id, times[i], w, i / FPS < 3.2 ? 1 : 0, i === 0, seen]);
+      const snd = await step(times[i], w, hookAt(i), i === 0);
       seen = snd.seen;
       // A sound happens once: keep events that land on a skipped preview frame.
       if (!(o.preview && i % o.preview)) { track.push({ th: snd.th, rot: snd.rot, ev: (track.pending || []).concat(snd.ev) }); track.pending = []; }
       else track.pending = (track.pending || []).concat(snd.ev);
       if (o.preview && i % o.preview) continue;
-      await nextFrames(page);
       await shoot();
       if (i === Math.floor(times.length * 0.55)) await page.screenshot({ path: o.out.replace(/\.mp4$/, '') + '.jpg', type: 'jpeg', quality: 90 });
     }
@@ -268,12 +370,16 @@ async function record(o) {
       fs.rmSync(dir, { recursive: true, force: true });
       return { sheet: o.out.replace(/\.mp4$/, '') + '-sheet.jpg', frames: f };
     }
-    // Hold the finish for a beat, then the end card.
-    const quiet = () => track.push({ th: 0, rot: 0, ev: [] });
-    for (let k = 0; k < FPS * 0.8; k++) { await shoot(); quiet(); }
+    // Hold the finish for a beat (the game keeps animating), then the end card.
+    const hold = async (n) => {
+      for (let k = 0; k < n; k++) {
+        const snd = await step(null, 0, 0, false);
+        seen = snd.seen; track.push({ th: 0, rot: 0, ev: snd.ev }); await shoot();
+      }
+    };
+    await hold(Math.round(FPS * 0.8));
     await page.evaluate((end) => { const e = document.getElementById('reel-end'); e.style.display = 'flex'; e.querySelector('.cta').textContent = end; }, o.end);
-    await nextFrames(page);
-    for (let k = 0; k < FPS * 2.5; k++) { await shoot(); quiet(); }
+    await hold(Math.round(FPS * 2.5));
     // The soundtrack: reload the page with offline audio and play the track.
     let wav = null;
     if (!o.noAudio) {
@@ -294,6 +400,6 @@ async function record(o) {
   } finally { await close(); }
 }
 
-module.exports = { record, timeline, dress, direct, nextFrames };
+module.exports = { record, timeline, dress, direct, nextFrames, pace, openReel, begin, CHUNK };
 
 if (require.main === module) record(args()).then(i => console.log(JSON.stringify(i))).catch(e => { console.error(e); process.exit(1); });

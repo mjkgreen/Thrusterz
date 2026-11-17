@@ -24,6 +24,10 @@ The `post.json` files together are the record of everything made and posted
 - Caption: hook, one line of context, call to action (thrusterz.com), 5–8 hashtags.
 - Check the `post.json` records before choosing: don't repeat a mission within 30 days.
 - Reels are capped at 2.8 MB (`--max-mb`) so they fit a Drive upload from a session.
+- Reels are filmed like the App Store previews: the game runs its own loop on a
+  virtual clock, one video frame at a time, with the autopilot's coast steps
+  split into 1/60 s pieces so the ship moves smoothly every frame.
+  `leavenojunk` can't be filmed that way (its proof then misses): stills only.
 - Reels carry the game's own sound: its synthesised flight music (started four
   bars in, so the melody is already playing) and the engine, thrusters,
   staging, objective and win sounds, in sync with the footage. `--no-audio`
