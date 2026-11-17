@@ -2293,6 +2293,7 @@
     // Fire the engine and keep firing until done(m). Letting go early
     // freezes the game again until the burn resumes.
     burn: (o) => ({
+      burnStep: true,
       halt: o.exact ? o.done : null,
       tick(m, c, mem) {
         if (o.done(m) || !(m.stageSpec && m.stageSpec.fuel > 0)) return DONE;
@@ -2716,10 +2717,16 @@
       }
     }
     if (!v) { g.over = true; if (g.free && g.i >= g.steps.length) lessonsSeen.add(g.id); }
-    // In Training the engine only works when a step asks for a burn, so
-    // fuel can't be spent before it is needed (braking, mostly). Lessons in
-    // later missions leave the flying to you.
-    if (v) v.locked = !!(!g.free && c.thrust && !v.allowBurn && !v.freeze && !v.hidden);
+    // In Training the engine stays off between burns while another burn is
+    // still to come, so the fuel it needs (braking, mostly) can't be spent
+    // early. Once no burn is left there's nothing to save it for, and
+    // lessons in later missions leave the flying to you anyway.
+    if (v) {
+      const later = g.steps.slice(g.i + 1).some((st) => st.burnStep);
+      v.lockEngine = !g.free && later && !v.allowBurn;
+      v.locked = !!(v.lockEngine && c.thrust && !v.freeze && !v.hidden);
+      v.burnedBefore = g.steps.slice(0, g.i).some((st) => st.burnStep);
+    }
     g.view = v;
     guideRender(v && !v.hidden ? v : null);
     return v;
@@ -2727,7 +2734,7 @@
   // While the tutorial runs, the engine fires only when a step asks for it.
   function guideControls(c) {
     const v = guiding() && !state.guide.free && state.guide.view;
-    if (v && c.thrust && !v.allowBurn) c.thrust = false;
+    if (v && c.thrust && v.lockEngine) c.thrust = false;
     return c;
   }
   // Point the camera somewhere for a step ({ x, y, span }) or back at the ship.
@@ -2790,7 +2797,9 @@
     const key = v.ctl && !isTouch()
       ? `<div class="g-key"><span class="g-arrow">▼</span><kbd class="big">${CTRL[v.ctl][0]}</kbd><span class="g-act">${v.act || ''}</span></div>`
       : '';
-    const lock = v.locked ? `<div class="g-lock">Engine locked for now: save your fuel. The tutorial will tell you when to burn.</div>` : '';
+    const lock = !v.locked ? '' : `<div class="g-lock">${v.burnedBefore
+      ? 'Engine off for now: you\'ll need the rest of your fuel for the next burn. The tutorial will tell you when.'
+      : 'Not yet: the tutorial will tell you when to burn.'}</div>`;
     const html = `<div class="g-head"><span class="g-badge">${v.freeze ? (v.ok ? '⏸ PAUSED' : '⏸ PAUSED · YOUR MOVE') : 'TUTORIAL'}</span>`
       + `<button id="guide-skip" class="g-skip">Skip tutorial</button></div>`
       + `<div class="g-text">${v.text}</div>${lock}${key}`
