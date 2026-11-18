@@ -55,6 +55,10 @@ function key(p) {
   return p.pillar + ':' + (subj || '?');
 }
 
+// Proofs too finely balanced to film smoothly (record.js splits the
+// autopilot's coast steps, and these then miss): stills only.
+const NO_REEL = new Set(['leavenojunk']);
+
 function missions() {
   globalThis.Phys = globalThis.Phys || require('../../js/physics.js');
   const P = require('../proofs.js');
@@ -78,7 +82,7 @@ function suggest(hist, date) {
   const order = PILLARS.filter(p => !last || p !== last.pillar)
     .sort((a, b) => (count[a] - n * MIX[a] / 8) - (count[b] - n * MIX[b] / 8));
   const fresh = (pillar) => {
-    const pool = all.filter(m => !recent.has(m.id));
+    const pool = all.filter(m => !recent.has(m.id) && (pillar === 'still' || !NO_REEL.has(m.id)));
     const unused = pool.filter(m => !used.has(pillar + ':' + m.id));
     return (unused.length ? unused : pool).map(m => m.id + ' — ' + m.name);
   };
