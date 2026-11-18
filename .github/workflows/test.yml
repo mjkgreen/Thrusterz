@@ -1,12 +1,23 @@
 name: test
 on:
+  # Branches are tested through their pull request; pushes only for main.
+  # (Both triggers on every branch ran the whole suite twice per commit.)
   push:
+    branches: [main]
   pull_request:
 jobs:
   test:
     # Pinned: ubuntu-latest moved to 26.04, which Playwright 1.56 cannot
     # install browsers on.
     runs-on: ubuntu-24.04
+    # Playwright's own image comes with Chromium, WebKit and every system
+    # library they need, so nothing is downloaded from Ubuntu's mirrors
+    # (which once crawled at ~100 kB/s and ran the job out of time while
+    # still installing WebKit). The tag must match the playwright version
+    # installed below.
+    container:
+      image: mcr.microsoft.com/playwright:v1.56.1-noble
+      options: --user 1001
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
@@ -15,12 +26,10 @@ jobs:
           node-version: 22
       - name: Physics, levels and mission proofs
         run: npm test
-      - name: Install headless Chromium
-        run: npm install --no-save playwright@1.56.1 && npx playwright install --with-deps chromium
+      - name: Playwright (browsers are already in the image)
+        run: npm install --no-save playwright@1.56.1
       - name: Browser checks (Chromium)
         run: npm run test:browser
-      - name: Install WebKit (Safari's engine)
-        run: npx playwright install --with-deps webkit
       - name: Browser checks (WebKit), including replay matching Node exactly
         run: BROWSER=webkit npm run test:browser
       - name: Mobile app bundles (Expo)
