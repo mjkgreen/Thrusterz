@@ -28,6 +28,20 @@ The `post.json` files together are the record of everything made and posted
   virtual clock, one video frame at a time, with the autopilot's coast steps
   split into 1/60 s pieces so the ship moves smoothly every frame.
   `leavenojunk` can't be filmed that way (its proof then misses): stills only.
+- Reels are flown by a human pilot, not the bare proof (`tools/social/pilot.js`):
+  turns use the side thrusters, two presses each (start the spin, stop it),
+  aimed roughly and lined up just before a burn; short hesitations before
+  burns and drops; long burns in two presses; the engine cut a touch late;
+  a pause after a release to watch it go. Every take is test-flown with the
+  filmed physics; if it misses, other takes are tried, then the proof's
+  numbers are re-tuned for the human version (as `check-scripted.js` does),
+  then a milder pilot. `--seed` repeats a take; `--exact` films the proof.
+- And played like a person plays: time warp in the game's steps, one key
+  press at a time, back to 1× before every burn, turn and release (the game
+  won't warp while thrusters fire); V pressed to lock the reference frame on
+  the body a release is aimed at; a close-up around releases; the game's
+  own messages shown; and the keys on screen (SPACE, A/D, E, V, . and ,).
+  Human-paced reels run about 30-40 s (`--seconds`, default 32).
 - Reels carry the game's own sound: its synthesised flight music (started four
   bars in, so the melody is already playing) and the engine, thrusters,
   staging, objective and win sounds, in sync with the footage. `--no-audio`

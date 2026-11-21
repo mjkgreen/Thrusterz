@@ -13,7 +13,7 @@ async function still(o) {
   const { page, close } = await cap.open(o.story ? 'reel' : 'feed');
   try {
     await cap.setup(page);
-    const tl = await page.evaluate(timeline, o.id);
+    const tl = await page.evaluate(timeline, [o.id, 1, false]);
     await page.evaluate(dress, o.hook || '');
     await page.evaluate(`window.__direct = ${direct.toString()}`);
     // Let the camera settle on the moment, as it would in a reel.

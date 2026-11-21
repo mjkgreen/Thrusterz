@@ -81,12 +81,26 @@ function aim(m, dir, rel) {
 
 // Side-thruster input (-1, 0, 1) that turns the ship toward `target`:
 // spin up to a capped rate, coast, and counter-fire so it stops on target.
-function steer(m, target, opts) {
+function steer(m, target, opts, slack) {
   const s = m.ship, r = m.level.ship.rcs;
   const err = wrap(target - s.angle);
   if (!r || m.rcsFuel <= 0 || m.level.ship.canRotate === false) return { rot: 0, err };
-  // A target that keeps turning (prograde, as you go round an orbit) is
-  // matched by spinning at its rate, not by chasing it with constant firing.
+  // slack (rad), with opts.aimSlack set: turn the way a person does, for
+  // social reels (tools/social/pilot.js). Close enough is left alone; a turn
+  // is one press to start the spin and one to stop it as the nose arrives,
+  // instead of tracking the target to a fraction of a degree. Proofs never
+  // set aimSlack, so they steer exactly as before.
+  if (slack && opts.aimSlack) {
+    const w = s.omega, dir = Math.sign(err), rate = opts.turnRate || 0.5;
+    let rot;
+    if (Math.abs(err) < slack && Math.abs(w) < 0.03) rot = Math.abs(w) > 0.003 ? -Math.sign(w) : 0;
+    else if (Math.sign(w) === dir && Math.abs(err) <= w * w / (2 * r.accel) + 0.6 * slack) rot = -dir;   // arriving: stop
+    else if (Math.sign(w) !== dir || Math.abs(w) < rate * 0.8) rot = dir;                                // start (or reverse)
+    else rot = 0;                                                                                        // spinning toward it
+    if (rot && rot === m.rotLatch) rot = 0;
+    m._steer = null;
+    return { rot, err };
+  }
   const prev = m._steer;
   let rate = 0;
   if (prev && m.t - prev.t > 1e-6 && m.t - prev.t < 1) rate = prev.rate * 0.8 + 0.2 * wrap(target - prev.target) / (m.t - prev.t);
@@ -151,7 +165,10 @@ function fly(level, steps, opts) {
     const prePoint = () => {
       const nb = honest && nextBurn(steps, ctx.k);
       if (!nb) return;
-      rot = steer(m, aim(m, nb.burn, nb.rel), opts).rot;
+      // A person (opts.aimSlack) doesn't hold the nose on a drifting target
+      // through a whole coast: they turn as the burn comes up.
+      if (opts.aimSlack && st && st.coast) return;
+      rot = steer(m, aim(m, nb.burn, nb.rel), opts, opts.aimSlack).rot;
       if (rot || Math.abs(m.ship.omega) > 1e-4) dt = Math.min(dt, 1 / 30);
     };
     if (!st) { /* script finished: coast out the clock */ dt = 0.5; }
@@ -181,7 +198,9 @@ function fly(level, steps, opts) {
       if (st.max != null && m.t - ctx.t0 >= st.max) { ctx.k++; continue; }
       if (honest) {
         // Turn first; light the engine once the nose is lined up.
-        const sv = steer(m, aim(m, st.burn, st.rel), opts);
+        // A person lines up roughly, then fine-tunes as the engine lights.
+        const target = aim(m, st.burn, st.rel), off = Math.abs(wrap(target - m.ship.angle));
+        const sv = steer(m, target, opts, opts.aimSlack && !m.thrusting && off > 0.045 ? 0.035 : 0);
         rot = sv.rot; thrust = Math.abs(sv.err) < 0.05; dt = 1 / 120;
       } else {
         m.ship.angle = aim(m, st.burn, st.rel); m.ship.omega = 0;
