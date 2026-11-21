@@ -112,8 +112,18 @@ setTimeout(() => {
         throw new Error(`page died fast-forwarding mission ${i} (${levelIds[i]}): ${e.message}`);
       }
     };
+    // One page for all 140 missions builds up memory, and headless WebKit's
+    // stalls came late in the run (missions 73, 83, 89, 134 on one CI run,
+    // none before): start a fresh page every so often. The checks are the
+    // same on every page.
+    const FRESH_EVERY = 25;
     for (let i = 0; i < n; i++) {
       const what = `mission ${i} (${levelIds[i]})`;
+      if (i > 0 && i % FRESH_EVERY === 0) {
+        const old = p;
+        await Promise.race([old.close().catch(() => {}), new Promise(r => setTimeout(r, 5000))]);
+        p = await within(60e3, what + ' (opening a fresh page)', openMissionPage);
+      }
       try {
         await within(60e3, what, () => runMission(i));
       } catch (e) {
