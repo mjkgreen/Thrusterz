@@ -15,9 +15,12 @@ jobs:
     # (which once crawled at ~100 kB/s and ran the job out of time while
     # still installing WebKit). The tag must match the playwright version
     # installed below.
+    # --ipc=host: Docker's default 64 MB of shared memory starves the
+    # browsers (Playwright's docs: they can stall or crash without it);
+    # --init: a proper PID 1 to reap the browsers' child processes.
     container:
       image: mcr.microsoft.com/playwright:v1.56.1-noble
-      options: --user 1001
+      options: --user 1001 --ipc=host --init
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4

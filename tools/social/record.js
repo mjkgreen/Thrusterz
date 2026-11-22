@@ -24,7 +24,7 @@ const FPS = 30;
 cap.DEVICES.reel = { viewport: { width: 432, height: 768 }, deviceScaleFactor: 2.5 };
 
 function args() {
-  const a = process.argv.slice(2), o = { seconds: 24, end: 'Play free · thrusterz.com', maxMb: 2.8 };
+  const a = process.argv.slice(2), o = { seconds: 32, end: 'Play free · thrusterz.com', maxMb: 2.8 };
   o.id = a.shift(); o.out = a.shift();
   while (a.length) {
     const k = a.shift();
@@ -33,6 +33,8 @@ function args() {
     else if (k === '--end') o.end = a.shift();
     else if (k === '--keep-frames') o.keep = true;
     else if (k === '--no-audio') o.noAudio = true;
+    else if (k === '--seed') o.seed = +a.shift();          // the same seed flies the same human take
+    else if (k === '--exact') o.exact = true;               // the proof as written, no human pilot
     else if (k === '--max-mb') o.maxMb = +a.shift();     // 0: no cap
     else if (k === '--preview') o.preview = +a.shift();   // contact sheet of every Nth frame, no video
   }
@@ -46,26 +48,35 @@ function args() {
 // that (leavenojunk), and the recorder refuses those.
 const CHUNK = 1 / 60;
 
-// In the page: fly the whole proof once, exactly as it will be filmed, and
-// note when the engine fires and when things happen.
-function timeline(id) {
-  const AP = window.__AP, P = window.__PROOFS[id];
+// In the page: choose how a person flies this mission (tools/social/pilot.js:
+// the proof with human timing and turning, checked to still win), fly it
+// once exactly as it will be filmed, and note when the engine or side
+// thrusters fire and when things happen. `human` false: the proof as written.
+function timeline([id, seed, human]) {
+  const AP = window.__AP, P = window.__PROOFS[id], Pilot = window.__PILOT;
   const { LEVELS } = window.Levels;
   const L = LEVELS.find(x => x.id === id);
+  if (!AP.flyGen) return { burns: [], events: [], tEnd: AP.fly(L, P.script(P.p, AP), P.opts || {}).m.t, name: L.name };   // stills: only the length matters
+  const run = (make, watch) => {
+    const v = make(), g = AP.flyGen(L, v.script, v.opts);
+    const m = g.next().value;
+    let r;
+    for (let t0 = m.t; !(r = g.next()).done; t0 = m.t) if (watch) watch(m, t0);
+    return { m, cost: r.value ? r.value.cost : Infinity, status: m.status };
+  };
+  const pilot = human
+    ? Pilot.plan(P, AP, (make) => { const x = run(make); return { status: x.status, cost: x.cost }; }, { seed, searchIters: 100 })
+    : { level: 'exact', seed, p: P.p, tried: [] };
   const burns = [];
-  let m;
-  if (AP.flyGen) {
-    const g = AP.flyGen(L, P.script(P.p, AP), P.opts || {});
-    m = g.next().value;
-    for (let t0 = m.t; !g.next().done; t0 = m.t) {
-      if (m.thrusting || m.rotInput) {
-        const last = burns[burns.length - 1];
-        if (last && t0 - last[1] < 0.5) last[1] = m.t; else burns.push([t0, m.t]);
-      }
+  const { m } = run(() => Pilot.variant(P, AP, { seed: pilot.seed, level: pilot.level, p: pilot.p }), (m, t0) => {
+    if (m.thrusting || m.rotInput) {
+      const last = burns[burns.length - 1];
+      if (last && t0 - last[1] < 0.5) last[1] = m.t; else burns.push([t0, m.t]);
     }
-  } else m = AP.fly(L, P.script(P.p, AP), P.opts || {}).m;   // stills: only the length matters
-  const events = (m.events || []).filter(e => ['goal', 'deploy', 'release', 'pickup', 'refuel', 'jump'].includes(e.type)).map(e => e.t);
-  return { burns, events, tEnd: m.t, status: m.status, name: L.name };
+  });
+  const events = (m.events || []).filter(e => ['goal', 'deploy', 'release', 'pickup', 'refuel', 'jump'].includes(e.type)).map(e => ({ t: e.t, type: e.type }));
+  return { burns, events, tEnd: m.t, status: m.status, name: L.name,
+    pilot: { level: pilot.level, seed: pilot.seed, p: pilot.p, tuned: !!pilot.tuned, tried: pilot.tried } };
 }
 
 // Before the game loads: a clock and animation frames advanced by hand.
@@ -74,7 +85,22 @@ function virtualClock() {
   performance.now = () => vt;
   window.requestAnimationFrame = (f) => { cbs.push(f); return cbs.length; };
   window.cancelAnimationFrame = () => {};
-  window.__frame = (ms) => { vt += ms; const q = cbs; cbs = []; for (const f of q) f(vt); };
+  // While filming (window.__vtimers), setTimeout runs on the virtual clock
+  // too, so the game's toasts last as long on video as on screen. Off for
+  // the audio pass, which waits on real time.
+  const realSet = window.setTimeout.bind(window), realClear = window.clearTimeout.bind(window);
+  let timers = [], nextId = 1e6;
+  window.setTimeout = (f, ms, ...a) => {
+    if (!window.__vtimers) return realSet(f, ms, ...a);
+    const id = nextId++; timers.push({ id, at: vt + (ms || 0), f, a }); return id;
+  };
+  window.clearTimeout = (id) => { if (id >= 1e6) timers = timers.filter(x => x.id !== id); else realClear(id); };
+  window.__frame = (ms) => {
+    vt += ms;
+    const due = timers.filter(x => x.at <= vt); timers = timers.filter(x => x.at > vt);
+    for (const x of due) { try { typeof x.f === 'function' && x.f(...x.a); } catch (e) { /* as a real timer would */ } }
+    const q = cbs; cbs = []; for (const f of q) f(vt);
+  };
   try { localStorage.setItem('thrusterz.welcomed', '1'); } catch (e) { /* ignore */ }
 }
 
@@ -114,17 +140,19 @@ function installLoader(chunk) {
   };
   window.__AP = load('tools/autopilot.js');
   window.__PROOFS = load('tools/proofs.js');
+  window.__PILOT = load('tools/social/pilot.js');
 }
 
 // In the page: start the mission with the autopilot flying it. The game's own
 // loop asks the mission to advance each tick; it flies on to window.__target.
-function begin(id) {
+function begin([id, pilot]) {
   const T = window.Thrusterz, S = T.state, AP = window.__AP, P = window.__PROOFS[id];
   const { LEVELS } = window.Levels;
   const i = LEVELS.findIndex(L => L.id === id);
   T.startLevel(i);
   ['gate', 'help', 'pause', 'result', 'coach', 'welcome'].forEach(x => { const e = document.getElementById(x); if (e) e.classList.add('hidden'); });
-  const gen = AP.flyGen(LEVELS[i], P.script(P.p, AP), P.opts || {});
+  const v = window.__PILOT.variant(P, AP, { seed: pilot.seed, level: pilot.level, p: pilot.p });
+  const gen = AP.flyGen(LEVELS[i], v.script, v.opts);
   const m = gen.next().value;
   m.advance = function () {
     while (this.t < window.__target - 1e-9 && this.status === 'flying') if (gen.next().done) break;
@@ -132,6 +160,7 @@ function begin(id) {
   window.__target = 0;
   S.mission = m; S.trail = []; S.predDirty = true; S.warp = 0;
   S.eventsSeen = 0; S.paused = false; S.endHandled = false; S.resultShown = false;
+  window.__vtimers = true;
 }
 
 // Open the game for filming: virtual clock, no tutorial, autopilot loaded.
@@ -152,28 +181,53 @@ async function openReel() {
   return { page, errors, close };
 }
 
-// Sim time at each video frame. Busy moments (burns, goals) play at 1×;
-// the rest at a speed chosen so the flight lasts about `seconds`.
-function pace(tl, seconds) {
-  const busy = tl.burns.map(([a, b]) => [a - 0.6, b + 0.6]).concat(tl.events.map(t => [t - 1, t + 1]));
-  const isBusy = (t) => busy.some(([a, b]) => t >= a && t <= b);
-  const step = 0.05, n = Math.ceil(tl.tEnd / step);
-  let busyT = 0;
-  for (let i = 0; i < n; i++) if (isBusy(i * step)) busyT += step;
-  const flight = Math.max(4, seconds - 3.5);   // leave room for the end card
-  // Busy time at 1× (but squeezed if it alone overruns), coasts at speed s.
-  const busyRate = Math.max(1, busyT / (flight * 0.6));
-  const s = Math.min(400, Math.max(1, (tl.tEnd - busyT) / Math.max(0.5, flight - busyT / busyRate)));
-  const times = [];
-  let t = 1e-3, v = 1;
-  while (t < tl.tEnd) {
-    times.push(t);
-    const want = isBusy(t) ? busyRate : s;
-    v = v + (want - v) * (want > v ? 0.08 : 0.35);  // ease up slowly, brake fast
-    t += v / FPS;
+// How a person runs the clock. The game's warp is a set of steps (1×, 2×, 5×
+// … 100×), one key press each, and it won't warp while the engine or side
+// thrusters fire. So: 1× through every burn and turn, and for a few seconds
+// around a release or staging (to watch it); between them, warp up a step
+// at a time to a cruising speed, and start stepping down early enough to be
+// back at 1× before the next thing happens. Key presses come a fraction of a
+// second apart, a little uneven. The cruising speed is the slowest that fits
+// the reel's length.
+const WARPS = [1, 2, 5, 10, 25, 50, 100];
+function humanClock(tl, seconds, seed) {
+  const windows = tl.burns.map(([a, b]) => [a - 0.25, b + 0.3]);
+  for (const e of tl.events) {
+    if (e.type === 'release' || e.type === 'deploy') windows.push([e.t - 2.1, e.t + 1.8]);
+    else windows.push([e.t - 0.5, e.t + 1.0]);
   }
-  times.push(tl.tEnd);
-  return { times, speed: s };
+  windows.push([0, 1.2]);   // everyone starts at 1×
+  windows.sort((x, y) => x[0] - y[0]);
+  const inWindow = (t) => windows.some(([a, b]) => t >= a && t <= b);
+  const nextStart = (t) => { for (const [a] of windows) if (a > t) return a; return Infinity; };
+  const flight = Math.max(4, seconds - 3.5);
+  const simulate = (cruise) => {
+    let r = (seed >>> 0) || 1;
+    const rand = () => { r = (r * 16807) % 2147483647; return r / 2147483647; };
+    const gap = () => Math.round(FPS * (0.14 + rand() * 0.2));
+    const frames = [];
+    let t = 1e-3, w = 0, since = 99, wait = gap();
+    // Sim time spent stepping down from warp w, one press per ~0.35 s.
+    const brake = (w) => { let s = 0; for (let j = w; j > 0; j--) s += WARPS[j] * 0.27; return s + WARPS[w] * 0.2; };
+    while (t < tl.tEnd && frames.length < FPS * 600) {
+      let key = null;
+      since++;
+      if (inWindow(t)) { if (w > 0 && since >= 2) { w--; key = 'down'; } }
+      else if (w > 0 && nextStart(t) - t <= brake(w)) { if (since >= Math.min(wait, 6)) { w--; key = 'down'; } }
+      else if (w < cruise && since >= wait && nextStart(t) - t > brake(w + 1) * 1.5) { w++; key = 'up'; }
+      if (key) { since = 0; wait = gap(); }
+      frames.push({ t, w, key });
+      t += WARPS[w] / FPS;
+    }
+    frames.push({ t: tl.tEnd, w, key: null });
+    return frames;
+  };
+  let best = null;
+  for (let cruise = 1; cruise < WARPS.length; cruise++) {
+    best = simulate(cruise);
+    if (best.length / FPS <= flight) return { frames: best, cruise: WARPS[cruise] };
+  }
+  return { frames: best, cruise: WARPS[WARPS.length - 1] };
 }
 
 // In the page: hide what doesn't belong in a reel and add the overlay layer.
@@ -181,7 +235,15 @@ function dress(hook) {
   const st = document.createElement('style');
   st.textContent = `
     /* Only what tells the story: fuel, stage, cargo, orbit, time and warp. */
-    #topbtns, #toast, .gauge.throttle, #gyro-row, #clock > div:nth-child(3) { display: none !important; }
+    #topbtns, .gauge.throttle, #gyro-row { display: none !important; }
+    /* The game's own messages ("Impactor released", "Reference frame: Luna"),
+       below the hook. */
+    #toast { top: 31% !important; font-size: 15px !important; transition: opacity .12s, transform .12s !important; }
+    /* Keystrokes, as gameplay videos show them. */
+    #reel-keys { position: fixed; left: 0; right: 0; bottom: 27.5%; z-index: 98; display: flex; justify-content: center; gap: 8px; pointer-events: none; }
+    #reel-keys .k { font: 700 15px/1 var(--mono); color: #e8eefc; background: rgba(12,16,32,.86); border: 1px solid rgba(124,247,212,.55);
+      border-bottom-width: 3px; border-radius: 8px; padding: 7px 10px 6px; letter-spacing: .02em; white-space: nowrap; }
+    #reel-keys .k b { color: #7cf7d4; font-weight: 800; margin-right: 6px; }
     #reel-hook { position: fixed; left: 24px; right: 24px; top: 19%; z-index: 99; text-align: center;
       font: 800 30px/1.15 var(--sans); color: #fff; letter-spacing: 0.01em;
       text-shadow: 0 2px 14px rgba(0,0,0,.9), 0 0 2px #000; }
@@ -194,6 +256,7 @@ function dress(hook) {
     #reel-end .cta { font: 700 18px/1 var(--mono); color: #0b1020; background: #7cf7d4; padding: 12px 18px; border-radius: 12px; }`;
   document.head.appendChild(st);
   const h = document.createElement('div'); h.id = 'reel-hook'; h.innerHTML = hook || ''; document.body.appendChild(h);
+  const k = document.createElement('div'); k.id = 'reel-keys'; document.body.appendChild(k);
   const e = document.createElement('div'); e.id = 'reel-end';
   e.innerHTML = '<div class="logo">THRUSTER<span>Z</span></div><div class="tag">Real orbital mechanics. One tank of fuel.</div><div class="cta"></div>';
   document.body.appendChild(e);
@@ -201,8 +264,9 @@ function dress(hook) {
 
 // In the page: a camera operator. Follows the ship and zooms so the body that
 // matters right now (the current goal's body, else the one the ship is
-// falling around) stays in shot, eased from frame to frame.
-function direct(first) {
+// falling around) stays in shot, eased from frame to frame. `close` (0-1)
+// moves in on the ship, the way a player zooms in to watch a release.
+function direct(first, close) {
   const T = window.Thrusterz, S = T.state, m = S.mission, sys = m.sys, s = m.ship;
   const W = innerWidth, H = innerHeight;
   sys.update(m.t);
@@ -216,10 +280,14 @@ function direct(first) {
   const fx = sys.px[fi], fy = sys.py[fi], fr = sys.bodies[fi].radius || 0;
   const d = Math.hypot(fx - s.x, fy - s.y);
   const span = Math.min(W * 0.86, H * 0.5);       // the clear band between the HUD panels
-  const close = Math.min(W, H) / 420 * 1.6, wide = Math.min(W, H) / m.level.view.span * 0.6;
-  const want = Math.max(wide, Math.min(close, span / (2 * Math.max(d * 0.62 + fr * 1.15, 60))));
-  // Centre between the ship and the body, nudged toward the ship.
-  const cx = s.x + (fx - s.x) * 0.42, cy = s.y + (fy - s.y) * 0.42;
+  const close_ = Math.min(W, H) / 420 * 1.6, wide = Math.min(W, H) / m.level.view.span * 0.6;
+  const cl = close || 0;
+  const fit = Math.max(wide, Math.min(close_, span / (2 * Math.max(d * 0.62 + fr * 1.15, 60))));
+  const want = Math.exp(Math.log(fit) * (1 - cl) + Math.log(Math.max(fit, close_ * 0.85)) * cl);
+  // Centre between the ship and the body, nudged toward the ship (all the
+  // way in a close-up).
+  const pull = 0.42 * (1 - cl) + 0.08 * cl;
+  const cx = s.x + (fx - s.x) * pull, cy = s.y + (fy - s.y) * pull;
   const P = window.__dir = first || !window.__dir ? { x: cx, y: cy, z: want } : window.__dir;
   P.z = Math.exp(Math.log(P.z) + (Math.log(want) - Math.log(P.z)) * 0.1);
   P.x += (cx - P.x) * 0.18; P.y += (cy - P.y) * 0.18;
@@ -289,6 +357,9 @@ async function soundtrack([track, fps]) {
       else if (e === 'latch') orig.drop();
       else if (e === 'unlatch') orig.ping();
       else if (e === 'win') orig.win();
+      else if (e === 'warpUp') orig.warp(1);
+      else if (e === 'warpDown') orig.warp(-1);
+      else if (e === 'frame') orig.frame();
     }
   };
   play(track[0]);
@@ -320,50 +391,93 @@ async function nextFrames(page) {
   await page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
 }
 
+// In the page: one video frame, as a player would play it.
+function act(a) {
+  const T = window.Thrusterz, S = T.state, m = S.mission, sys = m.sys;
+  const ev = [];
+  const keys = window.__keys = window.__keys || [];
+  const n = window.__n = (window.__n || 0) + 1;
+  const show = (id, html, frames) => { const k = keys.find(x => x.id === id); if (k) { k.html = html; k.until = n + frames; } else keys.push({ id, html, until: n + frames }); };
+  if (a.t != null && m.status === 'flying') {
+    // Time warp: one key press per step, as the game's . and , keys do.
+    if (a.key) { S.warp = a.w; ev.push(a.key === 'up' ? 'warpUp' : 'warpDown'); show('warp', `<b>${a.key === 'up' ? '.' : ','}</b>Warp ${[1, 2, 5, 10, 25, 50, 100][a.w]}×`, 18); }
+    // Before a release: press V until the frame is the body that matters.
+    if (a.frameLock && n - (window.__vAt || -99) >= 9) {
+      const g = m.currentGoal && m.currentGoal(), want = g && g.body && sys.byId[g.body] ? sys.byId[g.body].index : sys.dominant(m.ship.x, m.ship.y, m.t);
+      const current = S.frameMode === 'auto' ? sys.dominant(m.ship.x, m.ship.y, m.t) : S.frameMode;
+      if (current !== want && (window.__vPresses || 0) < 6) {
+        window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyV', key: 'v' }));
+        window.dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyV', key: 'v' }));
+        window.__vAt = n; window.__vPresses = (window.__vPresses || 0) + 1;
+        ev.push('frame');
+        const name = S.frameMode === 'auto' ? 'Auto' : S.frameMode === 'inertial' ? 'Inertial' : sys.bodies[S.frameMode].name;
+        show('frame', `<b>V</b>Frame: ${name}`, 22);
+      }
+    }
+    window.__target = a.t;
+    m.advance();
+  }
+  // Once the mission ends: no result screen (the reel's own end card
+  // follows), and no predicted path, whose projection of the parked orbit
+  // (e.g. "CRASH Luna in 1m32s") would read wrong over a win.
+  if (m.status !== 'flying') { S.resultShown = true; if (S.predictScale > 1e-3) { S.predictScale = 1e-4; S.predDirty = true; } }
+  // What the player's hands are doing.
+  const flying = m.status === 'flying';
+  if (flying && m.thrusting) show('burn', '<b>SPACE</b>Burn', 2);
+  if (flying && m.rotInput) show('turn', m.rotInput > 0 ? '<b>A</b>Turn' : '<b>D</b>Turn', 2);
+  const last = m.level.goals.length - 1;
+  for (const e of m.events.slice(a.seen)) {
+    if (e.type === 'goal') { if (e.index < last) ev.push('objective'); }
+    else ev.push(e.type);
+    if (e.type === 'release') show('drop', '<b>E</b>Drop ' + ((m.crafts && m.crafts.find(c => c.id === e.craft) || {}).name || 'cargo'), 28);
+    if (e.type === 'deploy') show('drop', '<b>E</b>Stage', 28);
+  }
+  if (m.status === 'won' && !S.__wonHeard) { S.__wonHeard = true; ev.push('win'); }
+  for (let i = keys.length - 1; i >= 0; i--) if (keys[i].until < n) keys.splice(i, 1);
+  const box = document.getElementById('reel-keys');
+  if (box) box.innerHTML = keys.map(k => `<span class="k">${k.html}</span>`).join('');
+  window.__direct(a.first, a.close);
+  document.getElementById('reel-hook').style.opacity = a.hook;
+  window.__frame(a.ms);
+  return { th: m.thrusting && flying ? 1 : 0, rot: m.rotInput && flying ? 1 : 0, ev, seen: m.events.length, status: m.status };
+}
+
 async function record(o) {
   const { page, errors, close } = await openReel();
   try {
-    const tl = await page.evaluate(timeline, o.id);
+    const seed = o.seed != null ? o.seed : (Date.now() % 2147483646) + 1;
+    const tl = await page.evaluate(timeline, [o.id, seed, !o.exact]);
     if (tl.status !== 'won') throw new Error(o.id + ': the proof does not win when filmed (' + tl.status + '); pick another mission');
-    const { times, speed } = pace(tl, o.seconds);
+    const { frames, cruise } = humanClock(tl, o.seconds, seed);
     await page.evaluate(dress, o.hook);
-    await page.evaluate(`window.__direct = ${direct.toString()}; window.__begin = ${begin.toString()}`);
-    await page.evaluate((id) => window.__begin(id), o.id);
+    await page.evaluate(`window.__direct = ${direct.toString()}; window.__begin = ${begin.toString()}; window.__act = ${act.toString()}`);
+    await page.evaluate(begin, [o.id, tl.pilot]);
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'reel-'));
-    const WARPS = [1, 2, 5, 10, 25, 50, 100];
     let f = 0, seen = 0;
     const track = [];   // the sound for each frame shot
     const shoot = async () => page.screenshot({ path: path.join(dir, String(f++).padStart(5, '0') + '.jpg'), type: 'jpeg', quality: 94 });
-    // One video frame: fly on to sim time t, aim the camera, let the game
-    // draw a frame (exhaust, trail, path, HUD), and report what it sounds like.
-    const step = (t, w, hook, first) => page.evaluate(([t, w, hook, first, seen, ms]) => {
-      const S = window.Thrusterz.state, m = S.mission;
-      window.__target = t;
-      if (t != null) { S.warp = w; m.advance(); }
-      // Once the mission ends: no result screen (the reel's own end card
-      // follows), and no predicted path, whose projection of the parked
-      // orbit (e.g. "CRASH Luna in 1m32s") would read wrong over a win.
-      if (m.status !== 'flying') { S.resultShown = true; if (S.predictScale > 1e-3) { S.predictScale = 1e-4; S.predDirty = true; } }
-      window.__direct(first);
-      document.getElementById('reel-hook').style.opacity = hook;
-      window.__frame(ms);
-      const last = m.level.goals.length - 1;
-      const ev = m.events.slice(seen).map(e => e.type === 'goal' ? (e.index < last ? 'objective' : null) : e.type).filter(Boolean);
-      if (m.status === 'won' && !S.__wonHeard) { S.__wonHeard = true; ev.push('win'); }
-      return { th: m.thrusting && m.status === 'flying' ? 1 : 0, rot: m.rotInput && m.status === 'flying' ? 1 : 0, ev, seen: m.events.length, status: m.status };
-    }, [t, w, hook, first, seen, 1000 / FPS]);
+    // Releases and staging: zoom in on the ship around them, and lock the
+    // reference frame on the body that matters beforehand (as a player would
+    // press V to see where the cargo's path really ends).
+    const drops = tl.events.filter(e => e.type === 'release' || e.type === 'deploy');
+    const closeAt = (t) => Math.max(0, ...drops.map(e => { const d = t - e.t; return d < -2.6 || d > 2.4 ? 0 : d < -1.8 ? (d + 2.6) / 0.8 : d < 1.6 ? 1 : (2.4 - d) / 0.8; }));
+    const frameAt = (t) => drops.some(e => t >= e.t - 2.3 && t < e.t - 0.4);
+    // One video frame: fly on to sim time t at warp w, press what a player
+    // would, aim the camera, let the game draw a frame, and say what it sounds like.
+    const step = (fr, hook, first) => page.evaluate((a) => window.__act(a), {
+      t: fr ? fr.t : null, w: fr ? fr.w : 0, key: fr ? fr.key : null, hook, first, seen, ms: 1000 / FPS,
+      close: fr ? closeAt(fr.t) : 0, frameLock: fr ? frameAt(fr.t) : false,
+    });
     const hookAt = (i) => { const s = i / FPS; return s < 3 ? 1 : Math.max(0, 1 - (s - 3) / 0.3); };
-    for (let i = 0; i < times.length; i++) {
-      const sp = i ? (times[i] - times[i - 1]) * FPS : 1;
-      const w = WARPS.reduce((b, x, k) => Math.abs(Math.log(x / sp)) < Math.abs(Math.log(WARPS[b] / sp)) ? k : b, 0);
-      const snd = await step(times[i], w, hookAt(i), i === 0);
+    for (let i = 0; i < frames.length; i++) {
+      const snd = await step(frames[i], hookAt(i), i === 0);
       seen = snd.seen;
       // A sound happens once: keep events that land on a skipped preview frame.
       if (!(o.preview && i % o.preview)) { track.push({ th: snd.th, rot: snd.rot, ev: (track.pending || []).concat(snd.ev) }); track.pending = []; }
       else track.pending = (track.pending || []).concat(snd.ev);
       if (o.preview && i % o.preview) continue;
       await shoot();
-      if (i === Math.floor(times.length * 0.55)) await page.screenshot({ path: o.out.replace(/\.mp4$/, '') + '.jpg', type: 'jpeg', quality: 90 });
+      if (i === Math.floor(frames.length * 0.55)) await page.screenshot({ path: o.out.replace(/\.mp4$/, '') + '.jpg', type: 'jpeg', quality: 90 });
     }
     if (o.preview) {
       execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-pattern_type', 'glob', '-i', path.join(dir, '*.jpg'), '-vf', 'scale=216:384,tile=8x' + Math.ceil(f / 8), '-frames:v', '1', o.out.replace(/\.mp4$/, '') + '-sheet.jpg']);
@@ -373,7 +487,7 @@ async function record(o) {
     // Hold the finish for a beat (the game keeps animating), then the end card.
     const hold = async (n) => {
       for (let k = 0; k < n; k++) {
-        const snd = await step(null, 0, 0, false);
+        const snd = await step(null, 0, false);
         seen = snd.seen; track.push({ th: 0, rot: 0, ev: snd.ev }); await shoot();
       }
     };
@@ -394,12 +508,13 @@ async function record(o) {
     fs.mkdirSync(path.dirname(path.resolve(o.out)), { recursive: true });
     encode(path.join(dir, '%05d.jpg'), o.out, f / FPS, o.maxMb, wav);
     if (!o.keep) fs.rmSync(dir, { recursive: true, force: true });
-    const info = { level: o.id, audio: !!wav, mb: +(fs.statSync(o.out).size / 1e6).toFixed(2), name: tl.name, file: o.out, frames: f, seconds: +(f / FPS).toFixed(1), coastSpeed: +speed.toFixed(1), simTime: +tl.tEnd.toFixed(0) };
+    const info = { level: o.id, audio: !!wav, mb: +(fs.statSync(o.out).size / 1e6).toFixed(2), name: tl.name, file: o.out, frames: f, seconds: +(f / FPS).toFixed(1),
+      cruiseWarp: cruise, simTime: +tl.tEnd.toFixed(0), pilot: tl.pilot.level + (tl.pilot.tuned ? ' (re-tuned)' : ''), seed };
     if (errors.length) info.pageErrors = errors.slice(0, 5);
     return info;
   } finally { await close(); }
 }
 
-module.exports = { record, timeline, dress, direct, nextFrames, pace, openReel, begin, CHUNK };
+module.exports = { record, timeline, dress, direct, nextFrames, humanClock, openReel, begin, CHUNK };
 
 if (require.main === module) record(args()).then(i => console.log(JSON.stringify(i))).catch(e => { console.error(e); process.exit(1); });
