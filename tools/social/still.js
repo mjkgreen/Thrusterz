@@ -4,7 +4,7 @@
 // --story: 1080×1920 instead (stories, TikTok photo posts).
 'use strict';
 const cap = require('../store/capture.js');
-const { timeline, dress, direct, nextFrames } = require('./record.js');
+const { timeline, dress, focus, direct, nextFrames } = require('./record.js');
 
 cap.DEVICES.feed = { viewport: { width: 432, height: 540 }, deviceScaleFactor: 2.5 };
 cap.DEVICES.reel = cap.DEVICES.reel || { viewport: { width: 432, height: 768 }, deviceScaleFactor: 2.5 };
@@ -15,7 +15,7 @@ async function still(o) {
     await cap.setup(page);
     const tl = await page.evaluate(timeline, [o.id, 1, false]);
     await page.evaluate(dress, o.hook || '');
-    await page.evaluate(`window.__direct = ${direct.toString()}`);
+    await page.evaluate(`window.__focus = ${focus.toString()}; window.__direct = ${direct.toString()}`);
     // Let the camera settle on the moment, as it would in a reel.
     const t = Math.max(1e-3, tl.tEnd * (o.at == null ? 0.55 : o.at));
     for (let k = 12; k >= 0; k--) {

@@ -92,10 +92,14 @@ function steer(m, target, opts, slack) {
   // set aimSlack, so they steer exactly as before.
   if (slack && opts.aimSlack) {
     const w = s.omega, dir = Math.sign(err), rate = opts.turnRate || 0.5;
+    // Once the stopping press starts, hold it until the spin is gone: speeding
+    // up again as the brake slows the spin made it chatter at 30 presses a second.
+    const braking = m._brake && m._brake === dir && Math.sign(w) === dir && Math.abs(w) > 0.02;
     let rot;
-    if (Math.abs(err) < slack && Math.abs(w) < 0.03) rot = Math.abs(w) > 0.003 ? -Math.sign(w) : 0;
-    else if (Math.sign(w) === dir && Math.abs(err) <= w * w / (2 * r.accel) + 0.6 * slack) rot = -dir;   // arriving: stop
-    else if (Math.sign(w) !== dir || Math.abs(w) < rate * 0.8) rot = dir;                                // start (or reverse)
+    if (Math.abs(err) < slack && Math.abs(w) < 0.03) { rot = Math.abs(w) > 0.003 ? -Math.sign(w) : 0; m._brake = 0; }
+    else if (braking || (Math.sign(w) === dir && Math.abs(err) <= w * w / (2 * r.accel) + 0.6 * slack)) { rot = -dir; m._brake = dir; }   // arriving: stop
+    else if (Math.sign(w) !== dir || Math.abs(w) < 0.02) { rot = dir; m._brake = 0; }                  // start (or reverse)
+    else if (!m._brake && Math.abs(w) < rate * 0.8) rot = dir;                                           // still spinning up
     else rot = 0;                                                                                        // spinning toward it
     if (rot && rot === m.rotLatch) rot = 0;
     m._steer = null;
@@ -168,7 +172,15 @@ function fly(level, steps, opts) {
       // A person (opts.aimSlack) doesn't hold the nose on a drifting target
       // through a whole coast: they turn as the burn comes up.
       if (opts.aimSlack && st && st.coast) return;
-      rot = steer(m, aim(m, nb.burn, nb.rel), opts, opts.aimSlack).rot;
+      const tgt = aim(m, nb.burn, nb.rel);
+      // Nor through a long wait: they turn once, in time for the burn.
+      if (opts.aimSlack && st && st.wait != null && Math.abs(m.ship.omega) < 0.02) {
+        // A coast still to come before the burn: the turn waits for the burn.
+        for (let j = ctx.k + 1; j < steps.length && steps[j] !== nb; j++) if (steps[j].coast) return;
+        const left = st.wait - (m.t - ctx.t0), need = Math.abs(wrap(tgt - m.ship.angle)) / (opts.turnRate || 0.5) + 1.5;
+        if (left > need) return;
+      }
+      rot = steer(m, tgt, opts, opts.aimSlack).rot;
       if (rot || Math.abs(m.ship.omega) > 1e-4) dt = Math.min(dt, 1 / 30);
     };
     if (!st) { /* script finished: coast out the clock */ dt = 0.5; }

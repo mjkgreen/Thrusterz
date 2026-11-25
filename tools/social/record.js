@@ -194,7 +194,9 @@ function humanClock(tl, seconds, seed) {
   const windows = tl.burns.map(([a, b]) => [a - 0.25, b + 0.3]);
   for (const e of tl.events) {
     if (e.type === 'release' || e.type === 'deploy') windows.push([e.t - 2.1, e.t + 1.8]);
-    else windows.push([e.t - 0.5, e.t + 1.0]);
+    // An objective met mid-flight (a probe landing) doesn't need the warp
+    // dropped to watch it; only the last one, which ends the flight.
+    else if (e.type !== 'goal' || e === tl.events[tl.events.length - 1]) windows.push([e.t - 0.5, e.t + 1.0]);
   }
   windows.push([0, 1.2]);   // everyone starts at 1×
   windows.sort((x, y) => x[0] - y[0]);
@@ -262,6 +264,21 @@ function dress(hook) {
   document.body.appendChild(e);
 }
 
+// In the page: the body a player is thinking about right now, which the
+// camera frames and V locks the reference frame on. While cargo is aboard,
+// the body the next drop is meant for (probe B → Rhea as soon as probe A is
+// gone, so the frame changes before the burn that aims it); once it's all
+// dropped, the carrier's own next goal (its orbit of Terra). -1: none.
+function focus(m) {
+  const sys = m.sys, goals = m.level.goals;
+  const open = (q, j) => j >= m.goalIndex && !m.done.has(j) && q.body && sys.byId[q.body];
+  const next = m.cargo && m.cargo[0];
+  let g = next && next.id ? goals.find((q, j) => open(q, j) && q.craft === next.id) : null;
+  if (!g && !(m.cargo && m.cargo.length)) g = goals.find((q, j) => open(q, j) && !q.craft && !q.crafts);
+  if (!g) { const c = m.currentGoal && m.currentGoal(); if (c && c.body && sys.byId[c.body]) g = c; }
+  return g ? sys.byId[g.body].index : -1;
+}
+
 // In the page: a camera operator. Follows the ship and zooms so the body that
 // matters right now (the current goal's body, else the one the ship is
 // falling around) stays in shot, eased from frame to frame. `close` (0-1)
@@ -270,8 +287,7 @@ function direct(first, close) {
   const T = window.Thrusterz, S = T.state, m = S.mission, sys = m.sys, s = m.ship;
   const W = innerWidth, H = innerHeight;
   sys.update(m.t);
-  const g = m.currentGoal && m.currentGoal();
-  let fi = g && g.body && sys.byId[g.body] ? sys.byId[g.body].index : -1;
+  let fi = window.__focus(m);
   const dom = sys.dominant(s.x, s.y, m.t);
   const far = (i) => Math.hypot(sys.px[i] - s.x, sys.py[i] - s.y);
   // A goal across the solar system would shrink the ship to a dot: frame the
@@ -282,14 +298,54 @@ function direct(first, close) {
   const span = Math.min(W * 0.86, H * 0.5);       // the clear band between the HUD panels
   const close_ = Math.min(W, H) / 420 * 1.6, wide = Math.min(W, H) / m.level.view.span * 0.6;
   const cl = close || 0;
-  const fit = Math.max(wide, Math.min(close_, span / (2 * Math.max(d * 0.62 + fr * 1.15, 60))));
-  const want = Math.exp(Math.log(fit) * (1 - cl) + Math.log(Math.max(fit, close_ * 0.85)) * cl);
+  let fit = Math.max(wide, Math.min(close_, span / (2 * Math.max(d * 0.62 + fr * 1.15, 60))));
   // Centre between the ship and the body, nudged toward the ship (all the
   // way in a close-up).
   const pull = 0.42 * (1 - cl) + 0.08 * cl;
-  const cx = s.x + (fx - s.x) * pull, cy = s.y + (fy - s.y) * pull;
+  let cx = s.x + (fx - s.x) * pull, cy = s.y + (fy - s.y) * pull;
+  // Planning a drop (or the carrier's own orbit): pull back far enough to see
+  // the ship, the body it's aimed at and where the predicted path ends on it,
+  // so the collision is on screen before the drop. A probe already on its way
+  // stays in shot too, if that doesn't push the view much wider.
+  if (cl < 0.5) {
+    // Paths are drawn in the reference frame (game.js frameBody/disp).
+    const F = S.frameMode === 'inertial' ? -1 : S.frameMode === 'auto'
+      ? (() => { const h = sys.host(s.x, s.y, m.t); return h >= 0 ? h : sys.dominant(s.x, s.y, m.t); })() : S.frameMode;
+    const fp = [0, 0];
+    const disp = (x, y, t) => { if (F < 0) return [x, y]; sys.posAt(F, t, fp); sys.update(m.t); return [x - fp[0] + sys.px[F], y - fp[1] + sys.py[F]]; };
+    const box = (pts) => {
+      let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+      for (const [x, y, r] of pts) { if (!isFinite(x) || !isFinite(y)) continue; x0 = Math.min(x0, x - r); x1 = Math.max(x1, x + r); y0 = Math.min(y0, y - r); y1 = Math.max(y1, y + r); }
+      return { z: Math.min(W * 0.74 / Math.max(x1 - x0, 1), H * 0.46 / Math.max(y1 - y0, 1)), x: (x0 + x1) / 2, y: (y0 + y1) / 2 };
+    };
+    const core = [[s.x, s.y, 24], [fx, fy, fr * 1.3 + 12]];
+    const pr = S.pred;
+    if (pr && pr.hit === fi && pr.end) { const [x, y] = disp(pr.end.x, pr.end.y, pr.tEnd != null ? pr.tEnd : m.t); core.push([x, y, 14]); }
+    const extra = [];
+    m.crafts.forEach((c) => {
+      if (!c.alive) return;
+      const q = m.level.goals.find((q, k) => k >= m.goalIndex && !m.done.has(k) && q.craft === c.id && q.type === 'hit');
+      if (!q) return;
+      const b = sys.byId[q.body].index;
+      extra.push([c.x, c.y, 10], [sys.px[b], sys.py[b], (sys.bodies[b].radius || 0) * 1.3 + 12]);
+    });
+    // The game labels the impact point ("DROP NOW → IMPACT Rhea"): leave room
+    // for the text around it, in screen pixels at the zoom the box gives.
+    let A = box(core);
+    if (core.length > 2) { const imp = core[2]; for (let k = 0; k < 2; k++) { core[2] = [imp[0], imp[1], 170 / A.z]; A = box(core); } }
+    const B = extra.length ? box(core.concat(extra)) : null;
+    const pick = B && B.z >= A.z * 0.6 ? B : A;
+    if (pick.z < fit) { fit = pick.z; cx = pick.x; cy = pick.y; }
+  }
+  const want = Math.exp(Math.log(fit) * (1 - cl) + Math.log(Math.max(fit, close_ * 0.85)) * cl);
   const P = window.__dir = first || !window.__dir ? { x: cx, y: cy, z: want } : window.__dir;
-  P.z = Math.exp(Math.log(P.z) + (Math.log(want) - Math.log(P.z)) * 0.1);
+  // Like a player with the zoom: out as soon as more needs to be seen, but in
+  // only when a much closer view is called for, and gently (no snapping back
+  // to the rocket when the next body happens to be near it). Close-ups and
+  // stills (which stage a moment from scratch) excepted.
+  let wz = want, ease = 0.1;
+  if (!cl && !window.__stage && wz > P.z) { if (wz < P.z * 1.8) wz = P.z; else ease = 0.025; }
+  P.z = Math.exp(Math.log(P.z) + (Math.log(wz) - Math.log(P.z)) * ease);
   P.x += (cx - P.x) * 0.18; P.y += (cy - P.y) * 0.18;
   const c = S.cam;
   c.follow = false; c.zoom = c.tzoom = P.z;
@@ -401,11 +457,14 @@ function act(a) {
   if (a.t != null && m.status === 'flying') {
     // Time warp: one key press per step, as the game's . and , keys do.
     if (a.key) { S.warp = a.w; ev.push(a.key === 'up' ? 'warpUp' : 'warpDown'); show('warp', `<b>${a.key === 'up' ? '.' : ','}</b>Warp ${[1, 2, 5, 10, 25, 50, 100][a.w]}×`, 18); }
-    // Before a release: press V until the frame is the body that matters.
-    if (a.frameLock && n - (window.__vAt || -99) >= 9) {
-      const g = m.currentGoal && m.currentGoal(), want = g && g.body && sys.byId[g.body] ? sys.byId[g.body].index : sys.dominant(m.ship.x, m.ship.y, m.t);
-      const current = S.frameMode === 'auto' ? sys.dominant(m.ship.x, m.ship.y, m.t) : S.frameMode;
-      if (current !== want && (window.__vPresses || 0) < 6) {
+    // Press V until the frame is the body the player is thinking about (see
+    // focus()): before the burn that aims a drop, and again once the cargo is
+    // gone and the carrier's own orbit is next. One press at a time.
+    if (a.frameLock && n > 40 && n - (window.__vAt || -99) >= 7) {
+      const f = window.__focus(m), want = f >= 0 ? f : sys.dominant(m.ship.x, m.ship.y, m.t);
+      const h = sys.host(m.ship.x, m.ship.y, m.t);
+      const current = S.frameMode === 'auto' ? (h >= 0 ? h : sys.dominant(m.ship.x, m.ship.y, m.t)) : S.frameMode;
+      if (current !== want && (window.__vPresses || 0) < 24) {
         window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyV', key: 'v' }));
         window.dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyV', key: 'v' }));
         window.__vAt = n; window.__vPresses = (window.__vPresses || 0) + 1;
@@ -450,7 +509,7 @@ async function record(o) {
     if (tl.status !== 'won') throw new Error(o.id + ': the proof does not win when filmed (' + tl.status + '); pick another mission');
     const { frames, cruise } = humanClock(tl, o.seconds, seed);
     await page.evaluate(dress, o.hook);
-    await page.evaluate(`window.__direct = ${direct.toString()}; window.__begin = ${begin.toString()}; window.__act = ${act.toString()}`);
+    await page.evaluate(`window.__focus = ${focus.toString()}; window.__direct = ${direct.toString()}; window.__begin = ${begin.toString()}; window.__act = ${act.toString()}`);
     await page.evaluate(begin, [o.id, tl.pilot]);
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'reel-'));
     let f = 0, seen = 0;
@@ -460,8 +519,14 @@ async function record(o) {
     // reference frame on the body that matters beforehand (as a player would
     // press V to see where the cargo's path really ends).
     const drops = tl.events.filter(e => e.type === 'release' || e.type === 'deploy');
-    const closeAt = (t) => Math.max(0, ...drops.map(e => { const d = t - e.t; return d < -2.6 || d > 2.4 ? 0 : d < -1.8 ? (d + 2.6) / 0.8 : d < 1.6 ? 1 : (2.4 - d) / 0.8; }));
-    const frameAt = (t) => drops.some(e => t >= e.t - 2.3 && t < e.t - 0.4);
+    const stagings = drops.filter(e => e.type === 'deploy');
+    // Staging gets a brief close-up (in at -1.4 s, out by +1.0 s). Cargo drops
+    // don't: the player is watching the path end on the target, not the probe.
+    const closeAt = (t) => Math.max(0, ...stagings.map(e => { const d = t - e.t; return d < -1.4 || d > 1.0 ? 0 : d < -0.8 ? (d + 1.4) / 0.6 : d < 0.4 ? 1 : (1.0 - d) / 0.6; }));
+    // With cargo, the frame follows the body that matters all flight long
+    // (focus()); otherwise only just before a staging drop.
+    const cargo = tl.events.some(e => e.type === 'release');
+    const frameAt = (t) => cargo || drops.some(e => t >= e.t - 2.3 && t < e.t - 0.4);
     // One video frame: fly on to sim time t at warp w, press what a player
     // would, aim the camera, let the game draw a frame, and say what it sounds like.
     const step = (fr, hook, first) => page.evaluate((a) => window.__act(a), {
@@ -515,6 +580,6 @@ async function record(o) {
   } finally { await close(); }
 }
 
-module.exports = { record, timeline, dress, direct, nextFrames, humanClock, openReel, begin, CHUNK };
+module.exports = { record, timeline, dress, focus, direct, nextFrames, humanClock, openReel, begin, CHUNK };
 
 if (require.main === module) record(args()).then(i => console.log(JSON.stringify(i))).catch(e => { console.error(e); process.exit(1); });
