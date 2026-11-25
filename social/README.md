@@ -4,7 +4,8 @@ Content for @thrustersz (Instagram) and, later, TikTok. A scheduled task runs
 Mon / Wed / Fri / Sat at 6:09pm Eastern, makes one post and puts it in the
 Google Drive folder **Thrusterz social content** (owned by thrusterz.app),
 one subfolder per post (`<date> <pillar> — <Mission>`) holding the media
-(`reel.mp4` + `cover.jpg`, or `still.jpg`), `caption.txt` and `post.json`.
+(`reel.mp4` + `cover.jpg`, or `still.jpg`), `caption.txt`,
+`caption-alternatives.txt` and `post.json`.
 The `post.json` files together are the record of everything made and posted
 (the Drive connector can't edit a file after upload, so there's no single log).
 
@@ -22,6 +23,12 @@ The `post.json` files together are the record of everything made and posted
 - Real game footage only: never mock up gameplay.
 - Hook in the first line and first 3 seconds; keep text out of the bottom fifth (app UI covers it).
 - Caption: hook, one line of context, call to action (thrusterz.com), 5–8 hashtags.
+- Caption alternatives for A/B testing: besides `caption.txt` (option A), every
+  post gets `caption-alternatives.txt` with 3-4 more complete captions (B, C, D,
+  E), each a different angle: a question, the physics idea, short and punchy, a
+  challenge with a hint. Same rules as the main caption (true to the game, the
+  call to action, 5–8 hashtags incl. #thrusterz, no em dashes). List the file in
+  `post.json` `files`, and upload it before `post.json`.
 - Check the `post.json` records before choosing: don't repeat a mission within 30 days.
 - Reels are capped at 2.8 MB (`--max-mb`) so they fit a Drive upload from a session.
 - Reels are filmed like the App Store previews: the game runs its own loop on a
